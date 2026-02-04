@@ -121,18 +121,18 @@ function RestTimer({ restTime }: { restTime: string }) {
           gap: '6px',
           padding: '10px 14px',
           background: isFinished
-            ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+            ? 'var(--lime)'
             : isRunning
               ? 'var(--red-dim)'
-              : 'var(--blue-dim)',
-          border: `1px solid ${isFinished ? 'var(--green)' : isRunning ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+              : 'var(--lime-dim)',
+          border: `1px solid ${isFinished ? 'var(--lime)' : isRunning ? 'rgba(255, 107, 107, 0.3)' : 'rgba(200, 230, 0, 0.3)'}`,
           borderRadius: '10px',
-          color: isFinished ? '#000' : isRunning ? 'var(--red)' : 'var(--blue)',
+          color: isFinished ? '#000' : isRunning ? 'var(--red)' : 'var(--lime)',
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 700,
           minWidth: '100px',
-          boxShadow: isFinished ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none',
+          boxShadow: isFinished ? '0 4px 15px rgba(200, 230, 0, 0.4)' : 'none',
           animation: isFinished ? 'pulse 1s infinite' : 'none'
         }}
       >
@@ -184,7 +184,7 @@ function RestTimer({ restTime }: { restTime: string }) {
           <div style={{
             width: `${progress}%`,
             height: '100%',
-            background: timeLeft < 10 ? 'var(--red)' : 'var(--blue)',
+            background: timeLeft < 10 ? 'var(--red)' : 'var(--lime)',
             borderRadius: '3px',
             transition: 'width 1s linear'
           }} />
@@ -340,10 +340,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
       className="card-hover"
       style={{
         background: ex.completed
-          ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)'
+          ? 'linear-gradient(135deg, rgba(200,230,0,0.15) 0%, rgba(200,230,0,0.05) 100%)'
           : 'var(--bg-card)',
         borderRadius: '16px',
-        border: `1px solid ${ex.completed ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`,
+        border: `1px solid ${ex.completed ? 'rgba(200,230,0,0.3)' : 'var(--border)'}`,
         overflow: 'hidden',
         marginBottom: '12px',
         transition: 'all 0.3s ease'
@@ -368,7 +368,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             borderRadius: '10px',
             border: ex.completed ? 'none' : '2px solid var(--border-strong)',
             background: ex.completed
-              ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+              ? 'var(--lime)'
               : 'transparent',
             cursor: 'pointer',
             display: 'flex',
@@ -376,7 +376,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             justifyContent: 'center',
             color: '#000',
             flexShrink: 0,
-            boxShadow: ex.completed ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none',
+            boxShadow: ex.completed ? '0 4px 15px rgba(200, 230, 0, 0.4)' : 'none',
             transition: 'all 0.2s ease'
           }}
         >
@@ -539,7 +539,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                   flex: 1,
                   padding: '12px',
                   background: 'var(--green-dim)',
-                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  border: '1px solid rgba(200, 230, 0, 0.3)',
                   borderRadius: '10px',
                   color: 'var(--green)',
                   cursor: 'pointer',
@@ -560,7 +560,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                 style={{
                   padding: '12px 16px',
                   background: 'var(--blue-dim)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  border: '1px solid rgba(0, 180, 216, 0.3)',
                   borderRadius: '10px',
                   color: 'var(--blue)',
                   cursor: 'pointer',
@@ -843,7 +843,7 @@ function FitnessCalendar({
               style={{
                 aspectRatio: '1',
                 background: isSelected
-                  ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                  ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                   : hasWorkout
                     ? 'var(--green-dim)'
                     : hasSteps
@@ -863,7 +863,7 @@ function FitnessCalendar({
                 fontWeight: isToday || isSelected ? 700 : 500,
                 fontSize: '14px',
                 transition: 'all 0.2s ease',
-                boxShadow: isSelected ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none'
+                boxShadow: isSelected ? '0 4px 15px rgba(200, 230, 0, 0.4)' : 'none'
               }}
             >
               <span>{d.day}</span>
@@ -901,7 +901,7 @@ function FitnessCalendar({
             height: '12px',
             borderRadius: '4px',
             background: 'var(--green-dim)',
-            border: '1px solid rgba(34, 197, 94, 0.3)'
+            border: '1px solid rgba(200, 230, 0, 0.3)'
           }} />
           Тренировка
         </div>
@@ -917,7 +917,7 @@ function FitnessCalendar({
             height: '12px',
             borderRadius: '4px',
             background: 'var(--blue-dim)',
-            border: '1px solid rgba(59, 130, 246, 0.3)'
+            border: '1px solid rgba(0, 180, 216, 0.3)'
           }} />
           Только шаги
         </div>
@@ -1132,11 +1132,11 @@ export default function FitnessPage() {
               width: '40px',
               height: '40px',
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)',
+              background: 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 15px rgba(34, 197, 94, 0.3)'
+              boxShadow: '0 4px 15px rgba(200, 230, 0, 0.3)'
             }}>
               <Dumbbell size={22} color="#000" />
             </div>
@@ -1245,7 +1245,7 @@ export default function FitnessPage() {
                 flex: 1,
                 padding: '12px',
                 background: view === tab.id
-                  ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                  ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                   : 'var(--bg-elevated)',
                 border: view === tab.id ? 'none' : '1px solid var(--border)',
                 borderRadius: '12px',
@@ -1256,7 +1256,7 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: view === tab.id ? '0 4px 15px rgba(34, 197, 94, 0.3)' : 'none'
+                boxShadow: view === tab.id ? '0 4px 15px rgba(200, 230, 0, 0.3)' : 'none'
               }}
             >
               <tab.icon size={16} />
@@ -1293,7 +1293,7 @@ export default function FitnessPage() {
                   style={{
                     padding: '12px 20px',
                     background: selectedWorkout === w.id
-                      ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                      ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                       : 'var(--bg-card)',
                     border: selectedWorkout === w.id ? 'none' : '1px solid var(--border)',
                     borderRadius: '12px',
@@ -1301,7 +1301,7 @@ export default function FitnessPage() {
                     fontWeight: selectedWorkout === w.id ? 700 : 500,
                     fontSize: '14px',
                     whiteSpace: 'nowrap',
-                    boxShadow: selectedWorkout === w.id ? '0 4px 15px rgba(34, 197, 94, 0.3)' : 'none'
+                    boxShadow: selectedWorkout === w.id ? '0 4px 15px rgba(200, 230, 0, 0.3)' : 'none'
                   }}
                 >
                   {w.name.replace('Тренировка ', 'T')}
@@ -1343,10 +1343,10 @@ export default function FitnessPage() {
                 <div style={{
                   width: `${progressPercent}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, var(--green) 0%, #16a34a 100%)',
+                  background: 'linear-gradient(90deg, var(--green) 0%, #a8c700 100%)',
                   borderRadius: '4px',
                   transition: 'width 0.3s ease',
-                  boxShadow: progressPercent > 0 ? '0 0 10px rgba(34, 197, 94, 0.5)' : 'none'
+                  boxShadow: progressPercent > 0 ? '0 0 10px rgba(200, 230, 0, 0.5)' : 'none'
                 }} />
               </div>
             </div>
@@ -1403,7 +1403,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   border: `1px solid ${currentDayLog.steps && currentDayLog.steps > 0
-                    ? 'rgba(59, 130, 246, 0.3)'
+                    ? 'rgba(0, 180, 216, 0.3)'
                     : 'var(--border)'}`
                 }}>
                   <Footprints
@@ -1489,7 +1489,7 @@ export default function FitnessPage() {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
                             btn.style.background = isThisWorkoutClosed
-                              ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                              ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1502,7 +1502,7 @@ export default function FitnessPage() {
                             clearInterval(interval);
                             updateDayLog({ dayClosed: !isThisWorkoutClosed, workoutCompleted: isThisWorkoutClosed ? null : currentWorkout.id });
                             btn.style.background = !isThisWorkoutClosed
-                              ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                              ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1519,7 +1519,7 @@ export default function FitnessPage() {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
                             btn.style.background = isThisWorkoutClosed
-                              ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                              ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1532,7 +1532,7 @@ export default function FitnessPage() {
                             clearInterval(interval);
                             updateDayLog({ dayClosed: !isThisWorkoutClosed, workoutCompleted: isThisWorkoutClosed ? null : currentWorkout.id });
                             btn.style.background = !isThisWorkoutClosed
-                              ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                              ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1544,7 +1544,7 @@ export default function FitnessPage() {
                         width: '100%',
                         padding: '20px',
                         background: isThisWorkoutClosed
-                          ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+                          ? 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)'
                           : readyToClose
                             ? 'var(--green-dim)'
                             : 'var(--bg-card)',
@@ -1558,7 +1558,7 @@ export default function FitnessPage() {
                         justifyContent: 'center',
                         gap: '10px',
                         boxShadow: (isThisWorkoutClosed || readyToClose)
-                          ? '0 4px 20px rgba(34, 197, 94, 0.3)'
+                          ? '0 4px 20px rgba(200, 230, 0, 0.3)'
                           : 'none'
                       }}
                       className={readyToClose ? 'animate-glow' : ''}
@@ -1758,13 +1758,13 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   gap: '8px',
                   padding: '12px 18px',
-                  background: 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)',
+                  background: 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)',
                   border: 'none',
                   borderRadius: '12px',
                   color: '#000',
                   fontWeight: 700,
                   fontSize: '14px',
-                  boxShadow: '0 4px 15px rgba(34, 197, 94, 0.3)'
+                  boxShadow: '0 4px 15px rgba(200, 230, 0, 0.3)'
                 }}
               >
                 <Plus size={18} /> Добавить
@@ -2086,7 +2086,7 @@ export default function FitnessPage() {
                 style={{
                   flex: 1,
                   padding: '14px',
-                  background: 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)',
+                  background: 'linear-gradient(135deg, var(--green) 0%, #a8c700 100%)',
                   border: 'none',
                   borderRadius: '12px',
                   color: '#000',
@@ -2096,7 +2096,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  boxShadow: '0 4px 15px rgba(34, 197, 94, 0.3)'
+                  boxShadow: '0 4px 15px rgba(200, 230, 0, 0.3)'
                 }}
               >
                 <Save size={18} />
