@@ -424,14 +424,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
 
   return (
     <div
-      className="card-hover"
+      className={`card-hover exercise-card ${ex.completed ? 'completed' : ''}`}
       style={{
         background: 'var(--bg-card)',
         borderRadius: ex.completed ? '10px' : '14px',
         border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.2)' : 'var(--border)'}`,
         overflow: 'hidden',
-        marginBottom: ex.completed ? '6px' : '10px',
-        transition: 'all 0.3s ease'
+        marginBottom: ex.completed ? '6px' : '10px'
       }}
     >
       {/* Main row */}
@@ -441,12 +440,14 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
           alignItems: 'center',
           padding: ex.completed ? '8px 12px' : '12px 14px',
           gap: ex.completed ? '10px' : '12px',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          transition: 'padding 0.3s ease'
         }}
         onClick={() => setExpanded(!expanded)}
       >
         {/* Checkbox - left side */}
         <div
+          className="checkbox-animated status-transition"
           onClick={(e) => {
             e.stopPropagation();
             // Toggle mark/unmark
@@ -1663,6 +1664,7 @@ export default function FitnessPage() {
           ].map(tab => (
             <button
               key={tab.id}
+              className="tab-button btn-press"
               onClick={() => {
                 const newView = tab.id as typeof view;
                 setView(newView);
@@ -1683,7 +1685,8 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: view === tab.id ? '0 4px 20px var(--yellow-glow)' : 'none'
+                boxShadow: view === tab.id ? '0 4px 20px var(--yellow-glow)' : 'none',
+                transform: view === tab.id ? 'scale(1.02)' : 'scale(1)'
               }}
             >
               <tab.icon size={16} />
@@ -1704,7 +1707,7 @@ export default function FitnessPage() {
       }}>
         {/* WORKOUT VIEW */}
         {view === 'workout' && (
-          <div>
+          <div className="view-content">
             {/* Show history banner if viewing past day */}
             {viewingPastWorkout && (
               <div style={{
@@ -1881,6 +1884,7 @@ export default function FitnessPage() {
                     return (
                       <button
                         key={w.id}
+                        className="tab-button btn-press"
                         onClick={() => selectWorkout(w.id)}
                         style={{
                           padding: '12px 20px',
@@ -1894,7 +1898,8 @@ export default function FitnessPage() {
                           fontSize: '14px',
                           whiteSpace: 'nowrap',
                           boxShadow: isActive ? '0 4px 20px var(--yellow-glow)' : 'none',
-                          opacity: isActive ? 1 : isEmpty ? 0.5 : 1
+                          opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
+                          transform: isActive ? 'scale(1.02)' : 'scale(1)'
                         }}
                       >
                         {w.name.replace('Тренировка ', 'T')}
@@ -1903,6 +1908,7 @@ export default function FitnessPage() {
                   })}
                   {workouts.length < MAX_WORKOUTS && (
                     <button
+                      className="btn-press"
                       onClick={addNewWorkout}
                       style={{
                         padding: '12px 16px',
@@ -1916,7 +1922,8 @@ export default function FitnessPage() {
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        gap: '6px',
+                        transition: 'all 0.2s ease'
                       }}
                       title="Добавить тренировку"
                     >
@@ -2323,7 +2330,7 @@ export default function FitnessPage() {
 
         {/* NUTRITION VIEW */}
         {view === 'nutrition' && (
-          <div>
+          <div className="view-content">
             {/* Daily target header */}
             <div style={{
               display: 'flex',
@@ -2355,7 +2362,7 @@ export default function FitnessPage() {
               marginBottom: '16px'
             }}>
               {/* Protein */}
-              <div style={{
+              <div className="macro-card" style={{
                 background: 'var(--bg-card)',
                 padding: '12px',
                 borderRadius: '12px',
@@ -2368,15 +2375,15 @@ export default function FitnessPage() {
                   marginBottom: '4px'
                 }}>
                   <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600 }}>Б</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
+                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '2px' }} />
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Fat */}
-              <div style={{
+              <div className="macro-card" style={{
                 background: 'var(--bg-card)',
                 padding: '12px',
                 borderRadius: '12px',
@@ -2389,15 +2396,15 @@ export default function FitnessPage() {
                   marginBottom: '4px'
                 }}>
                   <span style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600 }}>Ж</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
+                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '2px' }} />
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Carbs */}
-              <div style={{
+              <div className="macro-card" style={{
                 background: 'var(--bg-card)',
                 padding: '12px',
                 borderRadius: '12px',
@@ -2410,15 +2417,15 @@ export default function FitnessPage() {
                   marginBottom: '4px'
                 }}>
                   <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>У</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
+                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '2px' }} />
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Calories */}
-              <div style={{
+              <div className="macro-card" style={{
                 background: 'var(--bg-card)',
                 padding: '12px',
                 borderRadius: '12px',
@@ -2431,10 +2438,10 @@ export default function FitnessPage() {
                   marginBottom: '4px'
                 }}>
                   <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>ккал</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
+                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '2px' }} />
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '2px' }} />
                 </div>
               </div>
             </div>
@@ -2453,6 +2460,7 @@ export default function FitnessPage() {
                   setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
                   setShowMealModal(true);
                 }}
+                className="btn-press fab"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -2473,7 +2481,7 @@ export default function FitnessPage() {
 
             {/* Meals list */}
             {currentDayLog.meals.length === 0 ? (
-              <div style={{
+              <div className="view-content" style={{
                 textAlign: 'center',
                 padding: '40px 20px',
                 color: 'var(--text-muted)',
@@ -2487,15 +2495,16 @@ export default function FitnessPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {currentDayLog.meals.map(meal => (
+                {currentDayLog.meals.map((meal, index) => (
                   <div
                     key={meal.id}
-                    className="card-hover"
+                    className="card-hover list-item-animated"
                     style={{
                       background: 'var(--bg-card)',
                       padding: '10px 12px',
                       borderRadius: '10px',
-                      border: '1px solid var(--border)'
+                      border: '1px solid var(--border)',
+                      animationDelay: `${index * 0.05}s`
                     }}
                   >
                     <div style={{
@@ -2780,6 +2789,7 @@ export default function FitnessPage() {
 
         {/* CALENDAR VIEW */}
         {view === 'calendar' && (
+          <div className="view-content">
           <FitnessCalendar
             dayLogs={dayLogs}
             selectedDate={selectedDate}
@@ -2790,6 +2800,7 @@ export default function FitnessPage() {
             }}
             workouts={workouts}
           />
+          </div>
         )}
       </div>
 
