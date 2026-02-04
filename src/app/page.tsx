@@ -223,10 +223,17 @@ interface Meal {
   calories: number;
 }
 
+interface WorkoutSnapshot {
+  workoutId: string;
+  workoutName: string;
+  exercises: Exercise[];
+}
+
 interface DayLog {
   date: string;
   workoutCompleted: string | null;
   workoutRating: number | null;
+  workoutSnapshot: WorkoutSnapshot | null; // Snapshot of the workout when day was closed
   meals: Meal[];
   notes: string;
   steps: number | null;
@@ -1018,7 +1025,7 @@ export default function FitnessPage() {
   }, [workouts, dayLogs, progressHistory, isLoaded, syncToServer]);
 
   const currentDayLog = useMemo(() => {
-    return dayLogs[dateKey] || { date: dateKey, workoutCompleted: null, workoutRating: null, meals: [], notes: '', steps: null, dayClosed: false };
+    return dayLogs[dateKey] || { date: dateKey, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false };
   }, [dayLogs, dateKey]);
 
   const macroTotals = useMemo(() => {
@@ -1097,6 +1104,42 @@ export default function FitnessPage() {
   const completedExercises = currentWorkout.exercises.filter(e => e.completed).length;
   const totalExercises = currentWorkout.exercises.length;
   const progressPercent = (completedExercises / totalExercises) * 100;
+
+  // Close day with workout snapshot
+  const closeDay = (workoutId: string, shouldClose: boolean) => {
+    if (shouldClose) {
+      const workout = workouts.find(w => w.id === workoutId);
+      if (workout) {
+        const snapshot: WorkoutSnapshot = {
+          workoutId: workout.id,
+          workoutName: workout.name,
+          exercises: JSON.parse(JSON.stringify(workout.exercises)) // Deep copy
+        };
+        updateDayLog({
+          dayClosed: true,
+          workoutCompleted: workoutId,
+          workoutSnapshot: snapshot
+        });
+      }
+    } else {
+      updateDayLog({
+        dayClosed: false,
+        workoutCompleted: null,
+        workoutSnapshot: null
+      });
+    }
+  };
+
+  // Check if viewing a past day with saved workout
+  const viewingPastWorkout = currentDayLog.dayClosed && currentDayLog.workoutSnapshot;
+  const displayWorkout = viewingPastWorkout ? {
+    ...currentDayLog.workoutSnapshot!,
+    id: currentDayLog.workoutSnapshot!.workoutId,
+    name: currentDayLog.workoutSnapshot!.workoutName
+  } : currentWorkout;
+  const displayExercises = viewingPastWorkout
+    ? currentDayLog.workoutSnapshot!.exercises
+    : currentWorkout.exercises;
 
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
@@ -1278,36 +1321,62 @@ export default function FitnessPage() {
         {/* WORKOUT VIEW */}
         {view === 'workout' && (
           <div>
-            {/* Workout selector */}
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              marginBottom: '16px',
-              overflowX: 'auto',
-              paddingBottom: '4px'
-            }}>
-              {workouts.map(w => (
-                <button
-                  key={w.id}
-                  onClick={() => setSelectedWorkout(w.id)}
-                  style={{
-                    padding: '12px 20px',
-                    background: selectedWorkout === w.id
-                      ? 'linear-gradient(135deg, var(--green) 0%, #d4a830 100%)'
-                      : 'var(--bg-card)',
-                    border: selectedWorkout === w.id ? 'none' : '1px solid var(--border)',
-                    borderRadius: '12px',
-                    color: selectedWorkout === w.id ? '#000' : 'var(--text-primary)',
-                    fontWeight: selectedWorkout === w.id ? 700 : 500,
-                    fontSize: '14px',
-                    whiteSpace: 'nowrap',
-                    boxShadow: selectedWorkout === w.id ? '0 4px 15px rgba(245, 200, 66, 0.3)' : 'none'
-                  }}
-                >
-                  {w.name.replace('Тренировка ', 'T')}
-                </button>
-              ))}
-            </div>
+            {/* Show history banner if viewing past day */}
+            {viewingPastWorkout && (
+              <div style={{
+                background: 'var(--blue-dim)',
+                border: '1px solid rgba(0, 180, 216, 0.3)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <History size={20} style={{ color: 'var(--blue)' }} />
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--blue)', fontSize: '14px' }}>
+                    Просмотр истории
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {currentDayLog.workoutSnapshot?.workoutName} • {new Date(dateKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Workout selector - hidden when viewing history */}
+            {!viewingPastWorkout && (
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '16px',
+                overflowX: 'auto',
+                paddingBottom: '4px'
+              }}>
+                {workouts.map(w => (
+                  <button
+                    key={w.id}
+                    onClick={() => setSelectedWorkout(w.id)}
+                    style={{
+                      padding: '12px 20px',
+                      background: selectedWorkout === w.id
+                        ? 'linear-gradient(135deg, var(--green) 0%, #d4a830 100%)'
+                        : 'var(--bg-card)',
+                      border: selectedWorkout === w.id ? 'none' : '1px solid var(--border)',
+                      borderRadius: '12px',
+                      color: selectedWorkout === w.id ? '#000' : 'var(--text-primary)',
+                      fontWeight: selectedWorkout === w.id ? 700 : 500,
+                      fontSize: '14px',
+                      whiteSpace: 'nowrap',
+                      boxShadow: selectedWorkout === w.id ? '0 4px 15px rgba(245, 200, 66, 0.3)' : 'none'
+                    }}
+                  >
+                    {w.name.replace('Тренировка ', 'T')}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Progress bar */}
             <div style={{
@@ -1324,14 +1393,17 @@ export default function FitnessPage() {
                 marginBottom: '12px'
               }}>
                 <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                  Прогресс тренировки
+                  {viewingPastWorkout ? 'Результат тренировки' : 'Прогресс тренировки'}
                 </span>
                 <span style={{
                   fontSize: '16px',
                   fontWeight: 700,
                   color: 'var(--green)'
                 }}>
-                  {completedExercises}/{totalExercises}
+                  {viewingPastWorkout
+                    ? `${displayExercises.filter(e => e.completed).length}/${displayExercises.length}`
+                    : `${completedExercises}/${totalExercises}`
+                  }
                 </span>
               </div>
               <div style={{
@@ -1341,29 +1413,33 @@ export default function FitnessPage() {
                 overflow: 'hidden'
               }}>
                 <div style={{
-                  width: `${progressPercent}%`,
+                  width: viewingPastWorkout
+                    ? `${(displayExercises.filter(e => e.completed).length / displayExercises.length) * 100}%`
+                    : `${progressPercent}%`,
                   height: '100%',
                   background: 'linear-gradient(90deg, var(--green) 0%, #d4a830 100%)',
                   borderRadius: '4px',
                   transition: 'width 0.3s ease',
-                  boxShadow: progressPercent > 0 ? '0 0 10px rgba(245, 200, 66, 0.5)' : 'none'
+                  boxShadow: (viewingPastWorkout ? displayExercises.filter(e => e.completed).length : progressPercent) > 0 ? '0 0 10px rgba(245, 200, 66, 0.5)' : 'none'
                 }} />
               </div>
             </div>
 
             {/* Exercise list */}
-            {currentWorkout.exercises.map((ex, idx) => {
-              const exerciseKey = `${currentWorkout.id}-${ex.id}`;
+            {displayExercises.map((ex, idx) => {
+              const workoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
+              const exerciseKey = `${workoutId}-${ex.id}`;
               return (
                 <ExerciseCard
                   key={ex.id}
                   ex={ex}
                   idx={idx}
-                  workoutId={currentWorkout.id}
-                  onToggle={() => updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
-                  onUpdate={(updates) => updateExercise(currentWorkout.id, ex.id, updates)}
+                  workoutId={workoutId}
+                  onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
+                  onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                   progressHistory={progressHistory[exerciseKey] || []}
                   onSaveProgress={(weight, notes) => {
+                    if (viewingPastWorkout) return;
                     const newEntry: ExerciseProgress = {
                       date: formatDate(selectedDate),
                       weight,
@@ -1444,7 +1520,8 @@ export default function FitnessPage() {
               </div>
             </div>
 
-            {/* Close day button */}
+            {/* Close day button - hidden when viewing history */}
+            {!viewingPastWorkout && (
             <div style={{ marginTop: '16px' }}>
               {(() => {
                 const closedWorkoutId = currentDayLog.workoutCompleted;
@@ -1500,7 +1577,7 @@ export default function FitnessPage() {
                           btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${readyToClose ? 'var(--green-dim)' : 'var(--bg-card)'} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
-                            updateDayLog({ dayClosed: !isThisWorkoutClosed, workoutCompleted: isThisWorkoutClosed ? null : currentWorkout.id });
+                            closeDay(currentWorkout.id, !isThisWorkoutClosed);
                             btn.style.background = !isThisWorkoutClosed
                               ? 'linear-gradient(135deg, var(--green) 0%, #d4a830 100%)'
                               : readyToClose
@@ -1530,7 +1607,7 @@ export default function FitnessPage() {
                           btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${readyToClose ? 'var(--green-dim)' : 'var(--bg-card)'} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
-                            updateDayLog({ dayClosed: !isThisWorkoutClosed, workoutCompleted: isThisWorkoutClosed ? null : currentWorkout.id });
+                            closeDay(currentWorkout.id, !isThisWorkoutClosed);
                             btn.style.background = !isThisWorkoutClosed
                               ? 'linear-gradient(135deg, var(--green) 0%, #d4a830 100%)'
                               : readyToClose
@@ -1579,6 +1656,7 @@ export default function FitnessPage() {
                 );
               })()}
             </div>
+            )}
 
             {/* Mini calendar */}
             <div style={{ marginTop: '20px' }}>
