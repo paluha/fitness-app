@@ -5,7 +5,7 @@ import {
   Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check,
   Flame, Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
-  Zap, Award, Timer, Play, Pause, RotateCcw, Settings, GripVertical
+  Zap, Timer, Play, Pause, RotateCcw, Settings
 } from 'lucide-react';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -427,10 +427,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
       className="card-hover"
       style={{
         background: 'var(--bg-card)',
-        borderRadius: ex.completed ? '12px' : '16px',
-        border: '1px solid var(--border)',
+        borderRadius: ex.completed ? '10px' : '14px',
+        border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.2)' : 'var(--border)'}`,
         overflow: 'hidden',
-        marginBottom: ex.completed ? '8px' : '12px',
+        marginBottom: ex.completed ? '6px' : '10px',
         transition: 'all 0.3s ease'
       }}
     >
@@ -439,18 +439,23 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
         style={{
           display: 'flex',
           alignItems: 'center',
-          padding: ex.completed ? '12px 16px' : '16px',
-          gap: ex.completed ? '12px' : '14px',
+          padding: ex.completed ? '8px 12px' : '12px 14px',
+          gap: ex.completed ? '10px' : '12px',
           cursor: 'pointer'
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        {/* Checkbox - left side */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            // Toggle mark/unmark
+            onToggle();
+          }}
           style={{
-            width: ex.completed ? '28px' : '36px',
-            height: ex.completed ? '28px' : '36px',
-            borderRadius: ex.completed ? '8px' : '10px',
+            width: ex.completed ? '24px' : '32px',
+            height: ex.completed ? '24px' : '32px',
+            borderRadius: ex.completed ? '6px' : '8px',
             border: ex.completed ? 'none' : '2px solid var(--border-strong)',
             background: ex.completed
               ? 'var(--green)'
@@ -461,68 +466,142 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             justifyContent: 'center',
             color: '#000',
             flexShrink: 0,
-            boxShadow: ex.completed ? '0 2px 8px var(--green-glow)' : 'none',
+            boxShadow: ex.completed ? '0 2px 6px var(--green-glow)' : 'none',
             transition: 'all 0.2s ease'
           }}
         >
-          {ex.completed && <Check size={16} strokeWidth={3} />}
-        </button>
+          {ex.completed && <Check size={14} strokeWidth={3} />}
+        </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontWeight: 600,
-            fontSize: ex.completed ? '14px' : '15px',
-            marginBottom: ex.completed ? '0' : '4px',
-            color: ex.completed ? 'var(--text-secondary)' : 'var(--text-primary)'
+            fontSize: ex.completed ? '13px' : '14px',
+            color: ex.completed ? 'var(--green)' : 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
           }}>
             <span style={{
               color: 'var(--text-muted)',
-              fontSize: '13px',
-              marginRight: '6px'
+              fontSize: '12px'
             }}>
               {idx + 1}.
             </span>
-            {ex.name}
+            <span style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {ex.name}
+            </span>
+            {/* Show weight badge if completed with weight */}
+            {ex.completed && ex.actualSets && (
+              <span style={{
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-elevated)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                marginLeft: 'auto',
+                flexShrink: 0
+              }}>
+                {ex.actualSets}
+              </span>
+            )}
           </div>
           {!ex.completed && (
-            <>
-              <div style={{
-                fontSize: '13px',
-                color: 'var(--blue)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <Zap size={12} />
-                {ex.plannedSets}
-              </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--blue)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '2px'
+            }}>
+              <Zap size={11} />
+              {ex.plannedSets}
               {ex.notes && (
-                <div style={{
-                  fontSize: '12px',
-                  color: 'var(--yellow)',
-                  marginTop: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <Award size={12} />
-                  {ex.notes}
-                </div>
+                <span style={{ color: 'var(--yellow)', marginLeft: '4px' }}>• {ex.notes}</span>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        {!ex.completed && (
-          <div style={{
-            color: 'var(--text-muted)',
-            transition: 'transform 0.2s ease',
-            transform: expanded ? 'rotate(180deg)' : 'rotate(0)'
-          }}>
-            <ChevronDown size={20} />
-          </div>
-        )}
+        {/* Chevron for all items */}
+        <div style={{
+          color: ex.completed ? 'var(--green)' : 'var(--text-muted)',
+          transition: 'transform 0.2s ease',
+          transform: expanded ? 'rotate(180deg)' : 'rotate(0)'
+        }}>
+          <ChevronDown size={18} />
+        </div>
       </div>
+
+      {/* Expanded flyout for COMPLETED exercises */}
+      {expanded && ex.completed && (
+        <div style={{
+          padding: '10px 12px',
+          borderTop: '1px solid rgba(0, 200, 83, 0.15)',
+          background: 'var(--green-dim)',
+          fontSize: '12px'
+        }}>
+          {/* Info section */}
+          <div style={{ marginBottom: '10px' }}>
+            <div style={{ fontWeight: 600, color: 'var(--green)', marginBottom: '6px', fontSize: '11px' }}>
+              Информация
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>План:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{ex.plannedSets}</span>
+            </div>
+            {ex.actualSets && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Вес:</span>
+                <span style={{ color: 'var(--green)', fontWeight: 600 }}>{ex.actualSets}</span>
+              </div>
+            )}
+            {ex.newWeight && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Новый вес:</span>
+                <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>{ex.newWeight}</span>
+              </div>
+            )}
+            {ex.feedback && (
+              <div style={{ marginTop: '6px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '11px' }}>
+                "{ex.feedback}"
+              </div>
+            )}
+          </div>
+
+          {/* Unmark button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+              setExpanded(false);
+            }}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <X size={14} />
+            Снять отметку
+          </button>
+        </div>
+      )}
 
       {/* Expanded content - only for incomplete exercises */}
       {expanded && !ex.completed && (
@@ -1104,7 +1183,9 @@ export default function FitnessPage() {
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [exerciseForm, setExerciseForm] = useState({ name: '', plannedSets: '', restTime: '2-3 мин', notes: '' });
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [stepsAlertPulse, setStepsAlertPulse] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stepsAlertRef = useRef<HTMLDivElement | null>(null);
 
   const dateKey = formatDate(selectedDate);
 
@@ -1658,15 +1739,15 @@ export default function FitnessPage() {
             {/* Week View - 7 days with T1-T7 */}
             <div style={{
               background: 'var(--bg-card)',
-              borderRadius: '16px',
+              borderRadius: '12px',
               border: '1px solid var(--border)',
-              padding: '16px',
-              marginBottom: '16px'
+              padding: '10px',
+              marginBottom: '12px'
             }}>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: '6px'
+                gap: '4px'
               }}>
                 {(() => {
                   const today = new Date();
@@ -1711,8 +1792,8 @@ export default function FitnessPage() {
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
-                          gap: '4px',
-                          padding: '10px 4px',
+                          gap: '2px',
+                          padding: '6px 2px',
                           background: isSelected
                             ? 'var(--yellow)'
                             : isClosed
@@ -1723,25 +1804,25 @@ export default function FitnessPage() {
                             : isClosed && !isSelected
                               ? '1px solid rgba(0, 200, 83, 0.3)'
                               : '1px solid var(--border)',
-                          borderRadius: '10px',
+                          borderRadius: '8px',
                           cursor: 'pointer',
                           opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.5 : 1,
                           boxShadow: isSelected
-                            ? '0 4px 20px var(--yellow-glow)'
+                            ? '0 2px 10px var(--yellow-glow)'
                             : isClosed && !isSelected
-                              ? '0 2px 8px var(--green-glow)'
+                              ? '0 1px 4px var(--green-glow)'
                               : 'none'
                         }}
                       >
                         <span style={{
-                          fontSize: '10px',
+                          fontSize: '9px',
                           color: isSelected ? '#000' : 'var(--text-muted)',
                           fontWeight: 600
                         }}>
                           {dayName}
                         </span>
                         <span style={{
-                          fontSize: '13px',
+                          fontSize: '12px',
                           fontWeight: 700,
                           color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
@@ -1749,14 +1830,14 @@ export default function FitnessPage() {
                         </span>
                         {(isClosed || isRestDay) && (
                           <span style={{
-                            fontSize: '11px',
+                            fontSize: '9px',
                             fontWeight: 600,
                             color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '2px'
+                            gap: '1px'
                           }}>
-                            {isClosed && <Check size={10} strokeWidth={3} />}
+                            {isClosed && <Check size={8} strokeWidth={3} />}
                             {workoutLabel}
                           </span>
                         )}
@@ -1970,6 +2051,30 @@ export default function FitnessPage() {
               </div>
             )}
 
+            {/* Steps alert */}
+            {!currentDayLog.dayClosed && completedExercises === totalExercises && totalExercises > 0 && (!currentDayLog.steps || currentDayLog.steps === 0) && (
+              <div
+                ref={stepsAlertRef}
+                className={stepsAlertPulse ? 'animate-pulse' : ''}
+                style={{
+                  marginTop: '16px',
+                  padding: '12px 16px',
+                  background: stepsAlertPulse ? 'var(--yellow)' : 'var(--yellow-dim)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 232, 4, 0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: stepsAlertPulse ? '#000' : 'var(--yellow)',
+                  transition: 'all 0.3s ease',
+                  boxShadow: stepsAlertPulse ? '0 4px 20px var(--yellow-glow)' : 'none'
+                }}
+              >
+                <Footprints size={18} />
+                <span style={{ fontSize: '14px', fontWeight: 600 }}>Добавьте шаги чтобы закрыть день</span>
+              </div>
+            )}
+
             {/* Steps input */}
             <div style={{
               marginTop: '16px',
@@ -2043,8 +2148,6 @@ export default function FitnessPage() {
                 const isDayClosed = currentDayLog.dayClosed;
                 const canCloseDay = completedExercises === totalExercises && currentDayLog.steps && currentDayLog.steps > 0;
                 const readyToClose = canCloseDay && !isDayClosed;
-                const isToday = dateKey === formatDate(new Date());
-                const dateLabel = new Date(dateKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
                 return (
                   <>
@@ -2061,20 +2164,21 @@ export default function FitnessPage() {
                         ✨ Всё готово! Закройте день ✨
                       </div>
                     )}
-                    {!canCloseDay && !isDayClosed && (
-                      <div style={{
-                        textAlign: 'center',
-                        marginBottom: '12px',
-                        color: 'var(--text-muted)',
-                        fontSize: '13px'
-                      }}>
-                        {completedExercises < totalExercises && `Упражнения: ${completedExercises}/${totalExercises}`}
-                        {completedExercises < totalExercises && (!currentDayLog.steps || currentDayLog.steps === 0) && ' • '}
-                        {(!currentDayLog.steps || currentDayLog.steps === 0) && 'Добавьте шаги'}
-                      </div>
-                    )}
                     <button
+                      onClick={() => {
+                        // If no steps, scroll to alert and pulse
+                        if (!isDayClosed && (!currentDayLog.steps || currentDayLog.steps === 0)) {
+                          stepsAlertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          setStepsAlertPulse(true);
+                          setTimeout(() => setStepsAlertPulse(false), 2000);
+                          return;
+                        }
+                      }}
                       onMouseDown={(e) => {
+                        // If no steps and not closed, don't start hold action
+                        if (!isDayClosed && (!currentDayLog.steps || currentDayLog.steps === 0)) {
+                          return;
+                        }
                         const btn = e.currentTarget;
                         btn.dataset.pressing = 'true';
                         btn.dataset.progress = '0';
@@ -2110,6 +2214,13 @@ export default function FitnessPage() {
                       onMouseUp={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
                       onMouseLeave={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
                       onTouchStart={(e) => {
+                        // If no steps and not closed, scroll to alert
+                        if (!isDayClosed && (!currentDayLog.steps || currentDayLog.steps === 0)) {
+                          stepsAlertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          setStepsAlertPulse(true);
+                          setTimeout(() => setStepsAlertPulse(false), 2000);
+                          return;
+                        }
                         const btn = e.currentTarget;
                         btn.dataset.pressing = 'true';
                         btn.dataset.progress = '0';
@@ -2171,15 +2282,12 @@ export default function FitnessPage() {
                       {isDayClosed ? (
                         <>
                           <Check size={22} />
-                          Удерживайте чтобы открыть день
+                          Открыть день
                         </>
                       ) : (
                         <>
                           {readyToClose && <Check size={20} />}
-                          {canCloseDay
-                            ? (isToday ? 'Удерживайте чтобы закрыть день' : `Закрыть ${dateLabel}`)
-                            : 'Выполните все упражнения и добавьте шаги'
-                          }
+                          Закрыть день
                         </>
                       )}
                     </button>
@@ -2204,146 +2312,117 @@ export default function FitnessPage() {
         {/* NUTRITION VIEW */}
         {view === 'nutrition' && (
           <div>
-            {/* Macro summary */}
+            {/* Daily target header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              marginBottom: '12px',
+              padding: '10px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '12px',
+              border: '1px solid var(--border)'
+            }}>
+              <Target size={14} style={{ color: 'var(--text-muted)' }} />
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Цель:</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} Б</span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} Ж</span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} У</span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} ккал</span>
+            </div>
+
+            {/* Compact Macro summary - 2x2 grid */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '12px',
-              marginBottom: '20px'
+              gap: '8px',
+              marginBottom: '16px'
             }}>
               {/* Protein */}
               <div style={{
                 background: 'var(--bg-card)',
-                padding: '16px',
-                borderRadius: '16px',
+                padding: '12px',
+                borderRadius: '12px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '8px'
+                  marginBottom: '4px'
                 }}>
-                  <span style={{
-                    fontSize: '12px',
-                    color: 'var(--blue)',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>Белок</span>
-                  <Target size={16} style={{ color: 'var(--blue)' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600 }}>Б</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 700 }}>{macroTotals.protein}г</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  из {MACRO_TARGETS.protein}г
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${macroProgress.protein}%`, background: 'var(--blue)' }}
-                  />
+                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Fat */}
               <div style={{
                 background: 'var(--bg-card)',
-                padding: '16px',
-                borderRadius: '16px',
+                padding: '12px',
+                borderRadius: '12px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '8px'
+                  marginBottom: '4px'
                 }}>
-                  <span style={{
-                    fontSize: '12px',
-                    color: 'var(--yellow)',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>Жиры</span>
-                  <Target size={16} style={{ color: 'var(--yellow)' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600 }}>Ж</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 700 }}>{macroTotals.fat}г</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  из {MACRO_TARGETS.fat}г
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${macroProgress.fat}%`, background: 'var(--yellow)' }}
-                  />
+                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Carbs */}
               <div style={{
                 background: 'var(--bg-card)',
-                padding: '16px',
-                borderRadius: '16px',
+                padding: '12px',
+                borderRadius: '12px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '8px'
+                  marginBottom: '4px'
                 }}>
-                  <span style={{
-                    fontSize: '12px',
-                    color: 'var(--green)',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>Углеводы</span>
-                  <Target size={16} style={{ color: 'var(--green)' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>У</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 700 }}>{macroTotals.carbs}г</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  из {MACRO_TARGETS.carbs}г
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${macroProgress.carbs}%`, background: 'var(--green)' }}
-                  />
+                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '2px' }} />
                 </div>
               </div>
 
               {/* Calories */}
               <div style={{
                 background: 'var(--bg-card)',
-                padding: '16px',
-                borderRadius: '16px',
+                padding: '12px',
+                borderRadius: '12px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '8px'
+                  marginBottom: '4px'
                 }}>
-                  <span style={{
-                    fontSize: '12px',
-                    color: 'var(--red)',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>Калории</span>
-                  <Flame size={16} style={{ color: 'var(--red)' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>ккал</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 700 }}>{macroTotals.calories}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  из {MACRO_TARGETS.calories}
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${macroProgress.calories}%`, background: 'var(--red)' }}
-                  />
+                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '2px' }} />
                 </div>
               </div>
             </div>
@@ -2384,126 +2463,78 @@ export default function FitnessPage() {
             {currentDayLog.meals.length === 0 ? (
               <div style={{
                 textAlign: 'center',
-                padding: '60px 20px',
+                padding: '40px 20px',
                 color: 'var(--text-muted)',
                 background: 'var(--bg-card)',
-                borderRadius: '16px',
+                borderRadius: '12px',
                 border: '1px solid var(--border)'
               }}>
-                <Apple size={56} style={{ opacity: 0.3, marginBottom: '16px' }} />
-                <div style={{ fontSize: '16px', fontWeight: 500 }}>Нет записей о питании</div>
-                <div style={{ fontSize: '13px', marginTop: '4px' }}>Добавьте первый приём пищи</div>
+                <Apple size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Нет записей о питании</div>
+                <div style={{ fontSize: '12px', marginTop: '4px' }}>Добавьте первый приём пищи</div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {currentDayLog.meals.map(meal => (
                   <div
                     key={meal.id}
                     className="card-hover"
                     style={{
                       background: 'var(--bg-card)',
-                      padding: '16px',
-                      borderRadius: '16px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
                       border: '1px solid var(--border)'
                     }}
                   >
                     <div style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: '12px'
+                      alignItems: 'center',
+                      gap: '10px'
                     }}>
-                      <div>
-                        <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '16px' }}>
-                          {meal.name}
-                        </div>
-                        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                          {meal.time}
-                        </div>
+                      {/* Time */}
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '36px' }}>
+                        {meal.time}
+                      </span>
+                      {/* Name */}
+                      <span style={{ fontWeight: 600, fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {meal.name}
+                      </span>
+                      {/* Compact macros */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '11px' }}>
+                        <span style={{ color: 'var(--blue)', fontWeight: 600 }}>{meal.protein}</span>
+                        <span style={{ color: 'var(--border-strong)' }}>/</span>
+                        <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>{meal.fat}</span>
+                        <span style={{ color: 'var(--border-strong)' }}>/</span>
+                        <span style={{ color: 'var(--green)', fontWeight: 600 }}>{meal.carbs}</span>
+                        <span style={{ color: 'var(--border-strong)' }}>/</span>
+                        <span style={{ color: 'var(--red)', fontWeight: 600 }}>{meal.calories}</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '4px' }}>
                         <button
                           onClick={() => openEditMeal(meal)}
                           style={{
-                            background: 'var(--bg-elevated)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            padding: '10px',
-                            color: 'var(--text-muted)'
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '6px',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer'
                           }}
                         >
-                          <Edit2 size={16} />
+                          <Edit2 size={14} />
                         </button>
                         <button
                           onClick={() => deleteMeal(meal.id)}
                           style={{
-                            background: 'var(--red-dim)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            borderRadius: '8px',
-                            padding: '10px',
-                            color: 'var(--red)'
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '6px',
+                            color: 'var(--red)',
+                            cursor: 'pointer'
                           }}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
-                      </div>
-                    </div>
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(4, 1fr)',
-                      gap: '8px'
-                    }}>
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '10px 6px',
-                        background: 'var(--blue-dim)',
-                        borderRadius: '10px'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--blue)' }}>
-                          {meal.protein}г
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Белок
-                        </div>
-                      </div>
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '10px 6px',
-                        background: 'var(--yellow-dim)',
-                        borderRadius: '10px'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--yellow)' }}>
-                          {meal.fat}г
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Жиры
-                        </div>
-                      </div>
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '10px 6px',
-                        background: 'var(--green-dim)',
-                        borderRadius: '10px'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>
-                          {meal.carbs}г
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Углев
-                        </div>
-                      </div>
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '10px 6px',
-                        background: 'var(--red-dim)',
-                        borderRadius: '10px'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>
-                          {meal.calories}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Ккал
-                        </div>
                       </div>
                     </div>
                   </div>
