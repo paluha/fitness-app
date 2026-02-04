@@ -1334,7 +1334,7 @@ export default function FitnessPage() {
                 gap: '12px'
               }}>
                 <History size={20} style={{ color: 'var(--blue)' }} />
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, color: 'var(--blue)', fontSize: '14px' }}>
                     Просмотр истории
                   </div>
@@ -1342,6 +1342,25 @@ export default function FitnessPage() {
                     {currentDayLog.workoutSnapshot?.workoutName} • {new Date(dateKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                   </div>
                 </div>
+                <button
+                  onClick={() => closeDay(currentDayLog.workoutCompleted!, false)}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Edit2 size={14} />
+                  Изменить
+                </button>
               </div>
             )}
 
@@ -1529,6 +1548,8 @@ export default function FitnessPage() {
                 const isThisWorkoutClosed = currentDayLog.dayClosed && closedWorkoutId === currentWorkout.id;
                 const canCloseDay = completedExercises === totalExercises && currentDayLog.steps && currentDayLog.steps > 0;
                 const readyToClose = canCloseDay && !isThisWorkoutClosed;
+                const isToday = dateKey === formatDate(new Date());
+                const dateLabel = new Date(dateKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
                 return (
                   <>
@@ -1648,7 +1669,7 @@ export default function FitnessPage() {
                       ) : (
                         <>
                           {readyToClose && <Check size={20} />}
-                          Удерживайте чтобы закрыть день
+                          {isToday ? 'Удерживайте чтобы закрыть день' : `Закрыть ${dateLabel}`}
                         </>
                       )}
                     </button>
