@@ -1168,7 +1168,15 @@ function getDefaultWorkout(): string {
 }
 
 export default function FitnessPage() {
-  const [view, setView] = useState<'workout' | 'nutrition' | 'calendar'>('workout');
+  const [view, setView] = useState<'workout' | 'nutrition' | 'calendar'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fitness_view');
+      if (saved === 'workout' || saved === 'nutrition' || saved === 'calendar') {
+        return saved;
+      }
+    }
+    return 'workout';
+  });
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [workouts, setWorkouts] = useState<Workout[]>(DEFAULT_WORKOUTS);
   const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
@@ -1655,7 +1663,11 @@ export default function FitnessPage() {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setView(tab.id as typeof view)}
+              onClick={() => {
+                const newView = tab.id as typeof view;
+                setView(newView);
+                localStorage.setItem('fitness_view', newView);
+              }}
               style={{
                 flex: 1,
                 padding: '12px',
@@ -2774,6 +2786,7 @@ export default function FitnessPage() {
             onSelectDate={(date) => {
               setSelectedDate(date);
               setView('workout');
+              localStorage.setItem('fitness_view', 'workout');
             }}
             workouts={workouts}
           />
