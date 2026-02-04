@@ -10,6 +10,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  CLIENT
+  TRAINER
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -17,11 +22,42 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  role          UserRole  @default(CLIENT)
   accounts      Account[]
   sessions      Session[]
   fitnessData   FitnessData?
+
+  // Trainer-Client relationships
+  trainerId     String?   // Client's assigned trainer
+  trainer       User?     @relation("TrainerClients", fields: [trainerId], references: [id])
+  clients       User[]    @relation("TrainerClients")
+
+  // Program assigned by trainer
+  programId     String?
+  program       TrainingProgram? @relation("ClientProgram", fields: [programId], references: [id])
+
+  // Programs created by trainer
+  createdPrograms TrainingProgram[] @relation("TrainerPrograms")
+
+  // Food products added by user
+  addedFoodProducts FoodProduct[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model TrainingProgram {
+  id                String   @id @default(cuid())
+  name              String
+  trainerId         String
+  trainer           User     @relation("TrainerPrograms", fields: [trainerId], references: [id])
+  workouts          Json     // Array of workouts with exercises
+  activeWorkoutDays Int      @default(4) // How many days are active (e.g., 4 = T1-T4 active, T5-T7 rest)
+  clients           User[]   @relation("ClientProgram")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([trainerId])
 }
 
 model Account {
@@ -62,13 +98,36 @@ model VerificationToken {
 model FitnessData {
   id              String   @id @default(cuid())
   userId          String   @unique
-  workouts        Json
-  dayLogs         Json
-  progressHistory Json?
+  workouts        Json?    // User's workouts (T1-T7)
+  dayLogs         Json     // Daily logs: steps, meals, completed workouts per date
+  progressHistory Json?    // Exercise progress history
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum FoodCategory {
+  PROTEIN
+  CARBS
+  VEGETABLES
+  DAIRY
+  FATS
+  FRUITS
+}
+
+model FoodProduct {
+  id          String       @id @default(cuid())
+  name        String
+  category    FoodCategory
+  addedById   String       // Who added it (trainer or client)
+  addedBy     User         @relation(fields: [addedById], references: [id])
+  trainerId   String?      // If added by trainer, show to all their clients
+  isGlobal    Boolean      @default(false) // Show to everyone
+  createdAt   DateTime     @default(now())
+
+  @@index([trainerId])
+  @@index([category])
 }

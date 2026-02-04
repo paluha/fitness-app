@@ -250,6 +250,9 @@ interface ProgressHistory {
   [exerciseId: string]: ExerciseProgress[];
 }
 
+// Maximum workouts allowed
+const MAX_WORKOUTS = 7;
+
 // Default workout templates
 const DEFAULT_WORKOUTS: Workout[] = [
   {
@@ -307,41 +310,17 @@ const DEFAULT_WORKOUTS: Workout[] = [
   {
     id: 't5',
     name: 'Тренировка 5',
-    exercises: [
-      { id: '1', name: 'Скручивания лежа', plannedSets: '3x30', actualSets: '', restTime: '1-2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Приседания со штангой', plannedSets: '3x10-12', actualSets: '', restTime: '3-4 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Подтягивания', plannedSets: '3xмакс', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Тяга гантели в наклоне', plannedSets: '3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Шраги с гантелями', plannedSets: '3x15-20', actualSets: '', restTime: '2 мин', notes: 'трапеция', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Молотки с гантелями', plannedSets: '3x12-15', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Обратные разведения в тренажере', plannedSets: '3x15', actualSets: '', restTime: '2 мин', notes: 'задняя дельта', newWeight: '', feedback: '', completed: false },
-    ]
+    exercises: []
   },
   {
     id: 't6',
     name: 'Тренировка 6',
-    exercises: [
-      { id: '1', name: 'Подъем ног в висе', plannedSets: '3x15-20', actualSets: '', restTime: '1-2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Выпады с гантелями', plannedSets: '3x12', actualSets: '', restTime: '3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Жим штанги лежа', plannedSets: '3x10-12', actualSets: '', restTime: '3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Разводка гантелей лежа', plannedSets: '3x12-15', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Армейский жим стоя', plannedSets: '3x10-12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Разгибания на трицепс с канатом', plannedSets: '3x15', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Отжимания узким хватом', plannedSets: '3xмакс', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-    ]
+    exercises: []
   },
   {
     id: 't7',
     name: 'Тренировка 7',
-    exercises: [
-      { id: '1', name: 'Планка', plannedSets: '3x60 сек', actualSets: '', restTime: '1 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Становая тяга', plannedSets: '3x8-10', actualSets: '', restTime: '4 мин', notes: 'ВИДЕО ОБЯЗАТЕЛЬНО', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Тяга верхнего блока за голову', plannedSets: '3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Тяга нижнего блока к поясу', plannedSets: '3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Махи гантелями в стороны', plannedSets: '3x15-20', actualSets: '', restTime: '2 мин', notes: 'средняя дельта', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Сгибания на бицепс в скамье Скотта', plannedSets: '3x12', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Концентрированные сгибания', plannedSets: '3x12', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-    ]
+    exercises: []
   }
 ];
 
@@ -350,6 +329,67 @@ const MACRO_TARGETS = {
   fat: 90,
   carbs: 200,
   calories: 2410
+};
+
+// Food products by category
+interface FoodProduct {
+  id: string;
+  name: string;
+  category: 'protein' | 'carbs' | 'vegetables' | 'dairy' | 'fats' | 'fruits';
+}
+
+const DEFAULT_FOOD_PRODUCTS: FoodProduct[] = [
+  // БЕЛОК
+  { id: 'p1', name: 'Куриная грудка', category: 'protein' },
+  { id: 'p2', name: 'Куриные бёдра без кожи', category: 'protein' },
+  { id: 'p3', name: 'Индейка', category: 'protein' },
+  { id: 'p4', name: 'Крольчатина', category: 'protein' },
+  { id: 'p5', name: 'Телятина постная', category: 'protein' },
+  { id: 'p6', name: 'Говядина постная (5–10% жира)', category: 'protein' },
+  { id: 'p7', name: 'Филе утки без кожи', category: 'protein' },
+  { id: 'p8', name: 'Хек', category: 'protein' },
+  { id: 'p9', name: 'Треска', category: 'protein' },
+  { id: 'p10', name: 'Минтай', category: 'protein' },
+  { id: 'p11', name: 'Палтус', category: 'protein' },
+  { id: 'p12', name: 'Тунец (в воде)', category: 'protein' },
+  { id: 'p13', name: 'Креветки', category: 'protein' },
+  { id: 'p14', name: 'Гребешки', category: 'protein' },
+  // УГЛЕВОДЫ
+  { id: 'c1', name: 'Белый рис', category: 'carbs' },
+  { id: 'c2', name: 'Жасмин / басмати', category: 'carbs' },
+  { id: 'c3', name: 'Cream of rice', category: 'carbs' },
+  { id: 'c4', name: 'Картофель отварной / запечённый', category: 'carbs' },
+  { id: 'c5', name: 'Рисовые хлебцы', category: 'carbs' },
+  { id: 'c6', name: 'Рисовая лапша', category: 'carbs' },
+  // ОВОЩИ
+  { id: 'v1', name: 'Огурцы', category: 'vegetables' },
+  { id: 'v2', name: 'Кабачки', category: 'vegetables' },
+  { id: 'v3', name: 'Цукини', category: 'vegetables' },
+  { id: 'v4', name: 'Шпинат', category: 'vegetables' },
+  { id: 'v5', name: 'Салат ромэн', category: 'vegetables' },
+  { id: 'v6', name: 'Айсберг', category: 'vegetables' },
+  { id: 'v7', name: 'Морковь (немного)', category: 'vegetables' },
+  // МОЛОЧНОЕ
+  { id: 'd1', name: 'Творог 0–0.5% (150–200 г)', category: 'dairy' },
+  { id: 'd2', name: 'Whey isolate', category: 'dairy' },
+  { id: 'd3', name: 'Casein (если переносится)', category: 'dairy' },
+  // ЖИРЫ
+  { id: 'f1', name: 'Оливковое масло', category: 'fats' },
+  { id: 'f2', name: 'Авокадо', category: 'fats' },
+  { id: 'f3', name: 'Рыбий жир', category: 'fats' },
+  // ФРУКТЫ
+  { id: 'fr1', name: 'Черника', category: 'fruits' },
+  { id: 'fr2', name: 'Клубника', category: 'fruits' },
+  { id: 'fr3', name: 'Малина', category: 'fruits' },
+];
+
+const FOOD_CATEGORIES = {
+  protein: { name: 'Белок', color: 'var(--red)', bg: 'var(--red-dim)' },
+  carbs: { name: 'Углеводы', color: 'var(--yellow)', bg: 'var(--yellow-dim)' },
+  vegetables: { name: 'Овощи', color: 'var(--green)', bg: 'var(--green-dim)' },
+  dairy: { name: 'Молочное', color: 'var(--blue)', bg: 'var(--blue-dim)' },
+  fats: { name: 'Жиры', color: 'var(--orange)', bg: 'rgba(255, 159, 67, 0.12)' },
+  fruits: { name: 'Фрукты', color: 'var(--purple)', bg: 'var(--purple-dim)' },
 };
 
 function formatDate(date: Date): string {
@@ -385,13 +425,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
     <div
       className="card-hover"
       style={{
-        background: ex.completed
-          ? 'linear-gradient(135deg, rgba(255, 232, 4,0.15) 0%, rgba(255, 232, 4,0.05) 100%)'
-          : 'var(--bg-card)',
-        borderRadius: '16px',
-        border: `1px solid ${ex.completed ? 'rgba(255, 232, 4,0.3)' : 'var(--border)'}`,
+        background: 'var(--bg-card)',
+        borderRadius: ex.completed ? '12px' : '16px',
+        border: '1px solid var(--border)',
         overflow: 'hidden',
-        marginBottom: '12px',
+        marginBottom: ex.completed ? '8px' : '12px',
         transition: 'all 0.3s ease'
       }}
     >
@@ -400,8 +438,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
         style={{
           display: 'flex',
           alignItems: 'center',
-          padding: '16px',
-          gap: '14px',
+          padding: ex.completed ? '12px 16px' : '16px',
+          gap: ex.completed ? '12px' : '14px',
           cursor: 'pointer'
         }}
         onClick={() => setExpanded(!expanded)}
@@ -409,12 +447,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
         <button
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
           style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
+            width: ex.completed ? '28px' : '36px',
+            height: ex.completed ? '28px' : '36px',
+            borderRadius: ex.completed ? '8px' : '10px',
             border: ex.completed ? 'none' : '2px solid var(--border-strong)',
             background: ex.completed
-              ? 'var(--lime)'
+              ? 'var(--green)'
               : 'transparent',
             cursor: 'pointer',
             display: 'flex',
@@ -422,19 +460,19 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             justifyContent: 'center',
             color: '#000',
             flexShrink: 0,
-            boxShadow: ex.completed ? '0 4px 20px var(--yellow-glow)' : 'none',
+            boxShadow: ex.completed ? '0 2px 8px var(--green-glow)' : 'none',
             transition: 'all 0.2s ease'
           }}
         >
-          {ex.completed && <Check size={20} strokeWidth={3} />}
+          {ex.completed && <Check size={16} strokeWidth={3} />}
         </button>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontWeight: 600,
-            fontSize: '15px',
-            marginBottom: '4px',
-            color: ex.completed ? 'var(--green)' : 'var(--text-primary)'
+            fontSize: ex.completed ? '14px' : '15px',
+            marginBottom: ex.completed ? '0' : '4px',
+            color: ex.completed ? 'var(--text-secondary)' : 'var(--text-primary)'
           }}>
             <span style={{
               color: 'var(--text-muted)',
@@ -445,42 +483,48 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             </span>
             {ex.name}
           </div>
-          <div style={{
-            fontSize: '13px',
-            color: 'var(--blue)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <Zap size={12} />
-            {ex.plannedSets}
-          </div>
-          {ex.notes && (
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--yellow)',
-              marginTop: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <Award size={12} />
-              {ex.notes}
-            </div>
+          {!ex.completed && (
+            <>
+              <div style={{
+                fontSize: '13px',
+                color: 'var(--blue)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Zap size={12} />
+                {ex.plannedSets}
+              </div>
+              {ex.notes && (
+                <div style={{
+                  fontSize: '12px',
+                  color: 'var(--yellow)',
+                  marginTop: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <Award size={12} />
+                  {ex.notes}
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        <div style={{
-          color: 'var(--text-muted)',
-          transition: 'transform 0.2s ease',
-          transform: expanded ? 'rotate(180deg)' : 'rotate(0)'
-        }}>
-          <ChevronDown size={20} />
-        </div>
+        {!ex.completed && (
+          <div style={{
+            color: 'var(--text-muted)',
+            transition: 'transform 0.2s ease',
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0)'
+          }}>
+            <ChevronDown size={20} />
+          </div>
+        )}
       </div>
 
-      {/* Expanded content */}
-      {expanded && (
+      {/* Expanded content - only for incomplete exercises */}
+      {expanded && !ex.completed && (
         <div style={{
           padding: '0 16px 16px',
           borderTop: '1px solid var(--border)',
@@ -509,7 +553,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                   border: '1px solid var(--border)',
                   borderRadius: '10px',
                   padding: '12px 14px',
-                  color: 'var(--green)',
+                  color: 'var(--text-primary)',
                   fontSize: '15px',
                   fontWeight: 600
                 }}
@@ -584,10 +628,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                 style={{
                   flex: 1,
                   padding: '12px',
-                  background: 'var(--green-dim)',
+                  background: 'var(--yellow-dim)',
                   border: '1px solid rgba(255, 232, 4, 0.3)',
                   borderRadius: '10px',
-                  color: 'var(--green)',
+                  color: 'var(--yellow)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: 600,
@@ -883,10 +927,19 @@ function FitnessCalendar({
           const hasWorkout = log?.dayClosed;
           const hasSteps = log?.steps && log.steps > 0 && !hasWorkout;
 
+          // Get completed workout label
+          const completedWorkoutId = log?.workoutCompleted;
+          const completedWorkout = completedWorkoutId
+            ? workouts.find(w => w.id === completedWorkoutId)
+            : null;
+          const workoutLabel = completedWorkout
+            ? completedWorkout.name.replace('Тренировка ', 'T')
+            : null;
+
           // Определяем стиль фона
           const getBackground = () => {
             if (isSelected) return 'var(--yellow)';
-            if (hasWorkout) return 'linear-gradient(135deg, rgba(255, 232, 4, 0.25) 0%, rgba(255, 232, 4, 0.15) 100%)';
+            if (hasWorkout) return 'var(--green-dim)';
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -908,9 +961,9 @@ function FitnessCalendar({
                 aspectRatio: '1',
                 background: getBackground(),
                 border: isToday
-                  ? '2px solid var(--green)'
+                  ? '2px solid var(--yellow)'
                   : hasWorkout && !isSelected
-                    ? '1px solid rgba(255, 232, 4, 0.3)'
+                    ? '1px solid rgba(0, 200, 83, 0.3)'
                     : '1px solid transparent',
                 borderRadius: '10px',
                 cursor: isFuture ? 'default' : 'pointer',
@@ -918,7 +971,7 @@ function FitnessCalendar({
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '2px',
+                gap: '1px',
                 color: getColor(),
                 fontWeight: isToday || isSelected || hasWorkout ? 700 : 500,
                 fontSize: '14px',
@@ -926,14 +979,24 @@ function FitnessCalendar({
                 boxShadow: isSelected
                   ? '0 4px 20px var(--yellow-glow)'
                   : hasWorkout && !isSelected
-                    ? '0 2px 8px rgba(255, 232, 4, 0.15)'
+                    ? '0 2px 8px var(--green-glow)'
                     : 'none',
                 opacity: isFuture ? 0.4 : 1
               }}
             >
               <span>{d.day}</span>
-              {hasWorkout && !isSelected ? (
-                <Check size={12} strokeWidth={3} style={{ color: 'var(--green)' }} />
+              {hasWorkout ? (
+                <span style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  color: isSelected ? '#000' : 'var(--green)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1px'
+                }}>
+                  <Check size={8} strokeWidth={3} />
+                  {workoutLabel}
+                </span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
@@ -967,8 +1030,8 @@ function FitnessCalendar({
             width: '14px',
             height: '14px',
             borderRadius: '4px',
-            background: 'linear-gradient(135deg, rgba(255, 232, 4, 0.25) 0%, rgba(255, 232, 4, 0.15) 100%)',
-            border: '1px solid rgba(255, 232, 4, 0.3)',
+            background: 'var(--green-dim)',
+            border: '1px solid rgba(0, 200, 83, 0.3)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -1019,19 +1082,16 @@ function FitnessCalendar({
   );
 }
 
-// Get workout ID for a given date (T1 for Monday, T2 for Tuesday, etc.)
-function getWorkoutForDate(date: Date): string {
-  const dayOfWeek = date.getDay();
-  // Sunday = 0, Monday = 1, etc. We want Monday = t1, Sunday = t7
-  const workoutIndex = dayOfWeek === 0 ? 7 : dayOfWeek;
-  return `t${workoutIndex}`;
+// Default workout selection - user picks manually, default to T1
+function getDefaultWorkout(): string {
+  return 't1';
 }
 
 export default function FitnessPage() {
   const [view, setView] = useState<'workout' | 'nutrition' | 'calendar'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [workouts, setWorkouts] = useState<Workout[]>(DEFAULT_WORKOUTS);
-  const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getWorkoutForDate(new Date()));
+  const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
   const [showMealModal, setShowMealModal] = useState(false);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
@@ -1046,12 +1106,6 @@ export default function FitnessPage() {
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const dateKey = formatDate(selectedDate);
-
-  // Auto-select workout based on day of week when date changes
-  useEffect(() => {
-    const workoutForDay = getWorkoutForDate(selectedDate);
-    setSelectedWorkout(workoutForDay);
-  }, [selectedDate]);
 
   // Load data from server or localStorage
   useEffect(() => {
@@ -1287,6 +1341,36 @@ export default function FitnessPage() {
       [newExercises[idx], newExercises[swapIdx]] = [newExercises[swapIdx], newExercises[idx]];
       return { ...w, exercises: newExercises };
     }));
+  };
+
+  // Add new workout
+  const addNewWorkout = () => {
+    if (workouts.length >= MAX_WORKOUTS) return;
+    const newWorkoutNum = workouts.length + 1;
+    const newWorkout: Workout = {
+      id: `t${newWorkoutNum}`,
+      name: `Тренировка ${newWorkoutNum}`,
+      exercises: []
+    };
+    setWorkouts(prev => [...prev, newWorkout]);
+    setSelectedWorkout(newWorkout.id);
+    openWorkoutEditor(newWorkout.id);
+  };
+
+  // Delete workout
+  const deleteWorkout = (workoutId: string) => {
+    if (workouts.length <= 1) return; // Keep at least one workout
+    setWorkouts(prev => {
+      const filtered = prev.filter(w => w.id !== workoutId);
+      // Renumber remaining workouts
+      return filtered.map((w, i) => ({
+        ...w,
+        id: `t${i + 1}`,
+        name: `Тренировка ${i + 1}`
+      }));
+    });
+    setShowWorkoutEditor(false);
+    setSelectedWorkout('t1');
   };
 
   const currentWorkout = workouts.find(w => w.id === selectedWorkout) || workouts[0];
@@ -1553,6 +1637,118 @@ export default function FitnessPage() {
               </div>
             )}
 
+            {/* Week View - 7 days with T1-T7 */}
+            <div style={{
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border)',
+              padding: '16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: '6px'
+              }}>
+                {(() => {
+                  const today = new Date();
+                  const todayStr = formatDate(today);
+                  // Get Monday of current week
+                  const dayOfWeek = today.getDay();
+                  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                  const monday = new Date(today);
+                  monday.setDate(today.getDate() + mondayOffset);
+
+                  const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+                  return weekDays.map((dayName, i) => {
+                    const date = new Date(monday);
+                    date.setDate(monday.getDate() + i);
+                    const dateStr = formatDate(date);
+                    const log = dayLogs[dateStr];
+                    const isToday = dateStr === todayStr;
+                    const isSelected = dateStr === dateKey;
+                    const isFuture = dateStr > todayStr;
+                    const isClosed = log?.dayClosed;
+                    // Days beyond active workout count are rest days
+                    const isRestDay = i >= workouts.length;
+
+                    // Show completed workout label (T1, T2, etc.) or dash for rest days
+                    const completedWorkoutId = log?.workoutCompleted;
+                    const completedWorkout = completedWorkoutId
+                      ? workouts.find(w => w.id === completedWorkoutId)
+                      : null;
+                    const workoutLabel = isClosed && completedWorkout
+                      ? completedWorkout.name.replace('Тренировка ', 'T')
+                      : isRestDay ? '—' : '';
+
+                    // Empty day = not closed and not rest day (no workout done yet)
+                    const isEmptyDay = !isClosed && !isRestDay && !isFuture;
+
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedDate(date)}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '10px 4px',
+                          background: isSelected
+                            ? 'var(--yellow)'
+                            : isClosed
+                              ? 'var(--green-dim)'
+                              : 'var(--bg-elevated)',
+                          border: isToday
+                            ? '2px solid var(--yellow)'
+                            : isClosed && !isSelected
+                              ? '1px solid rgba(0, 200, 83, 0.3)'
+                              : '1px solid var(--border)',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.5 : 1,
+                          boxShadow: isSelected
+                            ? '0 4px 20px var(--yellow-glow)'
+                            : isClosed && !isSelected
+                              ? '0 2px 8px var(--green-glow)'
+                              : 'none'
+                        }}
+                      >
+                        <span style={{
+                          fontSize: '10px',
+                          color: isSelected ? '#000' : 'var(--text-muted)',
+                          fontWeight: 600
+                        }}>
+                          {dayName}
+                        </span>
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                        }}>
+                          {date.getDate()}
+                        </span>
+                        {(isClosed || isRestDay) && (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2px'
+                          }}>
+                            {isClosed && <Check size={10} strokeWidth={3} />}
+                            {workoutLabel}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
             {/* Workout selector - hidden when viewing history */}
             {!viewingPastWorkout && (
               <div style={{
@@ -1568,27 +1764,54 @@ export default function FitnessPage() {
                   overflowX: 'auto',
                   paddingBottom: '4px'
                 }}>
-                  {workouts.map(w => (
+                  {workouts.map(w => {
+                    const isEmpty = w.exercises.length === 0;
+                    const isActive = selectedWorkout === w.id;
+                    return (
+                      <button
+                        key={w.id}
+                        onClick={() => setSelectedWorkout(w.id)}
+                        style={{
+                          padding: '12px 20px',
+                          background: isActive
+                            ? 'var(--yellow)'
+                            : 'var(--bg-card)',
+                          border: isActive ? 'none' : '1px solid var(--border)',
+                          borderRadius: '12px',
+                          color: isActive ? '#000' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
+                          fontWeight: isActive ? 700 : 500,
+                          fontSize: '14px',
+                          whiteSpace: 'nowrap',
+                          boxShadow: isActive ? '0 4px 20px var(--yellow-glow)' : 'none',
+                          opacity: isActive ? 1 : isEmpty ? 0.5 : 1
+                        }}
+                      >
+                        {w.name.replace('Тренировка ', 'T')}
+                      </button>
+                    );
+                  })}
+                  {workouts.length < MAX_WORKOUTS && (
                     <button
-                      key={w.id}
-                      onClick={() => setSelectedWorkout(w.id)}
+                      onClick={addNewWorkout}
                       style={{
-                        padding: '12px 20px',
-                        background: selectedWorkout === w.id
-                          ? 'var(--yellow)'
-                          : 'var(--bg-card)',
-                        border: selectedWorkout === w.id ? 'none' : '1px solid var(--border)',
+                        padding: '12px 16px',
+                        background: 'var(--bg-elevated)',
+                        border: '1px dashed var(--border-strong)',
                         borderRadius: '12px',
-                        color: selectedWorkout === w.id ? '#000' : 'var(--text-primary)',
-                        fontWeight: selectedWorkout === w.id ? 700 : 500,
+                        color: 'var(--text-muted)',
+                        fontWeight: 600,
                         fontSize: '14px',
                         whiteSpace: 'nowrap',
-                        boxShadow: selectedWorkout === w.id ? '0 4px 20px var(--yellow-glow)' : 'none'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
                       }}
+                      title="Добавить тренировку"
                     >
-                      {w.name.replace('Тренировка ', 'T')}
+                      <Plus size={16} />
                     </button>
-                  ))}
+                  )}
                 </div>
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
@@ -1611,38 +1834,33 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Progress bar */}
+            {/* Compact Progress bar */}
             <div style={{
-              background: 'var(--bg-card)',
-              padding: '16px',
-              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
               marginBottom: '16px',
+              padding: '10px 14px',
+              background: 'var(--bg-card)',
+              borderRadius: '12px',
               border: '1px solid var(--border)'
             }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '12px'
+              <span style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: progressPercent === 100 ? 'var(--green)' : 'var(--text-secondary)',
+                whiteSpace: 'nowrap'
               }}>
-                <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                  {viewingPastWorkout ? 'Результат тренировки' : 'Прогресс тренировки'}
-                </span>
-                <span style={{
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  color: 'var(--green)'
-                }}>
-                  {viewingPastWorkout
-                    ? `${displayExercises.filter(e => e.completed).length}/${displayExercises.length}`
-                    : `${completedExercises}/${totalExercises}`
-                  }
-                </span>
-              </div>
+                {viewingPastWorkout
+                  ? `${displayExercises.filter(e => e.completed).length}/${displayExercises.length}`
+                  : `${completedExercises}/${totalExercises}`
+                }
+              </span>
               <div style={{
-                height: '8px',
+                flex: 1,
+                height: '4px',
                 background: 'var(--bg-elevated)',
-                borderRadius: '4px',
+                borderRadius: '2px',
                 overflow: 'hidden'
               }}>
                 <div style={{
@@ -1650,42 +1868,89 @@ export default function FitnessPage() {
                     ? `${(displayExercises.filter(e => e.completed).length / displayExercises.length) * 100}%`
                     : `${progressPercent}%`,
                   height: '100%',
-                  background: 'var(--yellow)',
-                  borderRadius: '4px',
-                  transition: 'width 0.3s ease',
-                  boxShadow: (viewingPastWorkout ? displayExercises.filter(e => e.completed).length : progressPercent) > 0 ? '0 0 10px rgba(255, 232, 4, 0.5)' : 'none'
+                  background: progressPercent === 100 ? 'var(--green)' : 'var(--yellow)',
+                  borderRadius: '2px',
+                  transition: 'width 0.3s ease'
                 }} />
               </div>
             </div>
 
             {/* Exercise list */}
-            {displayExercises.map((ex, idx) => {
-              const workoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
-              const exerciseKey = `${workoutId}-${ex.id}`;
-              return (
-                <ExerciseCard
-                  key={ex.id}
-                  ex={ex}
-                  idx={idx}
-                  workoutId={workoutId}
-                  onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
-                  onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
-                  progressHistory={progressHistory[exerciseKey] || []}
-                  onSaveProgress={(weight, notes) => {
-                    if (viewingPastWorkout) return;
-                    const newEntry: ExerciseProgress = {
-                      date: formatDate(selectedDate),
-                      weight,
-                      notes
-                    };
-                    setProgressHistory(prev => ({
-                      ...prev,
-                      [exerciseKey]: [...(prev[exerciseKey] || []), newEntry]
-                    }));
+            {displayExercises.length > 0 ? (
+              displayExercises.map((ex, idx) => {
+                const workoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
+                const exerciseKey = `${workoutId}-${ex.id}`;
+                return (
+                  <ExerciseCard
+                    key={ex.id}
+                    ex={ex}
+                    idx={idx}
+                    workoutId={workoutId}
+                    onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
+                    onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
+                    progressHistory={progressHistory[exerciseKey] || []}
+                    onSaveProgress={(weight, notes) => {
+                      if (viewingPastWorkout) return;
+                      const newEntry: ExerciseProgress = {
+                        date: formatDate(selectedDate),
+                        weight,
+                        notes
+                      };
+                      setProgressHistory(prev => ({
+                        ...prev,
+                        [exerciseKey]: [...(prev[exerciseKey] || []), newEntry]
+                      }));
+                    }}
+                  />
+                );
+              })
+            ) : (
+              <div style={{
+                background: 'var(--bg-card)',
+                borderRadius: '16px',
+                border: '1px solid var(--border)',
+                padding: '40px 20px',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '16px',
+                  background: 'var(--bg-elevated)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px'
+                }}>
+                  <Dumbbell size={28} style={{ color: 'var(--text-muted)' }} />
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+                  День отдыха
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                  Нет запланированных упражнений
+                </div>
+                <button
+                  onClick={() => openWorkoutEditor(currentWorkout.id)}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'var(--yellow)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: '#000',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px'
                   }}
-                />
-              );
-            })}
+                >
+                  <Plus size={18} />
+                  Добавить упражнения
+                </button>
+              </div>
+            )}
 
             {/* Steps input */}
             <div style={{
@@ -1753,8 +2018,8 @@ export default function FitnessPage() {
               </div>
             </div>
 
-            {/* Close day button - hidden when viewing history */}
-            {!viewingPastWorkout && (
+            {/* Close day button - hidden when viewing history or when no exercises */}
+            {!viewingPastWorkout && totalExercises > 0 && (
             <div style={{ marginTop: '16px' }}>
               {(() => {
                 const closedWorkoutId = currentDayLog.workoutCompleted;
@@ -1801,7 +2066,7 @@ export default function FitnessPage() {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
                             btn.style.background = isThisWorkoutClosed
-                              ? 'var(--yellow)'
+                              ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1814,7 +2079,7 @@ export default function FitnessPage() {
                             clearInterval(interval);
                             closeDay(currentWorkout.id, !isThisWorkoutClosed);
                             btn.style.background = !isThisWorkoutClosed
-                              ? 'var(--yellow)'
+                              ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1831,7 +2096,7 @@ export default function FitnessPage() {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
                             btn.style.background = isThisWorkoutClosed
-                              ? 'var(--yellow)'
+                              ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1844,7 +2109,7 @@ export default function FitnessPage() {
                             clearInterval(interval);
                             closeDay(currentWorkout.id, !isThisWorkoutClosed);
                             btn.style.background = !isThisWorkoutClosed
-                              ? 'var(--yellow)'
+                              ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -1856,22 +2121,24 @@ export default function FitnessPage() {
                         width: '100%',
                         padding: '20px',
                         background: isThisWorkoutClosed
-                          ? 'var(--yellow)'
+                          ? 'var(--green)'
                           : readyToClose
                             ? 'var(--green-dim)'
                             : 'var(--bg-card)',
-                        border: `2px solid ${isThisWorkoutClosed || readyToClose ? 'var(--green)' : 'var(--border)'}`,
+                        border: `2px solid ${isThisWorkoutClosed ? 'var(--green)' : readyToClose ? 'var(--yellow)' : 'var(--border)'}`,
                         borderRadius: '16px',
-                        color: isThisWorkoutClosed ? '#000' : readyToClose ? 'var(--green)' : 'var(--text-primary)',
+                        color: isThisWorkoutClosed ? '#000' : readyToClose ? 'var(--yellow)' : 'var(--text-primary)',
                         fontWeight: 700,
                         fontSize: '15px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '10px',
-                        boxShadow: (isThisWorkoutClosed || readyToClose)
-                          ? '0 4px 20px rgba(255, 232, 4, 0.3)'
-                          : 'none'
+                        boxShadow: isThisWorkoutClosed
+                          ? '0 4px 20px var(--green-glow)'
+                          : readyToClose
+                            ? '0 4px 20px var(--yellow-glow)'
+                            : 'none'
                       }}
                       className={readyToClose ? 'animate-glow' : ''}
                     >
@@ -1892,116 +2159,6 @@ export default function FitnessPage() {
               })()}
             </div>
             )}
-
-            {/* Week View - 7 days with T1-T7 */}
-            <div style={{
-              marginTop: '20px',
-              background: 'var(--bg-card)',
-              borderRadius: '16px',
-              border: '1px solid var(--border)',
-              padding: '16px',
-              marginBottom: '16px'
-            }}>
-              <div style={{
-                fontSize: '14px',
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <Calendar size={16} />
-                Неделя
-              </div>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: '6px'
-              }}>
-                {(() => {
-                  const today = new Date();
-                  const todayStr = formatDate(today);
-                  // Get Monday of current week
-                  const dayOfWeek = today.getDay();
-                  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-                  const monday = new Date(today);
-                  monday.setDate(today.getDate() + mondayOffset);
-
-                  const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-
-                  return weekDays.map((dayName, i) => {
-                    const date = new Date(monday);
-                    date.setDate(monday.getDate() + i);
-                    const dateStr = formatDate(date);
-                    const log = dayLogs[dateStr];
-                    const isToday = dateStr === todayStr;
-                    const isSelected = dateStr === dateKey;
-                    const isFuture = dateStr > todayStr;
-                    const isClosed = log?.dayClosed;
-                    const workoutLabel = `T${i + 1}`;
-
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedDate(date)}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '10px 4px',
-                          background: isSelected
-                            ? 'var(--yellow)'
-                            : isClosed
-                              ? 'linear-gradient(135deg, rgba(255, 232, 4, 0.25) 0%, rgba(255, 232, 4, 0.15) 100%)'
-                              : 'var(--bg-elevated)',
-                          border: isToday
-                            ? '2px solid var(--green)'
-                            : isClosed && !isSelected
-                              ? '1px solid rgba(255, 232, 4, 0.3)'
-                              : '1px solid var(--border)',
-                          borderRadius: '10px',
-                          cursor: isFuture ? 'default' : 'pointer',
-                          opacity: isFuture ? 0.4 : 1,
-                          boxShadow: isSelected
-                            ? '0 4px 20px var(--yellow-glow)'
-                            : isClosed && !isSelected
-                              ? '0 2px 8px rgba(255, 232, 4, 0.15)'
-                              : 'none'
-                        }}
-                      >
-                        <span style={{
-                          fontSize: '10px',
-                          color: isSelected ? '#000' : i >= 5 ? 'var(--red)' : 'var(--text-muted)',
-                          fontWeight: 600
-                        }}>
-                          {dayName}
-                        </span>
-                        <span style={{
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-primary)'
-                        }}>
-                          {date.getDate()}
-                        </span>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--blue)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '2px'
-                        }}>
-                          {isClosed && !isSelected && <Check size={10} strokeWidth={3} />}
-                          {workoutLabel}
-                        </span>
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
 
             {/* Mini calendar */}
             <div>
@@ -2324,6 +2481,228 @@ export default function FitnessPage() {
                 ))}
               </div>
             )}
+
+            {/* Meal Timing Recommendations */}
+            <div style={{
+              marginTop: '24px',
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border)',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                padding: '16px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'var(--purple-dim)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Timer size={16} style={{ color: 'var(--purple)' }} />
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>Когда есть</span>
+              </div>
+              <div style={{ padding: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '12px'
+                  }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'var(--yellow-dim)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <span style={{ fontSize: '16px' }}>🌅</span>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>Утро</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Белок + углеводы. Творог, яйца, каша или рисовые хлебцы
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '12px'
+                  }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'var(--green-dim)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <span style={{ fontSize: '16px' }}>💪</span>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>До тренировки (1-2 часа)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Углеводы + немного белка. Рис, картофель, курица
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '12px'
+                  }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'var(--blue-dim)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <span style={{ fontSize: '16px' }}>🏋️</span>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>После тренировки (до 1 часа)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Быстрые углеводы + белок. Whey + банан или рисовые хлебцы
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '12px'
+                  }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'var(--red-dim)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <span style={{ fontSize: '16px' }}>🌙</span>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>Вечер / перед сном</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Белок + жиры, минимум углеводов. Творог, казеин, рыба
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Food Products List */}
+            <div style={{
+              marginTop: '24px',
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border)',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                padding: '16px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'var(--green-dim)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Apple size={16} style={{ color: 'var(--green)' }} />
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>Разрешённые продукты</span>
+              </div>
+              <div style={{ padding: '16px' }}>
+                {Object.entries(FOOD_CATEGORIES).map(([key, cat]) => {
+                  const products = DEFAULT_FOOD_PRODUCTS.filter(p => p.category === key);
+                  if (products.length === 0) return null;
+                  return (
+                    <div key={key} style={{ marginBottom: '16px' }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '10px'
+                      }}>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '2px',
+                          background: cat.color
+                        }} />
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color: cat.color
+                        }}>
+                          {cat.name}
+                        </span>
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '6px'
+                      }}>
+                        {products.map(product => (
+                          <span
+                            key={product.id}
+                            style={{
+                              padding: '6px 10px',
+                              background: cat.bg,
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              color: 'var(--text-primary)',
+                              fontWeight: 500
+                            }}
+                          >
+                            {product.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -2786,7 +3165,10 @@ export default function FitnessPage() {
 
             <div style={{
               padding: '16px',
-              borderTop: '1px solid var(--border)'
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
             }}>
               <button
                 onClick={() => setShowWorkoutEditor(false)}
@@ -2810,6 +3192,33 @@ export default function FitnessPage() {
                 <Check size={18} />
                 Готово
               </button>
+              {workouts.length > 1 && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Удалить "${workouts.find(w => w.id === editingWorkoutId)?.name}"?`)) {
+                      deleteWorkout(editingWorkoutId);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'transparent',
+                    border: '1px solid var(--red)',
+                    borderRadius: '12px',
+                    color: 'var(--red)',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Trash2 size={16} />
+                  Удалить тренировку
+                </button>
+              )}
             </div>
           </div>
         </div>
