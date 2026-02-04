@@ -231,6 +231,7 @@ interface WorkoutSnapshot {
 
 interface DayLog {
   date: string;
+  selectedWorkout: string | null; // Currently selected workout for this day
   workoutCompleted: string | null;
   workoutRating: number | null;
   workoutSnapshot: WorkoutSnapshot | null; // Snapshot of the workout when day was closed
@@ -1183,7 +1184,7 @@ export default function FitnessPage() {
   }, [workouts, dayLogs, progressHistory, isLoaded, syncToServer]);
 
   const currentDayLog = useMemo(() => {
-    return dayLogs[dateKey] || { date: dateKey, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false };
+    return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false };
   }, [dayLogs, dateKey]);
 
   const macroTotals = useMemo(() => {
@@ -1210,6 +1211,23 @@ export default function FitnessPage() {
       [dateKey]: { ...currentDayLog, ...updates }
     }));
   };
+
+  // Select workout and save to dayLog
+  const selectWorkout = (workoutId: string) => {
+    setSelectedWorkout(workoutId);
+    updateDayLog({ selectedWorkout: workoutId });
+  };
+
+  // Restore selected workout when date changes
+  useEffect(() => {
+    if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
+      // If day is closed, show the completed workout
+      setSelectedWorkout(currentDayLog.workoutCompleted);
+    } else if (currentDayLog.selectedWorkout) {
+      // Restore previously selected workout for this day
+      setSelectedWorkout(currentDayLog.selectedWorkout);
+    }
+  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout]);
 
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     setWorkouts(prev => prev.map(w =>
@@ -1353,7 +1371,7 @@ export default function FitnessPage() {
       exercises: []
     };
     setWorkouts(prev => [...prev, newWorkout]);
-    setSelectedWorkout(newWorkout.id);
+    selectWorkout(newWorkout.id);
     openWorkoutEditor(newWorkout.id);
   };
 
@@ -1370,7 +1388,7 @@ export default function FitnessPage() {
       }));
     });
     setShowWorkoutEditor(false);
-    setSelectedWorkout('t1');
+    selectWorkout('t1');
   };
 
   const currentWorkout = workouts.find(w => w.id === selectedWorkout) || workouts[0];
@@ -1770,7 +1788,7 @@ export default function FitnessPage() {
                     return (
                       <button
                         key={w.id}
-                        onClick={() => setSelectedWorkout(w.id)}
+                        onClick={() => selectWorkout(w.id)}
                         style={{
                           padding: '12px 20px',
                           background: isActive
@@ -2018,15 +2036,13 @@ export default function FitnessPage() {
               </div>
             </div>
 
-            {/* Close day button - hidden when viewing history or when no exercises */}
-            {!viewingPastWorkout && totalExercises > 0 && (
-            <div style={{ marginTop: '16px' }}>
+            {/* Close/Open day button */}
+            {(totalExercises > 0 || currentDayLog.dayClosed) && (
+            <div style={{ marginTop: '16px', marginBottom: '20px' }}>
               {(() => {
-                const closedWorkoutId = currentDayLog.workoutCompleted;
-                const closedWorkout = closedWorkoutId ? workouts.find(w => w.id === closedWorkoutId) : null;
-                const isThisWorkoutClosed = currentDayLog.dayClosed && closedWorkoutId === currentWorkout.id;
+                const isDayClosed = currentDayLog.dayClosed;
                 const canCloseDay = completedExercises === totalExercises && currentDayLog.steps && currentDayLog.steps > 0;
-                const readyToClose = canCloseDay && !isThisWorkoutClosed;
+                const readyToClose = canCloseDay && !isDayClosed;
                 const isToday = dateKey === formatDate(new Date());
                 const dateLabel = new Date(dateKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
@@ -2045,7 +2061,7 @@ export default function FitnessPage() {
                         ✨ Всё готово! Закройте день ✨
                       </div>
                     )}
-                    {!canCloseDay && !isThisWorkoutClosed && (
+                    {!canCloseDay && !isDayClosed && (
                       <div style={{
                         textAlign: 'center',
                         marginBottom: '12px',
@@ -2065,7 +2081,7 @@ export default function FitnessPage() {
                         const interval = setInterval(() => {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
-                            btn.style.background = isThisWorkoutClosed
+                            btn.style.background = isDayClosed
                               ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
@@ -2077,8 +2093,13 @@ export default function FitnessPage() {
                           btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${readyToClose ? 'var(--green-dim)' : 'var(--bg-card)'} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
-                            closeDay(currentWorkout.id, !isThisWorkoutClosed);
-                            btn.style.background = !isThisWorkoutClosed
+                            // Only allow closing if canCloseDay, or opening if already closed
+                            if (isDayClosed) {
+                              closeDay(currentDayLog.workoutCompleted!, false);
+                            } else if (canCloseDay) {
+                              closeDay(currentWorkout.id, true);
+                            }
+                            btn.style.background = !isDayClosed
                               ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
@@ -2095,7 +2116,7 @@ export default function FitnessPage() {
                         const interval = setInterval(() => {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
-                            btn.style.background = isThisWorkoutClosed
+                            btn.style.background = isDayClosed
                               ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
@@ -2107,8 +2128,13 @@ export default function FitnessPage() {
                           btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${readyToClose ? 'var(--green-dim)' : 'var(--bg-card)'} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
-                            closeDay(currentWorkout.id, !isThisWorkoutClosed);
-                            btn.style.background = !isThisWorkoutClosed
+                            // Only allow closing if canCloseDay, or opening if already closed
+                            if (isDayClosed) {
+                              closeDay(currentDayLog.workoutCompleted!, false);
+                            } else if (canCloseDay) {
+                              closeDay(currentWorkout.id, true);
+                            }
+                            btn.style.background = !isDayClosed
                               ? 'var(--green)'
                               : readyToClose
                                 ? 'var(--green-dim)'
@@ -2120,21 +2146,21 @@ export default function FitnessPage() {
                       style={{
                         width: '100%',
                         padding: '20px',
-                        background: isThisWorkoutClosed
+                        background: isDayClosed
                           ? 'var(--green)'
                           : readyToClose
                             ? 'var(--green-dim)'
                             : 'var(--bg-card)',
-                        border: `2px solid ${isThisWorkoutClosed ? 'var(--green)' : readyToClose ? 'var(--yellow)' : 'var(--border)'}`,
+                        border: `2px solid ${isDayClosed ? 'var(--green)' : readyToClose ? 'var(--yellow)' : 'var(--border)'}`,
                         borderRadius: '16px',
-                        color: isThisWorkoutClosed ? '#000' : readyToClose ? 'var(--yellow)' : 'var(--text-primary)',
+                        color: isDayClosed ? '#000' : readyToClose ? 'var(--yellow)' : 'var(--text-primary)',
                         fontWeight: 700,
                         fontSize: '15px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '10px',
-                        boxShadow: isThisWorkoutClosed
+                        boxShadow: isDayClosed
                           ? '0 4px 20px var(--green-glow)'
                           : readyToClose
                             ? '0 4px 20px var(--yellow-glow)'
@@ -2142,15 +2168,18 @@ export default function FitnessPage() {
                       }}
                       className={readyToClose ? 'animate-glow' : ''}
                     >
-                      {isThisWorkoutClosed ? (
+                      {isDayClosed ? (
                         <>
                           <Check size={22} />
-                          День закрыт ({closedWorkout?.name.replace('Тренировка ', 'T') || currentWorkout.name.replace('Тренировка ', 'T')})
+                          Удерживайте чтобы открыть день
                         </>
                       ) : (
                         <>
                           {readyToClose && <Check size={20} />}
-                          {isToday ? 'Удерживайте чтобы закрыть день' : `Закрыть ${dateLabel}`}
+                          {canCloseDay
+                            ? (isToday ? 'Удерживайте чтобы закрыть день' : `Закрыть ${dateLabel}`)
+                            : 'Выполните все упражнения и добавьте шаги'
+                          }
                         </>
                       )}
                     </button>
