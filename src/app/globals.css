@@ -1,47 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  /* Dark fitness theme - Golden/Amber style */
-  --bg-primary: #000000;
-  --bg-secondary: #0a0a0a;
-  --bg-card: #1a1a1a;
-  --bg-elevated: #262626;
+  /* DODO-style Dark Theme */
+  --bg-primary: #0d0d0f;
+  --bg-secondary: #121214;
+  --bg-card: #1a1a1f;
+  --bg-elevated: #222228;
+  --bg-input: #2a2a32;
 
-  /* Primary accent - Golden Yellow (like the Myra Webb card) */
-  --gold: #f5c842;
-  --gold-dim: rgba(245, 200, 66, 0.15);
-  --gold-glow: rgba(245, 200, 66, 0.4);
+  /* Primary accent - DODO Yellow */
+  --yellow: #ffe804;
+  --yellow-dim: rgba(255, 232, 4, 0.12);
+  --yellow-glow: rgba(255, 232, 4, 0.35);
 
-  /* Keep green/lime for compatibility but use gold */
-  --lime: #f5c842;
-  --lime-dim: rgba(245, 200, 66, 0.15);
-  --lime-glow: rgba(245, 200, 66, 0.4);
-  --green: #f5c842;
-  --green-dim: rgba(245, 200, 66, 0.15);
-  --green-glow: rgba(245, 200, 66, 0.4);
+  /* Aliases for compatibility */
+  --gold: #ffe804;
+  --gold-dim: rgba(255, 232, 4, 0.12);
+  --gold-glow: rgba(255, 232, 4, 0.35);
+  --lime: #ffe804;
+  --lime-dim: rgba(255, 232, 4, 0.12);
+  --lime-glow: rgba(255, 232, 4, 0.35);
+  --green: #ffe804;
+  --green-dim: rgba(255, 232, 4, 0.12);
+  --green-glow: rgba(255, 232, 4, 0.35);
 
   /* Secondary accents */
   --cyan: #00d4aa;
   --cyan-dim: rgba(0, 212, 170, 0.15);
-  --blue: #00b4d8;
-  --blue-dim: rgba(0, 180, 216, 0.15);
-  --yellow: #f5c842;
-  --yellow-dim: rgba(245, 200, 66, 0.15);
-  --red: #ff6b6b;
-  --red-dim: rgba(255, 107, 107, 0.15);
+  --blue: #4da6ff;
+  --blue-dim: rgba(77, 166, 255, 0.12);
+  --red: #ff4d6a;
+  --red-dim: rgba(255, 77, 106, 0.12);
   --purple: #a855f7;
-  --purple-dim: rgba(168, 85, 247, 0.15);
+  --purple-dim: rgba(168, 85, 247, 0.12);
   --orange: #ff9f43;
-  --orange-dim: rgba(255, 159, 67, 0.15);
+  --orange-dim: rgba(255, 159, 67, 0.12);
+
+  /* Candlestick colors */
+  --candle-green: #00c853;
+  --candle-red: #ff5252;
 
   /* Text colors */
   --text-primary: #ffffff;
-  --text-secondary: #b3b3b3;
-  --text-muted: #666666;
+  --text-secondary: #a0a0a8;
+  --text-muted: #606068;
 
   /* Border colors */
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
 }
 
 * {
@@ -66,8 +72,8 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -76,19 +82,19 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
-/* Input styles */
+/* Input styles - DODO style */
 input, textarea, select {
-  background: var(--bg-elevated);
+  background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: 14px 16px;
   color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s ease;
@@ -96,8 +102,8 @@ input, textarea, select {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-dim);
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 2px var(--yellow-dim);
 }
 
 input::placeholder, textarea::placeholder {
@@ -161,8 +167,8 @@ button:disabled {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px var(--gold-dim); }
-  50% { box-shadow: 0 0 40px var(--gold-glow); }
+  0%, 100% { box-shadow: 0 0 20px var(--yellow-dim); }
+  50% { box-shadow: 0 0 40px var(--yellow-glow); }
 }
 
 .animate-pulse {
@@ -175,7 +181,7 @@ button:disabled {
 
 /* Utility classes */
 .glass {
-  background: rgba(26, 26, 31, 0.8);
+  background: rgba(26, 26, 31, 0.9);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -192,7 +198,7 @@ button:disabled {
   inset: 0;
   border-radius: 16px;
   padding: 1px;
-  background: linear-gradient(135deg, var(--gold), var(--orange), var(--red));
+  background: linear-gradient(135deg, var(--yellow), var(--orange), var(--red));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -204,7 +210,7 @@ button:disabled {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -246,7 +252,24 @@ button:disabled {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* DODO-style yellow button */
+.btn-primary {
+  background: var(--yellow);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 24px;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 20px var(--yellow-glow);
 }
 
 /* Mobile responsive */
