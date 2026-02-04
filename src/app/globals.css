@@ -1,29 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  /* Dark fitness theme - Fitbit style */
+  /* Dark fitness theme - Golden/Amber style */
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
   --bg-card: #1a1a1a;
   --bg-elevated: #262626;
 
-  /* Primary accent - Lime/Yellow-Green */
-  --lime: #c8e600;
-  --lime-dim: rgba(200, 230, 0, 0.15);
-  --lime-glow: rgba(200, 230, 0, 0.4);
+  /* Primary accent - Golden Yellow (like the Myra Webb card) */
+  --gold: #f5c842;
+  --gold-dim: rgba(245, 200, 66, 0.15);
+  --gold-glow: rgba(245, 200, 66, 0.4);
 
-  /* Keep green for compatibility but make it lime */
-  --green: #c8e600;
-  --green-dim: rgba(200, 230, 0, 0.15);
-  --green-glow: rgba(200, 230, 0, 0.4);
+  /* Keep green/lime for compatibility but use gold */
+  --lime: #f5c842;
+  --lime-dim: rgba(245, 200, 66, 0.15);
+  --lime-glow: rgba(245, 200, 66, 0.4);
+  --green: #f5c842;
+  --green-dim: rgba(245, 200, 66, 0.15);
+  --green-glow: rgba(245, 200, 66, 0.4);
 
   /* Secondary accents */
   --cyan: #00d4aa;
   --cyan-dim: rgba(0, 212, 170, 0.15);
   --blue: #00b4d8;
   --blue-dim: rgba(0, 180, 216, 0.15);
-  --yellow: #fbbf24;
-  --yellow-dim: rgba(251, 191, 36, 0.15);
+  --yellow: #f5c842;
+  --yellow-dim: rgba(245, 200, 66, 0.15);
   --red: #ff6b6b;
   --red-dim: rgba(255, 107, 107, 0.15);
   --purple: #a855f7;
@@ -93,8 +96,8 @@ input, textarea, select {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--lime);
-  box-shadow: 0 0 0 3px var(--lime-dim);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-dim);
 }
 
 input::placeholder, textarea::placeholder {
@@ -158,8 +161,8 @@ button:disabled {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px var(--lime-dim); }
-  50% { box-shadow: 0 0 40px var(--lime-glow); }
+  0%, 100% { box-shadow: 0 0 20px var(--gold-dim); }
+  50% { box-shadow: 0 0 40px var(--gold-glow); }
 }
 
 .animate-pulse {
@@ -189,7 +192,7 @@ button:disabled {
   inset: 0;
   border-radius: 16px;
   padding: 1px;
-  background: linear-gradient(135deg, var(--lime), var(--cyan), var(--blue));
+  background: linear-gradient(135deg, var(--gold), var(--orange), var(--red));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
