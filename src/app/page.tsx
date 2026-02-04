@@ -5,8 +5,194 @@ import {
   Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check,
   Flame, Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
-  Zap, Award, Timer
+  Zap, Award, Timer, Play, Pause, RotateCcw
 } from 'lucide-react';
+
+// Parse rest time string like "2-3 мин" or "3 мин" to seconds
+function parseRestTime(restTime: string): number {
+  const match = restTime.match(/(\d+)(?:-(\d+))?\s*мин/);
+  if (match) {
+    const min = parseInt(match[1]);
+    const max = match[2] ? parseInt(match[2]) : min;
+    // Use the middle value for range, or exact value
+    return Math.round((min + max) / 2) * 60;
+  }
+  return 120; // Default 2 minutes
+}
+
+// Format seconds to MM:SS
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Rest Timer Component
+function RestTimer({ restTime }: { restTime: string }) {
+  const totalSeconds = parseRestTime(restTime);
+  const [timeLeft, setTimeLeft] = useState(totalSeconds);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Play beep sound
+  const playBeep = useCallback(() => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+
+      // Play 3 beeps
+      [0, 200, 400].forEach((delay) => {
+        setTimeout(() => {
+          const oscillator = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          oscillator.frequency.value = 880; // A5 note
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+          oscillator.start(ctx.currentTime);
+          oscillator.stop(ctx.currentTime + 0.15);
+        }, delay);
+      });
+    } catch (e) {
+      console.log('Audio not supported');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isRunning && timeLeft > 0) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setIsRunning(false);
+            setIsFinished(true);
+            playBeep();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isRunning, timeLeft, playBeep]);
+
+  const toggleTimer = () => {
+    if (isFinished) {
+      // Reset
+      setTimeLeft(totalSeconds);
+      setIsFinished(false);
+      setIsRunning(true);
+    } else {
+      setIsRunning(!isRunning);
+    }
+  };
+
+  const resetTimer = () => {
+    setTimeLeft(totalSeconds);
+    setIsRunning(false);
+    setIsFinished(false);
+  };
+
+  const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      marginTop: '8px'
+    }}>
+      <button
+        onClick={toggleTimer}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          padding: '10px 14px',
+          background: isFinished
+            ? 'linear-gradient(135deg, var(--green) 0%, #16a34a 100%)'
+            : isRunning
+              ? 'var(--red-dim)'
+              : 'var(--blue-dim)',
+          border: `1px solid ${isFinished ? 'var(--green)' : isRunning ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+          borderRadius: '10px',
+          color: isFinished ? '#000' : isRunning ? 'var(--red)' : 'var(--blue)',
+          cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: 700,
+          minWidth: '100px',
+          boxShadow: isFinished ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none',
+          animation: isFinished ? 'pulse 1s infinite' : 'none'
+        }}
+      >
+        {isFinished ? (
+          <>
+            <RotateCcw size={16} />
+            СТАРТ!
+          </>
+        ) : isRunning ? (
+          <>
+            <Pause size={16} />
+            {formatTime(timeLeft)}
+          </>
+        ) : (
+          <>
+            <Play size={16} />
+            {timeLeft === totalSeconds ? restTime : formatTime(timeLeft)}
+          </>
+        )}
+      </button>
+
+      {(isRunning || timeLeft < totalSeconds) && !isFinished && (
+        <button
+          onClick={resetTimer}
+          style={{
+            padding: '10px',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            borderRadius: '10px',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <RotateCcw size={16} />
+        </button>
+      )}
+
+      {isRunning && (
+        <div style={{
+          flex: 1,
+          height: '6px',
+          background: 'var(--bg-elevated)',
+          borderRadius: '3px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${progress}%`,
+            height: '100%',
+            background: timeLeft < 10 ? 'var(--red)' : 'var(--blue)',
+            borderRadius: '3px',
+            transition: 'width 1s linear'
+          }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Types
 interface Exercise {
@@ -325,6 +511,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
               <Timer size={12} />
               Отдых: {ex.restTime}
             </label>
+            <RestTimer restTime={ex.restTime} />
             <input
               type="text"
               value={ex.feedback}
@@ -337,7 +524,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                 borderRadius: '10px',
                 padding: '12px 14px',
                 color: 'var(--text-primary)',
-                fontSize: '14px'
+                fontSize: '14px',
+                marginTop: '12px'
               }}
             />
           </div>
