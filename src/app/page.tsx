@@ -419,12 +419,31 @@ function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-function getDateLabel(date: Date): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const diff = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+// Get current date in specified timezone
+function getTodayInTimezone(timezone: string): Date {
+  const now = new Date();
+  // Get the date string in the target timezone
+  const dateStr = now.toLocaleDateString('en-CA', { timeZone: timezone }); // en-CA gives YYYY-MM-DD format
+  // Parse as local date (midnight)
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// Format date in specific timezone for display
+function formatDateInTimezone(date: Date, timezone: string): string {
+  return date.toLocaleDateString('en-CA', { timeZone: timezone });
+}
+
+function getDateLabel(date: Date, timezone: string = 'Europe/Moscow'): string {
+  const today = getTodayInTimezone(timezone);
+  const dateStr = formatDate(date);
+  const todayStr = formatDate(today);
+
+  // Calculate difference in days
+  const dateTime = new Date(dateStr).getTime();
+  const todayTime = new Date(todayStr).getTime();
+  const diff = Math.floor((todayTime - dateTime) / (1000 * 60 * 60 * 24));
+
   if (diff === 0) return 'Сегодня';
   if (diff === 1) return 'Вчера';
   if (diff === -1) return 'Завтра';
@@ -824,14 +843,16 @@ function FitnessCalendar({
   dayLogs,
   selectedDate,
   onSelectDate,
-  workouts
+  workouts,
+  timezone = 'Europe/Moscow'
 }: {
   dayLogs: Record<string, DayLog>;
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   workouts: Workout[];
+  timezone?: string;
 }) {
-  const [currentMonth, setCurrentMonth] = useState(() => new Date());
+  const [currentMonth, setCurrentMonth] = useState(() => getTodayInTimezone(timezone));
 
   const monthDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -857,7 +878,7 @@ function FitnessCalendar({
     return days;
   }, [currentMonth]);
 
-  const today = formatDate(new Date());
+  const today = formatDate(getTodayInTimezone(timezone));
   const selectedDateStr = formatDate(selectedDate);
 
   // Stats for the month
@@ -1262,6 +1283,24 @@ export default function FitnessPage() {
     };
     loadData();
   }, []);
+
+  // Update selectedDate when timezone changes or on initial load
+  useEffect(() => {
+    if (isLoaded) {
+      const todayInTz = getTodayInTimezone(userSettings.timezone);
+      const currentDateKey = formatDate(selectedDate);
+      const todayKey = formatDate(todayInTz);
+      // Only update if we're on "today" in a different timezone
+      if (currentDateKey !== todayKey) {
+        // Check if we should auto-update (only on initial load or if date was "today")
+        const now = new Date();
+        const localToday = formatDate(now);
+        if (currentDateKey === localToday) {
+          setSelectedDate(todayInTz);
+        }
+      }
+    }
+  }, [userSettings.timezone, isLoaded]);
 
   // Sync to server with debounce
   const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[]) => {
@@ -1673,7 +1712,7 @@ export default function FitnessPage() {
               textAlign: 'center',
               fontSize: '13px'
             }}>
-              {getDateLabel(selectedDate)}
+              {getDateLabel(selectedDate, userSettings.timezone)}
             </span>
             <button
               onClick={() => navigateDate(1)}
@@ -1928,7 +1967,7 @@ export default function FitnessPage() {
                 gap: '4px'
               }}>
                 {(() => {
-                  const today = new Date();
+                  const today = getTodayInTimezone(userSettings.timezone);
                   const todayStr = formatDate(today);
                   // Get Monday of current week
                   const dayOfWeek = today.getDay();
@@ -2567,6 +2606,7 @@ export default function FitnessPage() {
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
                 workouts={workouts}
+                timezone={userSettings.timezone}
               />
             </div>
           </div>
@@ -3070,6 +3110,7 @@ export default function FitnessPage() {
                   localStorage.setItem('fitness_view', 'workout');
                 }}
                 workouts={workouts}
+                timezone={userSettings.timezone}
               />
 
               {/* Favorite Meals */}
