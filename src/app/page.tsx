@@ -1697,17 +1697,18 @@ export default function FitnessPage() {
               position: 'relative',
               overflow: 'hidden'
             }}>
-              {/* Custom F logo with rising bar */}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                {/* Rising progress bar */}
-                <rect x="4" y="6" width="4" height="14" rx="1.5" fill="#000" opacity="0.3" />
-                <rect x="4" y="12" width="4" height="8" rx="1.5" fill="#000" />
-                {/* F letter */}
-                <path d="M11 5H20V8H14V10.5H19V13.5H14V19H11V5Z" fill="#000" />
+              {/* Trainx logo - T with dynamic X */}
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                {/* T letter */}
+                <rect x="4" y="4" width="12" height="3.5" rx="1" fill="#000" />
+                <rect x="8.25" y="4" width="3.5" height="18" rx="1" fill="#000" />
+                {/* X accent */}
+                <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+                <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
             <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Fitness</h1>
+              <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Trainx</h1>
               <div style={{
                 fontSize: '12px',
                 color: 'var(--text-muted)',
