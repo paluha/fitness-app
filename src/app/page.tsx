@@ -372,6 +372,13 @@ const translations = {
     // Calendar
     weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
     months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+
+    // Additional
+    reopenDay: 'Открыть день',
+    russian: 'Русский',
+    english: 'English',
+    measurementNotes: 'Заметки',
+    measurementNotesPlaceholder: 'Как себя чувствуешь?',
   },
   en: {
     // Navigation
@@ -467,6 +474,13 @@ const translations = {
     // Calendar
     weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
     months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+
+    // Additional
+    reopenDay: 'Reopen Day',
+    russian: 'Русский',
+    english: 'English',
+    measurementNotes: 'Notes',
+    measurementNotesPlaceholder: 'How do you feel?',
   }
 } as const;
 
@@ -2891,7 +2905,7 @@ export default function FitnessPage() {
                       {isDayClosed ? (
                         <>
                           <Check size={22} />
-                          {userSettings.language === 'ru' ? 'Открыть день' : 'Reopen Day'}
+                          {t('reopenDay')}
                         </>
                       ) : (
                         <>
@@ -3406,7 +3420,7 @@ export default function FitnessPage() {
             <div style={{ marginBottom: '20px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BarChart3 size={20} />
-                {userSettings.language === 'ru' ? 'Статистика' : 'Statistics'}
+                {t('statistics')}
               </h2>
 
               {/* Calendar mini */}
@@ -3426,7 +3440,7 @@ export default function FitnessPage() {
               <div style={{ marginTop: '20px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--red)' }}>
                   <Heart size={16} />
-                  {userSettings.language === 'ru' ? 'Любимые блюда' : 'Favorite Meals'}
+                  {t('favoriteMeals')}
                 </h3>
                 {(() => {
                   const favMeals: Meal[] = [];
@@ -3440,7 +3454,7 @@ export default function FitnessPage() {
                   if (favMeals.length === 0) {
                     return (
                       <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                        {userSettings.language === 'ru' ? 'Нажмите ❤️ на блюде чтобы добавить в избранное' : 'Tap ❤️ on a meal to add to favorites'}
+                        {t('favoriteMealsHint')}
                       </div>
                     );
                   }
@@ -3479,7 +3493,7 @@ export default function FitnessPage() {
                 GAINS
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                {userSettings.language === 'ru' ? 'Отслеживай свой прогресс' : 'Track your progress'}
+                {t('trackProgress')}
               </p>
 
               {/* Add Measurement Button */}
@@ -3503,7 +3517,7 @@ export default function FitnessPage() {
                 }}
               >
                 <Plus size={18} />
-                {userSettings.language === 'ru' ? 'Добавить замеры' : 'Add Measurements'}
+                {t('addMeasurements')}
               </button>
 
               {/* Measurements List */}
@@ -3518,10 +3532,10 @@ export default function FitnessPage() {
                 }}>
                   <Ruler size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
                   <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                    {userSettings.language === 'ru' ? 'Пока нет замеров' : 'No measurements yet'}
+                    {t('noMeasurements')}
                   </div>
                   <div style={{ fontSize: '12px' }}>
-                    {userSettings.language === 'ru' ? 'Добавь первый замер!' : 'Add your first measurement!'}
+                    {t('addFirst')}
                   </div>
                 </div>
               ) : (
@@ -3558,31 +3572,31 @@ export default function FitnessPage() {
                         {m.waist && (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--blue)' }}>{m.waist}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'талия' : 'waist'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('waist')}</div>
                           </div>
                         )}
                         {m.chest && (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)' }}>{m.chest}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'грудь' : 'chest'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('chest')}</div>
                           </div>
                         )}
                         {m.biceps && (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.biceps}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'бицепс' : 'biceps'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('biceps')}</div>
                           </div>
                         )}
                         {m.thighs && (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--orange)' }}>{m.thighs}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'бедра' : 'thighs'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('thighs')}</div>
                           </div>
                         )}
                         {m.hips && (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--cyan)' }}>{m.hips}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'ягодицы' : 'hips'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('hips')}</div>
                           </div>
                         )}
                       </div>
@@ -3605,7 +3619,7 @@ export default function FitnessPage() {
             <div style={{ marginBottom: '20px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <User size={20} />
-                {userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
+                {t('profile')}
               </h2>
 
               {/* Avatar */}
@@ -3657,10 +3671,10 @@ export default function FitnessPage() {
                     <Languages size={20} style={{ color: 'var(--blue)' }} />
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {userSettings.language === 'ru' ? 'Язык' : 'Language'}
+                        {t('language')}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {userSettings.language === 'ru' ? 'Русский' : 'English'}
+                        {userSettings.language === 'ru' ? t('russian') : t('english')}
                       </div>
                     </div>
                   </div>
@@ -3726,7 +3740,7 @@ export default function FitnessPage() {
                     <Globe size={20} style={{ color: 'var(--green)' }} />
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {userSettings.language === 'ru' ? 'Часовой пояс' : 'Timezone'}
+                        {t('timezone')}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                         {userSettings.timezone}
@@ -3767,7 +3781,7 @@ export default function FitnessPage() {
                 {/* Logout */}
                 <button
                   onClick={() => {
-                    if (confirm(userSettings.language === 'ru' ? 'Выйти из аккаунта?' : 'Sign out?')) {
+                    if (confirm(t('signOutConfirm') as string)) {
                       localStorage.clear();
                       window.location.reload();
                     }
@@ -3786,7 +3800,7 @@ export default function FitnessPage() {
                 >
                   <LogOut size={20} />
                   <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                    {userSettings.language === 'ru' ? 'Выйти' : 'Sign Out'}
+                    {t('signOut')}
                   </span>
                 </button>
               </div>
@@ -3810,7 +3824,7 @@ export default function FitnessPage() {
               marginBottom: '24px'
             }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700 }}>
-                {userSettings.language === 'ru' ? 'Новые замеры' : 'New Measurements'}
+                {t('newMeasurements')}
               </h3>
               <button
                 onClick={() => setShowMeasurementModal(false)}
@@ -3847,7 +3861,7 @@ export default function FitnessPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {userSettings.language === 'ru' ? 'Вес (кг)' : 'Weight (kg)'}
+                    {t('weight')}
                   </label>
                   <input
                     type="number"
@@ -3867,7 +3881,7 @@ export default function FitnessPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {userSettings.language === 'ru' ? 'Талия (см)' : 'Waist (cm)'}
+                    {t('waistCm')}
                   </label>
                   <input
                     type="number"
@@ -3887,7 +3901,7 @@ export default function FitnessPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {userSettings.language === 'ru' ? 'Грудь (см)' : 'Chest (cm)'}
+                    {t('chestCm')}
                   </label>
                   <input
                     type="number"
@@ -3907,7 +3921,7 @@ export default function FitnessPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {userSettings.language === 'ru' ? 'Бицепс (см)' : 'Biceps (cm)'}
+                    {t('bicepsCm')}
                   </label>
                   <input
                     type="number"
@@ -3927,7 +3941,7 @@ export default function FitnessPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {userSettings.language === 'ru' ? 'Бедра (см)' : 'Thighs (cm)'}
+                    {t('thighsCm')}
                   </label>
                   <input
                     type="number"
@@ -3947,7 +3961,7 @@ export default function FitnessPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {userSettings.language === 'ru' ? 'Ягодицы (см)' : 'Hips (cm)'}
+                    {t('hipsCm')}
                   </label>
                   <input
                     type="number"
@@ -3968,12 +3982,12 @@ export default function FitnessPage() {
               </div>
               <div style={{ marginTop: '12px' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                  {userSettings.language === 'ru' ? 'Заметки' : 'Notes'}
+                  {t('measurementNotes')}
                 </label>
                 <input
                   type="text"
                   name="notes"
-                  placeholder={userSettings.language === 'ru' ? 'Как себя чувствуешь?' : 'How do you feel?'}
+                  placeholder={t('measurementNotesPlaceholder') as string}
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -4000,7 +4014,7 @@ export default function FitnessPage() {
                   cursor: 'pointer'
                 }}
               >
-                {userSettings.language === 'ru' ? 'Сохранить' : 'Save'}
+                {t('save')}
               </button>
             </form>
           </div>
