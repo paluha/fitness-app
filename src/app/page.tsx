@@ -1447,6 +1447,7 @@ export default function FitnessPage() {
   const [showMealModal, setShowMealModal] = useState(false);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [mealForm, setMealForm] = useState({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+  const [showMealSuggestions, setShowMealSuggestions] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
   const [progressHistory, setProgressHistory] = useState<ProgressHistory>({});
@@ -1646,6 +1647,29 @@ export default function FitnessPage() {
       updateDayLog({ selectedWorkout: nextWorkout });
     }
   }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout, currentDayLog.isOffDay, getNextAvailableWorkout]);
+
+  // Get unique meals from all days for autocomplete
+  const uniqueMeals = useMemo(() => {
+    const mealsMap = new Map<string, Meal>();
+    Object.values(dayLogs).forEach(log => {
+      log.meals?.forEach(meal => {
+        const key = meal.name.toLowerCase();
+        if (!mealsMap.has(key)) {
+          mealsMap.set(key, meal);
+        }
+      });
+    });
+    return Array.from(mealsMap.values());
+  }, [dayLogs]);
+
+  // Filter meal suggestions based on input
+  const mealSuggestions = useMemo(() => {
+    if (!mealForm.name || mealForm.name.length < 2) return [];
+    const search = mealForm.name.toLowerCase();
+    return uniqueMeals
+      .filter(m => m.name.toLowerCase().includes(search) && m.name.toLowerCase() !== search)
+      .slice(0, 5);
+  }, [mealForm.name, uniqueMeals]);
 
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     setWorkouts(prev => prev.map(w =>
@@ -4036,7 +4060,7 @@ export default function FitnessPage() {
               marginBottom: '24px'
             }}>
               <div style={{ fontSize: '20px', fontWeight: 700 }}>
-                {editingMeal ? 'Редактировать' : 'Добавить приём пищи'}
+                {editingMeal ? t('editMealTitle') : t('addMealTitle')}
               </div>
               <button
                 onClick={() => setShowMealModal(false)}
@@ -4063,7 +4087,7 @@ export default function FitnessPage() {
                       display: 'block',
                       fontWeight: 500
                     }}>
-                      Время
+                      {t('time')}
                     </label>
                     <input
                       type="time"
@@ -4072,7 +4096,7 @@ export default function FitnessPage() {
                       style={{ width: '100%' }}
                     />
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
                     <label style={{
                       fontSize: '12px',
                       color: 'var(--text-muted)',
@@ -4080,15 +4104,73 @@ export default function FitnessPage() {
                       display: 'block',
                       fontWeight: 500
                     }}>
-                      Название
+                      {t('mealName')}
                     </label>
                     <input
                       type="text"
-                      placeholder="Творог с вареньем"
+                      placeholder={t('mealPlaceholder') as string}
                       value={mealForm.name}
-                      onChange={e => setMealForm({ ...mealForm, name: e.target.value })}
+                      onChange={e => {
+                        setMealForm({ ...mealForm, name: e.target.value });
+                        setShowMealSuggestions(true);
+                      }}
+                      onFocus={() => setShowMealSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowMealSuggestions(false), 200)}
                       style={{ width: '100%' }}
                     />
+                    {/* Meal suggestions dropdown */}
+                    {showMealSuggestions && mealSuggestions.length > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        marginTop: '4px',
+                        overflow: 'hidden',
+                        zIndex: 100,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                      }}>
+                        {mealSuggestions.map((meal, idx) => (
+                          <button
+                            key={meal.id}
+                            type="button"
+                            onClick={() => {
+                              setMealForm({
+                                ...mealForm,
+                                name: meal.name,
+                                protein: meal.protein.toString(),
+                                fat: meal.fat.toString(),
+                                carbs: meal.carbs.toString(),
+                                calories: meal.calories.toString()
+                              });
+                              setShowMealSuggestions(false);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '12px 14px',
+                              background: 'transparent',
+                              border: 'none',
+                              borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                              color: 'var(--text-primary)',
+                              fontSize: '14px',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <span>{meal.name}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              {meal.protein}{t('protein')} {meal.fat}{t('fat')} {meal.carbs}{t('carbs')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4102,7 +4184,7 @@ export default function FitnessPage() {
                     display: 'block',
                     fontWeight: 600
                   }}>
-                    Белок
+                    {t('protein')}
                   </label>
                   <input
                     type="number"
@@ -4120,7 +4202,7 @@ export default function FitnessPage() {
                     display: 'block',
                     fontWeight: 600
                   }}>
-                    Жиры
+                    {t('fat')}
                   </label>
                   <input
                     type="number"
@@ -4138,7 +4220,7 @@ export default function FitnessPage() {
                     display: 'block',
                     fontWeight: 600
                   }}>
-                    Углев
+                    {t('carbs')}
                   </label>
                   <input
                     type="number"
@@ -4156,7 +4238,7 @@ export default function FitnessPage() {
                     display: 'block',
                     fontWeight: 600
                   }}>
-                    Ккал
+                    {t('kcal')}
                   </label>
                   <input
                     type="number"
@@ -4183,7 +4265,7 @@ export default function FitnessPage() {
                   fontWeight: 500
                 }}
               >
-                Отмена
+                {t('cancel')}
               </button>
               <button
                 onClick={addMeal}
@@ -4205,7 +4287,7 @@ export default function FitnessPage() {
                 }}
               >
                 <Save size={18} />
-                {editingMeal ? 'Сохранить' : 'Добавить'}
+                {editingMeal ? t('save') : t('add')}
               </button>
             </div>
           </div>
