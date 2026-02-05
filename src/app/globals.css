@@ -101,9 +101,15 @@ input, textarea, select {
   border-radius: 12px;
   padding: 14px 16px;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 16px; /* 16px prevents iOS zoom on focus */
   transition: all 0.2s ease;
   outline: none;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  max-width: 100%;
+  min-width: 0;
 }
 
 input:focus, textarea:focus, select:focus {
@@ -430,5 +436,17 @@ button:disabled {
 @media (max-width: 640px) {
   input, textarea, select {
     font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* iOS Safari fixes */
+@supports (-webkit-touch-callout: none) {
+  input[type="time"],
+  input[type="date"] {
+    min-height: 44px;
+  }
+
+  input, textarea, select {
+    -webkit-appearance: none;
   }
 }
