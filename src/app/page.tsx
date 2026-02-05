@@ -260,6 +260,7 @@ interface DayLog {
   notes: string;
   steps: number | null;
   dayClosed: boolean;
+  isOffDay?: boolean; // Day off - no workout required
 }
 
 interface ExerciseProgress {
@@ -1217,8 +1218,10 @@ export default function FitnessPage() {
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [showMeasurementModal, setShowMeasurementModal] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stepsAlertRef = useRef<HTMLDivElement | null>(null);
+  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const dateKey = formatDate(selectedDate);
 
@@ -1301,7 +1304,7 @@ export default function FitnessPage() {
   }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded, syncToServer]);
 
   const currentDayLog = useMemo(() => {
-    return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false };
+    return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
   }, [dayLogs, dateKey]);
 
   const macroTotals = useMemo(() => {
@@ -1533,6 +1536,24 @@ export default function FitnessPage() {
       updateDayLog({
         dayClosed: false,
         workoutCompleted: null,
+        workoutSnapshot: null,
+        isOffDay: false
+      });
+    }
+  };
+
+  // Mark day as off day (rest day - no workout required, but steps still needed)
+  const toggleOffDay = () => {
+    if (currentDayLog.isOffDay) {
+      // Unmark as off day
+      updateDayLog({ isOffDay: false, dayClosed: false });
+    } else {
+      // Mark as off day - if steps are entered, also close the day
+      const hasSteps = !!(currentDayLog.steps && currentDayLog.steps > 0);
+      updateDayLog({
+        isOffDay: true,
+        dayClosed: hasSteps,
+        workoutCompleted: null,
         workoutSnapshot: null
       });
     }
@@ -1684,46 +1705,159 @@ export default function FitnessPage() {
           maxWidth: '600px',
           margin: '0 auto'
         }}>
-          {[
-            { id: 'workout', icon: Dumbbell, label: 'Трен' },
-            { id: 'nutrition', icon: Apple, label: 'Еда' },
-            { id: 'gains', icon: Scale, label: 'GAINS' },
-            { id: 'analytics', icon: BarChart3, label: 'Стат' },
-            { id: 'profile', icon: User, label: 'Я' }
-          ].map(tab => (
+          {/* Workout tab */}
+          <button
+            className="tab-button btn-press"
+            onClick={() => {
+              setView('workout');
+              localStorage.setItem('fitness_view', 'workout');
+              setShowProfileDropdown(false);
+            }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: view === 'workout' ? 'var(--yellow)' : 'var(--bg-elevated)',
+              border: view === 'workout' ? 'none' : '1px solid var(--border)',
+              borderRadius: '12px',
+              color: view === 'workout' ? '#000' : 'var(--text-secondary)',
+              fontWeight: view === 'workout' ? 700 : 500,
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: view === 'workout' ? '0 4px 20px var(--yellow-glow)' : 'none',
+              transform: view === 'workout' ? 'scale(1.02)' : 'scale(1)'
+            }}
+          >
+            <Dumbbell size={16} />
+            Трен
+          </button>
+
+          {/* Nutrition tab */}
+          <button
+            className="tab-button btn-press"
+            onClick={() => {
+              setView('nutrition');
+              localStorage.setItem('fitness_view', 'nutrition');
+              setShowProfileDropdown(false);
+            }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: view === 'nutrition' ? 'var(--yellow)' : 'var(--bg-elevated)',
+              border: view === 'nutrition' ? 'none' : '1px solid var(--border)',
+              borderRadius: '12px',
+              color: view === 'nutrition' ? '#000' : 'var(--text-secondary)',
+              fontWeight: view === 'nutrition' ? 700 : 500,
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: view === 'nutrition' ? '0 4px 20px var(--yellow-glow)' : 'none',
+              transform: view === 'nutrition' ? 'scale(1.02)' : 'scale(1)'
+            }}
+          >
+            <Apple size={16} />
+            Еда
+          </button>
+
+          {/* Profile tab with dropdown */}
+          <div style={{ flex: 1, position: 'relative' }} ref={profileDropdownRef}>
             <button
-              key={tab.id}
               className="tab-button btn-press"
-              onClick={() => {
-                const newView = tab.id as typeof view;
-                setView(newView);
-                localStorage.setItem('fitness_view', newView);
-              }}
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
               style={{
-                flex: 1,
+                width: '100%',
                 padding: '12px',
-                background: view === tab.id
+                background: (view === 'gains' || view === 'analytics' || view === 'profile')
                   ? 'var(--yellow)'
                   : 'var(--bg-elevated)',
-                border: view === tab.id ? 'none' : '1px solid var(--border)',
+                border: (view === 'gains' || view === 'analytics' || view === 'profile') ? 'none' : '1px solid var(--border)',
                 borderRadius: '12px',
-                color: view === tab.id ? '#000' : 'var(--text-secondary)',
-                fontWeight: view === tab.id ? 700 : 500,
+                color: (view === 'gains' || view === 'analytics' || view === 'profile') ? '#000' : 'var(--text-secondary)',
+                fontWeight: (view === 'gains' || view === 'analytics' || view === 'profile') ? 700 : 500,
                 fontSize: '13px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: view === tab.id ? '0 4px 20px var(--yellow-glow)' : 'none',
-                transform: view === tab.id ? 'scale(1.02)' : 'scale(1)'
+                boxShadow: (view === 'gains' || view === 'analytics' || view === 'profile') ? '0 4px 20px var(--yellow-glow)' : 'none',
+                transform: (view === 'gains' || view === 'analytics' || view === 'profile') ? 'scale(1.02)' : 'scale(1)'
               }}
             >
-              <tab.icon size={16} />
-              {tab.label}
+              <User size={16} />
+              Я
+              <ChevronDown size={14} style={{
+                transform: showProfileDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease'
+              }} />
             </button>
-          ))}
+
+            {/* Dropdown menu */}
+            {showProfileDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                right: 0,
+                left: 0,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                zIndex: 100,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+              }}>
+                {[
+                  { id: 'gains', icon: Scale, label: 'GAINS' },
+                  { id: 'analytics', icon: BarChart3, label: 'Статистика' },
+                  { id: 'profile', icon: Settings, label: 'Настройки' }
+                ].map((item, idx) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setView(item.id as typeof view);
+                      localStorage.setItem('fitness_view', item.id);
+                      setShowProfileDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: view === item.id ? 'var(--yellow-dim)' : 'transparent',
+                      border: 'none',
+                      borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                      color: view === item.id ? 'var(--yellow)' : 'var(--text-primary)',
+                      fontSize: '14px',
+                      fontWeight: view === item.id ? 600 : 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <item.icon size={18} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </nav>
+
+      {/* Click outside to close dropdown */}
+      {showProfileDropdown && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99
+          }}
+          onClick={() => setShowProfileDropdown(false)}
+        />
+      )}
 
       {/* Content */}
       <div style={{
@@ -1815,15 +1949,16 @@ export default function FitnessPage() {
                     const isClosed = log?.dayClosed;
                     // Days beyond active workout count are rest days
                     const isRestDay = i >= workouts.length;
+                    const isOffDay = log?.isOffDay;
 
-                    // Show completed workout label (T1, T2, etc.) or dash for rest days
+                    // Show completed workout label (T1, T2, etc.) or dash for rest/off days
                     const completedWorkoutId = log?.workoutCompleted;
                     const completedWorkout = completedWorkoutId
                       ? workouts.find(w => w.id === completedWorkoutId)
                       : null;
                     const workoutLabel = isClosed && completedWorkout
                       ? completedWorkout.name.replace('Тренировка ', 'T')
-                      : isRestDay ? '—' : '';
+                      : (isRestDay || isOffDay) ? '—' : '';
 
                     // Empty day = not closed and not rest day (no workout done yet)
                     const isEmptyDay = !isClosed && !isRestDay && !isFuture;
@@ -1892,8 +2027,44 @@ export default function FitnessPage() {
               </div>
             </div>
 
-            {/* Workout selector - hidden when viewing history */}
-            {!viewingPastWorkout && (
+            {/* Off Day indicator */}
+            {currentDayLog.isOffDay && (
+              <div style={{
+                background: 'var(--blue-dim)',
+                border: '1px solid rgba(0, 180, 216, 0.3)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>😴</span>
+                  <span style={{ color: 'var(--blue)', fontWeight: 600, fontSize: '14px' }}>
+                    День отдыха
+                  </span>
+                </div>
+                <button
+                  onClick={toggleOffDay}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Отменить
+                </button>
+              </div>
+            )}
+
+            {/* Workout selector - hidden when viewing history or off day */}
+            {!viewingPastWorkout && !currentDayLog.isOffDay && (
               <div style={{
                 display: 'flex',
                 gap: '8px',
@@ -1935,6 +2106,28 @@ export default function FitnessPage() {
                       </button>
                     );
                   })}
+                  {/* Off Day button */}
+                  <button
+                    className="btn-press"
+                    onClick={toggleOffDay}
+                    style={{
+                      padding: '12px 16px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '12px',
+                      color: 'var(--text-muted)',
+                      fontWeight: 500,
+                      fontSize: '14px',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="День отдыха"
+                  >
+                    😴 Off
+                  </button>
                   {workouts.length < MAX_WORKOUTS && (
                     <button
                       className="btn-press"
@@ -2099,8 +2292,10 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Steps alert */}
-            {!currentDayLog.dayClosed && completedExercises === totalExercises && totalExercises > 0 && (!currentDayLog.steps || currentDayLog.steps === 0) && (
+            {/* Steps alert - show for completed workouts or off days without steps */}
+            {!currentDayLog.dayClosed && (
+              (completedExercises === totalExercises && totalExercises > 0) || currentDayLog.isOffDay
+            ) && (!currentDayLog.steps || currentDayLog.steps === 0) && (
               <div
                 ref={stepsAlertRef}
                 className={stepsAlertPulse ? 'animate-pulse' : ''}
@@ -2190,11 +2385,15 @@ export default function FitnessPage() {
             </div>
 
             {/* Close/Open day button */}
-            {(totalExercises > 0 || currentDayLog.dayClosed) && (
+            {(totalExercises > 0 || currentDayLog.dayClosed || currentDayLog.isOffDay) && (
             <div style={{ marginTop: '16px', marginBottom: '20px' }}>
               {(() => {
                 const isDayClosed = currentDayLog.dayClosed;
-                const canCloseDay = completedExercises === totalExercises && currentDayLog.steps && currentDayLog.steps > 0;
+                const isOffDay = currentDayLog.isOffDay;
+                // For off days, only need steps. For workout days, need completed exercises + steps
+                const canCloseDay = isOffDay
+                  ? (currentDayLog.steps && currentDayLog.steps > 0)
+                  : (completedExercises === totalExercises && currentDayLog.steps && currentDayLog.steps > 0);
                 const readyToClose = canCloseDay && !isDayClosed;
 
                 return (
@@ -2247,9 +2446,17 @@ export default function FitnessPage() {
                             clearInterval(interval);
                             // Only allow closing if canCloseDay, or opening if already closed
                             if (isDayClosed) {
-                              closeDay(currentDayLog.workoutCompleted!, false);
+                              if (isOffDay) {
+                                updateDayLog({ dayClosed: false });
+                              } else {
+                                closeDay(currentDayLog.workoutCompleted!, false);
+                              }
                             } else if (canCloseDay) {
-                              closeDay(currentWorkout.id, true);
+                              if (isOffDay) {
+                                updateDayLog({ dayClosed: true });
+                              } else {
+                                closeDay(currentWorkout.id, true);
+                              }
                             }
                             btn.style.background = !isDayClosed
                               ? 'var(--green)'
@@ -2289,9 +2496,17 @@ export default function FitnessPage() {
                             clearInterval(interval);
                             // Only allow closing if canCloseDay, or opening if already closed
                             if (isDayClosed) {
-                              closeDay(currentDayLog.workoutCompleted!, false);
+                              if (isOffDay) {
+                                updateDayLog({ dayClosed: false });
+                              } else {
+                                closeDay(currentDayLog.workoutCompleted!, false);
+                              }
                             } else if (canCloseDay) {
-                              closeDay(currentWorkout.id, true);
+                              if (isOffDay) {
+                                updateDayLog({ dayClosed: true });
+                              } else {
+                                closeDay(currentWorkout.id, true);
+                              }
                             }
                             btn.style.background = !isDayClosed
                               ? 'var(--green)'
