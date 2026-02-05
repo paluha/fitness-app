@@ -2102,7 +2102,7 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Workout selector - hidden when viewing history or off day */}
+            {/* Workout selector - compact grid, hidden when viewing history or off day */}
             {!viewingPastWorkout && !currentDayLog.isOffDay && (
               <div style={{
                 display: 'flex',
@@ -2111,11 +2111,10 @@ export default function FitnessPage() {
                 alignItems: 'center'
               }}>
                 <div style={{
-                  display: 'flex',
-                  gap: '8px',
-                  flex: 1,
-                  overflowX: 'auto',
-                  paddingBottom: '4px'
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${Math.min(workouts.length + (workouts.length < MAX_WORKOUTS ? 1 : 0), 8)}, 1fr)`,
+                  gap: '6px',
+                  flex: 1
                 }}>
                   {workouts.map(w => {
                     const isEmpty = w.exercises.length === 0;
@@ -2126,65 +2125,42 @@ export default function FitnessPage() {
                         className="tab-button btn-press"
                         onClick={() => selectWorkout(w.id)}
                         style={{
-                          padding: '12px 20px',
+                          padding: '10px 4px',
                           background: isActive
                             ? 'var(--yellow)'
                             : 'var(--bg-card)',
                           border: isActive ? 'none' : '1px solid var(--border)',
-                          borderRadius: '12px',
+                          borderRadius: '10px',
                           color: isActive ? '#000' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
-                          fontWeight: isActive ? 700 : 500,
-                          fontSize: '14px',
-                          whiteSpace: 'nowrap',
+                          fontWeight: isActive ? 700 : 600,
+                          fontSize: '13px',
                           boxShadow: isActive ? '0 4px 20px var(--yellow-glow)' : 'none',
                           opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
-                          transform: isActive ? 'scale(1.02)' : 'scale(1)'
+                          transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                          minWidth: 0
                         }}
                       >
                         {w.name.replace('Тренировка ', 'T')}
                       </button>
                     );
                   })}
-                  {/* Off Day button */}
-                  <button
-                    className="btn-press"
-                    onClick={toggleOffDay}
-                    style={{
-                      padding: '12px 16px',
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      color: 'var(--text-muted)',
-                      fontWeight: 500,
-                      fontSize: '14px',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                    title="День отдыха"
-                  >
-                    😴 Off
-                  </button>
                   {workouts.length < MAX_WORKOUTS && (
                     <button
                       className="btn-press"
                       onClick={addNewWorkout}
                       style={{
-                        padding: '12px 16px',
+                        padding: '10px 4px',
                         background: 'var(--bg-elevated)',
                         border: '1px dashed var(--border-strong)',
-                        borderRadius: '12px',
+                        borderRadius: '10px',
                         color: 'var(--text-muted)',
                         fontWeight: 600,
                         fontSize: '14px',
-                        whiteSpace: 'nowrap',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.2s ease'
+                        justifyContent: 'center',
+                        minWidth: 0
                       }}
                       title="Добавить тренировку"
                     >
@@ -2195,10 +2171,10 @@ export default function FitnessPage() {
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
                   style={{
-                    padding: '12px',
+                    padding: '10px',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     color: 'var(--text-muted)',
                     cursor: 'pointer',
                     display: 'flex',
@@ -2252,6 +2228,30 @@ export default function FitnessPage() {
                   transition: 'width 0.3s ease'
                 }} />
               </div>
+              {/* Off Day button - at end of progress bar */}
+              {!viewingPastWorkout && !currentDayLog.isOffDay && (
+                <button
+                  className="btn-press"
+                  onClick={toggleOffDay}
+                  style={{
+                    padding: '6px 10px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-muted)',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    flexShrink: 0
+                  }}
+                  title="День отдыха"
+                >
+                  <span style={{ fontSize: '14px' }}>😴</span>
+                </button>
+              )}
             </div>
 
             {/* Exercise list */}
