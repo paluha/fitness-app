@@ -2726,35 +2726,25 @@ export default function FitnessPage() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
+              gap: '12px',
               marginBottom: '12px',
-              padding: '10px 14px',
+              padding: '10px 16px',
               background: 'var(--bg-card)',
               borderRadius: '12px',
               border: '1px solid var(--border)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Target size={14} style={{ color: 'var(--yellow)' }} />
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Цель</span>
+                <Target size={14} className="pulse-subtle" style={{ color: 'var(--red)' }} />
+                <span style={{ fontSize: '13px', color: 'var(--red)', fontWeight: 600 }}>Цель:</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--blue)' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.protein}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--yellow)' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.fat}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.carbs}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--red)' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.calories}</span>
-                </div>
-              </div>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} Б</span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} Ж</span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} У</span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} ккал</span>
             </div>
 
             {/* Compact Macro summary - 2x2 grid */}

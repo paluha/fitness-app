@@ -145,6 +145,15 @@ button:disabled {
   50% { opacity: 0.5; }
 }
 
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
