@@ -1380,6 +1380,38 @@ export default function FitnessPage() {
     updateDayLog({ selectedWorkout: workoutId });
   };
 
+  // Get next available workout (not completed this week)
+  const getNextAvailableWorkout = useCallback(() => {
+    // Get Monday of current week
+    const today = getTodayInTimezone(userSettings.timezone);
+    const dayOfWeek = today.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+
+    // Get all completed workouts this week
+    const completedThisWeek = new Set<string>();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      const dateStr = formatDate(date);
+      const log = dayLogs[dateStr];
+      if (log?.workoutCompleted) {
+        completedThisWeek.add(log.workoutCompleted);
+      }
+    }
+
+    // Find first workout not completed this week
+    for (const workout of workouts) {
+      if (!completedThisWeek.has(workout.id) && workout.exercises.length > 0) {
+        return workout.id;
+      }
+    }
+
+    // If all completed, return first workout
+    return workouts[0]?.id || 't1';
+  }, [dayLogs, workouts, userSettings.timezone]);
+
   // Restore selected workout when date changes
   useEffect(() => {
     if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
@@ -1388,8 +1420,13 @@ export default function FitnessPage() {
     } else if (currentDayLog.selectedWorkout) {
       // Restore previously selected workout for this day
       setSelectedWorkout(currentDayLog.selectedWorkout);
+    } else if (!currentDayLog.isOffDay) {
+      // New day without selection - pick next available workout
+      const nextWorkout = getNextAvailableWorkout();
+      setSelectedWorkout(nextWorkout);
+      updateDayLog({ selectedWorkout: nextWorkout });
     }
-  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout]);
+  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout, currentDayLog.isOffDay, getNextAvailableWorkout]);
 
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     setWorkouts(prev => prev.map(w =>
