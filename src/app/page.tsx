@@ -1048,8 +1048,8 @@ function FitnessCalendar({
           const isToday = d.dateStr === today;
           const isSelected = d.dateStr === selectedDateStr;
           const isFuture = d.dateStr > today;
-          const hasWorkout = log?.dayClosed && !log?.isOffDay;
-          const isOffDay = log?.dayClosed && log?.isOffDay;
+          const isOffDay = log?.isOffDay;
+          const hasWorkout = log?.dayClosed && !isOffDay;
           const hasSteps = log?.steps && log.steps > 0 && !hasWorkout && !isOffDay;
 
           // Get completed workout label
@@ -1065,7 +1065,7 @@ function FitnessCalendar({
           const getBackground = () => {
             if (isSelected) return 'var(--yellow)';
             if (hasWorkout) return 'var(--green-dim)';
-            if (isOffDay) return 'var(--bg-elevated)';
+            if (isOffDay) return 'rgba(147, 112, 219, 0.15)'; // Calming purple for off days
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -1075,7 +1075,7 @@ function FitnessCalendar({
           const getColor = () => {
             if (isSelected) return '#000';
             if (hasWorkout) return 'var(--green)';
-            if (isOffDay) return 'var(--text-muted)';
+            if (isOffDay) return 'rgb(147, 112, 219)'; // Purple for off days
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
           };
@@ -1091,7 +1091,9 @@ function FitnessCalendar({
                   ? '2px solid var(--yellow)'
                   : hasWorkout && !isSelected
                     ? '1px solid rgba(0, 200, 83, 0.3)'
-                    : '1px solid transparent',
+                    : isOffDay && !isSelected
+                      ? '1px solid rgba(147, 112, 219, 0.3)'
+                      : '1px solid transparent',
                 borderRadius: '10px',
                 cursor: isFuture ? 'default' : 'pointer',
                 display: 'flex',
@@ -1100,14 +1102,16 @@ function FitnessCalendar({
                 justifyContent: 'center',
                 gap: '1px',
                 color: getColor(),
-                fontWeight: isToday || isSelected || hasWorkout ? 700 : 500,
+                fontWeight: isToday || isSelected || hasWorkout || isOffDay ? 700 : 500,
                 fontSize: '14px',
                 transition: 'all 0.2s ease',
                 boxShadow: isSelected
                   ? '0 4px 20px var(--yellow-glow)'
                   : hasWorkout && !isSelected
                     ? '0 2px 8px var(--green-glow)'
-                    : 'none',
+                    : isOffDay && !isSelected
+                      ? '0 2px 8px rgba(147, 112, 219, 0.2)'
+                      : 'none',
                 opacity: isFuture ? 0.4 : 1
               }}
             >
@@ -1124,6 +1128,8 @@ function FitnessCalendar({
                   <Check size={8} strokeWidth={3} />
                   {workoutLabel}
                 </span>
+              ) : isOffDay ? (
+                <span style={{ fontSize: '10px' }}>😴</span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
@@ -2037,7 +2043,7 @@ export default function FitnessPage() {
                       : null;
                     const workoutLabel = isClosed && completedWorkout
                       ? completedWorkout.name.replace('Тренировка ', 'T')
-                      : (isRestDay || isOffDay) ? '—' : '';
+                      : isOffDay ? '😴' : isRestDay ? '—' : '';
 
                     // Empty day = not closed and not rest day (no workout done yet)
                     const isEmptyDay = !isClosed && !isRestDay && !isFuture;
@@ -2054,22 +2060,28 @@ export default function FitnessPage() {
                           padding: '6px 2px',
                           background: isSelected
                             ? 'var(--yellow)'
-                            : isClosed
-                              ? 'var(--green-dim)'
-                              : 'var(--bg-elevated)',
+                            : isOffDay
+                              ? 'rgba(147, 112, 219, 0.15)'
+                              : isClosed
+                                ? 'var(--green-dim)'
+                                : 'var(--bg-elevated)',
                           border: isToday
                             ? '2px solid var(--yellow)'
-                            : isClosed && !isSelected
-                              ? '1px solid rgba(0, 200, 83, 0.3)'
-                              : '1px solid var(--border)',
+                            : isOffDay && !isSelected
+                              ? '1px solid rgba(147, 112, 219, 0.3)'
+                              : isClosed && !isSelected
+                                ? '1px solid rgba(0, 200, 83, 0.3)'
+                                : '1px solid var(--border)',
                           borderRadius: '8px',
                           cursor: 'pointer',
                           opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.5 : 1,
                           boxShadow: isSelected
                             ? '0 2px 10px var(--yellow-glow)'
-                            : isClosed && !isSelected
-                              ? '0 1px 4px var(--green-glow)'
-                              : 'none'
+                            : isOffDay && !isSelected
+                              ? '0 1px 4px rgba(147, 112, 219, 0.2)'
+                              : isClosed && !isSelected
+                                ? '0 1px 4px var(--green-glow)'
+                                : 'none'
                         }}
                       >
                         <span style={{
@@ -2082,20 +2094,20 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '12px',
                           fontWeight: 700,
-                          color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
-                        {(isClosed || isRestDay) && (
+                        {(isClosed || isRestDay || isOffDay) && (
                           <span style={{
-                            fontSize: '9px',
+                            fontSize: isOffDay ? '10px' : '9px',
                             fontWeight: 600,
-                            color: isSelected ? '#000' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '1px'
                           }}>
-                            {isClosed && <Check size={8} strokeWidth={3} />}
+                            {isClosed && !isOffDay && <Check size={8} strokeWidth={3} />}
                             {workoutLabel}
                           </span>
                         )}
@@ -2109,8 +2121,8 @@ export default function FitnessPage() {
             {/* Off Day indicator */}
             {currentDayLog.isOffDay && (
               <div style={{
-                background: 'var(--blue-dim)',
-                border: '1px solid rgba(0, 180, 216, 0.3)',
+                background: 'rgba(147, 112, 219, 0.15)',
+                border: '1px solid rgba(147, 112, 219, 0.3)',
                 borderRadius: '12px',
                 padding: '14px 16px',
                 marginBottom: '16px',
@@ -2120,7 +2132,7 @@ export default function FitnessPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '20px' }}>😴</span>
-                  <span style={{ color: 'var(--blue)', fontWeight: 600, fontSize: '14px' }}>
+                  <span style={{ color: 'rgb(147, 112, 219)', fontWeight: 600, fontSize: '14px' }}>
                     День отдыха
                   </span>
                 </div>
