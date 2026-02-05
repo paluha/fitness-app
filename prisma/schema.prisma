@@ -23,6 +23,8 @@ model User {
   image         String?
   password      String?
   role          UserRole  @default(CLIENT)
+  language      String    @default("ru") // "ru" or "en"
+  timezone      String    @default("Europe/Moscow")
   accounts      Account[]
   sessions      Session[]
   fitnessData   FitnessData?
@@ -101,6 +103,8 @@ model FitnessData {
   workouts        Json?    // User's workouts (T1-T7)
   dayLogs         Json     // Daily logs: steps, meals, completed workouts per date
   progressHistory Json?    // Exercise progress history
+  bodyMeasurements Json?   // Body measurements history (weight, waist, biceps, etc.)
+  favoriteMeals   Json?    // Array of favorite meal IDs
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

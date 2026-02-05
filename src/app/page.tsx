@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check,
-  Flame, Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
+  Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
-  Zap, Timer, Play, Pause, RotateCcw, Settings
+  Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
+  Heart, BarChart3, Scale, Ruler, Globe, Languages
 } from 'lucide-react';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -221,6 +222,26 @@ interface Meal {
   fat: number;
   carbs: number;
   calories: number;
+  isFavorite?: boolean;
+}
+
+interface BodyMeasurement {
+  id: string;
+  date: string;
+  weight?: number;
+  waist?: number;
+  chest?: number;
+  biceps?: number;
+  thighs?: number;
+  hips?: number;
+  notes?: string;
+}
+
+interface UserSettings {
+  language: 'ru' | 'en';
+  timezone: string;
+  name?: string;
+  email?: string;
 }
 
 interface WorkoutSnapshot {
@@ -1169,10 +1190,10 @@ function getDefaultWorkout(): string {
 }
 
 export default function FitnessPage() {
-  const [view, setView] = useState<'workout' | 'nutrition' | 'calendar'>(() => {
+  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('fitness_view');
-      if (saved === 'workout' || saved === 'nutrition' || saved === 'calendar') {
+      if (saved === 'workout' || saved === 'nutrition' || saved === 'analytics' || saved === 'gains' || saved === 'profile') {
         return saved;
       }
     }
@@ -1193,6 +1214,9 @@ export default function FitnessPage() {
   const [exerciseForm, setExerciseForm] = useState({ name: '', plannedSets: '', restTime: '2-3 мин', notes: '' });
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [stepsAlertPulse, setStepsAlertPulse] = useState(false);
+  const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
+  const [showMeasurementModal, setShowMeasurementModal] = useState(false);
+  const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stepsAlertRef = useRef<HTMLDivElement | null>(null);
 
@@ -1208,6 +1232,8 @@ export default function FitnessPage() {
           if (data.workouts) setWorkouts(data.workouts);
           if (data.dayLogs) setDayLogs(data.dayLogs);
           if (data.progressHistory) setProgressHistory(data.progressHistory);
+          if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
+          if (data.settings) setUserSettings(data.settings);
           setIsLoaded(true);
           setSyncStatus('synced');
           return;
@@ -1224,6 +1250,7 @@ export default function FitnessPage() {
           if (data.workouts) setWorkouts(data.workouts);
           if (data.dayLogs) setDayLogs(data.dayLogs);
           if (data.progressHistory) setProgressHistory(data.progressHistory);
+          if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
         } catch (e) {
           console.error('Failed to load fitness data:', e);
         }
@@ -1234,13 +1261,13 @@ export default function FitnessPage() {
   }, []);
 
   // Sync to server with debounce
-  const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory) => {
+  const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[]) => {
     setSyncStatus('syncing');
     try {
       const response = await fetch('/api/fitness', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workouts: workoutsData, dayLogs: dayLogsData, progressHistory: progressData })
+        body: JSON.stringify({ workouts: workoutsData, dayLogs: dayLogsData, progressHistory: progressData, bodyMeasurements: measurementsData })
       });
       if (response.ok) {
         setSyncStatus('synced');
@@ -1257,13 +1284,13 @@ export default function FitnessPage() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    localStorage.setItem('fitness_data', JSON.stringify({ workouts, dayLogs, progressHistory }));
+    localStorage.setItem('fitness_data', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements }));
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
     syncTimeoutRef.current = setTimeout(() => {
-      syncToServer(workouts, dayLogs, progressHistory);
+      syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements);
     }, 2000);
 
     return () => {
@@ -1271,7 +1298,7 @@ export default function FitnessPage() {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [workouts, dayLogs, progressHistory, isLoaded, syncToServer]);
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded, syncToServer]);
 
   const currentDayLog = useMemo(() => {
     return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false };
@@ -1658,9 +1685,11 @@ export default function FitnessPage() {
           margin: '0 auto'
         }}>
           {[
-            { id: 'workout', icon: Dumbbell, label: 'Тренировка' },
-            { id: 'nutrition', icon: Apple, label: 'Питание' },
-            { id: 'calendar', icon: Calendar, label: 'Календарь' }
+            { id: 'workout', icon: Dumbbell, label: 'Трен' },
+            { id: 'nutrition', icon: Apple, label: 'Еда' },
+            { id: 'gains', icon: Scale, label: 'GAINS' },
+            { id: 'analytics', icon: BarChart3, label: 'Стат' },
+            { id: 'profile', icon: User, label: 'Я' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -2533,6 +2562,26 @@ export default function FitnessPage() {
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button
+                          onClick={() => {
+                            const newMeals = currentDayLog.meals.map(m =>
+                              m.id === meal.id ? { ...m, isFavorite: !m.isFavorite } : m
+                            );
+                            setDayLogs(prev => ({
+                              ...prev,
+                              [dateKey]: { ...currentDayLog, meals: newMeals }
+                            }));
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '6px',
+                            color: meal.isFavorite ? 'var(--red)' : 'var(--text-muted)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Heart size={14} fill={meal.isFavorite ? 'var(--red)' : 'none'} />
+                        </button>
+                        <button
                           onClick={() => openEditMeal(meal)}
                           style={{
                             background: 'transparent',
@@ -2787,22 +2836,611 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* CALENDAR VIEW */}
-        {view === 'calendar' && (
+        {/* ANALYTICS VIEW */}
+        {view === 'analytics' && (
           <div className="view-content">
-          <FitnessCalendar
-            dayLogs={dayLogs}
-            selectedDate={selectedDate}
-            onSelectDate={(date) => {
-              setSelectedDate(date);
-              setView('workout');
-              localStorage.setItem('fitness_view', 'workout');
-            }}
-            workouts={workouts}
-          />
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BarChart3 size={20} />
+                {userSettings.language === 'ru' ? 'Статистика' : 'Statistics'}
+              </h2>
+
+              {/* Calendar mini */}
+              <FitnessCalendar
+                dayLogs={dayLogs}
+                selectedDate={selectedDate}
+                onSelectDate={(date) => {
+                  setSelectedDate(date);
+                  setView('workout');
+                  localStorage.setItem('fitness_view', 'workout');
+                }}
+                workouts={workouts}
+              />
+
+              {/* Favorite Meals */}
+              <div style={{ marginTop: '20px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--red)' }}>
+                  <Heart size={16} />
+                  {userSettings.language === 'ru' ? 'Любимые блюда' : 'Favorite Meals'}
+                </h3>
+                {(() => {
+                  const favMeals: Meal[] = [];
+                  Object.values(dayLogs).forEach(log => {
+                    log.meals?.forEach(meal => {
+                      if (meal.isFavorite && !favMeals.find(m => m.name === meal.name)) {
+                        favMeals.push(meal);
+                      }
+                    });
+                  });
+                  if (favMeals.length === 0) {
+                    return (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                        {userSettings.language === 'ru' ? 'Нажмите ❤️ на блюде чтобы добавить в избранное' : 'Tap ❤️ on a meal to add to favorites'}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {favMeals.map((meal, i) => (
+                        <div key={i} style={{
+                          background: 'var(--bg-card)',
+                          padding: '12px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border)'
+                        }}>
+                          <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{meal.name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '12px' }}>
+                            <span style={{ color: 'var(--blue)' }}>Б: {meal.protein}г</span>
+                            <span style={{ color: 'var(--yellow)' }}>Ж: {meal.fat}г</span>
+                            <span style={{ color: 'var(--green)' }}>У: {meal.carbs}г</span>
+                            <span style={{ color: 'var(--red)' }}>{meal.calories} ккал</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GAINS VIEW - Body Measurements */}
+        {view === 'gains' && (
+          <div className="view-content">
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Scale size={20} />
+                GAINS
+              </h2>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                {userSettings.language === 'ru' ? 'Отслеживай свой прогресс' : 'Track your progress'}
+              </p>
+
+              {/* Add Measurement Button */}
+              <button
+                onClick={() => setShowMeasurementModal(true)}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: 'var(--yellow)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#000',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '20px'
+                }}
+              >
+                <Plus size={18} />
+                {userSettings.language === 'ru' ? 'Добавить замеры' : 'Add Measurements'}
+              </button>
+
+              {/* Measurements List */}
+              {bodyMeasurements.length === 0 ? (
+                <div style={{
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  background: 'var(--bg-card)',
+                  borderRadius: '16px',
+                  border: '1px solid var(--border)'
+                }}>
+                  <Ruler size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                  <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                    {userSettings.language === 'ru' ? 'Пока нет замеров' : 'No measurements yet'}
+                  </div>
+                  <div style={{ fontSize: '12px' }}>
+                    {userSettings.language === 'ru' ? 'Добавь первый замер!' : 'Add your first measurement!'}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {bodyMeasurements.slice().reverse().map((m) => (
+                    <div key={m.id} style={{
+                      background: 'var(--bg-card)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      border: '1px solid var(--border)'
+                    }}>
+                      <div style={{
+                        fontSize: '12px',
+                        color: 'var(--text-muted)',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <Calendar size={12} />
+                        {new Date(m.date).toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                        {m.weight && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--yellow)' }}>{m.weight}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>кг</div>
+                          </div>
+                        )}
+                        {m.waist && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--blue)' }}>{m.waist}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'талия' : 'waist'}</div>
+                          </div>
+                        )}
+                        {m.chest && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)' }}>{m.chest}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'грудь' : 'chest'}</div>
+                          </div>
+                        )}
+                        {m.biceps && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.biceps}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'бицепс' : 'biceps'}</div>
+                          </div>
+                        )}
+                        {m.thighs && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--orange)' }}>{m.thighs}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'бедра' : 'thighs'}</div>
+                          </div>
+                        )}
+                        {m.hips && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--cyan)' }}>{m.hips}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userSettings.language === 'ru' ? 'ягодицы' : 'hips'}</div>
+                          </div>
+                        )}
+                      </div>
+                      {m.notes && (
+                        <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                          {m.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* PROFILE VIEW */}
+        {view === 'profile' && (
+          <div className="view-content">
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <User size={20} />
+                {userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
+              </h2>
+
+              {/* Avatar */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                marginBottom: '24px',
+                padding: '24px',
+                background: 'var(--bg-card)',
+                borderRadius: '16px',
+                border: '1px solid var(--border)'
+              }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, var(--yellow), var(--orange))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '32px',
+                  fontWeight: 700,
+                  color: '#000',
+                  marginBottom: '12px'
+                }}>
+                  {userSettings.name?.[0]?.toUpperCase() || '👤'}
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 600 }}>{userSettings.name || 'User'}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{userSettings.email || 'fitness@app.local'}</div>
+              </div>
+
+              {/* Settings */}
+              <div style={{
+                background: 'var(--bg-card)',
+                borderRadius: '16px',
+                border: '1px solid var(--border)',
+                overflow: 'hidden'
+              }}>
+                {/* Language */}
+                <div style={{
+                  padding: '16px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Languages size={20} style={{ color: 'var(--blue)' }} />
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {userSettings.language === 'ru' ? 'Язык' : 'Language'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {userSettings.language === 'ru' ? 'Русский' : 'English'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={async () => {
+                        const newLang = 'ru';
+                        setUserSettings(s => ({ ...s, language: newLang }));
+                        await fetch('/api/settings', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ language: newLang })
+                        });
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        background: userSettings.language === 'ru' ? 'var(--yellow)' : 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        color: userSettings.language === 'ru' ? '#000' : 'var(--text-secondary)',
+                        fontWeight: userSettings.language === 'ru' ? 700 : 500,
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      RU
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const newLang = 'en';
+                        setUserSettings(s => ({ ...s, language: newLang }));
+                        await fetch('/api/settings', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ language: newLang })
+                        });
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        background: userSettings.language === 'en' ? 'var(--yellow)' : 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        color: userSettings.language === 'en' ? '#000' : 'var(--text-secondary)',
+                        fontWeight: userSettings.language === 'en' ? 700 : 500,
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      EN
+                    </button>
+                  </div>
+                </div>
+
+                {/* Timezone */}
+                <div style={{
+                  padding: '16px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Globe size={20} style={{ color: 'var(--green)' }} />
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {userSettings.language === 'ru' ? 'Часовой пояс' : 'Timezone'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {userSettings.timezone}
+                      </div>
+                    </div>
+                  </div>
+                  <select
+                    value={userSettings.timezone}
+                    onChange={async (e) => {
+                      const newTz = e.target.value;
+                      setUserSettings(s => ({ ...s, timezone: newTz }));
+                      await fetch('/api/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ timezone: newTz })
+                      });
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Europe/Moscow">Moscow (UTC+3)</option>
+                    <option value="Europe/Kiev">Kyiv (UTC+2)</option>
+                    <option value="Europe/London">London (UTC+0)</option>
+                    <option value="America/New_York">New York (UTC-5)</option>
+                    <option value="America/Los_Angeles">Los Angeles (UTC-8)</option>
+                    <option value="Asia/Dubai">Dubai (UTC+4)</option>
+                    <option value="Asia/Tokyo">Tokyo (UTC+9)</option>
+                  </select>
+                </div>
+
+                {/* Logout */}
+                <button
+                  onClick={() => {
+                    if (confirm(userSettings.language === 'ru' ? 'Выйти из аккаунта?' : 'Sign out?')) {
+                      localStorage.clear();
+                      window.location.reload();
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    background: 'none',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    cursor: 'pointer',
+                    color: 'var(--red)'
+                  }}
+                >
+                  <LogOut size={20} />
+                  <span style={{ fontSize: '14px', fontWeight: 600 }}>
+                    {userSettings.language === 'ru' ? 'Выйти' : 'Sign Out'}
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Add Measurement Modal */}
+      {showMeasurementModal && (
+        <div className="modal-overlay" onClick={() => setShowMeasurementModal(false)}>
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{ padding: '24px' }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px'
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>
+                {userSettings.language === 'ru' ? 'Новые замеры' : 'New Measurements'}
+              </h3>
+              <button
+                onClick={() => setShowMeasurementModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const formData = new FormData(form);
+              const newMeasurement: BodyMeasurement = {
+                id: Date.now().toString(),
+                date: new Date().toISOString(),
+                weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
+                waist: formData.get('waist') ? Number(formData.get('waist')) : undefined,
+                chest: formData.get('chest') ? Number(formData.get('chest')) : undefined,
+                biceps: formData.get('biceps') ? Number(formData.get('biceps')) : undefined,
+                thighs: formData.get('thighs') ? Number(formData.get('thighs')) : undefined,
+                hips: formData.get('hips') ? Number(formData.get('hips')) : undefined,
+                notes: formData.get('notes') as string || undefined
+              };
+              setBodyMeasurements(prev => [...prev, newMeasurement]);
+              setShowMeasurementModal(false);
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {userSettings.language === 'ru' ? 'Вес (кг)' : 'Weight (kg)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="weight"
+                    step="0.1"
+                    placeholder="75.5"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {userSettings.language === 'ru' ? 'Талия (см)' : 'Waist (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="waist"
+                    step="0.1"
+                    placeholder="80"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {userSettings.language === 'ru' ? 'Грудь (см)' : 'Chest (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="chest"
+                    step="0.1"
+                    placeholder="100"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {userSettings.language === 'ru' ? 'Бицепс (см)' : 'Biceps (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="biceps"
+                    step="0.1"
+                    placeholder="35"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {userSettings.language === 'ru' ? 'Бедра (см)' : 'Thighs (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="thighs"
+                    step="0.1"
+                    placeholder="55"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {userSettings.language === 'ru' ? 'Ягодицы (см)' : 'Hips (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="hips"
+                    step="0.1"
+                    placeholder="95"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                  {userSettings.language === 'ru' ? 'Заметки' : 'Notes'}
+                </label>
+                <input
+                  type="text"
+                  name="notes"
+                  placeholder={userSettings.language === 'ru' ? 'Как себя чувствуешь?' : 'How do you feel?'}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    color: 'var(--text-primary)',
+                    fontSize: '15px'
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  marginTop: '20px',
+                  padding: '14px',
+                  background: 'var(--yellow)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#000',
+                  fontWeight: 700,
+                  fontSize: '15px',
+                  cursor: 'pointer'
+                }}
+              >
+                {userSettings.language === 'ru' ? 'Сохранить' : 'Save'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Meal Modal */}
       {showMealModal && (

@@ -9,14 +9,16 @@ const TRAINER_ID = 'demo-trainer';
 export async function GET() {
   try {
     // Ensure user exists
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { id: USER_ID },
       update: {},
       create: {
         id: USER_ID,
         email: 'fitness@app.local',
         role: 'CLIENT',
-        trainerId: TRAINER_ID
+        trainerId: TRAINER_ID,
+        language: 'ru',
+        timezone: 'Europe/Moscow'
       }
     });
 
@@ -28,25 +30,33 @@ export async function GET() {
     return NextResponse.json({
       workouts: fitnessData?.workouts || null,
       dayLogs: fitnessData?.dayLogs || null,
-      progressHistory: fitnessData?.progressHistory || null
+      progressHistory: fitnessData?.progressHistory || null,
+      bodyMeasurements: fitnessData?.bodyMeasurements || null,
+      favoriteMeals: fitnessData?.favoriteMeals || null,
+      settings: {
+        language: user.language || 'ru',
+        timezone: user.timezone || 'Europe/Moscow',
+        name: user.name,
+        email: user.email
+      }
     });
   } catch (error) {
     console.error('Error fetching fitness data:', error);
     return NextResponse.json({
-      hasProgram: false,
-      programName: null,
       workouts: null,
-      activeWorkoutDays: 0,
       dayLogs: null,
-      progressHistory: null
+      progressHistory: null,
+      bodyMeasurements: null,
+      favoriteMeals: null,
+      settings: { language: 'ru', timezone: 'Europe/Moscow' }
     });
   }
 }
 
-// POST - Save fitness data (workouts, dayLogs, progressHistory)
+// POST - Save fitness data (workouts, dayLogs, progressHistory, bodyMeasurements, favoriteMeals)
 export async function POST(request: Request) {
   try {
-    const { workouts, dayLogs, progressHistory } = await request.json();
+    const { workouts, dayLogs, progressHistory, bodyMeasurements, favoriteMeals } = await request.json();
 
     // Ensure user exists
     await prisma.user.upsert({
@@ -66,13 +76,17 @@ export async function POST(request: Request) {
         workouts: workouts || undefined,
         dayLogs: dayLogs || {},
         progressHistory: progressHistory || {},
+        bodyMeasurements: bodyMeasurements || undefined,
+        favoriteMeals: favoriteMeals || undefined,
         updatedAt: new Date()
       },
       create: {
         userId: USER_ID,
         workouts: workouts || [],
         dayLogs: dayLogs || {},
-        progressHistory: progressHistory || {}
+        progressHistory: progressHistory || {},
+        bodyMeasurements: bodyMeasurements || [],
+        favoriteMeals: favoriteMeals || []
       }
     });
 
