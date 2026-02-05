@@ -1693,9 +1693,18 @@ export default function FitnessPage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 20px var(--yellow-glow)'
+              boxShadow: '0 4px 20px var(--yellow-glow)',
+              position: 'relative',
+              overflow: 'hidden'
             }}>
-              <Dumbbell size={22} color="#000" />
+              {/* Custom F logo with rising bar */}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                {/* Rising progress bar */}
+                <rect x="4" y="6" width="4" height="14" rx="1.5" fill="#000" opacity="0.3" />
+                <rect x="4" y="12" width="4" height="8" rx="1.5" fill="#000" />
+                {/* F letter */}
+                <path d="M11 5H20V8H14V10.5H19V13.5H14V19H11V5Z" fill="#000" />
+              </svg>
             </div>
             <div>
               <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Fitness</h1>
@@ -1894,38 +1903,80 @@ export default function FitnessPage() {
                 zIndex: 100,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
               }}>
-                {[
-                  { id: 'gains', icon: Scale, label: 'GAINS' },
-                  { id: 'analytics', icon: BarChart3, label: 'Статистика' },
-                  { id: 'profile', icon: Settings, label: 'Настройки' }
-                ].map((item, idx) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setView(item.id as typeof view);
-                      localStorage.setItem('fitness_view', item.id);
-                      setShowProfileDropdown(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: view === item.id ? 'var(--yellow-dim)' : 'transparent',
-                      border: 'none',
-                      borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
-                      color: view === item.id ? 'var(--yellow)' : 'var(--text-primary)',
-                      fontSize: '14px',
-                      fontWeight: view === item.id ? 600 : 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      cursor: 'pointer',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <item.icon size={18} />
-                    {item.label}
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    setView('gains');
+                    localStorage.setItem('fitness_view', 'gains');
+                    setShowProfileDropdown(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: view === 'gains' ? 'var(--yellow-dim)' : 'transparent',
+                    border: 'none',
+                    color: view === 'gains' ? 'var(--yellow)' : 'var(--text-primary)',
+                    fontSize: '14px',
+                    fontWeight: view === 'gains' ? 600 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    gap: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Scale size={18} style={{ flexShrink: 0 }} />
+                  <span>GAINS</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setView('analytics');
+                    localStorage.setItem('fitness_view', 'analytics');
+                    setShowProfileDropdown(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: view === 'analytics' ? 'var(--yellow-dim)' : 'transparent',
+                    border: 'none',
+                    borderTop: '1px solid var(--border)',
+                    color: view === 'analytics' ? 'var(--yellow)' : 'var(--text-primary)',
+                    fontSize: '14px',
+                    fontWeight: view === 'analytics' ? 600 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    gap: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <BarChart3 size={18} style={{ flexShrink: 0 }} />
+                  <span>Статистика</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setView('profile');
+                    localStorage.setItem('fitness_view', 'profile');
+                    setShowProfileDropdown(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: view === 'profile' ? 'var(--yellow-dim)' : 'transparent',
+                    border: 'none',
+                    borderTop: '1px solid var(--border)',
+                    color: view === 'profile' ? 'var(--yellow)' : 'var(--text-primary)',
+                    fontSize: '14px',
+                    fontWeight: view === 'profile' ? 600 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    gap: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Settings size={18} style={{ flexShrink: 0 }} />
+                  <span>Настройки</span>
+                </button>
               </div>
             )}
           </div>
@@ -2676,22 +2727,32 @@ export default function FitnessPage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '12px',
+              gap: '10px',
               marginBottom: '12px',
-              padding: '10px 16px',
-              background: 'var(--bg-card)',
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, rgba(255, 204, 0, 0.08) 0%, rgba(255, 204, 0, 0.03) 100%)',
               borderRadius: '12px',
-              border: '1px solid var(--border)'
+              border: '1px solid rgba(255, 204, 0, 0.2)'
             }}>
-              <Target size={14} style={{ color: 'var(--text-muted)' }} />
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Цель:</span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                background: 'var(--yellow)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px var(--yellow-glow)'
+              }}>
+                <Target size={12} style={{ color: '#000' }} />
+                <span style={{ fontSize: '11px', color: '#000', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Цель</span>
+              </div>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} Б</span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ color: 'var(--border-strong)', opacity: 0.5 }}>•</span>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} Ж</span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ color: 'var(--border-strong)', opacity: 0.5 }}>•</span>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} У</span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} ккал</span>
+              <span style={{ color: 'var(--border-strong)', opacity: 0.5 }}>•</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories}</span>
             </div>
 
             {/* Compact Macro summary - 2x2 grid */}
