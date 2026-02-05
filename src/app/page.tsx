@@ -276,6 +276,202 @@ interface ProgressHistory {
 // Maximum workouts allowed
 const MAX_WORKOUTS = 7;
 
+// Translations
+const translations = {
+  ru: {
+    // Navigation
+    workout: 'Трен',
+    food: 'Еда',
+    gains: 'GAINS',
+    statistics: 'Статистика',
+    settings: 'Настройки',
+    profile: 'Профиль',
+
+    // Header
+    syncing: 'Сохранение...',
+    synced: 'Синхронизировано',
+    offline: 'Оффлайн',
+    today: 'Сегодня',
+    yesterday: 'Вчера',
+
+    // Workout view
+    steps: 'Шаги',
+    offDay: 'День отдыха',
+    cancel: 'Отмена',
+    cancelOffDay: 'Отменить',
+    progress: 'Прогресс',
+    closeDay: 'Закрыть день',
+    dayCompleted: 'День закрыт',
+    exercises: 'упражнений',
+    rest: 'Отдых',
+    note: 'Заметка',
+    done: 'Готово',
+    feedback: 'Обратная связь',
+
+    // Nutrition view
+    goal: 'Цель:',
+    protein: 'Б',
+    fat: 'Ж',
+    carbs: 'У',
+    kcal: 'ккал',
+    meals: 'Приёмы пищи',
+    addMeal: 'Добавить',
+    noMeals: 'Пока нет приёмов пищи',
+    addFirstMeal: 'Добавьте первый приём!',
+    mealName: 'Название',
+    time: 'Время',
+
+    // Meal modal
+    addMealTitle: 'Добавить приём пищи',
+    editMealTitle: 'Редактировать',
+    mealPlaceholder: 'Творог с вареньем',
+
+    // GAINS
+    trackProgress: 'Отслеживай свой прогресс',
+    addMeasurements: 'Добавить замеры',
+    noMeasurements: 'Пока нет замеров',
+    addFirst: 'Добавь первый замер!',
+    weight: 'Вес (кг)',
+    waist: 'талия',
+    chest: 'грудь',
+    biceps: 'бицепс',
+    thighs: 'бедра',
+    hips: 'ягодицы',
+    favoriteMeals: 'Любимые блюда',
+    favoriteMealsHint: 'Нажмите ❤️ на блюде чтобы добавить в избранное',
+
+    // Profile/Settings
+    language: 'Язык',
+    timezone: 'Часовой пояс',
+    signOut: 'Выйти',
+    signOutConfirm: 'Выйти из аккаунта?',
+
+    // Measurements modal
+    newMeasurements: 'Новые замеры',
+    waistCm: 'Талия (см)',
+    chestCm: 'Грудь (см)',
+    bicepsCm: 'Бицепс (см)',
+    thighsCm: 'Бедра (см)',
+    hipsCm: 'Ягодицы (см)',
+    save: 'Сохранить',
+
+    // Workout editor
+    editWorkout: 'Редактирование упражнений',
+    addExercise: 'Добавить упражнение',
+    editExercise: 'Редактировать упражнение',
+    exerciseName: 'Название упражнения',
+    sets: 'Подходы',
+    setsPlaceholder: '3x12',
+    restTime: 'Отдых',
+    restTimePlaceholder: '2-3 мин',
+    notes: 'Заметки (опционально)',
+    add: 'Добавить',
+    delete: 'Удалить',
+    deleteWorkout: 'Удалить тренировку',
+
+    // Calendar
+    weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+    months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+  },
+  en: {
+    // Navigation
+    workout: 'Train',
+    food: 'Food',
+    gains: 'GAINS',
+    statistics: 'Statistics',
+    settings: 'Settings',
+    profile: 'Profile',
+
+    // Header
+    syncing: 'Saving...',
+    synced: 'Synced',
+    offline: 'Offline',
+    today: 'Today',
+    yesterday: 'Yesterday',
+
+    // Workout view
+    steps: 'Steps',
+    offDay: 'Rest Day',
+    cancel: 'Cancel',
+    cancelOffDay: 'Cancel',
+    progress: 'Progress',
+    closeDay: 'Close Day',
+    dayCompleted: 'Day Closed',
+    exercises: 'exercises',
+    rest: 'Rest',
+    note: 'Note',
+    done: 'Done',
+    feedback: 'Feedback',
+
+    // Nutrition view
+    goal: 'Goal:',
+    protein: 'P',
+    fat: 'F',
+    carbs: 'C',
+    kcal: 'kcal',
+    meals: 'Meals',
+    addMeal: 'Add',
+    noMeals: 'No meals yet',
+    addFirstMeal: 'Add your first meal!',
+    mealName: 'Name',
+    time: 'Time',
+
+    // Meal modal
+    addMealTitle: 'Add Meal',
+    editMealTitle: 'Edit Meal',
+    mealPlaceholder: 'Chicken and rice',
+
+    // GAINS
+    trackProgress: 'Track your progress',
+    addMeasurements: 'Add Measurements',
+    noMeasurements: 'No measurements yet',
+    addFirst: 'Add your first measurement!',
+    weight: 'Weight (kg)',
+    waist: 'waist',
+    chest: 'chest',
+    biceps: 'biceps',
+    thighs: 'thighs',
+    hips: 'hips',
+    favoriteMeals: 'Favorite Meals',
+    favoriteMealsHint: 'Tap ❤️ on a meal to add to favorites',
+
+    // Profile/Settings
+    language: 'Language',
+    timezone: 'Timezone',
+    signOut: 'Sign Out',
+    signOutConfirm: 'Sign out?',
+
+    // Measurements modal
+    newMeasurements: 'New Measurements',
+    waistCm: 'Waist (cm)',
+    chestCm: 'Chest (cm)',
+    bicepsCm: 'Biceps (cm)',
+    thighsCm: 'Thighs (cm)',
+    hipsCm: 'Hips (cm)',
+    save: 'Save',
+
+    // Workout editor
+    editWorkout: 'Edit Exercises',
+    addExercise: 'Add Exercise',
+    editExercise: 'Edit Exercise',
+    exerciseName: 'Exercise name',
+    sets: 'Sets',
+    setsPlaceholder: '3x12',
+    restTime: 'Rest',
+    restTimePlaceholder: '2-3 min',
+    notes: 'Notes (optional)',
+    add: 'Add',
+    delete: 'Delete',
+    deleteWorkout: 'Delete Workout',
+
+    // Calendar
+    weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  }
+} as const;
+
+type TranslationKey = keyof typeof translations.ru;
+
 // Default workout templates
 const DEFAULT_WORKOUTS: Workout[] = [
   {
@@ -1250,6 +1446,9 @@ export default function FitnessPage() {
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Translation helper
+  const t = (key: keyof typeof translations.ru) => translations[userSettings.language][key];
   const stepsAlertRef = useRef<HTMLDivElement | null>(null);
   const profileDropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -1697,12 +1896,14 @@ export default function FitnessPage() {
               position: 'relative',
               overflow: 'hidden'
             }}>
-              {/* Trainx logo - abstract rising bars pattern */}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                {/* Three rising bars - represents progress/growth */}
-                <rect x="3" y="14" width="4" height="7" rx="1.5" fill="#000" />
-                <rect x="10" y="9" width="4" height="12" rx="1.5" fill="#000" />
-                <rect x="17" y="4" width="4" height="17" rx="1.5" fill="#000" />
+              {/* Trainx logo - T with dynamic X */}
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                {/* T letter */}
+                <rect x="4" y="4" width="12" height="3.5" rx="1" fill="#000" />
+                <rect x="8.25" y="4" width="3.5" height="18" rx="1" fill="#000" />
+                {/* X accent */}
+                <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+                <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
             <div>
@@ -1717,19 +1918,19 @@ export default function FitnessPage() {
                 {syncStatus === 'syncing' && (
                   <>
                     <Cloud size={12} className="animate-pulse" style={{ color: 'var(--blue)' }} />
-                    Сохранение...
+                    {t('syncing')}
                   </>
                 )}
                 {syncStatus === 'synced' && (
                   <>
                     <Cloud size={12} style={{ color: 'var(--green)' }} />
-                    Синхронизировано
+                    {t('synced')}
                   </>
                 )}
                 {syncStatus === 'error' && (
                   <>
                     <CloudOff size={12} style={{ color: 'var(--red)' }} />
-                    Оффлайн
+                    {t('offline')}
                   </>
                 )}
               </div>
@@ -1824,7 +2025,7 @@ export default function FitnessPage() {
             }}
           >
             <Dumbbell size={16} />
-            Трен
+            {t('workout')}
           </button>
 
           {/* Nutrition tab */}
@@ -1853,7 +2054,7 @@ export default function FitnessPage() {
             }}
           >
             <Apple size={16} />
-            Еда
+            {t('food')}
           </button>
 
           {/* Profile tab with dropdown */}
@@ -1924,7 +2125,7 @@ export default function FitnessPage() {
                   }}
                 >
                   <Scale size={18} style={{ flexShrink: 0 }} />
-                  <span>GAINS</span>
+                  <span>{t('gains')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1949,7 +2150,7 @@ export default function FitnessPage() {
                   }}
                 >
                   <BarChart3 size={18} style={{ flexShrink: 0 }} />
-                  <span>Статистика</span>
+                  <span>{t('statistics')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1974,7 +2175,7 @@ export default function FitnessPage() {
                   }}
                 >
                   <Settings size={18} style={{ flexShrink: 0 }} />
-                  <span>Настройки</span>
+                  <span>{t('settings')}</span>
                 </button>
               </div>
             )}
@@ -2183,7 +2384,7 @@ export default function FitnessPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '20px' }}>😴</span>
                   <span style={{ color: 'rgb(147, 112, 219)', fontWeight: 600, fontSize: '14px' }}>
-                    День отдыха
+                    {t('offDay')}
                   </span>
                 </div>
                 <button
@@ -2199,7 +2400,7 @@ export default function FitnessPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  Отменить
+                  {t('cancelOffDay')}
                 </button>
               </div>
             )}
@@ -2507,7 +2708,7 @@ export default function FitnessPage() {
                     display: 'block',
                     marginBottom: '6px'
                   }}>
-                    Шаги за день
+                    {t('steps')}
                   </label>
                   <input
                     type="number"
@@ -2690,12 +2891,12 @@ export default function FitnessPage() {
                       {isDayClosed ? (
                         <>
                           <Check size={22} />
-                          Открыть день
+                          {userSettings.language === 'ru' ? 'Открыть день' : 'Reopen Day'}
                         </>
                       ) : (
                         <>
                           {readyToClose && <Check size={20} />}
-                          Закрыть день
+                          {t('closeDay')}
                         </>
                       )}
                     </button>
@@ -2735,15 +2936,15 @@ export default function FitnessPage() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Target size={14} className="pulse-subtle" style={{ color: 'var(--red)' }} />
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Цель:</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>{t('goal')}</span>
               </div>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} Б</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} {t('protein')}</span>
               <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} Ж</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} {t('fat')}</span>
               <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} У</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} {t('carbs')}</span>
               <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} ккал</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} {t('kcal')}</span>
             </div>
 
             {/* Compact Macro summary - 2x2 grid */}
@@ -2766,7 +2967,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   marginBottom: '4px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600 }}>Б</span>
+                  <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600 }}>{t('protein')}</span>
                   <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -2787,7 +2988,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   marginBottom: '4px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600 }}>Ж</span>
+                  <span style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600 }}>{t('fat')}</span>
                   <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -2808,7 +3009,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   marginBottom: '4px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>У</span>
+                  <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>{t('carbs')}</span>
                   <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -2829,7 +3030,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   marginBottom: '4px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>ккал</span>
+                  <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>{t('kcal')}</span>
                   <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
                 </div>
                 <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -2845,7 +3046,7 @@ export default function FitnessPage() {
               alignItems: 'center',
               marginBottom: '16px'
             }}>
-              <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px' }}>Приёмы пищи</h3>
+              <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px' }}>{t('meals')}</h3>
               <button
                 onClick={() => {
                   setEditingMeal(null);
@@ -2867,7 +3068,7 @@ export default function FitnessPage() {
                   boxShadow: '0 4px 20px var(--yellow-glow)'
                 }}
               >
-                <Plus size={18} /> Добавить
+                <Plus size={18} /> {t('addMeal')}
               </button>
             </div>
 
@@ -2882,8 +3083,8 @@ export default function FitnessPage() {
                 border: '1px solid var(--border)'
               }}>
                 <Apple size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <div style={{ fontSize: '14px', fontWeight: 500 }}>Нет записей о питании</div>
-                <div style={{ fontSize: '12px', marginTop: '4px' }}>Добавьте первый приём пищи</div>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>{t('noMeals')}</div>
+                <div style={{ fontSize: '12px', marginTop: '4px' }}>{t('addFirstMeal')}</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
