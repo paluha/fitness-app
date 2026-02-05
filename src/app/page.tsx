@@ -1048,8 +1048,9 @@ function FitnessCalendar({
           const isToday = d.dateStr === today;
           const isSelected = d.dateStr === selectedDateStr;
           const isFuture = d.dateStr > today;
-          const hasWorkout = log?.dayClosed;
-          const hasSteps = log?.steps && log.steps > 0 && !hasWorkout;
+          const hasWorkout = log?.dayClosed && !log?.isOffDay;
+          const isOffDay = log?.dayClosed && log?.isOffDay;
+          const hasSteps = log?.steps && log.steps > 0 && !hasWorkout && !isOffDay;
 
           // Get completed workout label
           const completedWorkoutId = log?.workoutCompleted;
@@ -1058,12 +1059,13 @@ function FitnessCalendar({
             : null;
           const workoutLabel = completedWorkout
             ? completedWorkout.name.replace('Тренировка ', 'T')
-            : null;
+            : isOffDay ? '😴' : null;
 
           // Определяем стиль фона
           const getBackground = () => {
             if (isSelected) return 'var(--yellow)';
             if (hasWorkout) return 'var(--green-dim)';
+            if (isOffDay) return 'var(--bg-elevated)';
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -1073,6 +1075,7 @@ function FitnessCalendar({
           const getColor = () => {
             if (isSelected) return '#000';
             if (hasWorkout) return 'var(--green)';
+            if (isOffDay) return 'var(--text-muted)';
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
           };
@@ -3734,41 +3737,43 @@ export default function FitnessPage() {
             </div>
 
             <div style={{ display: 'grid', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{
-                    fontSize: '12px',
-                    color: 'var(--text-muted)',
-                    marginBottom: '8px',
-                    display: 'block',
-                    fontWeight: 500
-                  }}>
-                    Время
-                  </label>
-                  <input
-                    type="time"
-                    value={mealForm.time}
-                    onChange={e => setMealForm({ ...mealForm, time: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label style={{
-                    fontSize: '12px',
-                    color: 'var(--text-muted)',
-                    marginBottom: '8px',
-                    display: 'block',
-                    fontWeight: 500
-                  }}>
-                    Название
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Творог с вареньем"
-                    value={mealForm.name}
-                    onChange={e => setMealForm({ ...mealForm, name: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <div style={{ width: '110px', flexShrink: 0 }}>
+                    <label style={{
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      marginBottom: '8px',
+                      display: 'block',
+                      fontWeight: 500
+                    }}>
+                      Время
+                    </label>
+                    <input
+                      type="time"
+                      value={mealForm.time}
+                      onChange={e => setMealForm({ ...mealForm, time: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={{
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      marginBottom: '8px',
+                      display: 'block',
+                      fontWeight: 500
+                    }}>
+                      Название
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Творог с вареньем"
+                      value={mealForm.name}
+                      onChange={e => setMealForm({ ...mealForm, name: e.target.value })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3961,20 +3966,20 @@ export default function FitnessPage() {
                     onChange={e => setExerciseForm({ ...exerciseForm, name: e.target.value })}
                     style={{ width: '100%' }}
                   />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <input
-                      type="text"
-                      placeholder="Подходы (3x12)"
-                      value={exerciseForm.plannedSets}
-                      onChange={e => setExerciseForm({ ...exerciseForm, plannedSets: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Отдых (2-3 мин)"
-                      value={exerciseForm.restTime}
-                      onChange={e => setExerciseForm({ ...exerciseForm, restTime: e.target.value })}
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    placeholder="Подходы (3x12)"
+                    value={exerciseForm.plannedSets}
+                    onChange={e => setExerciseForm({ ...exerciseForm, plannedSets: e.target.value })}
+                    style={{ width: '100%' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Отдых (2-3 мин)"
+                    value={exerciseForm.restTime}
+                    onChange={e => setExerciseForm({ ...exerciseForm, restTime: e.target.value })}
+                    style={{ width: '100%' }}
+                  />
                   <input
                     type="text"
                     placeholder="Заметки (опционально)"
