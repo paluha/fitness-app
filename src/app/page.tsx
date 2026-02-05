@@ -1697,14 +1697,12 @@ export default function FitnessPage() {
               position: 'relative',
               overflow: 'hidden'
             }}>
-              {/* Trainx logo - T with dynamic X */}
-              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                {/* T letter */}
-                <rect x="4" y="4" width="12" height="3.5" rx="1" fill="#000" />
-                <rect x="8.25" y="4" width="3.5" height="18" rx="1" fill="#000" />
-                {/* X accent */}
-                <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-                <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+              {/* Trainx logo - abstract rising bars pattern */}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                {/* Three rising bars - represents progress/growth */}
+                <rect x="3" y="14" width="4" height="7" rx="1.5" fill="#000" />
+                <rect x="10" y="9" width="4" height="12" rx="1.5" fill="#000" />
+                <rect x="17" y="4" width="4" height="17" rx="1.5" fill="#000" />
               </svg>
             </div>
             <div>
@@ -2737,7 +2735,7 @@ export default function FitnessPage() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Target size={14} className="pulse-subtle" style={{ color: 'var(--red)' }} />
-                <span style={{ fontSize: '13px', color: 'var(--red)', fontWeight: 600 }}>Цель:</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Цель:</span>
               </div>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} Б</span>
               <span style={{ color: 'var(--border-strong)' }}>|</span>
