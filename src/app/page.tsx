@@ -2189,7 +2189,8 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Compact Progress bar */}
+            {/* Compact Progress bar - hidden for Off Days */}
+            {!currentDayLog.isOffDay && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -2253,82 +2254,85 @@ export default function FitnessPage() {
                 </button>
               )}
             </div>
+            )}
 
-            {/* Exercise list */}
-            {displayExercises.length > 0 ? (
-              displayExercises.map((ex, idx) => {
-                const workoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
-                const exerciseKey = `${workoutId}-${ex.id}`;
-                return (
-                  <ExerciseCard
-                    key={ex.id}
-                    ex={ex}
-                    idx={idx}
-                    workoutId={workoutId}
-                    onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
-                    onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
-                    progressHistory={progressHistory[exerciseKey] || []}
-                    onSaveProgress={(weight, notes) => {
-                      if (viewingPastWorkout) return;
-                      const newEntry: ExerciseProgress = {
-                        date: formatDate(selectedDate),
-                        weight,
-                        notes
-                      };
-                      setProgressHistory(prev => ({
-                        ...prev,
-                        [exerciseKey]: [...(prev[exerciseKey] || []), newEntry]
-                      }));
-                    }}
-                  />
-                );
-              })
-            ) : (
-              <div style={{
-                background: 'var(--bg-card)',
-                borderRadius: '16px',
-                border: '1px solid var(--border)',
-                padding: '40px 20px',
-                textAlign: 'center'
-              }}>
+            {/* Exercise list - hidden for Off Days */}
+            {!currentDayLog.isOffDay && (
+              displayExercises.length > 0 ? (
+                displayExercises.map((ex, idx) => {
+                  const workoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
+                  const exerciseKey = `${workoutId}-${ex.id}`;
+                  return (
+                    <ExerciseCard
+                      key={ex.id}
+                      ex={ex}
+                      idx={idx}
+                      workoutId={workoutId}
+                      onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
+                      onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
+                      progressHistory={progressHistory[exerciseKey] || []}
+                      onSaveProgress={(weight, notes) => {
+                        if (viewingPastWorkout) return;
+                        const newEntry: ExerciseProgress = {
+                          date: formatDate(selectedDate),
+                          weight,
+                          notes
+                        };
+                        setProgressHistory(prev => ({
+                          ...prev,
+                          [exerciseKey]: [...(prev[exerciseKey] || []), newEntry]
+                        }));
+                      }}
+                    />
+                  );
+                })
+              ) : (
                 <div style={{
-                  width: '60px',
-                  height: '60px',
+                  background: 'var(--bg-card)',
                   borderRadius: '16px',
-                  background: 'var(--bg-elevated)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 16px'
+                  border: '1px solid var(--border)',
+                  padding: '40px 20px',
+                  textAlign: 'center'
                 }}>
-                  <Dumbbell size={28} style={{ color: 'var(--text-muted)' }} />
-                </div>
-                <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
-                  День отдыха
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                  Нет запланированных упражнений
-                </div>
-                <button
-                  onClick={() => openWorkoutEditor(currentWorkout.id)}
-                  style={{
-                    padding: '12px 24px',
-                    background: 'var(--yellow)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    color: '#000',
-                    fontWeight: 600,
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '16px',
+                    background: 'var(--bg-elevated)',
+                    display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <Plus size={18} />
-                  Добавить упражнения
-                </button>
-              </div>
+                    justifyContent: 'center',
+                    margin: '0 auto 16px'
+                  }}>
+                    <Dumbbell size={28} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+                    Нет упражнений
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                    Добавьте упражнения в тренировку
+                  </div>
+                  <button
+                    onClick={() => openWorkoutEditor(currentWorkout.id)}
+                    style={{
+                      padding: '12px 24px',
+                      background: 'var(--yellow)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: '#000',
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <Plus size={18} />
+                    Добавить упражнения
+                  </button>
+                </div>
+              )
             )}
 
             {/* Steps alert - show for completed workouts or off days without steps */}
