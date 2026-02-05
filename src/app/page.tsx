@@ -2726,33 +2726,35 @@ export default function FitnessPage() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
+              justifyContent: 'space-between',
               marginBottom: '12px',
-              padding: '12px 16px',
-              background: 'linear-gradient(135deg, rgba(255, 204, 0, 0.08) 0%, rgba(255, 204, 0, 0.03) 100%)',
+              padding: '10px 14px',
+              background: 'var(--bg-card)',
               borderRadius: '12px',
-              border: '1px solid rgba(255, 204, 0, 0.2)'
+              border: '1px solid var(--border)'
             }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                background: 'var(--yellow)',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px var(--yellow-glow)'
-              }}>
-                <Target size={12} style={{ color: '#000' }} />
-                <span style={{ fontSize: '11px', color: '#000', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Цель</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Target size={14} style={{ color: 'var(--yellow)' }} />
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Цель</span>
               </div>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} Б</span>
-              <span style={{ color: 'var(--border-strong)', opacity: 0.5 }}>•</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} Ж</span>
-              <span style={{ color: 'var(--border-strong)', opacity: 0.5 }}>•</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} У</span>
-              <span style={{ color: 'var(--border-strong)', opacity: 0.5 }}>•</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--blue)' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.protein}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--yellow)' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.fat}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.carbs}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--red)' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{MACRO_TARGETS.calories}</span>
+                </div>
+              </div>
             </div>
 
             {/* Compact Macro summary - 2x2 grid */}
