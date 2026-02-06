@@ -1490,19 +1490,7 @@ export default function FitnessPage() {
         console.error('Failed to load from server:', e);
       }
 
-      // Fallback to localStorage
-      const saved = localStorage.getItem('fitness_data');
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          if (data.workouts) setWorkouts(data.workouts);
-          if (data.dayLogs) setDayLogs(data.dayLogs);
-          if (data.progressHistory) setProgressHistory(data.progressHistory);
-          if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
-        } catch (e) {
-          console.error('Failed to load fitness data:', e);
-        }
-      }
+      // No localStorage fallback - all data must come from server
       setIsLoaded(true);
     };
     loadData();
@@ -1546,18 +1534,17 @@ export default function FitnessPage() {
     }
   }, []);
 
-  // Save to localStorage and queue server sync
+  // Sync directly to server (with small debounce to batch rapid changes)
   useEffect(() => {
     if (!isLoaded) return;
-
-    localStorage.setItem('fitness_data', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements }));
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
+    // Small debounce (500ms) to batch rapid changes, but sync quickly
     syncTimeoutRef.current = setTimeout(() => {
       syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements);
-    }, 2000);
+    }, 500);
 
     return () => {
       if (syncTimeoutRef.current) {
