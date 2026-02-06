@@ -3114,7 +3114,12 @@ export default function FitnessPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {currentDayLog.meals.map((meal, index) => (
+                {[...currentDayLog.meals].sort((a, b) => {
+                  // Sort by time (HH:MM format)
+                  const timeA = a.time || '99:99';
+                  const timeB = b.time || '99:99';
+                  return timeA.localeCompare(timeB);
+                }).map((meal, index) => (
                   <div
                     key={meal.id}
                     className="card-hover list-item-animated"
