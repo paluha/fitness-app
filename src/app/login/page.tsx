@@ -29,14 +29,17 @@ function LoginForm() {
         redirect: false,
       });
 
-      if (result?.error) {
-        setErrorMessage('Неверный email или пароль');
-        setIsLoading(false);
-      } else {
+      console.log('SignIn result:', result);
+
+      if (result?.ok) {
         router.push(callbackUrl);
         router.refresh();
+      } else {
+        setErrorMessage('Неверный email или пароль');
+        setIsLoading(false);
       }
-    } catch {
+    } catch (err) {
+      console.error('SignIn error:', err);
       setErrorMessage('Произошла ошибка. Попробуйте позже.');
       setIsLoading(false);
     }
