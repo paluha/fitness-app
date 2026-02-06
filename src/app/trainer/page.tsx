@@ -411,6 +411,7 @@ export default function TrainerDashboard() {
             filteredClients.map((client, index) => (
               <div
                 key={client.id}
+                onClick={() => router.push(`/trainer/client/${client.id}`)}
                 style={{
                   padding: '16px 20px',
                   display: 'flex',
