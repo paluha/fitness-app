@@ -17,7 +17,10 @@ enum UserRole {
 
 model User {
   id            String    @id @default(cuid())
-  name          String?
+  clientId      String?   @unique // Unique client identifier (e.g., "TX001")
+  firstName     String?
+  lastName      String?
+  name          String?   // Display name (can be auto-generated from firstName + lastName)
   email         String?   @unique
   emailVerified DateTime?
   image         String?

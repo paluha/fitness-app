@@ -20,7 +20,10 @@ import {
 
 interface Client {
   id: string;
-  name: string;
+  clientId: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  name: string | null;
   email: string;
   createdAt: string;
   lastActive?: string;
@@ -33,7 +36,7 @@ export default function TrainerDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newClient, setNewClient] = useState({ name: '', email: '', password: '' });
+  const [newClient, setNewClient] = useState({ firstName: '', lastName: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -74,7 +77,7 @@ export default function TrainerDashboard() {
 
       if (res.ok) {
         setShowAddModal(false);
-        setNewClient({ name: '', email: '', password: '' });
+        setNewClient({ firstName: '', lastName: '', email: '', password: '' });
         fetchClients();
       } else {
         const data = await res.json();
@@ -87,10 +90,14 @@ export default function TrainerDashboard() {
     }
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredClients = clients.filter(client => {
+    const fullName = `${client.firstName || ''} ${client.lastName || ''}`.toLowerCase();
+    const clientIdStr = client.clientId?.toLowerCase() || '';
+    const query = searchQuery.toLowerCase();
+    return fullName.includes(query) ||
+           client.email.toLowerCase().includes(query) ||
+           clientIdStr.includes(query);
+  });
 
   if (status === 'loading' || isLoading) {
     return (
@@ -431,17 +438,33 @@ export default function TrainerDashboard() {
                     fontWeight: 700,
                     fontSize: '16px'
                   }}>
-                    {client.name.charAt(0).toUpperCase()}
+                    {(client.firstName || client.name || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p style={{
-                      fontSize: '15px',
-                      fontWeight: 600,
-                      color: '#fff',
-                      margin: 0
-                    }}>
-                      {client.name}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <p style={{
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        color: '#fff',
+                        margin: 0
+                      }}>
+                        {client.firstName && client.lastName
+                          ? `${client.firstName} ${client.lastName}`
+                          : client.name || client.email}
+                      </p>
+                      {client.clientId && (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: '#ffcc00',
+                          background: 'rgba(255,204,0,0.15)',
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          {client.clientId}
+                        </span>
+                      )}
+                    </div>
                     <p style={{
                       fontSize: '13px',
                       color: 'rgba(255,255,255,0.5)',
@@ -496,7 +519,7 @@ export default function TrainerDashboard() {
               <button
                 onClick={() => {
                   setShowAddModal(false);
-                  setNewClient({ name: '', email: '', password: '' });
+                  setNewClient({ firstName: '', lastName: '', email: '', password: '' });
                   setError('');
                 }}
                 style={{
@@ -526,34 +549,66 @@ export default function TrainerDashboard() {
                 </div>
               )}
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: 'rgba(255,255,255,0.7)',
-                  marginBottom: '8px'
-                }}>
-                  Имя
-                </label>
-                <input
-                  type="text"
-                  value={newClient.name}
-                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                  placeholder="Имя клиента"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+              {/* First and Last Name in a row */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.7)',
+                    marginBottom: '8px'
+                  }}>
+                    Имя
+                  </label>
+                  <input
+                    type="text"
+                    value={newClient.firstName}
+                    onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
+                    placeholder="Имя"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.7)',
+                    marginBottom: '8px'
+                  }}>
+                    Фамилия
+                  </label>
+                  <input
+                    type="text"
+                    value={newClient.lastName}
+                    onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
+                    placeholder="Фамилия"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
               </div>
 
               <div style={{ marginBottom: '16px' }}>

@@ -4,6 +4,34 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+// Generate unique client ID like TX001, TX002, etc.
+async function generateClientId(): Promise<string> {
+  const prefix = 'TX';
+
+  // Find the highest existing clientId
+  const lastClient = await prisma.user.findFirst({
+    where: {
+      clientId: {
+        startsWith: prefix
+      }
+    },
+    orderBy: {
+      clientId: 'desc'
+    },
+    select: {
+      clientId: true
+    }
+  });
+
+  let nextNumber = 1;
+  if (lastClient?.clientId) {
+    const numPart = lastClient.clientId.replace(prefix, '');
+    nextNumber = parseInt(numPart, 10) + 1;
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+}
+
 // Get all clients for a trainer
 export async function GET() {
   try {
@@ -20,6 +48,9 @@ export async function GET() {
       },
       select: {
         id: true,
+        clientId: true,
+        firstName: true,
+        lastName: true,
         name: true,
         email: true,
         createdAt: true,
@@ -45,9 +76,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, password } = await request.json();
+    const { firstName, lastName, email, password } = await request.json();
 
-    if (!name || !email || !password) {
+    if (!firstName || !lastName || !email || !password) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
@@ -64,13 +95,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
     }
 
+    // Generate unique client ID
+    const clientId = await generateClientId();
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create client
     const client = await prisma.user.create({
       data: {
-        name,
+        clientId,
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`,
         email,
         password: hashedPassword,
         role: 'CLIENT',
@@ -78,6 +115,9 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
+        clientId: true,
+        firstName: true,
+        lastName: true,
         name: true,
         email: true,
         createdAt: true
