@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { signOut } from 'next-auth/react';
 import {
   Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check,
   Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
@@ -3807,7 +3808,7 @@ export default function FitnessPage() {
                   onClick={() => {
                     if (confirm(t('signOutConfirm') as string)) {
                       localStorage.clear();
-                      window.location.reload();
+                      signOut({ callbackUrl: '/login' });
                     }
                   }}
                   style={{

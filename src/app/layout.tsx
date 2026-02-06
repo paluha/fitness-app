@@ -1,14 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import SessionProvider from "@/components/SessionProvider";
 
 export const metadata: Metadata = {
-  title: "Fitness Tracker",
+  title: "Trainx",
   description: "Track your workouts, nutrition, and progress",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Fitness",
+    title: "Trainx",
   },
 };
 
@@ -28,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body>
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
