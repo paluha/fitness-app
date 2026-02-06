@@ -232,7 +232,9 @@ interface BodyMeasurement {
   weight?: number;
   waist?: number;
   chest?: number;
-  biceps?: number;
+  biceps?: number;        // legacy - kept for backwards compatibility
+  bicepsLeft?: number;
+  bicepsRight?: number;
   thighs?: number;
   hips?: number;
   notes?: string;
@@ -337,6 +339,8 @@ const translations = {
     waist: 'талия',
     chest: 'грудь',
     biceps: 'бицепс',
+    bicepsLeft: 'бицепс Л',
+    bicepsRight: 'бицепс П',
     thighs: 'бедра',
     hips: 'ягодицы',
     favoriteMeals: 'Любимые блюда',
@@ -353,6 +357,8 @@ const translations = {
     waistCm: 'Талия (см)',
     chestCm: 'Грудь (см)',
     bicepsCm: 'Бицепс (см)',
+    bicepsLeftCm: 'Бицепс Л (см)',
+    bicepsRightCm: 'Бицепс П (см)',
     thighsCm: 'Бедра (см)',
     hipsCm: 'Ягодицы (см)',
     save: 'Сохранить',
@@ -440,6 +446,8 @@ const translations = {
     waist: 'waist',
     chest: 'chest',
     biceps: 'biceps',
+    bicepsLeft: 'biceps L',
+    bicepsRight: 'biceps R',
     thighs: 'thighs',
     hips: 'hips',
     favoriteMeals: 'Favorite Meals',
@@ -456,6 +464,8 @@ const translations = {
     waistCm: 'Waist (cm)',
     chestCm: 'Chest (cm)',
     bicepsCm: 'Biceps (cm)',
+    bicepsLeftCm: 'Biceps L (cm)',
+    bicepsRightCm: 'Biceps R (cm)',
     thighsCm: 'Thighs (cm)',
     hipsCm: 'Hips (cm)',
     save: 'Save',
@@ -3606,6 +3616,18 @@ export default function FitnessPage() {
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('biceps')}</div>
                           </div>
                         )}
+                        {m.bicepsLeft && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsLeft}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('bicepsLeft')}</div>
+                          </div>
+                        )}
+                        {m.bicepsRight && (
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsRight}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('bicepsRight')}</div>
+                          </div>
+                        )}
                         {m.thighs && (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--orange)' }}>{m.thighs}</div>
@@ -3870,7 +3892,8 @@ export default function FitnessPage() {
                 weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
                 waist: formData.get('waist') ? Number(formData.get('waist')) : undefined,
                 chest: formData.get('chest') ? Number(formData.get('chest')) : undefined,
-                biceps: formData.get('biceps') ? Number(formData.get('biceps')) : undefined,
+                bicepsLeft: formData.get('bicepsLeft') ? Number(formData.get('bicepsLeft')) : undefined,
+                bicepsRight: formData.get('bicepsRight') ? Number(formData.get('bicepsRight')) : undefined,
                 thighs: formData.get('thighs') ? Number(formData.get('thighs')) : undefined,
                 hips: formData.get('hips') ? Number(formData.get('hips')) : undefined,
                 notes: formData.get('notes') as string || undefined
@@ -3962,11 +3985,31 @@ export default function FitnessPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                    {t('bicepsCm')}
+                    {t('bicepsLeftCm')}
                   </label>
                   <input
                     type="number"
-                    name="biceps"
+                    name="bicepsLeft"
+                    step="0.1"
+                    placeholder="35"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '15px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {t('bicepsRightCm')}
+                  </label>
+                  <input
+                    type="number"
+                    name="bicepsRight"
                     step="0.1"
                     placeholder="35"
                     style={{
