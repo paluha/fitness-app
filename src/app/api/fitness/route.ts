@@ -1,30 +1,31 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-// For now, use a fixed user ID since we don't have auth yet
-const USER_ID = 'default-user';
-const TRAINER_ID = 'demo-trainer';
 
 // GET - Fetch fitness data
 export async function GET() {
   try {
-    // Ensure user exists
-    const user = await prisma.user.upsert({
-      where: { id: USER_ID },
-      update: {},
-      create: {
-        id: USER_ID,
-        email: 'fitness@app.local',
-        role: 'CLIENT',
-        trainerId: TRAINER_ID,
-        language: 'ru',
-        timezone: 'Europe/Moscow'
-      }
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // Get user data
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
     });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     // Get user's fitness data (day logs, progress)
     const fitnessData = await prisma.fitnessData.findUnique({
-      where: { userId: USER_ID }
+      where: { userId }
     });
 
     return NextResponse.json({
@@ -56,22 +57,17 @@ export async function GET() {
 // POST - Save fitness data (workouts, dayLogs, progressHistory, bodyMeasurements, favoriteMeals)
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
     const { workouts, dayLogs, progressHistory, bodyMeasurements, favoriteMeals } = await request.json();
 
-    // Ensure user exists
-    await prisma.user.upsert({
-      where: { id: USER_ID },
-      update: {},
-      create: {
-        id: USER_ID,
-        email: 'fitness@app.local',
-        role: 'CLIENT',
-        trainerId: TRAINER_ID
-      }
-    });
-
     const fitnessData = await prisma.fitnessData.upsert({
-      where: { userId: USER_ID },
+      where: { userId },
       update: {
         workouts: workouts || undefined,
         dayLogs: dayLogs || {},
@@ -81,7 +77,7 @@ export async function POST(request: Request) {
         updatedAt: new Date()
       },
       create: {
-        userId: USER_ID,
+        userId,
         workouts: workouts || [],
         dayLogs: dayLogs || {},
         progressHistory: progressHistory || {},

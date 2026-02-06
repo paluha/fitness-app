@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-
-const USER_ID = 'default-user';
 
 // GET - Fetch user settings
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: USER_ID },
+      where: { id: session.user.id },
       select: {
         name: true,
         email: true,
@@ -34,10 +40,16 @@ export async function GET() {
 // PUT - Update user settings
 export async function PUT(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { name, language, timezone } = await request.json();
 
     const user = await prisma.user.update({
-      where: { id: USER_ID },
+      where: { id: session.user.id },
       data: {
         name: name || undefined,
         language: language || undefined,
