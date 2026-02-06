@@ -3598,53 +3598,53 @@ export default function FitnessPage() {
                           year: 'numeric'
                         })}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'flex-start' }}>
                         {m.weight && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--yellow)' }}>{m.weight}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>кг</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{m.weight}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>кг</div>
                           </div>
                         )}
                         {m.waist && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--blue)' }}>{m.waist}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('waist')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{m.waist}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('waist')}</div>
                           </div>
                         )}
                         {m.chest && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)' }}>{m.chest}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('chest')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{m.chest}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('chest')}</div>
                           </div>
                         )}
                         {m.biceps && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.biceps}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('biceps')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--purple)' }}>{m.biceps}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('biceps')}</div>
                           </div>
                         )}
                         {m.bicepsLeft && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsLeft}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('bicepsLeft')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsLeft}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('bicepsLeft')}</div>
                           </div>
                         )}
                         {m.bicepsRight && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsRight}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('bicepsRight')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsRight}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('bicepsRight')}</div>
                           </div>
                         )}
                         {m.thighs && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--orange)' }}>{m.thighs}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('thighs')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--orange)' }}>{m.thighs}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('thighs')}</div>
                           </div>
                         )}
                         {m.hips && (
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--cyan)' }}>{m.hips}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('hips')}</div>
+                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--cyan)' }}>{m.hips}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('hips')}</div>
                           </div>
                         )}
                       </div>
