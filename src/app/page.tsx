@@ -7,7 +7,7 @@ import {
   Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
-  Heart, BarChart3, Scale, Ruler, Globe, Languages
+  Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil
 } from 'lucide-react';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -362,6 +362,9 @@ const translations = {
     thighsCm: 'Бедра (см)',
     hipsCm: 'Ягодицы (см)',
     save: 'Сохранить',
+    edit: 'Изменить',
+    editMeasurements: 'Редактировать замер',
+    deleteMeasurementConfirm: 'Удалить замер?',
 
     // Workout editor
     editWorkout: 'Редактирование упражнений',
@@ -469,6 +472,9 @@ const translations = {
     thighsCm: 'Thighs (cm)',
     hipsCm: 'Hips (cm)',
     save: 'Save',
+    edit: 'Edit',
+    editMeasurements: 'Edit Measurement',
+    deleteMeasurementConfirm: 'Delete measurement?',
 
     // Workout editor
     editWorkout: 'Edit Exercises',
@@ -1471,6 +1477,7 @@ export default function FitnessPage() {
   const [stepsAlertPulse, setStepsAlertPulse] = useState(false);
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [showMeasurementModal, setShowMeasurementModal] = useState(false);
+  const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -3646,6 +3653,59 @@ export default function FitnessPage() {
                           {m.notes}
                         </div>
                       )}
+                      {/* Edit/Delete buttons */}
+                      <div style={{
+                        marginTop: '12px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid var(--border)',
+                        display: 'flex',
+                        gap: '8px',
+                        justifyContent: 'flex-end'
+                      }}>
+                        <button
+                          onClick={() => {
+                            setEditingMeasurement(m);
+                            setShowMeasurementModal(true);
+                          }}
+                          style={{
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            color: 'var(--text-secondary)',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Pencil size={14} />
+                          {t('edit') || 'Изменить'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(t('deleteMeasurementConfirm') as string)) {
+                              setBodyMeasurements(prev => prev.filter(item => item.id !== m.id));
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            color: '#ef4444',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          {t('delete') || 'Удалить'}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -3850,9 +3910,9 @@ export default function FitnessPage() {
         )}
       </div>
 
-      {/* Add Measurement Modal */}
+      {/* Add/Edit Measurement Modal */}
       {showMeasurementModal && (
-        <div className="modal-overlay" onClick={() => setShowMeasurementModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowMeasurementModal(false); setEditingMeasurement(null); }}>
           <div
             className="modal-content"
             onClick={e => e.stopPropagation()}
@@ -3865,10 +3925,10 @@ export default function FitnessPage() {
               marginBottom: '24px'
             }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700 }}>
-                {t('newMeasurements')}
+                {editingMeasurement ? t('editMeasurements') : t('newMeasurements')}
               </h3>
               <button
-                onClick={() => setShowMeasurementModal(false)}
+                onClick={() => { setShowMeasurementModal(false); setEditingMeasurement(null); }}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -3886,8 +3946,8 @@ export default function FitnessPage() {
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
               const dateValue = formData.get('date') as string;
-              const newMeasurement: BodyMeasurement = {
-                id: Date.now().toString(),
+              const measurement: BodyMeasurement = {
+                id: editingMeasurement?.id || Date.now().toString(),
                 date: dateValue ? new Date(dateValue).toISOString() : new Date().toISOString(),
                 weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
                 waist: formData.get('waist') ? Number(formData.get('waist')) : undefined,
@@ -3898,18 +3958,23 @@ export default function FitnessPage() {
                 hips: formData.get('hips') ? Number(formData.get('hips')) : undefined,
                 notes: formData.get('notes') as string || undefined
               };
-              setBodyMeasurements(prev => [...prev, newMeasurement]);
+              if (editingMeasurement) {
+                setBodyMeasurements(prev => prev.map(m => m.id === editingMeasurement.id ? measurement : m));
+              } else {
+                setBodyMeasurements(prev => [...prev, measurement]);
+              }
               setShowMeasurementModal(false);
+              setEditingMeasurement(null);
             }}>
               {/* Date picker */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                  {t('date') || 'Дата'}
+                  {t('date')}
                 </label>
                 <input
                   type="date"
                   name="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  defaultValue={editingMeasurement ? new Date(editingMeasurement.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -3932,6 +3997,7 @@ export default function FitnessPage() {
                     name="weight"
                     step="0.1"
                     placeholder="75.5"
+                    defaultValue={editingMeasurement?.weight || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -3952,6 +4018,7 @@ export default function FitnessPage() {
                     name="waist"
                     step="0.1"
                     placeholder="80"
+                    defaultValue={editingMeasurement?.waist || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -3972,6 +4039,7 @@ export default function FitnessPage() {
                     name="chest"
                     step="0.1"
                     placeholder="100"
+                    defaultValue={editingMeasurement?.chest || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -3992,6 +4060,7 @@ export default function FitnessPage() {
                     name="bicepsLeft"
                     step="0.1"
                     placeholder="35"
+                    defaultValue={editingMeasurement?.bicepsLeft || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -4012,6 +4081,7 @@ export default function FitnessPage() {
                     name="bicepsRight"
                     step="0.1"
                     placeholder="35"
+                    defaultValue={editingMeasurement?.bicepsRight || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -4032,6 +4102,7 @@ export default function FitnessPage() {
                     name="thighs"
                     step="0.1"
                     placeholder="55"
+                    defaultValue={editingMeasurement?.thighs || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -4052,6 +4123,7 @@ export default function FitnessPage() {
                     name="hips"
                     step="0.1"
                     placeholder="95"
+                    defaultValue={editingMeasurement?.hips || ''}
                     style={{
                       width: '100%',
                       padding: '12px',
@@ -4072,6 +4144,7 @@ export default function FitnessPage() {
                   type="text"
                   name="notes"
                   placeholder={t('measurementNotesPlaceholder') as string}
+                  defaultValue={editingMeasurement?.notes || ''}
                   style={{
                     width: '100%',
                     padding: '12px',
