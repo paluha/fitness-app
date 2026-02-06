@@ -281,9 +281,9 @@ const MAX_WORKOUTS = 7;
 const translations = {
   ru: {
     // Navigation
-    workout: 'Трен',
+    workout: 'Тренировка',
     food: 'Еда',
-    gains: 'GAINS',
+    gains: 'Замеры',
     statistics: 'Статистика',
     settings: 'Настройки',
     profile: 'Профиль',
@@ -3507,7 +3507,7 @@ export default function FitnessPage() {
             <div style={{ marginBottom: '20px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Scale size={20} />
-                GAINS
+                {t('gains')}
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                 {t('trackProgress')}
