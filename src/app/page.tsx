@@ -294,6 +294,7 @@ const translations = {
     offline: 'Оффлайн',
     today: 'Сегодня',
     yesterday: 'Вчера',
+    date: 'Дата',
 
     // Workout view
     steps: 'Шаги',
@@ -396,6 +397,7 @@ const translations = {
     offline: 'Offline',
     today: 'Today',
     yesterday: 'Yesterday',
+    date: 'Date',
 
     // Workout view
     steps: 'Steps',
@@ -3861,9 +3863,10 @@ export default function FitnessPage() {
               e.preventDefault();
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
+              const dateValue = formData.get('date') as string;
               const newMeasurement: BodyMeasurement = {
                 id: Date.now().toString(),
-                date: new Date().toISOString(),
+                date: dateValue ? new Date(dateValue).toISOString() : new Date().toISOString(),
                 weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
                 waist: formData.get('waist') ? Number(formData.get('waist')) : undefined,
                 chest: formData.get('chest') ? Number(formData.get('chest')) : undefined,
@@ -3875,6 +3878,27 @@ export default function FitnessPage() {
               setBodyMeasurements(prev => [...prev, newMeasurement]);
               setShowMeasurementModal(false);
             }}>
+              {/* Date picker */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                  {t('date') || 'Дата'}
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    color: 'var(--text-primary)',
+                    fontSize: '15px'
+                  }}
+                />
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
