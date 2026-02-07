@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// POST - Analyze food image using OpenAI Vision
+// POST - Analyze food image using Gemini Flash
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,10 +20,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 
-    if (!OPENAI_API_KEY) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+    if (!GOOGLE_AI_API_KEY) {
+      return NextResponse.json({ error: 'Google AI API key not configured' }, { status: 500 });
     }
 
     const isNutritionLabel = type === 'nutrition_label';
@@ -49,61 +49,80 @@ Respond ONLY with a JSON object in this exact format:
 
 If you cannot read some values, use 0. Do not include any explanation, only the JSON.`
       : `Analyze this photo of food/meal. Estimate the nutritional content based on what you see.
-Consider the portion size visible in the image.
+
+IMPORTANT: If you see a kitchen scale with a digital display showing weight in grams, READ THE EXACT WEIGHT from the display and use it for precise calculation. Look for numbers on any electronic scale display.
+
+Steps:
+1. Identify the food item(s)
+2. Check if there's a scale with visible weight reading
+3. If weight is visible - calculate KBJU based on exact weight
+4. If no scale - estimate portion size visually
 
 Respond ONLY with a JSON object in this exact format:
 {
   "name": "название блюда на русском",
-  "calories": number (estimated kcal),
-  "protein": number (estimated grams),
-  "fat": number (estimated grams),
-  "carbs": number (estimated grams),
+  "calories": number (kcal),
+  "protein": number (grams),
+  "fat": number (grams),
+  "carbs": number (grams),
+  "weight": number or null (grams from scale if visible),
   "confidence": "high" | "medium" | "low",
-  "notes": "brief note about the estimation in Russian"
+  "notes": "brief note in Russian (mention if weight was read from scale)"
 }
 
-Be realistic with your estimates. If unsure, err on the side of caution.
-Do not include any explanation, only the JSON.`;
+If scale weight is visible, confidence should be "high".
+Be realistic with estimates. Do not include any explanation, only the JSON.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`,
-                  detail: 'high'
+    // Extract base64 data from data URL if needed
+    let base64Data = image;
+    let mimeType = 'image/jpeg';
+
+    if (image.startsWith('data:')) {
+      const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        mimeType = matches[1];
+        base64Data = matches[2];
+      }
+    }
+
+    // Call Gemini API
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
+                  }
                 }
-              }
-            ]
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 500
           }
-        ],
-        max_tokens: 500,
-        temperature: 0.3
-      })
-    });
+        })
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('OpenAI API error:', error);
+      console.error('Gemini API error:', error);
       return NextResponse.json({ error: 'Failed to analyze image' }, { status: 500 });
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
       return NextResponse.json({ error: 'No response from AI' }, { status: 500 });
