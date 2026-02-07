@@ -760,9 +760,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
               {idx + 1}.
             </span>
             <span style={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+              overflow: expanded ? 'visible' : 'hidden',
+              textOverflow: expanded ? 'initial' : 'ellipsis',
+              whiteSpace: expanded ? 'normal' : 'nowrap',
+              wordBreak: expanded ? 'break-word' : 'normal'
             }}>
               {ex.name}
             </span>
