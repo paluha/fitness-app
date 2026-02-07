@@ -2720,24 +2720,26 @@ export default function FitnessPage() {
             }}>
               <div style={{
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-end',
                 gap: '14px',
                 flexWrap: 'wrap'
               }}>
-                <div style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '12px',
-                  background: currentDayLog.steps && currentDayLog.steps > 0
-                    ? 'var(--blue-dim)'
-                    : 'var(--bg-elevated)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `1px solid ${currentDayLog.steps && currentDayLog.steps > 0
-                    ? 'rgba(0, 180, 216, 0.3)'
-                    : 'var(--border)'}`
-                }}>
+                <div
+                  className="steps-walking"
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: currentDayLog.steps && currentDayLog.steps > 0
+                      ? 'var(--blue-dim)'
+                      : 'var(--bg-elevated)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `1px solid ${currentDayLog.steps && currentDayLog.steps > 0
+                      ? 'rgba(0, 180, 216, 0.3)'
+                      : 'var(--border)'}`
+                  }}>
                   <Footprints
                     size={22}
                     style={{
