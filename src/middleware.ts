@@ -4,10 +4,22 @@ import { NextResponse } from 'next/server';
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
-    const isTrainerRoute = req.nextUrl.pathname.startsWith('/trainer');
+    const pathname = req.nextUrl.pathname;
+    const isTrainerRoute = pathname.startsWith('/trainer');
+    const isLandingRoute = pathname === '/landing';
+
+    // Allow landing page without auth
+    if (isLandingRoute) {
+      return NextResponse.next();
+    }
+
+    // Redirect unauthenticated users from root to landing
+    if (pathname === '/' && !token) {
+      return NextResponse.redirect(new URL('/landing', req.url));
+    }
 
     // Redirect trainers to trainer dashboard, clients to main app
-    if (req.nextUrl.pathname === '/') {
+    if (pathname === '/') {
       if (token?.role === 'TRAINER') {
         return NextResponse.redirect(new URL('/trainer', req.url));
       }
@@ -26,8 +38,10 @@ export default withAuth(
     },
     callbacks: {
       authorized: ({ token, req }) => {
-        // Allow login page without auth
-        if (req.nextUrl.pathname.startsWith('/login')) {
+        const pathname = req.nextUrl.pathname;
+
+        // Allow login page and landing page without auth
+        if (pathname.startsWith('/login') || pathname === '/landing') {
           return true;
         }
         // Require auth for all other pages
