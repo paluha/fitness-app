@@ -1,8 +1,378 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X, Dumbbell, Apple, TrendingUp, Users, Smartphone, ChevronRight } from 'lucide-react';
+import { Menu, X, Dumbbell, Apple, TrendingUp, Users, Smartphone, ChevronRight, Check, Utensils, Scale } from 'lucide-react';
+
+// Phone Demo Component with animated screens
+function PhoneDemo() {
+  const [currentScreen, setCurrentScreen] = useState(0);
+  const [animationPhase, setAnimationPhase] = useState(0);
+
+  // Cycle through screens
+  useEffect(() => {
+    const screenTimer = setInterval(() => {
+      setCurrentScreen((prev) => (prev + 1) % 3);
+      setAnimationPhase(0);
+    }, 5000);
+
+    return () => clearInterval(screenTimer);
+  }, []);
+
+  // Animate within each screen
+  useEffect(() => {
+    const phaseTimer = setInterval(() => {
+      setAnimationPhase((prev) => (prev + 1) % 4);
+    }, 1000);
+
+    return () => clearInterval(phaseTimer);
+  }, [currentScreen]);
+
+  // Screen 1: Workout tracking
+  const WorkoutScreen = () => {
+    const exercises = [
+      { name: 'Жим лёжа', sets: '4×10', weight: '80 кг', completed: animationPhase >= 1 },
+      { name: 'Приседания', sets: '4×12', weight: '100 кг', completed: animationPhase >= 2 },
+      { name: 'Тяга', sets: '3×10', weight: '90 кг', completed: animationPhase >= 3 },
+    ];
+
+    const completedCount = exercises.filter(e => e.completed).length;
+    const progress = (completedCount / exercises.length) * 100;
+
+    return (
+      <div style={{ padding: '16px', height: '100%' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>Понедельник</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Грудь + Ноги</div>
+          </div>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: 'rgba(255, 232, 4, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Dumbbell size={18} color="#ffe804" />
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div style={{
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: '14px',
+          padding: '14px',
+          marginBottom: '14px',
+          border: '1px solid rgba(255,255,255,0.06)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>Прогресс</span>
+            <span style={{ fontSize: '12px', color: '#ffe804', fontWeight: 600 }}>{Math.round(progress)}%</span>
+          </div>
+          <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${progress}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #ffe804, #ffa500)',
+              borderRadius: '3px',
+              transition: 'width 0.5s ease'
+            }} />
+          </div>
+        </div>
+
+        {/* Exercises */}
+        {exercises.map((ex, i) => (
+          <div key={i} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '12px',
+            background: ex.completed ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.25)' : 'rgba(255,255,255,0.06)'}`,
+            borderRadius: '12px',
+            marginBottom: '8px',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '10px',
+              background: ex.completed ? '#00c853' : 'rgba(255,255,255,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease'
+            }}>
+              {ex.completed ? (
+                <Check size={16} color="#fff" />
+              ) : (
+                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{i + 1}</span>
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{ex.name}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{ex.sets} · {ex.weight}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Screen 2: Nutrition tracking
+  const NutritionScreen = () => {
+    const macros = [
+      { name: 'Калории', current: animationPhase >= 1 ? 1850 : 1200, target: 2200, color: '#ffe804' },
+      { name: 'Белки', current: animationPhase >= 2 ? 142 : 80, target: 180, unit: 'г', color: '#ff6b6b' },
+      { name: 'Углеводы', current: animationPhase >= 3 ? 210 : 150, target: 250, unit: 'г', color: '#4da6ff' },
+    ];
+
+    return (
+      <div style={{ padding: '16px', height: '100%' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>Питание</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Сегодня</div>
+          </div>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: 'rgba(0, 200, 83, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Utensils size={18} color="#00c853" />
+          </div>
+        </div>
+
+        {/* Macros */}
+        {macros.map((macro, i) => (
+          <div key={i} style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '14px',
+            padding: '14px',
+            marginBottom: '10px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>{macro.name}</span>
+              <span style={{ fontSize: '12px', color: macro.color, fontWeight: 600 }}>
+                {macro.current}{macro.unit || ''} / {macro.target}{macro.unit || ''}
+              </span>
+            </div>
+            <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${Math.min((macro.current / macro.target) * 100, 100)}%`,
+                height: '100%',
+                background: macro.color,
+                borderRadius: '3px',
+                transition: 'width 0.5s ease'
+              }} />
+            </div>
+          </div>
+        ))}
+
+        {/* Add meal button */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          padding: '14px',
+          background: 'rgba(255, 232, 4, 0.1)',
+          border: '1px solid rgba(255, 232, 4, 0.2)',
+          borderRadius: '12px',
+          marginTop: '12px'
+        }}>
+          <span style={{ fontSize: '20px' }}>+</span>
+          <span style={{ fontSize: '13px', color: '#ffe804', fontWeight: 600 }}>Добавить приём пищи</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Screen 3: Progress/Weight tracking
+  const ProgressScreen = () => {
+    const weights = [82.5, 82.0, 81.5, 81.2, 80.8, 80.5, 80.0];
+    const visibleBars = Math.min(animationPhase + 4, weights.length);
+
+    return (
+      <div style={{ padding: '16px', height: '100%' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>Прогресс</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Вес тела</div>
+          </div>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: 'rgba(77, 166, 255, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Scale size={18} color="#4da6ff" />
+          </div>
+        </div>
+
+        {/* Current weight card */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(77, 166, 255, 0.15) 0%, rgba(77, 166, 255, 0.05) 100%)',
+          border: '1px solid rgba(77, 166, 255, 0.2)',
+          borderRadius: '16px',
+          padding: '20px',
+          textAlign: 'center',
+          marginBottom: '16px'
+        }}>
+          <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff' }}>
+            {weights[visibleBars - 1]} <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}>кг</span>
+          </div>
+          <div style={{ fontSize: '12px', color: '#4da6ff', marginTop: '4px' }}>
+            -2.5 кг за месяц
+          </div>
+        </div>
+
+        {/* Mini chart */}
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '14px',
+          padding: '16px'
+        }}>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px' }}>
+            Последние 7 дней
+          </div>
+          <div style={{ display: 'flex', alignItems: 'end', gap: '8px', height: '60px' }}>
+            {weights.slice(0, visibleBars).map((w, i) => {
+              const height = ((w - 79) / 4) * 100;
+              return (
+                <div key={i} style={{
+                  flex: 1,
+                  height: `${height}%`,
+                  background: i === visibleBars - 1 ? '#4da6ff' : 'rgba(77, 166, 255, 0.3)',
+                  borderRadius: '4px',
+                  transition: 'height 0.5s ease'
+                }} />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const screens = [WorkoutScreen, NutritionScreen, ProgressScreen];
+  const CurrentScreenComponent = screens[currentScreen];
+
+  return (
+    <div style={{
+      width: '280px',
+      height: '560px',
+      margin: '0 auto',
+      background: '#0d0d0f',
+      borderRadius: '44px',
+      border: '6px solid #2a2a32',
+      boxShadow: '0 50px 100px rgba(0,0,0,0.6), 0 0 120px rgba(255, 232, 4, 0.08)',
+      overflow: 'hidden',
+      position: 'relative'
+    }}>
+      {/* Dynamic Island */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '90px',
+        height: '28px',
+        background: '#000',
+        borderRadius: '14px',
+        zIndex: 20
+      }} />
+
+      {/* Screen content */}
+      <div style={{
+        position: 'absolute',
+        top: '44px',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: '#0d0d0f',
+        overflow: 'hidden'
+      }}>
+        <CurrentScreenComponent />
+      </div>
+
+      {/* Screen indicator dots */}
+      <div style={{
+        position: 'absolute',
+        bottom: '12px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: '6px',
+        zIndex: 20
+      }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} style={{
+            width: currentScreen === i ? '16px' : '6px',
+            height: '6px',
+            borderRadius: '3px',
+            background: currentScreen === i ? '#ffe804' : 'rgba(255,255,255,0.3)',
+            transition: 'all 0.3s ease'
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// App Store Button Component
+function AppStoreButton({ store }: { store: 'apple' | 'google' }) {
+  const isApple = store === 'apple';
+
+  return (
+    <a
+      href={isApple ? '#' : '#'}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '12px 20px',
+        background: '#fff',
+        borderRadius: '12px',
+        textDecoration: 'none',
+        transition: 'all 0.2s ease',
+        minWidth: '160px'
+      }}
+    >
+      {isApple ? (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#000">
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+        </svg>
+      ) : (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 0 1 0 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z" fill="#000"/>
+        </svg>
+      )}
+      <div>
+        <div style={{ fontSize: '10px', color: '#666', lineHeight: 1 }}>
+          {isApple ? 'Download on the' : 'GET IT ON'}
+        </div>
+        <div style={{ fontSize: '16px', color: '#000', fontWeight: 600, lineHeight: 1.2 }}>
+          {isApple ? 'App Store' : 'Google Play'}
+        </div>
+      </div>
+    </a>
+  );
+}
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -225,219 +595,109 @@ export default function LandingPage() {
         </div>
 
         <div style={{
-          maxWidth: '1000px',
-          textAlign: 'center',
+          maxWidth: '1100px',
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '60px',
+          alignItems: 'center',
           position: 'relative',
           zIndex: 1
-        }}>
-          {/* Badge */}
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            background: 'rgba(255, 232, 4, 0.1)',
-            border: '1px solid rgba(255, 232, 4, 0.2)',
-            borderRadius: '100px',
-            marginBottom: '32px'
-          }}>
-            <Smartphone size={16} color="#ffe804" />
-            <span style={{ color: '#ffe804', fontSize: '13px', fontWeight: 600 }}>
-              PWA приложение
-            </span>
-          </div>
-
-          {/* Main Title */}
-          <h1 style={{
-            fontSize: 'clamp(40px, 8vw, 72px)',
-            fontWeight: 800,
-            color: '#fff',
-            lineHeight: 1.1,
-            marginBottom: '24px',
-            letterSpacing: '-2px'
-          }}>
-            Твой персональный
-            <br />
-            <span style={{
-              background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}>
-              фитнес-трекер
-            </span>
-          </h1>
-
-          {/* Subtitle */}
-          <p style={{
-            fontSize: 'clamp(16px, 3vw, 20px)',
-            color: 'rgba(255,255,255,0.6)',
-            maxWidth: '600px',
-            margin: '0 auto 40px',
-            lineHeight: 1.6
-          }}>
-            Отслеживай тренировки, питание и прогресс.
-            Работай с тренером онлайн. Достигай целей быстрее.
-          </p>
-
-          {/* CTA Buttons */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '16px'
-          }}>
-            <Link href="/login" style={{
+        }} className="hero-grid">
+          {/* Left side - Text */}
+          <div>
+            {/* Badge */}
+            <div style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '10px',
-              padding: '18px 36px',
-              background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
-              borderRadius: '14px',
-              color: '#000',
-              textDecoration: 'none',
-              fontSize: '17px',
-              fontWeight: 700,
-              boxShadow: '0 10px 40px rgba(255, 232, 4, 0.3)',
-              transition: 'all 0.3s ease'
+              gap: '8px',
+              padding: '8px 16px',
+              background: 'rgba(255, 232, 4, 0.1)',
+              border: '1px solid rgba(255, 232, 4, 0.2)',
+              borderRadius: '100px',
+              marginBottom: '24px'
             }}>
-              Начать бесплатно
-              <ChevronRight size={20} />
-            </Link>
-            <span style={{
-              fontSize: '13px',
-              color: 'rgba(255,255,255,0.4)'
+              <Smartphone size={16} color="#ffe804" />
+              <span style={{ color: '#ffe804', fontSize: '13px', fontWeight: 600 }}>
+                iOS & Android
+              </span>
+            </div>
+
+            {/* Main Title */}
+            <h1 style={{
+              fontSize: 'clamp(36px, 6vw, 56px)',
+              fontWeight: 800,
+              color: '#fff',
+              lineHeight: 1.1,
+              marginBottom: '24px',
+              letterSpacing: '-2px'
             }}>
-              Добавь на главный экран — работает как приложение
-            </span>
+              <span style={{
+                display: 'inline-block',
+                padding: '4px 16px',
+                background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
+                borderRadius: '8px',
+                color: '#000',
+                marginRight: '12px'
+              }}>
+                ПРОСТОЙ
+              </span>
+              <br />
+              фитнес-трекер
+              <br />
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>для результата</span>
+            </h1>
+
+            {/* Subtitle */}
+            <p style={{
+              fontSize: '18px',
+              color: 'rgba(255,255,255,0.6)',
+              marginBottom: '32px',
+              lineHeight: 1.7,
+              maxWidth: '480px'
+            }}>
+              Отслеживай тренировки, питание и прогресс.
+              Работай с тренером онлайн. Достигай целей быстрее.
+            </p>
+
+            {/* App Store Buttons */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              marginBottom: '24px',
+              flexWrap: 'wrap'
+            }}>
+              <AppStoreButton store="apple" />
+              <AppStoreButton store="google" />
+            </div>
+
+            {/* Web version link */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <Link href="/login" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: '#ffe804',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: 600
+              }}>
+                Открыть веб-версию
+                <ChevronRight size={16} />
+              </Link>
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
+                Работает как приложение
+              </span>
+            </div>
           </div>
 
-          {/* App Preview */}
-          <div style={{
-            marginTop: '60px',
-            position: 'relative'
-          }}>
-            <div style={{
-              width: '280px',
-              height: '500px',
-              margin: '0 auto',
-              background: 'linear-gradient(135deg, #1a1a1f 0%, #0d0d0f 100%)',
-              borderRadius: '40px',
-              border: '8px solid #2a2a32',
-              boxShadow: '0 40px 80px rgba(0,0,0,0.5), 0 0 100px rgba(255, 232, 4, 0.1)',
-              overflow: 'hidden',
-              position: 'relative'
-            }}>
-              {/* Phone notch */}
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '80px',
-                height: '24px',
-                background: '#000',
-                borderRadius: '12px',
-                zIndex: 10
-              }} />
-
-              {/* App content preview */}
-              <div style={{
-                padding: '50px 16px 20px',
-                height: '100%'
-              }}>
-                {/* Header */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '20px'
-                }}>
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Сегодня</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Тренировка</div>
-                  </div>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 232, 4, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Dumbbell size={16} color="#ffe804" />
-                  </div>
-                </div>
-
-                {/* Progress card */}
-                <div style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  marginBottom: '12px'
-                }}>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>
-                    Прогресс
-                  </div>
-                  <div style={{
-                    height: '6px',
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: '3px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: '65%',
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #ffe804, #ffa500)',
-                      borderRadius: '3px'
-                    }} />
-                  </div>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginTop: '8px',
-                    fontSize: '10px',
-                    color: 'rgba(255,255,255,0.5)'
-                  }}>
-                    <span>4 из 6 упражнений</span>
-                    <span style={{ color: '#ffe804' }}>65%</span>
-                  </div>
-                </div>
-
-                {/* Exercise cards */}
-                {['Жим лёжа', 'Приседания'].map((ex, i) => (
-                  <div key={i} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px',
-                    background: i === 0 ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${i === 0 ? 'rgba(0, 200, 83, 0.2)' : 'rgba(255,255,255,0.05)'}`,
-                    borderRadius: '12px',
-                    marginBottom: '8px'
-                  }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '8px',
-                      background: i === 0 ? '#00c853' : 'rgba(255,255,255,0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      color: i === 0 ? '#fff' : 'rgba(255,255,255,0.5)'
-                    }}>
-                      {i === 0 ? '✓' : (i + 1)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{ex}</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>4×10</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* Right side - Phone Demo */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <PhoneDemo />
           </div>
         </div>
       </section>
@@ -464,7 +724,7 @@ export default function LandingPage() {
               maxWidth: '500px',
               margin: '0 auto'
             }}>
-              Простой и мощный инструмент для отслеживания фитнес-целей
+              <span style={{ color: '#ffe804', fontWeight: 600 }}>Простой</span> и мощный инструмент для отслеживания фитнес-целей
             </p>
           </div>
 
@@ -560,10 +820,10 @@ export default function LandingPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {[
-              { step: '1', title: 'Открой сайт', desc: 'Зайди на trainx.app с телефона' },
-              { step: '2', title: 'Добавь на экран', desc: 'Нажми "Добавить на главный экран" в браузере' },
-              { step: '3', title: 'Войди в аккаунт', desc: 'Используй данные от тренера' },
-              { step: '4', title: 'Тренируйся!', desc: 'Отмечай выполнение и следи за прогрессом' }
+              { step: '1', title: 'Скачай приложение', desc: 'Из App Store или Google Play' },
+              { step: '2', title: 'Войди в аккаунт', desc: 'Используй данные от тренера' },
+              { step: '3', title: 'Начни тренировку', desc: 'Выбери программу и следуй плану' },
+              { step: '4', title: 'Отслеживай прогресс', desc: 'Смотри как улучшаются результаты' }
             ].map((item, i) => (
               <div key={i} style={{
                 display: 'flex',
@@ -631,39 +891,28 @@ export default function LandingPage() {
             color: 'rgba(255,255,255,0.5)',
             marginBottom: '32px'
           }}>
-            Присоединяйся к Trainx и достигай своих фитнес-целей
+            Скачай <span style={{ color: '#ffe804', fontWeight: 600 }}>Trainx</span> и достигай своих фитнес-целей
           </p>
+
+          {/* App Store Buttons */}
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px'
+            justifyContent: 'center',
+            gap: '12px',
+            marginBottom: '24px',
+            flexWrap: 'wrap'
           }}>
-            <Link href="/login" style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '18px 36px',
-              background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
-              borderRadius: '14px',
-              color: '#000',
-              textDecoration: 'none',
-              fontSize: '17px',
-              fontWeight: 700,
-              boxShadow: '0 10px 40px rgba(255, 232, 4, 0.3)'
-            }}>
-              Войти в приложение
-              <ChevronRight size={20} />
-            </Link>
-            <Link href="/trainer" style={{
-              color: 'rgba(255,255,255,0.6)',
-              textDecoration: 'none',
-              fontSize: '14px',
-              marginTop: '8px'
-            }}>
-              Я тренер →
-            </Link>
+            <AppStoreButton store="apple" />
+            <AppStoreButton store="google" />
           </div>
+
+          <Link href="/trainer" style={{
+            color: 'rgba(255,255,255,0.6)',
+            textDecoration: 'none',
+            fontSize: '14px'
+          }}>
+            Я тренер →
+          </Link>
         </div>
       </section>
 
@@ -716,6 +965,23 @@ export default function LandingPage() {
         }
         .mobile-nav {
           display: none !important;
+        }
+        .hero-grid {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        @media (max-width: 900px) {
+          .hero-grid {
+            grid-template-columns: 1fr !important;
+            text-align: center;
+          }
+          .hero-grid > div:first-child {
+            order: 2;
+          }
+          .hero-grid > div:last-child {
+            order: 1;
+            margin-bottom: 40px;
+          }
         }
 
         @media (max-width: 768px) {
