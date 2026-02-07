@@ -1595,6 +1595,29 @@ export default function FitnessPage() {
     calories: Math.min(100, (macroTotals.calories / MACRO_TARGETS.calories) * 100),
   }), [macroTotals]);
 
+  // Calculate weekly steps (Monday to Sunday)
+  const weeklySteps = useMemo(() => {
+    const today = selectedDate;
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ...
+    // Calculate Monday of current week
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+    monday.setHours(0, 0, 0, 0);
+
+    let total = 0;
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      const dateStr = formatDate(date);
+      const log = dayLogs[dateStr];
+      if (log?.steps && log.steps > 0) {
+        total += log.steps;
+      }
+    }
+    return total;
+  }, [selectedDate, dayLogs]);
+
   const updateDayLog = (updates: Partial<DayLog>) => {
     setDayLogs(prev => ({
       ...prev,
@@ -2759,6 +2782,31 @@ export default function FitnessPage() {
                       fontWeight: 700
                     }}
                   />
+                </div>
+                {/* Weekly steps total */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)'
+                }}>
+                  <span style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    marginBottom: '2px'
+                  }}>
+                    {userSettings.language === 'ru' ? 'за неделю' : 'this week'}
+                  </span>
+                  <span style={{
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: weeklySteps > 0 ? 'var(--blue)' : 'var(--text-muted)'
+                  }}>
+                    {weeklySteps.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
