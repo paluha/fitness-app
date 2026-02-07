@@ -1,6 +1,26 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
+function detectLanguage(req: Request): 'ru' | 'en' {
+  // Check cookie first (user preference)
+  const cookieHeader = req.headers.get('cookie') || '';
+  const langCookie = cookieHeader.match(/lang=(ru|en)/);
+  if (langCookie) {
+    return langCookie[1] as 'ru' | 'en';
+  }
+
+  // Check Accept-Language header
+  const acceptLanguage = req.headers.get('accept-language') || '';
+
+  // Check for Russian language
+  if (acceptLanguage.includes('ru')) {
+    return 'ru';
+  }
+
+  // Default to English
+  return 'en';
+}
+
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
@@ -8,9 +28,22 @@ export default withAuth(
     const isTrainerRoute = pathname.startsWith('/trainer');
     const isLandingRoute = pathname === '/landing';
 
-    // Allow landing page without auth
+    // Detect and set language for landing page
     if (isLandingRoute) {
-      return NextResponse.next();
+      const lang = detectLanguage(req);
+      const response = NextResponse.next();
+
+      // Set lang cookie if not already set
+      const cookieHeader = req.headers.get('cookie') || '';
+      if (!cookieHeader.includes('lang=')) {
+        response.cookies.set('lang', lang, {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 365, // 1 year
+          sameSite: 'lax'
+        });
+      }
+
+      return response;
     }
 
     // Redirect unauthenticated users from root to landing

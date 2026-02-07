@@ -2,10 +2,85 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X, Dumbbell, Apple, TrendingUp, Users, Smartphone, ChevronRight, Check, Utensils, Scale } from 'lucide-react';
+import { Menu, X, Dumbbell, Apple, TrendingUp, Users, Smartphone, ChevronRight, Check, Utensils, Scale, Globe } from 'lucide-react';
+import { translations, Language } from '@/lib/translations';
+
+// Language Switcher Component
+function LanguageSwitcher({ lang, setLang }: { lang: Language; setLang: (l: Language) => void }) {
+  const [open, setOpen] = useState(false);
+
+  const handleSwitch = (newLang: Language) => {
+    setLang(newLang);
+    document.cookie = `lang=${newLang};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '8px 12px',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '8px',
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: '13px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'all 0.2s'
+        }}
+      >
+        <Globe size={14} />
+        {lang.toUpperCase()}
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          right: 0,
+          marginTop: '8px',
+          background: 'rgba(20, 20, 25, 0.98)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '10px',
+          overflow: 'hidden',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+          zIndex: 1000
+        }}>
+          {(['ru', 'en'] as Language[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => handleSwitch(l)}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '12px 20px',
+                background: lang === l ? 'rgba(255, 232, 4, 0.1)' : 'transparent',
+                border: 'none',
+                color: lang === l ? '#ffe804' : 'rgba(255,255,255,0.7)',
+                fontSize: '14px',
+                fontWeight: lang === l ? 600 : 400,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              {l === 'ru' ? 'Русский' : 'English'}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Phone Demo Component with animated screens
-function PhoneDemo() {
+function PhoneDemo({ lang }: { lang: Language }) {
+  const t = translations[lang];
   const [currentScreen, setCurrentScreen] = useState(0);
   const [animationPhase, setAnimationPhase] = useState(0);
 
@@ -31,9 +106,9 @@ function PhoneDemo() {
   // Screen 1: Workout tracking
   const WorkoutScreen = () => {
     const exercises = [
-      { name: 'Жим лёжа', sets: '4×10', weight: '80 кг', completed: animationPhase >= 1 },
-      { name: 'Приседания', sets: '4×12', weight: '100 кг', completed: animationPhase >= 2 },
-      { name: 'Тяга', sets: '3×10', weight: '90 кг', completed: animationPhase >= 3 },
+      { name: t.benchPress, sets: '4×10', weight: '80 kg', completed: animationPhase >= 1 },
+      { name: t.pullUps, sets: '4×12', weight: '—', completed: animationPhase >= 2 },
+      { name: t.shoulderPress, sets: '3×10', weight: '40 kg', completed: animationPhase >= 3 },
     ];
 
     const completedCount = exercises.filter(e => e.completed).length;
@@ -44,8 +119,8 @@ function PhoneDemo() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>Понедельник</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Грудь + Ноги</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{t.workout}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{t.upperBody}</div>
           </div>
           <div style={{
             width: '36px',
@@ -69,7 +144,7 @@ function PhoneDemo() {
           border: '1px solid rgba(255,255,255,0.06)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>Прогресс</span>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{t.progress}</span>
             <span style={{ fontSize: '12px', color: '#ffe804', fontWeight: 600 }}>{Math.round(progress)}%</span>
           </div>
           <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -125,9 +200,9 @@ function PhoneDemo() {
   // Screen 2: Nutrition tracking
   const NutritionScreen = () => {
     const macros = [
-      { name: 'Калории', current: animationPhase >= 1 ? 1850 : 1200, target: 2200, color: '#ffe804' },
-      { name: 'Белки', current: animationPhase >= 2 ? 142 : 80, target: 180, unit: 'г', color: '#ff6b6b' },
-      { name: 'Углеводы', current: animationPhase >= 3 ? 210 : 150, target: 250, unit: 'г', color: '#4da6ff' },
+      { name: t.calories, current: animationPhase >= 1 ? 1850 : 1200, target: 2200, color: '#ffe804' },
+      { name: t.protein, current: animationPhase >= 2 ? 142 : 80, target: 180, unit: 'g', color: '#ff6b6b' },
+      { name: t.carbs, current: animationPhase >= 3 ? 210 : 150, target: 250, unit: 'g', color: '#4da6ff' },
     ];
 
     return (
@@ -135,8 +210,8 @@ function PhoneDemo() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>Питание</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Сегодня</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{t.nutrition}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{lang === 'ru' ? 'Сегодня' : 'Today'}</div>
           </div>
           <div style={{
             width: '36px',
@@ -191,7 +266,9 @@ function PhoneDemo() {
           marginTop: '12px'
         }}>
           <span style={{ fontSize: '20px' }}>+</span>
-          <span style={{ fontSize: '13px', color: '#ffe804', fontWeight: 600 }}>Добавить приём пищи</span>
+          <span style={{ fontSize: '13px', color: '#ffe804', fontWeight: 600 }}>
+            {lang === 'ru' ? 'Добавить приём пищи' : 'Add meal'}
+          </span>
         </div>
       </div>
     );
@@ -207,8 +284,8 @@ function PhoneDemo() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>Прогресс</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Вес тела</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{t.progress}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{t.weight}</div>
           </div>
           <div style={{
             width: '36px',
@@ -233,10 +310,10 @@ function PhoneDemo() {
           marginBottom: '16px'
         }}>
           <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff' }}>
-            {weights[visibleBars - 1]} <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}>кг</span>
+            {weights[visibleBars - 1]} <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}>kg</span>
           </div>
           <div style={{ fontSize: '12px', color: '#4da6ff', marginTop: '4px' }}>
-            -2.5 кг за месяц
+            -2.5 kg {t.thisMonth}
           </div>
         </div>
 
@@ -248,7 +325,7 @@ function PhoneDemo() {
           padding: '16px'
         }}>
           <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px' }}>
-            Последние 7 дней
+            {lang === 'ru' ? 'Последние 7 дней' : 'Last 7 days'}
           </div>
           <div style={{ display: 'flex', alignItems: 'end', gap: '8px', height: '60px' }}>
             {weights.slice(0, visibleBars).map((w, i) => {
@@ -335,7 +412,7 @@ function PhoneDemo() {
 }
 
 // App Store Button Component
-function AppStoreButton({ store }: { store: 'apple' | 'google' }) {
+function AppStoreButton({ store, lang }: { store: 'apple' | 'google'; lang: Language }) {
   const isApple = store === 'apple';
 
   return (
@@ -364,7 +441,9 @@ function AppStoreButton({ store }: { store: 'apple' | 'google' }) {
       )}
       <div>
         <div style={{ fontSize: '10px', color: '#666', lineHeight: 1 }}>
-          {isApple ? 'Download on the' : 'GET IT ON'}
+          {isApple
+            ? (lang === 'ru' ? 'Загрузить в' : 'Download on the')
+            : (lang === 'ru' ? 'ДОСТУПНО В' : 'GET IT ON')}
         </div>
         <div style={{ fontSize: '16px', color: '#000', fontWeight: 600, lineHeight: 1.2 }}>
           {isApple ? 'App Store' : 'Google Play'}
@@ -376,6 +455,17 @@ function AppStoreButton({ store }: { store: 'apple' | 'google' }) {
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [lang, setLang] = useState<Language>('ru');
+
+  // Read language from cookie on mount
+  useEffect(() => {
+    const match = document.cookie.match(/lang=(ru|en)/);
+    if (match) {
+      setLang(match[1] as Language);
+    }
+  }, []);
+
+  const t = translations[lang];
 
   return (
     <div style={{
@@ -435,7 +525,7 @@ export default function LandingPage() {
           <nav style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '32px'
+            gap: '24px'
           }} className="desktop-nav">
             <Link href="#features" style={{
               color: 'rgba(255,255,255,0.7)',
@@ -444,7 +534,7 @@ export default function LandingPage() {
               fontWeight: 500,
               transition: 'color 0.2s'
             }}>
-              Возможности
+              {lang === 'ru' ? 'Возможности' : 'Features'}
             </Link>
             <Link href="#how-it-works" style={{
               color: 'rgba(255,255,255,0.7)',
@@ -453,8 +543,9 @@ export default function LandingPage() {
               fontWeight: 500,
               transition: 'color 0.2s'
             }}>
-              Как это работает
+              {t.howItWorksTitle}
             </Link>
+            <LanguageSwitcher lang={lang} setLang={setLang} />
             <Link href="/login" style={{
               color: 'rgba(255,255,255,0.7)',
               textDecoration: 'none',
@@ -462,7 +553,7 @@ export default function LandingPage() {
               fontWeight: 500,
               transition: 'color 0.2s'
             }}>
-              Войти
+              {t.login}
             </Link>
             <Link href="/trainer" style={{
               padding: '10px 20px',
@@ -475,7 +566,7 @@ export default function LandingPage() {
               transition: 'all 0.2s',
               boxShadow: '0 4px 20px rgba(255, 232, 4, 0.25)'
             }}>
-              Для тренеров
+              {lang === 'ru' ? 'Для тренеров' : 'For Trainers'}
             </Link>
           </nav>
 
@@ -511,6 +602,9 @@ export default function LandingPage() {
             flexDirection: 'column',
             gap: '16px'
           }} className="mobile-nav">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+              <LanguageSwitcher lang={lang} setLang={setLang} />
+            </div>
             <Link href="#features" onClick={() => setMenuOpen(false)} style={{
               color: 'rgba(255,255,255,0.7)',
               textDecoration: 'none',
@@ -518,7 +612,7 @@ export default function LandingPage() {
               fontWeight: 500,
               padding: '12px 0'
             }}>
-              Возможности
+              {lang === 'ru' ? 'Возможности' : 'Features'}
             </Link>
             <Link href="#how-it-works" onClick={() => setMenuOpen(false)} style={{
               color: 'rgba(255,255,255,0.7)',
@@ -527,7 +621,7 @@ export default function LandingPage() {
               fontWeight: 500,
               padding: '12px 0'
             }}>
-              Как это работает
+              {t.howItWorksTitle}
             </Link>
             <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />
             <Link href="/login" onClick={() => setMenuOpen(false)} style={{
@@ -537,7 +631,7 @@ export default function LandingPage() {
               fontWeight: 600,
               padding: '12px 0'
             }}>
-              Войти как клиент
+              {lang === 'ru' ? 'Войти как клиент' : 'Login as client'}
             </Link>
             <Link href="/trainer" onClick={() => setMenuOpen(false)} style={{
               display: 'block',
@@ -550,7 +644,7 @@ export default function LandingPage() {
               fontWeight: 700,
               textAlign: 'center'
             }}>
-              Войти как тренер
+              {lang === 'ru' ? 'Войти как тренер' : 'Login as trainer'}
             </Link>
           </nav>
         )}
@@ -632,7 +726,7 @@ export default function LandingPage() {
               marginBottom: '24px',
               letterSpacing: '-2px'
             }}>
-              Твой{' '}
+              {t.heroTitle}{' '}
               <span style={{
                 display: 'inline-block',
                 padding: '4px 16px',
@@ -640,7 +734,7 @@ export default function LandingPage() {
                 borderRadius: '8px',
                 color: '#000'
               }}>
-                ПРОСТОЙ
+                {t.heroHighlight}
               </span>
               <br />
               <span style={{
@@ -649,7 +743,7 @@ export default function LandingPage() {
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text'
               }}>
-                фитнес-трекер
+                {t.heroSubtitle}
               </span>
             </h1>
 
@@ -661,8 +755,7 @@ export default function LandingPage() {
               lineHeight: 1.7,
               maxWidth: '480px'
             }}>
-              Отслеживай тренировки, питание и прогресс.
-              Работай с тренером онлайн. Достигай целей быстрее.
+              {t.heroDescription}
             </p>
 
             {/* App Store Buttons */}
@@ -672,8 +765,8 @@ export default function LandingPage() {
               marginBottom: '24px',
               flexWrap: 'wrap'
             }}>
-              <AppStoreButton store="apple" />
-              <AppStoreButton store="google" />
+              <AppStoreButton store="apple" lang={lang} />
+              <AppStoreButton store="google" lang={lang} />
             </div>
 
             {/* Web version link */}
@@ -691,18 +784,18 @@ export default function LandingPage() {
                 fontSize: '14px',
                 fontWeight: 600
               }}>
-                Открыть веб-версию
+                {lang === 'ru' ? 'Открыть веб-версию' : 'Open web version'}
                 <ChevronRight size={16} />
               </Link>
               <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
-                Работает как приложение
+                {lang === 'ru' ? 'Работает как приложение' : 'Works like an app'}
               </span>
             </div>
           </div>
 
           {/* Right side - Phone Demo */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <PhoneDemo />
+            <PhoneDemo lang={lang} />
           </div>
         </div>
       </section>
@@ -721,7 +814,7 @@ export default function LandingPage() {
               marginBottom: '16px',
               letterSpacing: '-1px'
             }}>
-              Всё для твоего прогресса
+              {t.featuresTitle}
             </h2>
             <p style={{
               fontSize: '16px',
@@ -729,7 +822,7 @@ export default function LandingPage() {
               maxWidth: '500px',
               margin: '0 auto'
             }}>
-              <span style={{ color: '#ffe804', fontWeight: 600 }}>Простой</span> и мощный инструмент для отслеживания фитнес-целей
+              {t.featuresSubtitle}
             </p>
           </div>
 
@@ -741,26 +834,26 @@ export default function LandingPage() {
             {[
               {
                 icon: <Dumbbell size={28} />,
-                title: 'Тренировки',
-                description: 'Отслеживай выполнение упражнений, веса и подходы. Смотри прогресс по каждому упражнению.',
+                title: t.feature1Title,
+                description: t.feature1Desc,
                 color: '#ffe804'
               },
               {
                 icon: <Apple size={28} />,
-                title: 'Питание',
-                description: 'Записывай приёмы пищи, считай калории и макросы. Достигай целей по питанию.',
+                title: t.feature2Title,
+                description: t.feature2Desc,
                 color: '#00c853'
               },
               {
                 icon: <TrendingUp size={28} />,
-                title: 'Прогресс',
-                description: 'Графики веса, замеры тела, история тренировок. Видь свой путь к цели.',
+                title: t.feature3Title,
+                description: t.feature3Desc,
                 color: '#4da6ff'
               },
               {
                 icon: <Users size={28} />,
-                title: 'Работа с тренером',
-                description: 'Тренер видит твои результаты и корректирует программу в реальном времени.',
+                title: t.feature4Title,
+                description: t.feature4Desc,
                 color: '#a855f7'
               }
             ].map((feature, i) => (
@@ -819,16 +912,16 @@ export default function LandingPage() {
               marginBottom: '16px',
               letterSpacing: '-1px'
             }}>
-              Начни за 30 секунд
+              {t.howItWorksTitle}
             </h2>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {[
-              { step: '1', title: 'Скачай приложение', desc: 'Из App Store или Google Play' },
-              { step: '2', title: 'Войди в аккаунт', desc: 'Используй данные от тренера' },
-              { step: '3', title: 'Начни тренировку', desc: 'Выбери программу и следуй плану' },
-              { step: '4', title: 'Отслеживай прогресс', desc: 'Смотри как улучшаются результаты' }
+              { step: '1', title: t.step1Title, desc: t.step1Desc },
+              { step: '2', title: t.step2Title, desc: t.step2Desc },
+              { step: '3', title: t.step3Title, desc: t.step3Desc },
+              { step: '4', title: t.step4Title, desc: t.step4Desc }
             ].map((item, i) => (
               <div key={i} style={{
                 display: 'flex',
@@ -889,14 +982,14 @@ export default function LandingPage() {
             marginBottom: '20px',
             letterSpacing: '-1px'
           }}>
-            Готов начать?
+            {t.ctaTitle}
           </h2>
           <p style={{
             fontSize: '16px',
             color: 'rgba(255,255,255,0.5)',
             marginBottom: '32px'
           }}>
-            Скачай <span style={{ color: '#ffe804', fontWeight: 600 }}>Trainx</span> и достигай своих фитнес-целей
+            {t.ctaSubtitle}
           </p>
 
           {/* App Store Buttons */}
@@ -907,8 +1000,8 @@ export default function LandingPage() {
             marginBottom: '24px',
             flexWrap: 'wrap'
           }}>
-            <AppStoreButton store="apple" />
-            <AppStoreButton store="google" />
+            <AppStoreButton store="apple" lang={lang} />
+            <AppStoreButton store="google" lang={lang} />
           </div>
 
           <Link href="/trainer" style={{
@@ -916,7 +1009,7 @@ export default function LandingPage() {
             textDecoration: 'none',
             fontSize: '14px'
           }}>
-            Я тренер →
+            {lang === 'ru' ? 'Я тренер →' : 'I\'m a trainer →'}
           </Link>
         </div>
       </section>
@@ -956,7 +1049,7 @@ export default function LandingPage() {
           fontSize: '13px',
           color: 'rgba(255,255,255,0.4)'
         }}>
-          © 2024 Trainx. Все права защищены.
+          {t.footerText}
         </p>
       </footer>
 
