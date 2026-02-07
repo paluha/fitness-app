@@ -4413,6 +4413,22 @@ export default function FitnessPage() {
                       {foodAnalysisError}
                     </div>
                   )}
+
+                  {/* Tip about accuracy */}
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '10px 12px',
+                    background: 'rgba(255, 204, 0, 0.08)',
+                    border: '1px solid rgba(255, 204, 0, 0.15)',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.4
+                  }}>
+                    {userSettings.language === 'ru'
+                      ? '💡 Порция оценивается визуально. Для точности рекомендуем фотографировать еду на весах и каждый ингредиент отдельно.'
+                      : '💡 Portion is estimated visually. For accuracy, we recommend photographing food on a scale and each ingredient separately.'}
+                  </div>
                 </div>
 
                 <div style={{
