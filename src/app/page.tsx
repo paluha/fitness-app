@@ -7,7 +7,8 @@ import {
   Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
-  Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil
+  Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
+  Camera, Loader2, ScanLine
 } from 'lucide-react';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -1472,6 +1473,10 @@ export default function FitnessPage() {
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [mealForm, setMealForm] = useState({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
   const [showMealSuggestions, setShowMealSuggestions] = useState(false);
+  const [isAnalyzingFood, setIsAnalyzingFood] = useState(false);
+  const [foodAnalysisError, setFoodAnalysisError] = useState<string | null>(null);
+  const [showScanOptions, setShowScanOptions] = useState(false);
+  const foodImageInputRef = useRef<HTMLInputElement>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
   const [progressHistory, setProgressHistory] = useState<ProgressHistory>({});
@@ -1751,6 +1756,61 @@ export default function FitnessPage() {
       calories: meal.calories.toString(),
     });
     setShowMealModal(true);
+  };
+
+  // Food AI Analysis
+  const analyzeFood = async (file: File, type: 'nutrition_label' | 'food_photo') => {
+    setIsAnalyzingFood(true);
+    setFoodAnalysisError(null);
+    setShowScanOptions(false);
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Image = await base64Promise;
+
+      const response = await fetch('/api/food/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image, type }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setMealForm({
+          time: mealForm.time || new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+          name: result.data.name,
+          protein: result.data.protein.toString(),
+          fat: result.data.fat.toString(),
+          carbs: result.data.carbs.toString(),
+          calories: result.data.calories.toString(),
+        });
+      } else {
+        setFoodAnalysisError(result.error || 'Не удалось распознать');
+      }
+    } catch (error) {
+      console.error('Food analysis error:', error);
+      setFoodAnalysisError('Ошибка при анализе фото');
+    } finally {
+      setIsAnalyzingFood(false);
+    }
+  };
+
+  const handleFoodImageSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'nutrition_label' | 'food_photo') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      analyzeFood(file, type);
+    }
+    // Reset input
+    if (foodImageInputRef.current) {
+      foodImageInputRef.current.value = '';
+    }
   };
 
   // Workout Editor Functions
@@ -4244,6 +4304,131 @@ export default function FitnessPage() {
                 <X size={20} />
               </button>
             </div>
+
+            {/* AI Scan Section */}
+            {!editingMeal && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    ref={foodImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const scanType = foodImageInputRef.current?.dataset.scanType as 'nutrition_label' | 'food_photo';
+                      handleFoodImageSelect(e, scanType || 'food_photo');
+                    }}
+                  />
+
+                  {isAnalyzingFood ? (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      padding: '20px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border)'
+                    }}>
+                      <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--yellow)' }} />
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                        {userSettings.language === 'ru' ? 'Анализируем фото...' : 'Analyzing photo...'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (foodImageInputRef.current) {
+                            foodImageInputRef.current.dataset.scanType = 'food_photo';
+                            foodImageInputRef.current.click();
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '14px',
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '12px',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Camera size={18} style={{ color: 'var(--yellow)' }} />
+                        {userSettings.language === 'ru' ? 'Фото еды' : 'Food photo'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (foodImageInputRef.current) {
+                            foodImageInputRef.current.dataset.scanType = 'nutrition_label';
+                            foodImageInputRef.current.click();
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '14px',
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '12px',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <ScanLine size={18} style={{ color: 'var(--blue)' }} />
+                        {userSettings.language === 'ru' ? 'Этикетка' : 'Label'}
+                      </button>
+                    </div>
+                  )}
+
+                  {foodAnalysisError && (
+                    <div style={{
+                      marginTop: '8px',
+                      padding: '10px 12px',
+                      background: 'var(--red-dim)',
+                      border: '1px solid rgba(255, 107, 107, 0.3)',
+                      borderRadius: '8px',
+                      color: 'var(--red)',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <X size={14} />
+                      {foodAnalysisError}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  margin: '16px 0'
+                }}>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                    {userSettings.language === 'ru' ? 'или введите вручную' : 'or enter manually'}
+                  </span>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
