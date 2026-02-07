@@ -2860,7 +2860,7 @@ export default function FitnessPage() {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
                             btn.style.background = isDayClosed
-                              ? 'var(--green)'
+                              ? 'var(--bg-elevated)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -2868,7 +2868,8 @@ export default function FitnessPage() {
                           }
                           const progress = parseInt(btn.dataset.progress || '0') + 5;
                           btn.dataset.progress = progress.toString();
-                          btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${readyToClose ? 'var(--green-dim)' : 'var(--bg-card)'} ${progress}%)`;
+                          const endColor = isDayClosed ? 'var(--bg-elevated)' : readyToClose ? 'var(--green-dim)' : 'var(--bg-card)';
+                          btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${endColor} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
                             // Only allow closing if canCloseDay, or opening if already closed
@@ -2887,9 +2888,7 @@ export default function FitnessPage() {
                             }
                             btn.style.background = !isDayClosed
                               ? 'var(--green)'
-                              : readyToClose
-                                ? 'var(--green-dim)'
-                                : 'var(--bg-card)';
+                              : 'var(--bg-elevated)';
                           }
                         }, 30);
                       }}
@@ -2910,7 +2909,7 @@ export default function FitnessPage() {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
                             btn.style.background = isDayClosed
-                              ? 'var(--green)'
+                              ? 'var(--bg-elevated)'
                               : readyToClose
                                 ? 'var(--green-dim)'
                                 : 'var(--bg-card)';
@@ -2918,7 +2917,8 @@ export default function FitnessPage() {
                           }
                           const progress = parseInt(btn.dataset.progress || '0') + 5;
                           btn.dataset.progress = progress.toString();
-                          btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${readyToClose ? 'var(--green-dim)' : 'var(--bg-card)'} ${progress}%)`;
+                          const endColor = isDayClosed ? 'var(--bg-elevated)' : readyToClose ? 'var(--green-dim)' : 'var(--bg-card)';
+                          btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${endColor} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
                             // Only allow closing if canCloseDay, or opening if already closed
@@ -2937,9 +2937,7 @@ export default function FitnessPage() {
                             }
                             btn.style.background = !isDayClosed
                               ? 'var(--green)'
-                              : readyToClose
-                                ? 'var(--green-dim)'
-                                : 'var(--bg-card)';
+                              : 'var(--bg-elevated)';
                           }
                         }, 30);
                       }}
@@ -2948,24 +2946,22 @@ export default function FitnessPage() {
                         width: '100%',
                         padding: '20px',
                         background: isDayClosed
-                          ? 'var(--green)'
+                          ? 'var(--bg-elevated)'
                           : readyToClose
                             ? 'var(--green-dim)'
                             : 'var(--bg-card)',
-                        border: `2px solid ${isDayClosed ? 'var(--green)' : readyToClose ? 'var(--yellow)' : 'var(--border)'}`,
+                        border: `2px solid ${isDayClosed ? 'var(--border-strong)' : readyToClose ? 'var(--green)' : 'var(--border)'}`,
                         borderRadius: '16px',
-                        color: isDayClosed ? '#000' : readyToClose ? 'var(--yellow)' : 'var(--text-primary)',
+                        color: isDayClosed ? 'var(--text-secondary)' : readyToClose ? 'var(--green)' : 'var(--text-primary)',
                         fontWeight: 700,
                         fontSize: '15px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '10px',
-                        boxShadow: isDayClosed
+                        boxShadow: readyToClose
                           ? '0 4px 20px var(--green-glow)'
-                          : readyToClose
-                            ? '0 4px 20px var(--yellow-glow)'
-                            : 'none'
+                          : 'none'
                       }}
                       className={readyToClose ? 'animate-glow' : ''}
                     >
