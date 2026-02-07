@@ -74,8 +74,9 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const pathname = req.nextUrl.pathname;
 
-        // Allow login page and landing page without auth
-        if (pathname.startsWith('/login') || pathname === '/landing') {
+        // Allow root, login page and landing page without auth
+        // Root will be redirected to /landing in middleware function
+        if (pathname === '/' || pathname.startsWith('/login') || pathname === '/landing') {
           return true;
         }
         // Require auth for all other pages
