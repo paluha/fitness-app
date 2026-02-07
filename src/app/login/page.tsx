@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 function LoginForm() {
@@ -57,34 +58,38 @@ function LoginForm() {
         textAlign: 'center',
         marginBottom: '40px'
       }}>
-        <div style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '24px',
-          background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 24px',
-          boxShadow: '0 20px 60px rgba(255, 204, 0, 0.3)'
-        }}>
-          {/* Trainx logo */}
-          <svg width="44" height="44" viewBox="0 0 26 26" fill="none">
-            <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#000" />
-            <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#000" />
-            <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-            <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-          </svg>
-        </div>
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: 800,
-          color: '#fff',
-          margin: '0 0 8px',
-          letterSpacing: '-0.5px'
-        }}>
-          Trainx
-        </h1>
+        <Link href="/landing" style={{ textDecoration: 'none', display: 'inline-block' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '24px',
+            background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            boxShadow: '0 20px 60px rgba(255, 204, 0, 0.3)',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease'
+          }}>
+            {/* Trainx logo */}
+            <svg width="44" height="44" viewBox="0 0 26 26" fill="none">
+              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#000" />
+              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#000" />
+              <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+              <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          </div>
+          <h1 style={{
+            fontSize: '32px',
+            fontWeight: 800,
+            color: '#fff',
+            margin: '0 0 8px',
+            letterSpacing: '-0.5px'
+          }}>
+            Trainx
+          </h1>
+        </Link>
         <p style={{
           fontSize: '15px',
           color: 'rgba(255,255,255,0.5)',
