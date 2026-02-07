@@ -2,108 +2,62 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X, Dumbbell, Apple, TrendingUp, Users, Smartphone, ChevronRight, Check, Utensils, Scale, Globe } from 'lucide-react';
+import { Menu, X, Dumbbell, Apple, TrendingUp, Users, Smartphone, ChevronRight, Check, Utensils, Scale, ChevronDown, Zap } from 'lucide-react';
 import { translations, Language } from '@/lib/translations';
 
-// Language Switcher Component
+// Compact Language Switcher Component
 function LanguageSwitcher({ lang, setLang }: { lang: Language; setLang: (l: Language) => void }) {
-  const [open, setOpen] = useState(false);
-
-  const handleSwitch = (newLang: Language) => {
+  const handleSwitch = () => {
+    const newLang = lang === 'ru' ? 'en' : 'ru';
     setLang(newLang);
     document.cookie = `lang=${newLang};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    setOpen(false);
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '8px 12px',
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '8px',
-          color: 'rgba(255,255,255,0.7)',
-          fontSize: '13px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          transition: 'all 0.2s'
-        }}
-      >
-        <Globe size={14} />
-        {lang.toUpperCase()}
-      </button>
-
-      {open && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          right: 0,
-          marginTop: '8px',
-          background: 'rgba(20, 20, 25, 0.98)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '10px',
-          overflow: 'hidden',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-          zIndex: 1000
-        }}>
-          {(['ru', 'en'] as Language[]).map((l) => (
-            <button
-              key={l}
-              onClick={() => handleSwitch(l)}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '12px 20px',
-                background: lang === l ? 'rgba(255, 232, 4, 0.1)' : 'transparent',
-                border: 'none',
-                color: lang === l ? '#ffe804' : 'rgba(255,255,255,0.7)',
-                fontSize: '14px',
-                fontWeight: lang === l ? 600 : 400,
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              {l === 'ru' ? 'Русский' : 'English'}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <button
+      onClick={handleSwitch}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '6px 10px',
+        background: 'transparent',
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: '6px',
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: '12px',
+        fontWeight: 500,
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+      }}
+    >
+      {lang.toUpperCase()}
+    </button>
   );
 }
 
-// Phone Demo Component with animated screens
+// Phone Demo Component - matches real app design
 function PhoneDemo({ lang }: { lang: Language }) {
   const t = translations[lang];
   const [currentScreen, setCurrentScreen] = useState(0);
   const [animationPhase, setAnimationPhase] = useState(0);
 
-  // Cycle through screens
   useEffect(() => {
     const screenTimer = setInterval(() => {
       setCurrentScreen((prev) => (prev + 1) % 3);
       setAnimationPhase(0);
     }, 5000);
-
     return () => clearInterval(screenTimer);
   }, []);
 
-  // Animate within each screen
   useEffect(() => {
     const phaseTimer = setInterval(() => {
       setAnimationPhase((prev) => (prev + 1) % 4);
     }, 1000);
-
     return () => clearInterval(phaseTimer);
   }, [currentScreen]);
 
-  // Screen 1: Workout tracking
+  // Screen 1: Workout - matches real app ExerciseCard design
   const WorkoutScreen = () => {
     const exercises = [
       { name: t.benchPress, sets: '4×10', weight: '80 kg', completed: animationPhase >= 1 },
@@ -115,89 +69,136 @@ function PhoneDemo({ lang }: { lang: Language }) {
     const progress = (completedCount / exercises.length) * 100;
 
     return (
-      <div style={{ padding: '16px', height: '100%' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{t.workout}</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{t.upperBody}</div>
-          </div>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '12px',
-            background: 'rgba(255, 232, 4, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Dumbbell size={18} color="#ffe804" />
-          </div>
-        </div>
-
-        {/* Progress */}
+      <div style={{ padding: '12px', height: '100%', background: '#0d0d0f' }}>
+        {/* Header - like real app */}
         <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '14px',
-          padding: '14px',
-          marginBottom: '14px',
-          border: '1px solid rgba(255,255,255,0.06)'
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '12px',
+          padding: '0 2px'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{t.progress}</span>
-            <span style={{ fontSize: '12px', color: '#ffe804', fontWeight: 600 }}>{Math.round(progress)}%</span>
-          </div>
-          <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
-              width: `${progress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #ffe804, #ffa500)',
-              borderRadius: '3px',
-              transition: 'width 0.5s ease'
-            }} />
+              fontSize: '16px',
+              fontWeight: 700,
+              color: '#fff'
+            }}>
+              {lang === 'ru' ? 'Тренировка 1' : 'Workout 1'}
+            </div>
+            <div style={{
+              padding: '3px 8px',
+              background: 'rgba(255, 232, 4, 0.15)',
+              borderRadius: '6px',
+              fontSize: '11px',
+              color: '#ffe804',
+              fontWeight: 600
+            }}>
+              {completedCount}/{exercises.length}
+            </div>
           </div>
         </div>
 
-        {/* Exercises */}
+        {/* Progress bar */}
+        <div style={{
+          height: '4px',
+          background: 'rgba(255,255,255,0.1)',
+          borderRadius: '2px',
+          marginBottom: '12px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${progress}%`,
+            height: '100%',
+            background: progress === 100 ? '#00c853' : '#ffe804',
+            borderRadius: '2px',
+            transition: 'width 0.5s ease'
+          }} />
+        </div>
+
+        {/* Exercise cards - real app style */}
         {exercises.map((ex, i) => (
           <div key={i} style={{
+            background: ex.completed ? 'rgba(0, 200, 83, 0.08)' : '#1a1a1f',
+            borderRadius: ex.completed ? '10px' : '14px',
+            border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.2)' : 'rgba(255,255,255,0.06)'}`,
+            padding: ex.completed ? '8px 12px' : '12px 14px',
+            marginBottom: ex.completed ? '6px' : '10px',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            padding: '12px',
-            background: ex.completed ? 'rgba(0, 200, 83, 0.1)' : 'rgba(255,255,255,0.03)',
-            border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.25)' : 'rgba(255,255,255,0.06)'}`,
-            borderRadius: '12px',
-            marginBottom: '8px',
+            gap: ex.completed ? '10px' : '12px',
             transition: 'all 0.3s ease'
           }}>
+            {/* Checkbox */}
             <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '10px',
-              background: ex.completed ? '#00c853' : 'rgba(255,255,255,0.08)',
+              width: ex.completed ? '24px' : '32px',
+              height: ex.completed ? '24px' : '32px',
+              borderRadius: ex.completed ? '6px' : '8px',
+              border: ex.completed ? 'none' : '2px solid rgba(255,255,255,0.15)',
+              background: ex.completed ? '#00c853' : 'transparent',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.3s ease'
+              flexShrink: 0,
+              boxShadow: ex.completed ? '0 2px 6px rgba(0, 200, 83, 0.35)' : 'none',
+              transition: 'all 0.2s ease'
             }}>
-              {ex.completed ? (
-                <Check size={16} color="#fff" />
-              ) : (
-                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{i + 1}</span>
+              {ex.completed && <Check size={14} color="#000" strokeWidth={3} />}
+            </div>
+
+            {/* Exercise info */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontWeight: 600,
+                fontSize: ex.completed ? '13px' : '14px',
+                color: ex.completed ? '#00c853' : '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{ color: '#606068', fontSize: '12px' }}>{i + 1}.</span>
+                <span style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>{ex.name}</span>
+                {ex.completed && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#606068',
+                    background: '#222228',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    marginLeft: 'auto'
+                  }}>
+                    {ex.weight}
+                  </span>
+                )}
+              </div>
+              {!ex.completed && (
+                <div style={{
+                  fontSize: '12px',
+                  color: '#4da6ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginTop: '2px'
+                }}>
+                  <Zap size={11} />
+                  {ex.sets}
+                </div>
               )}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{ex.name}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{ex.sets} · {ex.weight}</div>
-            </div>
+
+            {/* Chevron */}
+            <ChevronDown size={16} color={ex.completed ? '#00c853' : '#606068'} />
           </div>
         ))}
       </div>
     );
   };
 
-  // Screen 2: Nutrition tracking
+  // Screen 2: Nutrition - real app style
   const NutritionScreen = () => {
     const macros = [
       { name: t.calories, current: animationPhase >= 1 ? 1850 : 1200, target: 2200, color: '#ffe804' },
@@ -206,30 +207,34 @@ function PhoneDemo({ lang }: { lang: Language }) {
     ];
 
     return (
-      <div style={{ padding: '16px', height: '100%' }}>
+      <div style={{ padding: '12px', height: '100%', background: '#0d0d0f' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{t.nutrition}</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{lang === 'ru' ? 'Сегодня' : 'Today'}</div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px'
+        }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
+            {t.nutrition}
           </div>
           <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '12px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '10px',
             background: 'rgba(0, 200, 83, 0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <Utensils size={18} color="#00c853" />
+            <Utensils size={16} color="#00c853" />
           </div>
         </div>
 
-        {/* Macros */}
+        {/* Macros - card style like real app */}
         {macros.map((macro, i) => (
           <div key={i} style={{
-            background: 'rgba(255,255,255,0.03)',
+            background: '#1a1a1f',
             border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: '14px',
             padding: '14px',
@@ -241,7 +246,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
                 {macro.current}{macro.unit || ''} / {macro.target}{macro.unit || ''}
               </span>
             </div>
-            <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ height: '6px', background: '#222228', borderRadius: '3px', overflow: 'hidden' }}>
               <div style={{
                 width: `${Math.min((macro.current / macro.target) * 100, 100)}%`,
                 height: '100%',
@@ -263,9 +268,9 @@ function PhoneDemo({ lang }: { lang: Language }) {
           background: 'rgba(255, 232, 4, 0.1)',
           border: '1px solid rgba(255, 232, 4, 0.2)',
           borderRadius: '12px',
-          marginTop: '12px'
+          marginTop: '8px'
         }}>
-          <span style={{ fontSize: '20px' }}>+</span>
+          <span style={{ fontSize: '18px', color: '#ffe804' }}>+</span>
           <span style={{ fontSize: '13px', color: '#ffe804', fontWeight: 600 }}>
             {lang === 'ru' ? 'Добавить приём пищи' : 'Add meal'}
           </span>
@@ -274,60 +279,64 @@ function PhoneDemo({ lang }: { lang: Language }) {
     );
   };
 
-  // Screen 3: Progress/Weight tracking
+  // Screen 3: Progress - real app style
   const ProgressScreen = () => {
     const weights = [82.5, 82.0, 81.5, 81.2, 80.8, 80.5, 80.0];
     const visibleBars = Math.min(animationPhase + 4, weights.length);
 
     return (
-      <div style={{ padding: '16px', height: '100%' }}>
+      <div style={{ padding: '12px', height: '100%', background: '#0d0d0f' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{t.progress}</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>{t.weight}</div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px'
+        }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
+            {t.progress}
           </div>
           <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '12px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '10px',
             background: 'rgba(77, 166, 255, 0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <Scale size={18} color="#4da6ff" />
+            <Scale size={16} color="#4da6ff" />
           </div>
         </div>
 
-        {/* Current weight card */}
+        {/* Weight card */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(77, 166, 255, 0.15) 0%, rgba(77, 166, 255, 0.05) 100%)',
+          background: 'linear-gradient(135deg, rgba(77, 166, 255, 0.12) 0%, rgba(77, 166, 255, 0.04) 100%)',
           border: '1px solid rgba(77, 166, 255, 0.2)',
           borderRadius: '16px',
           padding: '20px',
           textAlign: 'center',
-          marginBottom: '16px'
+          marginBottom: '12px'
         }}>
-          <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff' }}>
-            {weights[visibleBars - 1]} <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}>kg</span>
+          <div style={{ fontSize: '32px', fontWeight: 800, color: '#fff' }}>
+            {weights[visibleBars - 1]} <span style={{ fontSize: '14px', color: '#a0a0a8' }}>kg</span>
           </div>
           <div style={{ fontSize: '12px', color: '#4da6ff', marginTop: '4px' }}>
             -2.5 kg {t.thisMonth}
           </div>
         </div>
 
-        {/* Mini chart */}
+        {/* Chart */}
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: '#1a1a1f',
           border: '1px solid rgba(255,255,255,0.06)',
           borderRadius: '14px',
-          padding: '16px'
+          padding: '14px'
         }}>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', color: '#606068', marginBottom: '12px' }}>
             {lang === 'ru' ? 'Последние 7 дней' : 'Last 7 days'}
           </div>
-          <div style={{ display: 'flex', alignItems: 'end', gap: '8px', height: '60px' }}>
+          <div style={{ display: 'flex', alignItems: 'end', gap: '6px', height: '50px' }}>
             {weights.slice(0, visibleBars).map((w, i) => {
               const height = ((w - 79) / 4) * 100;
               return (
@@ -335,7 +344,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
                   flex: 1,
                   height: `${height}%`,
                   background: i === visibleBars - 1 ? '#4da6ff' : 'rgba(77, 166, 255, 0.3)',
-                  borderRadius: '4px',
+                  borderRadius: '3px',
                   transition: 'height 0.5s ease'
                 }} />
               );
@@ -351,37 +360,36 @@ function PhoneDemo({ lang }: { lang: Language }) {
 
   return (
     <div style={{
-      width: '280px',
-      height: '560px',
+      width: '260px',
+      height: '520px',
       margin: '0 auto',
       background: '#0d0d0f',
-      borderRadius: '44px',
-      border: '6px solid #2a2a32',
-      boxShadow: '0 50px 100px rgba(0,0,0,0.6), 0 0 120px rgba(255, 232, 4, 0.08)',
+      borderRadius: '40px',
+      border: '5px solid #2a2a32',
+      boxShadow: '0 40px 80px rgba(0,0,0,0.5), 0 0 100px rgba(255, 232, 4, 0.06)',
       overflow: 'hidden',
       position: 'relative'
     }}>
       {/* Dynamic Island */}
       <div style={{
         position: 'absolute',
-        top: '10px',
+        top: '8px',
         left: '50%',
         transform: 'translateX(-50%)',
-        width: '90px',
-        height: '28px',
+        width: '80px',
+        height: '24px',
         background: '#000',
-        borderRadius: '14px',
+        borderRadius: '12px',
         zIndex: 20
       }} />
 
       {/* Screen content */}
       <div style={{
         position: 'absolute',
-        top: '44px',
+        top: '38px',
         left: 0,
         right: 0,
         bottom: 0,
-        background: '#0d0d0f',
         overflow: 'hidden'
       }}>
         <CurrentScreenComponent />
@@ -390,19 +398,19 @@ function PhoneDemo({ lang }: { lang: Language }) {
       {/* Screen indicator dots */}
       <div style={{
         position: 'absolute',
-        bottom: '12px',
+        bottom: '10px',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
-        gap: '6px',
+        gap: '5px',
         zIndex: 20
       }}>
         {[0, 1, 2].map((i) => (
           <div key={i} style={{
-            width: currentScreen === i ? '16px' : '6px',
-            height: '6px',
-            borderRadius: '3px',
-            background: currentScreen === i ? '#ffe804' : 'rgba(255,255,255,0.3)',
+            width: currentScreen === i ? '14px' : '5px',
+            height: '5px',
+            borderRadius: '2.5px',
+            background: currentScreen === i ? '#ffe804' : 'rgba(255,255,255,0.25)',
             transition: 'all 0.3s ease'
           }} />
         ))}
@@ -457,7 +465,6 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [lang, setLang] = useState<Language>('ru');
 
-  // Read language from cookie on mount
   useEffect(() => {
     const match = document.cookie.match(/lang=(ru|en)/);
     if (match) {
@@ -545,7 +552,6 @@ export default function LandingPage() {
             }}>
               {t.howItWorksTitle}
             </Link>
-            <LanguageSwitcher lang={lang} setLang={setLang} />
             <Link href="/login" style={{
               color: 'rgba(255,255,255,0.7)',
               textDecoration: 'none',
@@ -555,7 +561,7 @@ export default function LandingPage() {
             }}>
               {t.login}
             </Link>
-            <Link href="/trainer" style={{
+            <Link href="/login" style={{
               padding: '10px 20px',
               background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
               borderRadius: '10px',
@@ -568,6 +574,7 @@ export default function LandingPage() {
             }}>
               {lang === 'ru' ? 'Для тренеров' : 'For Trainers'}
             </Link>
+            <LanguageSwitcher lang={lang} setLang={setLang} />
           </nav>
 
           {/* Mobile Menu Button */}
@@ -631,9 +638,9 @@ export default function LandingPage() {
               fontWeight: 600,
               padding: '12px 0'
             }}>
-              {lang === 'ru' ? 'Войти как клиент' : 'Login as client'}
+              {t.login}
             </Link>
-            <Link href="/trainer" onClick={() => setMenuOpen(false)} style={{
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{
               display: 'block',
               padding: '14px 24px',
               background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
@@ -644,7 +651,7 @@ export default function LandingPage() {
               fontWeight: 700,
               textAlign: 'center'
             }}>
-              {lang === 'ru' ? 'Войти как тренер' : 'Login as trainer'}
+              {lang === 'ru' ? 'Для тренеров' : 'For Trainers'}
             </Link>
           </nav>
         )}
@@ -1004,7 +1011,7 @@ export default function LandingPage() {
             <AppStoreButton store="google" lang={lang} />
           </div>
 
-          <Link href="/trainer" style={{
+          <Link href="/login" style={{
             color: 'rgba(255,255,255,0.6)',
             textDecoration: 'none',
             fontSize: '14px'

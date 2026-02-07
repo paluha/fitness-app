@@ -46,16 +46,17 @@ export default withAuth(
       return response;
     }
 
-    // Redirect unauthenticated users from root to landing
-    if (pathname === '/' && !token) {
-      return NextResponse.redirect(new URL('/landing', req.url));
-    }
-
-    // Redirect trainers to trainer dashboard, clients to main app
+    // Root path handling
     if (pathname === '/') {
+      // Always redirect to landing for unauthenticated users
+      if (!token) {
+        return NextResponse.redirect(new URL('/landing', req.url));
+      }
+      // Redirect trainers to trainer dashboard
       if (token?.role === 'TRAINER') {
         return NextResponse.redirect(new URL('/trainer', req.url));
       }
+      // Clients stay on main app (no redirect needed)
     }
 
     // Protect trainer routes
