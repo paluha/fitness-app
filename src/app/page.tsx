@@ -2724,31 +2724,16 @@ export default function FitnessPage() {
                 gap: '14px',
                 flexWrap: 'wrap'
               }}>
-                <div
+                <Footprints
                   className="steps-walking"
+                  size={24}
                   style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    background: currentDayLog.steps && currentDayLog.steps > 0
-                      ? 'var(--blue-dim)'
-                      : 'var(--bg-elevated)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: `1px solid ${currentDayLog.steps && currentDayLog.steps > 0
-                      ? 'rgba(0, 180, 216, 0.3)'
-                      : 'var(--border)'}`
-                  }}>
-                  <Footprints
-                    size={22}
-                    style={{
-                      color: currentDayLog.steps && currentDayLog.steps > 0
-                        ? 'var(--blue)'
-                        : 'var(--text-muted)'
-                    }}
-                  />
-                </div>
+                    color: currentDayLog.steps && currentDayLog.steps > 0
+                      ? 'var(--blue)'
+                      : 'var(--text-muted)',
+                    marginBottom: '10px'
+                  }}
+                />
                 <div style={{ flex: 1 }}>
                   <label style={{
                     fontSize: '13px',
