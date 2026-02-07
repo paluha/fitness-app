@@ -625,27 +625,32 @@ export default function LandingPage() {
 
             {/* Main Title */}
             <h1 style={{
-              fontSize: 'clamp(36px, 6vw, 56px)',
+              fontSize: 'clamp(40px, 8vw, 64px)',
               fontWeight: 800,
               color: '#fff',
               lineHeight: 1.1,
               marginBottom: '24px',
               letterSpacing: '-2px'
             }}>
+              Твой{' '}
               <span style={{
                 display: 'inline-block',
                 padding: '4px 16px',
                 background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
                 borderRadius: '8px',
-                color: '#000',
-                marginRight: '12px'
+                color: '#000'
               }}>
                 ПРОСТОЙ
               </span>
               <br />
-              фитнес-трекер
-              <br />
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>для результата</span>
+              <span style={{
+                background: 'linear-gradient(135deg, #ffe804 0%, #ffa500 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>
+                фитнес-трекер
+              </span>
             </h1>
 
             {/* Subtitle */}
