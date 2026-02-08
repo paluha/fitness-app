@@ -187,7 +187,25 @@ function WeightChart({ data, labels }: {
   data: number[];
   labels: string[];
 }) {
-  if (data.length < 2) return null;
+  if (data.length === 0) return null;
+
+  // Single point - show just the value
+  if (data.length === 1) {
+    return (
+      <div style={{ textAlign: 'center', padding: '20px 0' }}>
+        <p style={{ fontSize: '32px', fontWeight: 700, color: '#fff', margin: 0 }}>
+          {data[0].toFixed(1)}
+          <span style={{ fontSize: '14px', fontWeight: 400, color: 'rgba(255,255,255,0.4)', marginLeft: '4px' }}>кг</span>
+        </p>
+        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', margin: '8px 0 0' }}>
+          {labels[0]}
+        </p>
+        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', margin: '12px 0 0' }}>
+          Добавьте ещё замеры для отображения графика
+        </p>
+      </div>
+    );
+  }
 
   const width = 320;
   const height = 140;
@@ -1277,7 +1295,7 @@ export default function ClientDetailPage() {
                 .filter(m => m.weight != null)
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-              if (measurements.length >= 2) {
+              if (measurements.length >= 1) {
                 const weightData = measurements.map(m => m.weight as number);
                 const labels = measurements.map(m => {
                   const d = new Date(m.date);
