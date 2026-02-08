@@ -182,6 +182,187 @@ function Sparkline({ data, width = 80, height = 32, color = '#ffcc00' }: {
   );
 }
 
+// Weight chart component for measurements
+function WeightChart({ data, labels }: {
+  data: number[];
+  labels: string[];
+}) {
+  if (data.length < 2) return null;
+
+  const width = 320;
+  const height = 140;
+  const padding = { top: 20, right: 20, bottom: 30, left: 45 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  const min = Math.min(...data) - 1;
+  const max = Math.max(...data) + 1;
+  const range = max - min || 1;
+
+  const points = data.map((value, index) => {
+    const x = padding.left + (index / (data.length - 1)) * chartWidth;
+    const y = padding.top + chartHeight - ((value - min) / range) * chartHeight;
+    return { x, y, value };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+
+  // Calculate trend
+  const firstValue = data[0];
+  const lastValue = data[data.length - 1];
+  const change = lastValue - firstValue;
+  const isDecreasing = change < 0;
+
+  // Grid lines (3 horizontal)
+  const gridLines = [0, 0.5, 1].map(ratio => {
+    const y = padding.top + chartHeight * (1 - ratio);
+    const value = min + range * ratio;
+    return { y, value };
+  });
+
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <svg width={width} height={height} style={{ display: 'block', margin: '0 auto' }}>
+        {/* Grid lines */}
+        {gridLines.map((line, i) => (
+          <g key={i}>
+            <line
+              x1={padding.left}
+              y1={line.y}
+              x2={width - padding.right}
+              y2={line.y}
+              stroke="rgba(255,255,255,0.1)"
+              strokeDasharray="4,4"
+            />
+            <text
+              x={padding.left - 8}
+              y={line.y + 4}
+              fill="rgba(255,255,255,0.4)"
+              fontSize="10"
+              textAnchor="end"
+            >
+              {line.value.toFixed(1)}
+            </text>
+          </g>
+        ))}
+
+        {/* Gradient fill under the line */}
+        <defs>
+          <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={isDecreasing ? '#22c55e' : '#f59e0b'} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={isDecreasing ? '#22c55e' : '#f59e0b'} stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+
+        {/* Area fill */}
+        <path
+          d={`${pathD} L ${points[points.length - 1].x},${padding.top + chartHeight} L ${points[0].x},${padding.top + chartHeight} Z`}
+          fill="url(#weightGradient)"
+        />
+
+        {/* Line */}
+        <path
+          d={pathD}
+          fill="none"
+          stroke={isDecreasing ? '#22c55e' : '#f59e0b'}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Points */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r="4"
+              fill="#1a1a1a"
+              stroke={isDecreasing ? '#22c55e' : '#f59e0b'}
+              strokeWidth="2"
+            />
+            {/* Value label on hover area */}
+            {(i === 0 || i === points.length - 1) && (
+              <text
+                x={p.x}
+                y={p.y - 10}
+                fill="#fff"
+                fontSize="11"
+                fontWeight="600"
+                textAnchor="middle"
+              >
+                {p.value.toFixed(1)}
+              </text>
+            )}
+          </g>
+        ))}
+
+        {/* X-axis labels */}
+        {labels.length <= 7 ? labels.map((label, i) => (
+          <text
+            key={i}
+            x={padding.left + (i / (labels.length - 1)) * chartWidth}
+            y={height - 8}
+            fill="rgba(255,255,255,0.4)"
+            fontSize="9"
+            textAnchor="middle"
+          >
+            {label}
+          </text>
+        )) : (
+          <>
+            <text
+              x={padding.left}
+              y={height - 8}
+              fill="rgba(255,255,255,0.4)"
+              fontSize="9"
+              textAnchor="start"
+            >
+              {labels[0]}
+            </text>
+            <text
+              x={width - padding.right}
+              y={height - 8}
+              fill="rgba(255,255,255,0.4)"
+              fontSize="9"
+              textAnchor="end"
+            >
+              {labels[labels.length - 1]}
+            </text>
+          </>
+        )}
+      </svg>
+
+      {/* Change indicator */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        marginTop: '8px'
+      }}>
+        <span style={{
+          fontSize: '12px',
+          color: 'rgba(255,255,255,0.5)'
+        }}>
+          Изменение:
+        </span>
+        <span style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          color: isDecreasing ? '#22c55e' : '#f59e0b',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          {isDecreasing ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+          {change > 0 ? '+' : ''}{change.toFixed(1)} кг
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -1090,6 +1271,50 @@ export default function ClientDetailPage() {
         {/* Measurements Tab */}
         {activeTab === 'measurements' && (
           <div>
+            {/* Weight Chart */}
+            {(() => {
+              const measurements = (clientData?.fitnessData.bodyMeasurements || [])
+                .filter(m => m.weight != null)
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+              if (measurements.length >= 2) {
+                const weightData = measurements.map(m => m.weight as number);
+                const labels = measurements.map(m => {
+                  const d = new Date(m.date);
+                  return `${d.getDate()}.${d.getMonth() + 1}`;
+                });
+
+                return (
+                  <div style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    marginBottom: '16px',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '16px'
+                    }}>
+                      <Scale size={16} color="#22c55e" />
+                      <h3 style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: 'rgba(255,255,255,0.7)',
+                        margin: 0
+                      }}>
+                        Динамика веса
+                      </h3>
+                    </div>
+                    <WeightChart data={weightData} labels={labels} />
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <div style={{
               background: 'rgba(255,255,255,0.03)',
               borderRadius: '16px',
