@@ -3166,74 +3166,66 @@ export default function FitnessPage() {
             {/* Steps input */}
             <div style={{
               marginTop: '16px',
-              padding: '20px',
+              padding: '12px 14px',
               background: 'var(--bg-card)',
-              borderRadius: '16px',
+              borderRadius: '12px',
               border: '1px solid var(--border)'
             }}>
               <div style={{
                 display: 'flex',
-                alignItems: 'flex-end',
-                gap: '14px',
-                flexWrap: 'wrap'
+                alignItems: 'center',
+                gap: '12px'
               }}>
                 <Footprints
                   className="steps-walking"
-                  size={24}
+                  size={20}
                   style={{
                     color: currentDayLog.steps && currentDayLog.steps > 0
                       ? 'var(--blue)'
                       : 'var(--text-muted)',
-                    marginBottom: '10px'
+                    flexShrink: 0
                   }}
                 />
-                <div style={{ flex: 1 }}>
-                  <label style={{
-                    fontSize: '13px',
-                    color: 'var(--text-muted)',
-                    display: 'block',
-                    marginBottom: '6px'
-                  }}>
-                    {t('steps')}
-                  </label>
-                  <input
-                    type="number"
-                    value={currentDayLog.steps || ''}
-                    onChange={(e) => updateDayLog({ steps: e.target.value ? parseInt(e.target.value) : null })}
-                    placeholder="0"
-                    style={{
-                      width: '100%',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '10px',
-                      padding: '12px 16px',
-                      color: 'var(--blue)',
-                      fontSize: '18px',
-                      fontWeight: 700
-                    }}
-                  />
-                </div>
+                <input
+                  type="number"
+                  value={currentDayLog.steps || ''}
+                  onChange={(e) => updateDayLog({ steps: e.target.value ? parseInt(e.target.value) : null })}
+                  placeholder={userSettings.language === 'ru' ? 'Добавьте шаги' : 'Add steps'}
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: 'var(--blue)',
+                    fontSize: '16px',
+                    fontWeight: 600
+                  }}
+                />
                 {/* Weekly steps total */}
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  padding: '8px 12px',
+                  justifyContent: 'center',
+                  padding: '8px 14px',
                   background: 'var(--bg-elevated)',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)'
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  minWidth: '70px'
                 }}>
                   <span style={{
-                    fontSize: '11px',
+                    fontSize: '10px',
                     color: 'var(--text-muted)',
-                    marginBottom: '2px'
+                    lineHeight: 1
                   }}>
-                    {userSettings.language === 'ru' ? 'за неделю' : 'this week'}
+                    {userSettings.language === 'ru' ? 'неделя' : 'week'}
                   </span>
                   <span style={{
-                    fontSize: '16px',
+                    fontSize: '14px',
                     fontWeight: 700,
-                    color: weeklySteps > 0 ? 'var(--blue)' : 'var(--text-muted)'
+                    color: weeklySteps > 0 ? 'var(--blue)' : 'var(--text-muted)',
+                    lineHeight: 1.3
                   }}>
                     {weeklySteps.toLocaleString()}
                   </span>
@@ -3526,14 +3518,14 @@ export default function FitnessPage() {
                       justifyContent: 'center',
                       background: day.isToday
                         ? isTodayCloseToGoal
-                          ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.3) 0%, rgba(255, 193, 7, 0.3) 100%)'
+                          ? 'transparent'
                           : 'var(--bg-elevated)'
                         : day.isFuture
                           ? 'rgba(239, 68, 68, 0.05)'
                           : 'transparent',
                       border: day.isToday
                         ? isTodayCloseToGoal
-                          ? '2px solid rgba(255, 152, 0, 0.5)'
+                          ? '1px solid rgba(255, 152, 0, 0.1)'
                           : '2px dashed var(--border-strong)'
                         : day.isFuture
                           ? '1px dashed rgba(239, 68, 68, 0.25)'

@@ -10,6 +10,7 @@ import {
   Utensils,
   Scale,
   TrendingUp,
+  TrendingDown,
   CheckCircle2,
   Dumbbell,
   Plus,
@@ -19,7 +20,10 @@ import {
   Timer,
   Edit2,
   Video,
-  ExternalLink
+  ExternalLink,
+  Footprints,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface Exercise {
@@ -47,11 +51,18 @@ interface Meal {
   calories: number;
 }
 
+interface WorkoutSnapshot {
+  workoutId: string;
+  workoutName: string;
+  exercises: Exercise[];
+}
+
 interface DayLog {
   date: string;
   selectedWorkout: string | null;
   workoutCompleted: string | null;
   workoutRating: number | null;
+  workoutSnapshot?: WorkoutSnapshot | null;
   meals: Meal[];
   notes: string;
   steps: number | null;
@@ -125,6 +136,50 @@ interface ClientData {
 
 type TabType = 'workouts' | 'nutrition' | 'measurements' | 'progress';
 
+// Sparkline component for progress visualization
+function Sparkline({ data, width = 80, height = 32, color = '#ffcc00' }: {
+  data: number[];
+  width?: number;
+  height?: number;
+  color?: string;
+}) {
+  if (data.length < 2) return null;
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  const points = data.map((value, index) => {
+    const x = (index / (data.length - 1)) * width;
+    const y = height - ((value - min) / range) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const lastPoint = data[data.length - 1];
+  const lastX = width;
+  const lastY = height - ((lastPoint - min) / range) * (height - 4) - 2;
+
+  return (
+    <svg width={width} height={height} style={{ overflow: 'visible' }}>
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+        style={{ opacity: 0.7 }}
+      />
+      <circle
+        cx={lastX}
+        cy={lastY}
+        r="3"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
 export default function ClientDetailPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -135,6 +190,8 @@ export default function ClientDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('workouts');
+  const [expandedWorkoutDate, setExpandedWorkoutDate] = useState<string | null>(null);
+  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [showRecommendationsEditor, setShowRecommendationsEditor] = useState(false);
   const [recommendations, setRecommendations] = useState<NutritionRecommendation[]>([]);
   const [isSavingRecommendations, setIsSavingRecommendations] = useState(false);
@@ -220,7 +277,13 @@ export default function ClientDetailPage() {
     if (!clientData) return null;
 
     const dayLogs = clientData.fitnessData.dayLogs || {};
-    const measurements = clientData.fitnessData.bodyMeasurements || [];
+    // Ensure measurements is an array (could be null, object, or stringified)
+    let rawMeasurements: unknown = clientData.fitnessData.bodyMeasurements;
+    if (!rawMeasurements) rawMeasurements = [];
+    if (typeof rawMeasurements === 'string') {
+      try { rawMeasurements = JSON.parse(rawMeasurements); } catch { rawMeasurements = []; }
+    }
+    const measurements: BodyMeasurement[] = Array.isArray(rawMeasurements) ? rawMeasurements : [];
 
     // Get current week's workouts
     const today = new Date();
@@ -229,7 +292,16 @@ export default function ClientDetailPage() {
     const monday = new Date(today);
     monday.setDate(today.getDate() + mondayOffset);
 
+    // Previous week monday
+    const prevMonday = new Date(monday);
+    prevMonday.setDate(monday.getDate() - 7);
+
     let workoutsThisWeek = 0;
+    let weeklySteps = 0;
+    let workoutsLastWeek = 0;
+    let lastWeekSteps = 0;
+
+    // Current week
     for (let i = 0; i < 7; i++) {
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
@@ -237,20 +309,39 @@ export default function ClientDetailPage() {
       if (dayLogs[dateStr]?.workoutCompleted) {
         workoutsThisWeek++;
       }
+      if (dayLogs[dateStr]?.steps) {
+        weeklySteps += dayLogs[dateStr].steps;
+      }
     }
 
-    // Latest weight
-    const latestMeasurement = measurements.length > 0
-      ? measurements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-      : null;
+    // Last week
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(prevMonday);
+      date.setDate(prevMonday.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      if (dayLogs[dateStr]?.workoutCompleted) {
+        workoutsLastWeek++;
+      }
+      if (dayLogs[dateStr]?.steps) {
+        lastWeekSteps += dayLogs[dateStr].steps;
+      }
+    }
 
-    // Last activity
-    const lastUpdated = clientData.fitnessData.lastUpdated;
+    // Latest weight and previous weight - filter only measurements that have weight
+    const sortedMeasurements = [...measurements].sort((a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const measurementsWithWeight = sortedMeasurements.filter(m => m.weight != null);
+    const latestWeightMeasurement = measurementsWithWeight[0] || null;
+    const previousWeightMeasurement = measurementsWithWeight[1] || null;
 
     return {
       workoutsThisWeek,
-      latestWeight: latestMeasurement?.weight || null,
-      lastActivity: lastUpdated ? new Date(lastUpdated) : null
+      workoutsLastWeek,
+      latestWeight: latestWeightMeasurement?.weight || null,
+      previousWeight: previousWeightMeasurement?.weight || null,
+      weeklySteps,
+      lastWeekSteps
     };
   }, [clientData]);
 
@@ -459,9 +550,27 @@ export default function ClientDetailPage() {
               За неделю
             </span>
           </div>
-          <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
-            {stats?.workoutsThisWeek || 0}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
+              {stats?.workoutsThisWeek || 0}
+            </p>
+            {stats && stats.workoutsLastWeek > 0 && stats.workoutsThisWeek !== stats.workoutsLastWeek && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                fontSize: '11px',
+                color: stats.workoutsThisWeek > stats.workoutsLastWeek ? '#22c55e' : '#ef4444'
+              }}>
+                {stats.workoutsThisWeek > stats.workoutsLastWeek ? (
+                  <TrendingUp size={12} />
+                ) : (
+                  <TrendingDown size={12} />
+                )}
+                <span>{Math.abs(stats.workoutsThisWeek - stats.workoutsLastWeek)}</span>
+              </div>
+            )}
+          </div>
           <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
             тренировок
           </p>
@@ -479,9 +588,27 @@ export default function ClientDetailPage() {
               Вес
             </span>
           </div>
-          <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
-            {stats?.latestWeight ? `${stats.latestWeight}` : '—'}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
+              {stats?.latestWeight ? `${stats.latestWeight}` : '—'}
+            </p>
+            {stats?.latestWeight && stats?.previousWeight && stats.latestWeight !== stats.previousWeight && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                fontSize: '11px',
+                color: stats.latestWeight < stats.previousWeight ? '#22c55e' : '#f59e0b'
+              }}>
+                {stats.latestWeight < stats.previousWeight ? (
+                  <TrendingDown size={12} />
+                ) : (
+                  <TrendingUp size={12} />
+                )}
+                <span>{Math.abs(stats.latestWeight - stats.previousWeight).toFixed(1)}</span>
+              </div>
+            )}
+          </div>
           <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
             кг
           </p>
@@ -494,13 +621,34 @@ export default function ClientDetailPage() {
           border: '1px solid rgba(255,255,255,0.08)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Calendar size={16} color="#8b5cf6" />
+            <Footprints size={16} color="#3b82f6" />
             <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
-              Активность
+              За неделю
             </span>
           </div>
-          <p style={{ fontSize: '16px', fontWeight: 600, color: '#fff', margin: 0 }}>
-            {stats?.lastActivity ? formatRelativeTime(stats.lastActivity) : '—'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
+              {stats?.weeklySteps ? stats.weeklySteps.toLocaleString() : '—'}
+            </p>
+            {stats && stats.lastWeekSteps > 0 && stats.weeklySteps !== stats.lastWeekSteps && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                fontSize: '11px',
+                color: stats.weeklySteps > stats.lastWeekSteps ? '#22c55e' : '#ef4444'
+              }}>
+                {stats.weeklySteps > stats.lastWeekSteps ? (
+                  <TrendingUp size={12} />
+                ) : (
+                  <TrendingDown size={12} />
+                )}
+                <span>{Math.abs(Math.round((stats.weeklySteps - stats.lastWeekSteps) / 1000))}k</span>
+              </div>
+            )}
+          </div>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
+            шагов
           </p>
         </div>
       </div>
@@ -581,7 +729,7 @@ export default function ClientDetailPage() {
                       background: day.hasWorkout
                         ? 'rgba(34, 197, 94, 0.2)'
                         : day.isOffDay
-                          ? 'rgba(255, 255, 255, 0.05)'
+                          ? 'rgba(147, 112, 219, 0.15)'
                           : 'transparent'
                     }}
                   >
@@ -601,9 +749,11 @@ export default function ClientDetailPage() {
                     }}>
                       {day.dayNum}
                     </p>
-                    {day.hasWorkout && (
+                    {day.hasWorkout ? (
                       <CheckCircle2 size={12} color="#22c55e" style={{ marginTop: '4px' }} />
-                    )}
+                    ) : day.isOffDay ? (
+                      <span style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>😴</span>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -628,50 +778,110 @@ export default function ClientDetailPage() {
                 .filter(([, log]) => log.workoutCompleted)
                 .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
                 .slice(0, 10)
-                .map(([date, log]) => (
-                  <div
-                    key={date}
-                    style={{
-                      padding: '12px 0',
-                      borderBottom: '1px solid rgba(255,255,255,0.06)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}
-                  >
-                    <div>
-                      <p style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#fff',
-                        margin: 0
-                      }}>
-                        {log.workoutCompleted?.toUpperCase()}
-                      </p>
-                      <p style={{
-                        fontSize: '12px',
-                        color: 'rgba(255,255,255,0.5)',
-                        margin: '2px 0 0'
-                      }}>
-                        {formatDate(date)}
-                      </p>
-                    </div>
-                    {log.workoutRating && (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        color: '#ffcc00'
-                      }}>
-                        {log.workoutRating === 1 && '😫'}
-                        {log.workoutRating === 2 && '😐'}
-                        {log.workoutRating === 3 && '😊'}
-                        {log.workoutRating === 4 && '💪'}
-                        {log.workoutRating === 5 && '🔥'}
+                .map(([date, log]) => {
+                  const isExpanded = expandedWorkoutDate === date;
+                  const snapshot = log.workoutSnapshot;
+
+                  return (
+                    <div key={date}>
+                      <div
+                        onClick={() => setExpandedWorkoutDate(isExpanded ? null : date)}
+                        style={{
+                          padding: '12px 0',
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: snapshot ? 'pointer' : 'default'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {snapshot && (
+                            isExpanded ? <ChevronUp size={14} color="rgba(255,255,255,0.4)" /> : <ChevronDown size={14} color="rgba(255,255,255,0.4)" />
+                          )}
+                          <div>
+                            <p style={{
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              color: '#fff',
+                              margin: 0
+                            }}>
+                              {snapshot?.workoutName || log.workoutCompleted?.toUpperCase()}
+                            </p>
+                            <p style={{
+                              fontSize: '12px',
+                              color: 'rgba(255,255,255,0.5)',
+                              margin: '2px 0 0'
+                            }}>
+                              {formatDate(date)}
+                            </p>
+                          </div>
+                        </div>
+                        {log.workoutRating && (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            color: '#ffcc00'
+                          }}>
+                            {log.workoutRating === 1 && '😫'}
+                            {log.workoutRating === 2 && '😐'}
+                            {log.workoutRating === 3 && '😊'}
+                            {log.workoutRating === 4 && '💪'}
+                            {log.workoutRating === 5 && '🔥'}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Expanded exercise details */}
+                      {isExpanded && snapshot && (
+                        <div style={{
+                          padding: '12px',
+                          marginBottom: '8px',
+                          background: 'rgba(255,255,255,0.02)',
+                          borderRadius: '8px',
+                          borderLeft: '3px solid rgba(255,204,0,0.5)'
+                        }}>
+                          {snapshot.exercises.map((ex, idx) => (
+                            <div
+                              key={ex.id || idx}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '6px 0',
+                                borderBottom: idx < snapshot.exercises.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {ex.completed ? (
+                                  <CheckCircle2 size={14} color="#22c55e" />
+                                ) : (
+                                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.3)' }} />
+                                )}
+                                <span style={{ fontSize: '13px', color: ex.completed ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                                  {ex.name}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                                {ex.actualSets && (
+                                  <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                    {ex.actualSets}
+                                  </span>
+                                )}
+                                {ex.newWeight && (
+                                  <span style={{ color: '#ffcc00', fontWeight: 600 }}>
+                                    {ex.newWeight} кг
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               {Object.values(clientData?.fitnessData.dayLogs || {}).filter(l => l.workoutCompleted).length === 0 && (
                 <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
                   Нет данных о тренировках
@@ -698,93 +908,83 @@ export default function ClientDetailPage() {
               }}>
                 Питание за неделю
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {nutritionStats.map(day => (
-                  <div
-                    key={day.date}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '60px 1fr 1fr 1fr 1fr',
-                      gap: '8px',
-                      padding: '10px 0',
-                      borderBottom: '1px solid rgba(255,255,255,0.06)',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <span style={{
-                      fontSize: '13px',
-                      color: 'rgba(255,255,255,0.5)',
-                      textTransform: 'capitalize'
-                    }}>
-                      {day.dayName}
-                    </span>
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#ef4444', margin: 0 }}>
-                        {day.protein}
-                      </p>
-                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Б</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {nutritionStats.map((day, idx) => {
+                  const hasData = day.calories > 0;
+                  return (
+                    <div
+                      key={day.date}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 0',
+                        borderBottom: idx < nutritionStats.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '13px',
+                        color: 'rgba(255,255,255,0.5)',
+                        textTransform: 'capitalize',
+                        minWidth: '50px'
+                      }}>
+                        {day.dayName}
+                      </span>
+                      {hasData ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px' }}>
+                          <span style={{ color: '#ef4444' }}>
+                            <strong>{day.protein}</strong>
+                            <span style={{ opacity: 0.6, marginLeft: '2px' }}>Б</span>
+                          </span>
+                          <span style={{ color: '#f59e0b' }}>
+                            <strong>{day.fat}</strong>
+                            <span style={{ opacity: 0.6, marginLeft: '2px' }}>Ж</span>
+                          </span>
+                          <span style={{ color: '#22c55e' }}>
+                            <strong>{day.carbs}</strong>
+                            <span style={{ opacity: 0.6, marginLeft: '2px' }}>У</span>
+                          </span>
+                          <span style={{ color: '#8b5cf6', fontWeight: 600 }}>
+                            {day.calories} <span style={{ opacity: 0.6, fontWeight: 400 }}>ккал</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>—</span>
+                      )}
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#f59e0b', margin: 0 }}>
-                        {day.fat}
-                      </p>
-                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Ж</p>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#22c55e', margin: 0 }}>
-                        {day.carbs}
-                      </p>
-                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>У</p>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#8b5cf6', margin: 0 }}>
-                        {day.calories}
-                      </p>
-                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>ккал</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Averages */}
               <div style={{
-                marginTop: '16px',
-                padding: '12px',
-                background: 'rgba(255,204,0,0.1)',
-                borderRadius: '10px'
+                marginTop: '12px',
+                padding: '10px 12px',
+                background: 'rgba(255,204,0,0.08)',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}>
-                <p style={{
-                  fontSize: '12px',
-                  color: 'rgba(255,255,255,0.6)',
-                  margin: '0 0 8px'
-                }}>
-                  Среднее за неделю:
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '16px', fontWeight: 700, color: '#ef4444', margin: 0 }}>
-                      {Math.round(nutritionStats.reduce((sum, d) => sum + d.protein, 0) / 7)}
-                    </p>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Белок</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '16px', fontWeight: 700, color: '#f59e0b', margin: 0 }}>
-                      {Math.round(nutritionStats.reduce((sum, d) => sum + d.fat, 0) / 7)}
-                    </p>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Жиры</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '16px', fontWeight: 700, color: '#22c55e', margin: 0 }}>
-                      {Math.round(nutritionStats.reduce((sum, d) => sum + d.carbs, 0) / 7)}
-                    </p>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Углеводы</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '16px', fontWeight: 700, color: '#8b5cf6', margin: 0 }}>
-                      {Math.round(nutritionStats.reduce((sum, d) => sum + d.calories, 0) / 7)}
-                    </p>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Калории</p>
-                  </div>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  Ср. за неделю:
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13px' }}>
+                  <span style={{ color: '#ef4444' }}>
+                    <strong>{Math.round(nutritionStats.reduce((sum, d) => sum + d.protein, 0) / 7)}</strong>
+                    <span style={{ opacity: 0.6, marginLeft: '2px' }}>Б</span>
+                  </span>
+                  <span style={{ color: '#f59e0b' }}>
+                    <strong>{Math.round(nutritionStats.reduce((sum, d) => sum + d.fat, 0) / 7)}</strong>
+                    <span style={{ opacity: 0.6, marginLeft: '2px' }}>Ж</span>
+                  </span>
+                  <span style={{ color: '#22c55e' }}>
+                    <strong>{Math.round(nutritionStats.reduce((sum, d) => sum + d.carbs, 0) / 7)}</strong>
+                    <span style={{ opacity: 0.6, marginLeft: '2px' }}>У</span>
+                  </span>
+                  <span style={{ color: '#8b5cf6', fontWeight: 600 }}>
+                    {Math.round(nutritionStats.reduce((sum, d) => sum + d.calories, 0) / 7)} <span style={{ opacity: 0.6, fontWeight: 400 }}>ккал</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -903,7 +1103,7 @@ export default function ClientDetailPage() {
                 История замеров
               </h3>
               {(clientData?.fitnessData.bodyMeasurements || [])
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .sort((a, b) => parseInt(b.id) - parseInt(a.id))
                 .map(measurement => (
                   <div
                     key={measurement.id}
@@ -1001,19 +1201,10 @@ export default function ClientDetailPage() {
         {activeTab === 'progress' && (
           <div>
             <div style={{
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid rgba(255,255,255,0.08)'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '12px'
             }}>
-              <h3 style={{
-                fontSize: '14px',
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.7)',
-                margin: '0 0 16px'
-              }}>
-                Прогресс в упражнениях
-              </h3>
               {Object.entries(clientData?.fitnessData.progressHistory || {}).length > 0 ? (
                 Object.entries(clientData?.fitnessData.progressHistory || {}).map(([exerciseId, history]) => {
                   // Find exercise name and video from workouts
@@ -1029,89 +1220,122 @@ export default function ClientDetailPage() {
                     }
                   }
 
+                  const sortedHistory = (history as ExerciseProgress[])
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                  const chartData = sortedHistory.map(h => parseFloat(h.weight) || 0);
+                  const latestWeight = sortedHistory[sortedHistory.length - 1]?.weight;
+                  const firstWeight = sortedHistory[0]?.weight;
+                  const totalChange = latestWeight && firstWeight
+                    ? parseFloat(latestWeight) - parseFloat(firstWeight)
+                    : 0;
+
                   return (
                     <div
                       key={exerciseId}
+                      onClick={() => exerciseVideoUrl && window.open(exerciseVideoUrl, '_blank')}
                       style={{
-                        padding: '12px',
-                        marginBottom: '10px',
                         background: 'rgba(255,255,255,0.03)',
-                        borderRadius: '10px'
+                        borderRadius: '14px',
+                        padding: '14px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        cursor: exerciseVideoUrl ? 'pointer' : 'default',
+                        transition: 'all 0.2s ease'
                       }}
                     >
+                      {/* Exercise name */}
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
+                        gap: '6px',
                         marginBottom: '10px'
                       }}>
                         <p style={{
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          color: '#fff',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          color: 'rgba(255,255,255,0.7)',
                           margin: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          flex: 1
                         }}>
                           {exerciseName}
-                          {exerciseVideoUrl && (
-                            <Video size={14} color="#8b5cf6" />
-                          )}
                         </p>
                         {exerciseVideoUrl && (
-                          <a
-                            href={exerciseVideoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '4px 8px',
-                              background: 'rgba(139,92,246,0.15)',
-                              borderRadius: '6px',
-                              color: '#8b5cf6',
-                              fontSize: '11px',
-                              textDecoration: 'none'
-                            }}
-                          >
-                            <ExternalLink size={12} />
-                            Видео
-                          </a>
+                          <Video size={12} color="#8b5cf6" style={{ flexShrink: 0 }} />
                         )}
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {(history as ExerciseProgress[])
-                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                          .slice(0, 5)
-                          .map((entry, idx) => (
-                            <div
-                              key={idx}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '6px 0',
-                                borderBottom: idx < 4 ? '1px solid rgba(255,255,255,0.05)' : 'none'
-                              }}
-                            >
-                              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
-                                {formatDate(entry.date)}
-                              </span>
-                              <span style={{ fontSize: '14px', fontWeight: 600, color: '#ffcc00' }}>
-                                {entry.weight}
+
+                      {/* Weight and sparkline row */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-end',
+                        justifyContent: 'space-between',
+                        gap: '8px'
+                      }}>
+                        <div>
+                          <p style={{
+                            fontSize: '22px',
+                            fontWeight: 700,
+                            color: '#fff',
+                            margin: 0,
+                            lineHeight: 1
+                          }}>
+                            {latestWeight || '—'}
+                            <span style={{ fontSize: '12px', fontWeight: 400, color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>кг</span>
+                          </p>
+                          {totalChange !== 0 && (
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              marginTop: '4px'
+                            }}>
+                              {totalChange > 0 ? (
+                                <TrendingUp size={12} color="#22c55e" />
+                              ) : (
+                                <TrendingDown size={12} color="#ef4444" />
+                              )}
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: totalChange > 0 ? '#22c55e' : '#ef4444'
+                              }}>
+                                {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)}
                               </span>
                             </div>
-                          ))}
+                          )}
+                        </div>
+
+                        {/* Sparkline */}
+                        {chartData.length >= 2 && (
+                          <Sparkline
+                            data={chartData}
+                            width={70}
+                            height={28}
+                            color={totalChange >= 0 ? '#22c55e' : '#ef4444'}
+                          />
+                        )}
                       </div>
+
+                      {/* Date range */}
+                      <p style={{
+                        fontSize: '10px',
+                        color: 'rgba(255,255,255,0.35)',
+                        margin: '8px 0 0',
+                        textAlign: 'right'
+                      }}>
+                        {sortedHistory.length} записей
+                      </p>
                     </div>
                   );
                 })
               ) : (
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
-                  Нет данных о прогрессе
-                </p>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
+                    Нет данных о прогрессе
+                  </p>
+                </div>
               )}
             </div>
           </div>
