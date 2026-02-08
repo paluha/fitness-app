@@ -8,7 +8,7 @@ import {
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
-  Camera, Loader2, ScanLine
+  Camera, Loader2, ScanLine, Video, ExternalLink
 } from 'lucide-react';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -310,6 +310,7 @@ interface Exercise {
   notes: string;
   feedback: string;
   completed: boolean;
+  videoUrl?: string;
 }
 
 interface Workout {
@@ -821,6 +822,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
 
   return (
     <div
@@ -1084,22 +1087,44 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
               Отдых: {ex.restTime}
             </label>
             <RestTimer restTime={ex.restTime} />
-            <input
-              type="text"
-              value={ex.feedback}
-              onChange={(e) => onUpdate({ feedback: e.target.value })}
-              placeholder="Заметки к упражнению..."
-              style={{
-                width: '100%',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: '10px',
-                padding: '12px 14px',
-                color: 'var(--text-primary)',
-                fontSize: '14px',
-                marginTop: '12px'
-              }}
-            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={ex.feedback}
+                onChange={(e) => onUpdate({ feedback: e.target.value })}
+                placeholder="Заметки к упражнению..."
+                style={{
+                  flex: 1,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px'
+                }}
+              />
+              {/* Video icon */}
+              <div
+                onClick={() => {
+                  setVideoUrlInput(ex.videoUrl || '');
+                  setShowVideoModal(true);
+                }}
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '10px',
+                  background: ex.videoUrl ? 'var(--blue-dim)' : 'var(--bg-elevated)',
+                  border: ex.videoUrl ? '1px solid rgba(0, 180, 216, 0.3)' : '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                <Video size={18} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
+              </div>
+            </div>
           </div>
 
           {/* Save progress & History buttons */}
@@ -1192,6 +1217,119 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Video Modal */}
+      {showVideoModal && (
+        <div
+          onClick={() => setShowVideoModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 1000
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              background: 'var(--bg-card)',
+              borderRadius: '20px',
+              border: '1px solid var(--border)',
+              padding: '24px'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '20px'
+            }}>
+              <Video size={20} style={{ color: 'var(--blue)' }} />
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                margin: 0
+              }}>
+                Видео-инструкция
+              </h3>
+            </div>
+
+            <input
+              type="text"
+              value={videoUrlInput}
+              onChange={(e) => setVideoUrlInput(e.target.value)}
+              placeholder="Ссылка на YouTube или другой ресурс..."
+              style={{
+                width: '100%',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                color: 'var(--text-primary)',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                marginBottom: '16px'
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {ex.videoUrl && (
+                <a
+                  href={ex.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: 'var(--blue-dim)',
+                    border: '1px solid rgba(0, 180, 216, 0.3)',
+                    borderRadius: '12px',
+                    color: 'var(--blue)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    fontWeight: 600
+                  }}
+                >
+                  <ExternalLink size={16} />
+                  Открыть
+                </a>
+              )}
+              <button
+                onClick={() => {
+                  onUpdate({ videoUrl: videoUrlInput || undefined });
+                  setShowVideoModal(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: 'var(--green)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#000',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600
+                }}
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -3306,7 +3444,7 @@ export default function FitnessPage() {
                     🔥
                   </span>
                   <span style={{
-                    fontSize: '15px',
+                    fontSize: '13px',
                     fontWeight: 700,
                     color: nutritionStreak > 0 ? '#ff6b00' : 'var(--text-muted)'
                   }}>
@@ -3365,7 +3503,7 @@ export default function FitnessPage() {
                     }}>
                       {day.isToday ? (
                         <span style={{
-                          fontSize: isTodayCloseToGoal ? '16px' : '14px',
+                          fontSize: isTodayCloseToGoal ? '16px' : '13px',
                           animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
                           filter: isTodayCloseToGoal ? 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8))' : 'none'
                         }}>

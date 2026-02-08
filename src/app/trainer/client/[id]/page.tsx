@@ -17,7 +17,9 @@ import {
   Save,
   X,
   Timer,
-  Edit2
+  Edit2,
+  Video,
+  ExternalLink
 } from 'lucide-react';
 
 interface Exercise {
@@ -27,6 +29,7 @@ interface Exercise {
   actualSets: string;
   newWeight: string;
   completed: boolean;
+  videoUrl?: string;
 }
 
 interface Workout {
@@ -1013,13 +1016,15 @@ export default function ClientDetailPage() {
               </h3>
               {Object.entries(clientData?.fitnessData.progressHistory || {}).length > 0 ? (
                 Object.entries(clientData?.fitnessData.progressHistory || {}).map(([exerciseId, history]) => {
-                  // Find exercise name from workouts
+                  // Find exercise name and video from workouts
                   const workouts = clientData?.fitnessData.workouts || [];
                   let exerciseName = exerciseId;
+                  let exerciseVideoUrl: string | undefined;
                   for (const workout of workouts) {
                     const exercise = workout.exercises?.find(e => e.id === exerciseId);
                     if (exercise) {
                       exerciseName = exercise.name;
+                      exerciseVideoUrl = exercise.videoUrl;
                       break;
                     }
                   }
@@ -1034,14 +1039,48 @@ export default function ClientDetailPage() {
                         borderRadius: '10px'
                       }}
                     >
-                      <p style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#fff',
-                        margin: '0 0 10px'
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '10px'
                       }}>
-                        {exerciseName}
-                      </p>
+                        <p style={{
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: '#fff',
+                          margin: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          {exerciseName}
+                          {exerciseVideoUrl && (
+                            <Video size={14} color="#8b5cf6" />
+                          )}
+                        </p>
+                        {exerciseVideoUrl && (
+                          <a
+                            href={exerciseVideoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              background: 'rgba(139,92,246,0.15)',
+                              borderRadius: '6px',
+                              color: '#8b5cf6',
+                              fontSize: '11px',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            <ExternalLink size={12} />
+                            Видео
+                          </a>
+                        )}
+                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {(history as ExerciseProgress[])
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())

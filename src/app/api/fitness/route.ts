@@ -73,25 +73,26 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
-    const { workouts, dayLogs, progressHistory, bodyMeasurements, favoriteMeals } = await request.json();
+    const body = await request.json();
+
+    // Build update object - only include fields that were explicitly passed
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.workouts !== undefined) updateData.workouts = body.workouts;
+    if (body.dayLogs !== undefined) updateData.dayLogs = body.dayLogs;
+    if (body.progressHistory !== undefined) updateData.progressHistory = body.progressHistory;
+    if (body.bodyMeasurements !== undefined) updateData.bodyMeasurements = body.bodyMeasurements;
+    if (body.favoriteMeals !== undefined) updateData.favoriteMeals = body.favoriteMeals;
 
     const fitnessData = await prisma.fitnessData.upsert({
       where: { userId },
-      update: {
-        workouts: workouts || undefined,
-        dayLogs: dayLogs || {},
-        progressHistory: progressHistory || {},
-        bodyMeasurements: bodyMeasurements || undefined,
-        favoriteMeals: favoriteMeals || undefined,
-        updatedAt: new Date()
-      },
+      update: updateData,
       create: {
         userId,
-        workouts: workouts || [],
-        dayLogs: dayLogs || {},
-        progressHistory: progressHistory || {},
-        bodyMeasurements: bodyMeasurements || [],
-        favoriteMeals: favoriteMeals || []
+        workouts: body.workouts || [],
+        dayLogs: body.dayLogs || {},
+        progressHistory: body.progressHistory || {},
+        bodyMeasurements: body.bodyMeasurements || [],
+        favoriteMeals: body.favoriteMeals || []
       }
     });
 
