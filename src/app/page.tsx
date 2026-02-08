@@ -831,7 +831,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
       style={{
         background: 'var(--bg-card)',
         borderRadius: ex.completed ? '10px' : '14px',
-        border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.2)' : 'var(--border)'}`,
+        border: '1px solid var(--border)',
         overflow: 'hidden',
         marginBottom: ex.completed ? '6px' : '10px'
       }}
@@ -860,17 +860,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             width: ex.completed ? '24px' : '32px',
             height: ex.completed ? '24px' : '32px',
             borderRadius: ex.completed ? '6px' : '8px',
-            border: ex.completed ? 'none' : '2px solid var(--border-strong)',
+            border: ex.completed ? '1px solid var(--green)' : '2px solid var(--border-strong)',
             background: ex.completed
-              ? 'var(--green)'
+              ? 'var(--green-dim)'
               : 'transparent',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#000',
+            color: 'var(--green)',
             flexShrink: 0,
-            boxShadow: ex.completed ? '0 2px 6px var(--green-glow)' : 'none',
             transition: 'all 0.2s ease'
           }}
         >
@@ -947,8 +946,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
       {expanded && ex.completed && (
         <div style={{
           padding: '10px 12px',
-          borderTop: '1px solid rgba(0, 200, 83, 0.15)',
-          background: 'var(--green-dim)',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--bg-card)',
           fontSize: '12px'
         }}>
           {/* Info section */}
@@ -977,6 +976,34 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                 "{ex.feedback}"
               </div>
             )}
+          </div>
+
+          {/* Video icon for completed */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '10px'
+          }}>
+            <div
+              onClick={() => {
+                setVideoUrlInput(ex.videoUrl || '');
+                setShowVideoModal(true);
+              }}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: ex.videoUrl ? 'var(--blue-dim)' : 'var(--bg-elevated)',
+                border: ex.videoUrl ? '1px solid rgba(0, 180, 216, 0.3)' : '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <Video size={14} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
+            </div>
           </div>
 
           {/* Unmark button */}
@@ -1495,12 +1522,12 @@ function FitnessCalendar({
             </div>
           </div>
           <div style={{
-            background: 'var(--purple-dim)',
+            background: 'rgba(59, 130, 246, 0.15)',
             padding: '12px',
             borderRadius: '12px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--purple)' }}>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: 'rgb(59, 130, 246)' }}>
               {monthStats.stepDays > 0 ? Math.round(monthStats.totalSteps / monthStats.stepDays) : 0}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1869,7 +1896,7 @@ export default function FitnessPage() {
     calories: Math.min(100, (macroTotals.calories / MACRO_TARGETS.calories) * 100),
   }), [macroTotals]);
 
-  // Calculate last 7 days nutrition status and streak
+  // Calculate current week nutrition status and streak
   const { last7Days, nutritionStreak } = useMemo(() => {
     const today = getTodayInTimezone(userSettings.timezone);
     const todayStr = formatDate(today);
@@ -1897,27 +1924,35 @@ export default function FitnessPage() {
       return avgCompletion >= 0.7; // 70% average across all macros
     };
 
-    // Build last 7 days array (6 days ago -> today)
-    const days: { date: string; dayName: string; completed: boolean; isToday: boolean }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    // Build current week array (Monday -> Sunday)
+    const dayOfWeek = today.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+
+    const days: { date: string; dayName: string; completed: boolean; isToday: boolean; isFuture: boolean }[] = [];
+    const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
       const dateStr = formatDate(date);
-      const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
       const isToday = dateStr === todayStr;
+      const isFuture = dateStr > todayStr;
       days.push({
         date: dateStr,
-        dayName: dayNames[date.getDay()],
-        completed: isDayCompleted(dateStr), // Check all days including today
-        isToday
+        dayName: dayNames[i],
+        completed: isFuture ? false : isDayCompleted(dateStr),
+        isToday,
+        isFuture
       });
     }
 
-    // Count streak (consecutive completed days from most recent backward)
-    // Start from index 6 (today) or 5 (yesterday) depending on if today is complete
+    // Count streak (consecutive completed days from today/yesterday backward)
     let streak = 0;
+    const todayIndex = days.findIndex(d => d.isToday);
     // If today is complete, include it; otherwise start from yesterday
-    const startIndex = days[6].completed ? 6 : 5;
+    const startIndex = todayIndex >= 0 && days[todayIndex].completed ? todayIndex : todayIndex - 1;
     for (let i = startIndex; i >= 0; i--) {
       if (days[i].completed) {
         streak++;
@@ -3452,7 +3487,7 @@ export default function FitnessPage() {
                   </span>
                 </div>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  последние 7 дней
+                  текущая неделя
                 </span>
               </div>
 
@@ -3493,13 +3528,17 @@ export default function FitnessPage() {
                         ? isTodayCloseToGoal
                           ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.3) 0%, rgba(255, 193, 7, 0.3) 100%)'
                           : 'var(--bg-elevated)'
-                        : 'transparent',
+                        : day.isFuture
+                          ? 'rgba(239, 68, 68, 0.05)'
+                          : 'transparent',
                       border: day.isToday
                         ? isTodayCloseToGoal
                           ? '2px solid rgba(255, 152, 0, 0.5)'
                           : '2px dashed var(--border-strong)'
-                        : 'none',
-                      opacity: 1
+                        : day.isFuture
+                          ? '1px dashed rgba(239, 68, 68, 0.25)'
+                          : 'none',
+                      opacity: day.isFuture ? 0.5 : 1
                     }}>
                       {day.isToday ? (
                         <span style={{
@@ -3509,6 +3548,12 @@ export default function FitnessPage() {
                         }}>
                           {isTodayCloseToGoal ? '🔥' : '⏳'}
                         </span>
+                      ) : day.isFuture ? (
+                        <span style={{
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: 'rgba(239, 68, 68, 0.4)'
+                        }}>✕</span>
                       ) : day.completed ? (
                         <span style={{
                           fontSize: '18px',
