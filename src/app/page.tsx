@@ -2027,30 +2027,6 @@ export default function FitnessPage() {
     return completed;
   }, [dayLogs, workouts]);
 
-  // Check if all workouts in cycle are completed
-  const allWorkoutsCompleted = useMemo(() => {
-    const activeWorkouts = workouts.filter(w => w.exercises.length > 0);
-    if (activeWorkouts.length === 0) return false;
-    return activeWorkouts.every(w => completedWorkoutsInCycle.has(w.id));
-  }, [workouts, completedWorkoutsInCycle]);
-
-  // Auto-reset exercises when all workouts completed and user is on a rest day (day > activeWorkoutCount)
-  useEffect(() => {
-    if (!isLoaded) return;
-    const activeWorkoutCount = workouts.filter(w => w.exercises.length > 0).length;
-    const dayOfWeek = selectedDate.getDay();
-    const adjustedDay = dayOfWeek === 0 ? 7 : dayOfWeek; // 1=Mon, 7=Sun
-
-    // If all workouts completed AND we're on a rest day (day > active count) AND day not closed
-    if (allWorkoutsCompleted && adjustedDay > activeWorkoutCount && !currentDayLog.dayClosed) {
-      // Reset all exercises completed status
-      setWorkouts(prev => prev.map(w => ({
-        ...w,
-        exercises: w.exercises.map(ex => ({ ...ex, completed: false, actualSets: '' }))
-      })));
-    }
-  }, [allWorkoutsCompleted, selectedDate, workouts, currentDayLog.dayClosed, isLoaded]);
-
   // Get next available workout (not completed in current cycle)
   const getNextAvailableWorkout = useCallback(() => {
     // Find first workout not completed in current cycle
