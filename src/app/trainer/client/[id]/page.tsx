@@ -1289,48 +1289,173 @@ export default function ClientDetailPage() {
         {/* Measurements Tab */}
         {activeTab === 'measurements' && (
           <div>
-            {/* Weight Chart */}
+            {/* Measurements Progress Cards */}
             {(() => {
-              const measurements = (clientData?.fitnessData.bodyMeasurements || [])
-                .filter(m => m.weight != null)
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+              const allMeasurements = clientData?.fitnessData.bodyMeasurements || [];
+              const sortedByDate = [...allMeasurements].sort((a, b) =>
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+              );
 
-              if (measurements.length >= 1) {
-                const weightData = measurements.map(m => m.weight as number);
-                const labels = measurements.map(m => {
-                  const d = new Date(m.date);
-                  return `${d.getDate()}.${d.getMonth() + 1}`;
-                });
+              // Define measurement types with their properties
+              const measurementTypes: Array<{
+                key: keyof BodyMeasurement;
+                label: string;
+                unit: string;
+                color: string;
+                decreaseIsGood: boolean;
+              }> = [
+                { key: 'weight', label: 'Вес', unit: 'кг', color: '#ffcc00', decreaseIsGood: true },
+                { key: 'waist', label: 'Талия', unit: 'см', color: '#3b82f6', decreaseIsGood: true },
+                { key: 'chest', label: 'Грудь', unit: 'см', color: '#22c55e', decreaseIsGood: false },
+                { key: 'bicepsLeft', label: 'Бицепс Л', unit: 'см', color: '#8b5cf6', decreaseIsGood: false },
+                { key: 'bicepsRight', label: 'Бицепс П', unit: 'см', color: '#a855f7', decreaseIsGood: false },
+                { key: 'thighs', label: 'Бёдра', unit: 'см', color: '#f59e0b', decreaseIsGood: false },
+                { key: 'hips', label: 'Ягодицы', unit: 'см', color: '#06b6d4', decreaseIsGood: false },
+              ];
 
-                return (
-                  <div style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    borderRadius: '16px',
-                    padding: '16px',
-                    marginBottom: '16px',
-                    border: '1px solid rgba(255,255,255,0.08)'
+              // Get data for each measurement type
+              const measurementData = measurementTypes.map(type => {
+                const dataPoints = sortedByDate
+                  .filter(m => m[type.key] != null)
+                  .map(m => ({
+                    value: m[type.key] as number,
+                    date: m.date
+                  }));
+
+                if (dataPoints.length === 0) return null;
+
+                const firstValue = dataPoints[0].value;
+                const lastValue = dataPoints[dataPoints.length - 1].value;
+                const change = lastValue - firstValue;
+                const isPositive = type.decreaseIsGood ? change < 0 : change > 0;
+
+                return {
+                  ...type,
+                  dataPoints,
+                  firstValue,
+                  lastValue,
+                  change,
+                  isPositive,
+                  hasMultiple: dataPoints.length >= 2
+                };
+              }).filter(Boolean);
+
+              if (measurementData.length === 0) return null;
+
+              return (
+                <div style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}>
+                  <h3 style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.7)',
+                    margin: '0 0 16px'
                   }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      marginBottom: '16px'
-                    }}>
-                      <Scale size={16} color="#22c55e" />
-                      <h3 style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: 'rgba(255,255,255,0.7)',
-                        margin: 0
-                      }}>
-                        Динамика веса
-                      </h3>
-                    </div>
-                    <WeightChart data={weightData} labels={labels} />
+                    Динамика замеров
+                  </h3>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '12px'
+                  }}>
+                    {measurementData.map(data => {
+                      if (!data) return null;
+                      const chartData = data.dataPoints.map(d => d.value);
+
+                      return (
+                        <div
+                          key={data.key}
+                          style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            borderRadius: '12px',
+                            padding: '12px',
+                            border: '1px solid rgba(255,255,255,0.06)'
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '8px'
+                          }}>
+                            <span style={{
+                              fontSize: '11px',
+                              color: 'rgba(255,255,255,0.5)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {data.label}
+                            </span>
+                            {data.hasMultiple && data.change !== 0 && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: data.isPositive ? '#22c55e' : '#ef4444'
+                              }}>
+                                {data.change < 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                                {data.change > 0 ? '+' : ''}{data.change.toFixed(1)}
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'flex-end',
+                            justifyContent: 'space-between',
+                            gap: '8px'
+                          }}>
+                            <div>
+                              <p style={{
+                                fontSize: '24px',
+                                fontWeight: 700,
+                                color: data.color,
+                                margin: 0,
+                                lineHeight: 1
+                              }}>
+                                {data.lastValue}
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 400,
+                                  color: 'rgba(255,255,255,0.4)',
+                                  marginLeft: '2px'
+                                }}>
+                                  {data.unit}
+                                </span>
+                              </p>
+                              {data.hasMultiple && (
+                                <p style={{
+                                  fontSize: '10px',
+                                  color: 'rgba(255,255,255,0.35)',
+                                  margin: '4px 0 0'
+                                }}>
+                                  было: {data.firstValue}
+                                </p>
+                              )}
+                            </div>
+
+                            {data.hasMultiple && (
+                              <Sparkline
+                                data={chartData}
+                                width={60}
+                                height={24}
+                                color={data.isPositive ? '#22c55e' : '#ef4444'}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              }
-              return null;
+                </div>
+              );
             })()}
 
             <div style={{
