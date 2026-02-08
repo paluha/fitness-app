@@ -191,6 +191,16 @@ button:disabled {
   50% { box-shadow: 0 0 40px var(--yellow-glow); }
 }
 
+@keyframes fireBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.1); }
+}
+
+@keyframes fireGlow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 .animate-pulse {
   animation: pulse 2s ease-in-out infinite;
 }
