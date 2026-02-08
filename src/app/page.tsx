@@ -3092,90 +3092,90 @@ export default function FitnessPage() {
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '8px',
-              marginBottom: '16px'
+              gap: '6px',
+              marginBottom: '12px'
             }}>
               {/* Protein */}
               <div className="macro-card" style={{
                 background: 'var(--bg-card)',
-                padding: '12px',
-                borderRadius: '12px',
+                padding: '8px 10px',
+                borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '4px'
+                  marginBottom: '3px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600 }}>{t('protein')}</span>
-                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
+                  <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600 }}>{t('protein')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
                 </div>
-                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '2px' }} />
+                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '1px' }} />
                 </div>
               </div>
 
               {/* Fat */}
               <div className="macro-card" style={{
                 background: 'var(--bg-card)',
-                padding: '12px',
-                borderRadius: '12px',
+                padding: '8px 10px',
+                borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '4px'
+                  marginBottom: '3px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600 }}>{t('fat')}</span>
-                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
+                  <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>{t('fat')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
                 </div>
-                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '2px' }} />
+                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '1px' }} />
                 </div>
               </div>
 
               {/* Carbs */}
               <div className="macro-card" style={{
                 background: 'var(--bg-card)',
-                padding: '12px',
-                borderRadius: '12px',
+                padding: '8px 10px',
+                borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '4px'
+                  marginBottom: '3px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>{t('carbs')}</span>
-                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
+                  <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>{t('carbs')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
                 </div>
-                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '2px' }} />
+                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '1px' }} />
                 </div>
               </div>
 
               {/* Calories */}
               <div className="macro-card" style={{
                 background: 'var(--bg-card)',
-                padding: '12px',
-                borderRadius: '12px',
+                padding: '8px 10px',
+                borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '4px'
+                  marginBottom: '3px'
                 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>{t('kcal')}</span>
-                  <span className="number-transition" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '12px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
+                  <span style={{ fontSize: '10px', color: 'var(--red)', fontWeight: 600 }}>{t('kcal')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
                 </div>
-                <div style={{ height: '3px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '2px' }} />
+                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
+                  <div className="progress-fill-animated" style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '1px' }} />
                 </div>
               </div>
             </div>
