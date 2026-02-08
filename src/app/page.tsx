@@ -3163,98 +3163,98 @@ export default function FitnessPage() {
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} {t('kcal')}</span>
             </div>
 
-            {/* Nutrition Streak */}
-            {(nutritionStreak > 0 || isTodayCloseToGoal) && (
+            {/* Nutrition Streak - always visible */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              marginBottom: '12px',
+              padding: '12px 16px',
+              background: isTodayCloseToGoal
+                ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.15) 0%, rgba(255, 193, 7, 0.15) 100%)'
+                : 'var(--bg-card)',
+              borderRadius: '12px',
+              border: isTodayCloseToGoal
+                ? '1px solid rgba(255, 152, 0, 0.3)'
+                : '1px solid var(--border)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Fire glow effect when close to goal */}
+              {isTodayCloseToGoal && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'radial-gradient(ellipse at center bottom, rgba(255, 107, 0, 0.2) 0%, transparent 70%)',
+                  animation: 'fireGlow 2s ease-in-out infinite',
+                  pointerEvents: 'none'
+                }} />
+              )}
+
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                marginBottom: '12px',
-                padding: '12px 16px',
-                background: isTodayCloseToGoal
-                  ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.15) 0%, rgba(255, 193, 7, 0.15) 100%)'
-                  : 'var(--bg-card)',
-                borderRadius: '12px',
-                border: isTodayCloseToGoal
-                  ? '1px solid rgba(255, 152, 0, 0.3)'
-                  : '1px solid var(--border)',
+                gap: '8px',
                 position: 'relative',
-                overflow: 'hidden'
+                zIndex: 1
               }}>
-                {/* Fire glow effect when close to goal */}
-                {isTodayCloseToGoal && (
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'radial-gradient(ellipse at center bottom, rgba(255, 107, 0, 0.2) 0%, transparent 70%)',
-                    animation: 'fireGlow 2s ease-in-out infinite',
-                    pointerEvents: 'none'
-                  }} />
-                )}
+                <span
+                  style={{
+                    fontSize: '24px',
+                    animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
+                    filter: isTodayCloseToGoal ? 'drop-shadow(0 0 8px rgba(255, 107, 0, 0.6))' : 'none'
+                  }}
+                >
+                  🔥
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: isTodayCloseToGoal ? '#ff6b00' : 'var(--text-primary)',
+                    lineHeight: 1.1
+                  }}>
+                    {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    fontWeight: 500
+                  }}>
+                    {nutritionStreak === 0
+                      ? 'Начни серию сегодня!'
+                      : isTodayCloseToGoal
+                        ? '🎯 Сегодня близко к цели!'
+                        : 'серия дней по КБЖУ'}
+                  </span>
+                </div>
+              </div>
 
+              {/* Streak milestones */}
+              {nutritionStreak >= 7 && (
                 <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
+                  padding: '4px 10px',
+                  background: nutritionStreak >= 30
+                    ? 'linear-gradient(135deg, #ff6b00, #ff9500)'
+                    : nutritionStreak >= 14
+                      ? 'linear-gradient(135deg, #9c27b0, #e91e63)'
+                      : 'linear-gradient(135deg, #2196f3, #03a9f4)',
+                  borderRadius: '20px',
                   position: 'relative',
                   zIndex: 1
                 }}>
-                  <span
-                    style={{
-                      fontSize: '24px',
-                      animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
-                      filter: isTodayCloseToGoal ? 'drop-shadow(0 0 8px rgba(255, 107, 0, 0.6))' : 'none'
-                    }}
-                  >
-                    🔥
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <span style={{
-                      fontSize: '18px',
-                      fontWeight: 800,
-                      color: isTodayCloseToGoal ? '#ff6b00' : 'var(--text-primary)',
-                      lineHeight: 1.1
-                    }}>
-                      {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
-                    </span>
-                    <span style={{
-                      fontSize: '11px',
-                      color: 'var(--text-muted)',
-                      fontWeight: 500
-                    }}>
-                      {isTodayCloseToGoal
-                        ? '🎯 Сегодня близко к цели!'
-                        : 'серия дней по КБЖУ'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Streak milestones */}
-                {nutritionStreak >= 7 && (
-                  <div style={{
-                    padding: '4px 10px',
-                    background: nutritionStreak >= 30
-                      ? 'linear-gradient(135deg, #ff6b00, #ff9500)'
-                      : nutritionStreak >= 14
-                        ? 'linear-gradient(135deg, #9c27b0, #e91e63)'
-                        : 'linear-gradient(135deg, #2196f3, #03a9f4)',
-                    borderRadius: '20px',
-                    position: 'relative',
-                    zIndex: 1
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#fff',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
                   }}>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: '#fff',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                    }}>
-                      {nutritionStreak >= 30 ? '🏆 ЛЕГЕНДА' : nutritionStreak >= 14 ? '⭐ МАСТЕР' : '💪 НЕДЕЛЯ'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
+                    {nutritionStreak >= 30 ? '🏆 ЛЕГЕНДА' : nutritionStreak >= 14 ? '⭐ МАСТЕР' : '💪 НЕДЕЛЯ'}
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* Compact Macro summary - 2x2 grid */}
             <div style={{
