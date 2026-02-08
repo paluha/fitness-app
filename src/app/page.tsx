@@ -248,6 +248,29 @@ interface UserSettings {
   email?: string;
 }
 
+interface NutritionRecommendation {
+  id: string;
+  emoji: string;
+  title: string;
+  description: string;
+  color: 'yellow' | 'green' | 'blue' | 'red' | 'purple';
+}
+
+const DEFAULT_NUTRITION_RECOMMENDATIONS: NutritionRecommendation[] = [
+  { id: '1', emoji: '🌅', title: 'Утро', description: 'Белок + углеводы. Творог, яйца, каша или рисовые хлебцы', color: 'yellow' },
+  { id: '2', emoji: '💪', title: 'До тренировки (1-2 часа)', description: 'Углеводы + немного белка. Рис, картофель, курица', color: 'green' },
+  { id: '3', emoji: '🏋️', title: 'После тренировки (до 1 часа)', description: 'Быстрые углеводы + белок. Whey + банан или рисовые хлебцы', color: 'blue' },
+  { id: '4', emoji: '🌙', title: 'Вечер / перед сном', description: 'Белок + жиры, минимум углеводов. Творог, казеин, рыба', color: 'red' }
+];
+
+const RECOMMENDATION_COLORS: Record<string, { bg: string; }> = {
+  yellow: { bg: 'var(--yellow-dim)' },
+  green: { bg: 'var(--green-dim)' },
+  blue: { bg: 'var(--blue-dim)' },
+  red: { bg: 'var(--red-dim)' },
+  purple: { bg: 'var(--purple-dim)' }
+};
+
 interface WorkoutSnapshot {
   workoutId: string;
   workoutName: string;
@@ -1491,6 +1514,7 @@ export default function FitnessPage() {
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
 
   // Translation helper
   const t = (key: keyof typeof translations.ru) => translations[userSettings.language][key];
@@ -1511,6 +1535,7 @@ export default function FitnessPage() {
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
           if (data.settings) setUserSettings(data.settings);
+          if (data.nutritionRecommendations) setNutritionRecommendations(data.nutritionRecommendations);
           setIsLoaded(true);
           setSyncStatus('synced');
           return;
@@ -3348,117 +3373,40 @@ export default function FitnessPage() {
                 }}>
                   <Timer size={16} style={{ color: 'var(--purple)' }} />
                 </div>
-                <span style={{ fontWeight: 700, fontSize: '15px' }}>Когда есть</span>
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>
+                  {nutritionRecommendations ? 'Рекомендации тренера' : 'Когда есть'}
+                </span>
               </div>
               <div style={{ padding: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    padding: '12px',
-                    background: 'var(--bg-elevated)',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      background: 'var(--yellow-dim)',
+                  {(nutritionRecommendations || DEFAULT_NUTRITION_RECOMMENDATIONS).map(rec => (
+                    <div key={rec.id} style={{
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
+                      gap: '12px',
+                      padding: '12px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: '12px'
                     }}>
-                      <span style={{ fontSize: '16px' }}>🌅</span>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>Утро</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Белок + углеводы. Творог, яйца, каша или рисовые хлебцы
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: RECOMMENDATION_COLORS[rec.color]?.bg || 'var(--yellow-dim)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <span style={{ fontSize: '16px' }}>{rec.emoji}</span>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>{rec.title}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {rec.description}
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    padding: '12px',
-                    background: 'var(--bg-elevated)',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      background: 'var(--green-dim)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <span style={{ fontSize: '16px' }}>💪</span>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>До тренировки (1-2 часа)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Углеводы + немного белка. Рис, картофель, курица
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    padding: '12px',
-                    background: 'var(--bg-elevated)',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      background: 'var(--blue-dim)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <span style={{ fontSize: '16px' }}>🏋️</span>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>После тренировки (до 1 часа)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Быстрые углеводы + белок. Whey + банан или рисовые хлебцы
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{
-                    display: 'flex',
-                    gap: '12px',
-                    padding: '12px',
-                    background: 'var(--bg-elevated)',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      background: 'var(--red-dim)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <span style={{ fontSize: '16px' }}>🌙</span>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>Вечер / перед сном</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Белок + жиры, минимум углеводов. Творог, казеин, рыба
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>

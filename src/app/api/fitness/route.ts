@@ -14,9 +14,16 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Get user data
+    // Get user data with program
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      include: {
+        program: {
+          select: {
+            nutritionRecommendations: true
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -34,6 +41,7 @@ export async function GET() {
       progressHistory: fitnessData?.progressHistory || null,
       bodyMeasurements: fitnessData?.bodyMeasurements || null,
       favoriteMeals: fitnessData?.favoriteMeals || null,
+      nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
         timezone: user.timezone || 'Europe/Moscow',
@@ -49,6 +57,7 @@ export async function GET() {
       progressHistory: null,
       bodyMeasurements: null,
       favoriteMeals: null,
+      nutritionRecommendations: null,
       settings: { language: 'ru', timezone: 'Europe/Moscow' }
     });
   }

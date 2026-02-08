@@ -53,6 +53,7 @@ export async function GET() {
         name: p.name,
         workouts: p.workouts,
         activeWorkoutDays: p.activeWorkoutDays,
+        nutritionRecommendations: p.nutritionRecommendations,
         clientCount: p._count.clients
       })),
       clients: clients.map(c => ({

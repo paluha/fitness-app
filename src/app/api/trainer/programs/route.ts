@@ -6,14 +6,15 @@ const TRAINER_ID = 'demo-trainer';
 // POST - Create new program
 export async function POST(request: Request) {
   try {
-    const { name, workouts, activeWorkoutDays } = await request.json();
+    const { name, workouts, activeWorkoutDays, nutritionRecommendations } = await request.json();
 
     const program = await prisma.trainingProgram.create({
       data: {
         name,
         trainerId: TRAINER_ID,
         workouts: workouts || [],
-        activeWorkoutDays: activeWorkoutDays || 4
+        activeWorkoutDays: activeWorkoutDays || 4,
+        nutritionRecommendations: nutritionRecommendations || null
       },
       include: {
         _count: {
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       name: program.name,
       workouts: program.workouts,
       activeWorkoutDays: program.activeWorkoutDays,
+      nutritionRecommendations: program.nutritionRecommendations,
       clientCount: program._count.clients
     });
   } catch (error) {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
 // PUT - Update existing program
 export async function PUT(request: Request) {
   try {
-    const { id, name, workouts, activeWorkoutDays } = await request.json();
+    const { id, name, workouts, activeWorkoutDays, nutritionRecommendations } = await request.json();
 
     const program = await prisma.trainingProgram.update({
       where: { id },
@@ -46,6 +48,7 @@ export async function PUT(request: Request) {
         name,
         workouts: workouts || [],
         activeWorkoutDays: activeWorkoutDays || 4,
+        nutritionRecommendations: nutritionRecommendations !== undefined ? nutritionRecommendations : undefined,
         updatedAt: new Date()
       },
       include: {
@@ -60,6 +63,7 @@ export async function PUT(request: Request) {
       name: program.name,
       workouts: program.workouts,
       activeWorkoutDays: program.activeWorkoutDays,
+      nutritionRecommendations: program.nutritionRecommendations,
       clientCount: program._count.clients
     });
   } catch (error) {

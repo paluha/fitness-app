@@ -11,9 +11,13 @@ import {
   Scale,
   TrendingUp,
   CheckCircle2,
-  XCircle,
   Dumbbell,
-  Flame
+  Plus,
+  Trash2,
+  Save,
+  X,
+  Timer,
+  Edit2
 } from 'lucide-react';
 
 interface Exercise {
@@ -70,6 +74,30 @@ interface ExerciseProgress {
   notes: string;
 }
 
+interface NutritionRecommendation {
+  id: string;
+  emoji: string;
+  title: string;
+  description: string;
+  color: 'yellow' | 'green' | 'blue' | 'red' | 'purple';
+}
+
+const RECOMMENDATION_COLORS = [
+  { value: 'yellow', label: '🌅 Желтый', bg: 'rgba(255,204,0,0.2)' },
+  { value: 'green', label: '💪 Зеленый', bg: 'rgba(34,197,94,0.2)' },
+  { value: 'blue', label: '🏋️ Синий', bg: 'rgba(59,130,246,0.2)' },
+  { value: 'red', label: '🌙 Красный', bg: 'rgba(239,68,68,0.2)' },
+  { value: 'purple', label: '⭐ Фиолетовый', bg: 'rgba(139,92,246,0.2)' }
+];
+
+const COLOR_BG_MAP: Record<string, string> = {
+  yellow: 'rgba(255,204,0,0.2)',
+  green: 'rgba(34,197,94,0.2)',
+  blue: 'rgba(59,130,246,0.2)',
+  red: 'rgba(239,68,68,0.2)',
+  purple: 'rgba(139,92,246,0.2)'
+};
+
 interface ClientData {
   client: {
     id: string;
@@ -79,6 +107,8 @@ interface ClientData {
     name: string | null;
     email: string;
     createdAt: string;
+    programId: string | null;
+    programName: string | null;
   };
   fitnessData: {
     workouts: Workout[] | null;
@@ -87,6 +117,7 @@ interface ClientData {
     bodyMeasurements: BodyMeasurement[];
     lastUpdated: string | null;
   };
+  nutritionRecommendations: NutritionRecommendation[] | null;
 }
 
 type TabType = 'workouts' | 'nutrition' | 'measurements' | 'progress';
@@ -101,6 +132,9 @@ export default function ClientDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('workouts');
+  const [showRecommendationsEditor, setShowRecommendationsEditor] = useState(false);
+  const [recommendations, setRecommendations] = useState<NutritionRecommendation[]>([]);
+  const [isSavingRecommendations, setIsSavingRecommendations] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -124,6 +158,57 @@ export default function ClientDetailPage() {
       setError('Failed to load client data');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openRecommendationsEditor = () => {
+    setRecommendations(clientData?.nutritionRecommendations || []);
+    setShowRecommendationsEditor(true);
+  };
+
+  const addRecommendation = () => {
+    setRecommendations([
+      ...recommendations,
+      {
+        id: Date.now().toString(),
+        emoji: '🍽️',
+        title: '',
+        description: '',
+        color: 'yellow'
+      }
+    ]);
+  };
+
+  const updateRecommendation = (id: string, field: keyof NutritionRecommendation, value: string) => {
+    setRecommendations(recommendations.map(r =>
+      r.id === id ? { ...r, [field]: value } : r
+    ));
+  };
+
+  const deleteRecommendation = (id: string) => {
+    setRecommendations(recommendations.filter(r => r.id !== id));
+  };
+
+  const saveRecommendations = async () => {
+    setIsSavingRecommendations(true);
+    try {
+      const res = await fetch(`/api/trainer/clients/${clientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nutritionRecommendations: recommendations })
+      });
+
+      if (res.ok) {
+        setClientData(prev => prev ? {
+          ...prev,
+          nutritionRecommendations: recommendations
+        } : null);
+        setShowRecommendationsEditor(false);
+      }
+    } catch (e) {
+      console.error('Failed to save recommendations:', e);
+    } finally {
+      setIsSavingRecommendations(false);
     }
   };
 
@@ -700,6 +785,100 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Nutrition Recommendations Section */}
+            <div style={{
+              marginTop: '16px',
+              background: 'rgba(255,255,255,0.03)',
+              borderRadius: '16px',
+              padding: '16px',
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Timer size={18} color="#8b5cf6" />
+                  <h3 style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.7)',
+                    margin: 0
+                  }}>
+                    Рекомендации по питанию
+                  </h3>
+                </div>
+                <button
+                  onClick={openRecommendationsEditor}
+                  style={{
+                    background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: '#000',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600
+                  }}
+                >
+                  <Edit2 size={14} />
+                  Редактировать
+                </button>
+              </div>
+
+              {clientData?.nutritionRecommendations && clientData.nutritionRecommendations.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {clientData.nutritionRecommendations.map(rec => (
+                    <div
+                      key={rec.id}
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        padding: '12px',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderRadius: '10px'
+                      }}
+                    >
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: COLOR_BG_MAP[rec.color] || 'rgba(255,204,0,0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <span style={{ fontSize: '16px' }}>{rec.emoji}</span>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#fff', margin: '0 0 2px' }}>
+                          {rec.title}
+                        </p>
+                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                          {rec.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{
+                  color: 'rgba(255,255,255,0.4)',
+                  fontSize: '13px',
+                  textAlign: 'center',
+                  padding: '20px 0'
+                }}>
+                  Рекомендации не заданы. Нажмите &quot;Редактировать&quot; чтобы добавить.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -899,6 +1078,281 @@ export default function ClientDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Recommendations Editor Modal */}
+      {showRecommendationsEditor && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 1000
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '500px',
+            maxHeight: '80vh',
+            background: '#1a1a2e',
+            borderRadius: '24px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: 600,
+                color: '#fff',
+                margin: 0
+              }}>
+                Рекомендации по питанию
+              </h3>
+              <button
+                onClick={() => setShowRecommendationsEditor(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.5)',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '20px 24px'
+            }}>
+              {recommendations.length === 0 ? (
+                <p style={{
+                  color: 'rgba(255,255,255,0.4)',
+                  fontSize: '14px',
+                  textAlign: 'center',
+                  padding: '20px 0'
+                }}>
+                  Нет рекомендаций. Добавьте первую.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {recommendations.map((rec, idx) => (
+                    <div
+                      key={rec.id}
+                      style={{
+                        padding: '16px',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(255,255,255,0.08)'
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '12px'
+                      }}>
+                        <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                          Рекомендация #{idx + 1}
+                        </span>
+                        <button
+                          onClick={() => deleteRecommendation(rec.id)}
+                          style={{
+                            background: 'rgba(239,68,68,0.1)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px',
+                            color: '#ef4444',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {/* Emoji and Title Row */}
+                      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                        <input
+                          type="text"
+                          value={rec.emoji}
+                          onChange={(e) => updateRecommendation(rec.id, 'emoji', e.target.value)}
+                          placeholder="🍽️"
+                          maxLength={4}
+                          style={{
+                            width: '50px',
+                            padding: '10px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '18px',
+                            textAlign: 'center',
+                            outline: 'none'
+                          }}
+                        />
+                        <input
+                          type="text"
+                          value={rec.title}
+                          onChange={(e) => updateRecommendation(rec.id, 'title', e.target.value)}
+                          placeholder="Заголовок (например: Утро)"
+                          style={{
+                            flex: 1,
+                            padding: '10px 12px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '14px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      {/* Description */}
+                      <textarea
+                        value={rec.description}
+                        onChange={(e) => updateRecommendation(rec.id, 'description', e.target.value)}
+                        placeholder="Описание рекомендации..."
+                        rows={2}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '13px',
+                          outline: 'none',
+                          resize: 'none',
+                          boxSizing: 'border-box',
+                          marginBottom: '10px'
+                        }}
+                      />
+
+                      {/* Color Selection */}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {RECOMMENDATION_COLORS.map(color => (
+                          <button
+                            key={color.value}
+                            onClick={() => updateRecommendation(rec.id, 'color', color.value)}
+                            style={{
+                              padding: '6px 10px',
+                              background: rec.color === color.value ? color.bg : 'rgba(255,255,255,0.05)',
+                              border: rec.color === color.value
+                                ? '2px solid rgba(255,255,255,0.3)'
+                                : '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '6px',
+                              color: '#fff',
+                              fontSize: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {color.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Button */}
+              <button
+                onClick={addRecommendation}
+                style={{
+                  width: '100%',
+                  marginTop: '16px',
+                  padding: '12px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px dashed rgba(255,255,255,0.2)',
+                  borderRadius: '10px',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: '14px'
+                }}
+              >
+                <Plus size={18} />
+                Добавить рекомендацию
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              gap: '12px'
+            }}>
+              <button
+                onClick={() => setShowRecommendationsEditor(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '10px',
+                  color: 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={saveRecommendations}
+                disabled={isSavingRecommendations}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: isSavingRecommendations
+                    ? 'rgba(255,204,0,0.3)'
+                    : 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: '#000',
+                  cursor: isSavingRecommendations ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {isSavingRecommendations ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    Сохранение...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Сохранить
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes spin {

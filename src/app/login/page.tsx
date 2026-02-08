@@ -73,7 +73,7 @@ function LoginForm() {
             transition: 'transform 0.2s ease'
           }}>
             {/* Trainx logo */}
-            <svg width="44" height="44" viewBox="0 0 26 26" fill="none">
+            <svg width="44" height="44" viewBox="0 0 26 26" fill="none" style={{ transform: 'translateY(-1px)' }}>
               <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#000" />
               <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#000" />
               <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />

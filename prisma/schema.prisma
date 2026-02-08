@@ -52,15 +52,16 @@ model User {
 }
 
 model TrainingProgram {
-  id                String   @id @default(cuid())
-  name              String
-  trainerId         String
-  trainer           User     @relation("TrainerPrograms", fields: [trainerId], references: [id])
-  workouts          Json     // Array of workouts with exercises
-  activeWorkoutDays Int      @default(4) // How many days are active (e.g., 4 = T1-T4 active, T5-T7 rest)
-  clients           User[]   @relation("ClientProgram")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  name                    String
+  trainerId               String
+  trainer                 User     @relation("TrainerPrograms", fields: [trainerId], references: [id])
+  workouts                Json     // Array of workouts with exercises
+  activeWorkoutDays       Int      @default(4) // How many days are active (e.g., 4 = T1-T4 active, T5-T7 rest)
+  nutritionRecommendations Json?   // Array of nutrition timing recommendations from trainer
+  clients                 User[]   @relation("ClientProgram")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@index([trainerId])
 }
