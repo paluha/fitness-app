@@ -381,6 +381,211 @@ function WeightChart({ data, labels }: {
   );
 }
 
+// Body silhouette component with measurement labels
+function BodySilhouette({ measurements }: {
+  measurements: {
+    weight?: number;
+    chest?: number;
+    waist?: number;
+    hips?: number;
+    bicepsLeft?: number;
+    bicepsRight?: number;
+    thighs?: number;
+  };
+}) {
+  return (
+    <div style={{ position: 'relative', width: '100%', maxWidth: '280px', margin: '0 auto' }}>
+      <svg viewBox="0 0 200 320" style={{ width: '100%', height: 'auto' }}>
+        {/* Body silhouette */}
+        <path
+          d="M100 20
+             C115 20 125 30 125 45
+             C125 55 120 65 115 70
+             L118 75
+             C140 80 155 100 155 120
+             L155 130
+             C155 140 150 145 145 150
+             L140 155
+             L142 200
+             C142 210 138 220 130 225
+             L128 280
+             C128 295 120 305 110 305
+             L100 305
+             L90 305
+             C80 305 72 295 72 280
+             L70 225
+             C62 220 58 210 58 200
+             L60 155
+             L55 150
+             C50 145 45 140 45 130
+             L45 120
+             C45 100 60 80 82 75
+             L85 70
+             C80 65 75 55 75 45
+             C75 30 85 20 100 20
+             Z"
+          fill="rgba(255,255,255,0.08)"
+          stroke="rgba(255,255,255,0.2)"
+          strokeWidth="1"
+        />
+
+        {/* Head */}
+        <circle cx="100" cy="35" r="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+
+        {/* Measurement lines and labels */}
+
+        {/* Chest line */}
+        {measurements.chest && (
+          <g>
+            <line x1="45" y1="115" x2="155" y2="115" stroke="#22c55e" strokeWidth="2" strokeDasharray="4,2" />
+            <circle cx="155" cy="115" r="3" fill="#22c55e" />
+          </g>
+        )}
+
+        {/* Waist line */}
+        {measurements.waist && (
+          <g>
+            <line x1="58" y1="155" x2="142" y2="155" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4,2" />
+            <circle cx="58" cy="155" r="3" fill="#3b82f6" />
+          </g>
+        )}
+
+        {/* Hips line */}
+        {measurements.hips && (
+          <g>
+            <line x1="60" y1="200" x2="140" y2="200" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,2" />
+            <circle cx="140" cy="200" r="3" fill="#06b6d4" />
+          </g>
+        )}
+
+        {/* Thighs markers */}
+        {measurements.thighs && (
+          <g>
+            <circle cx="80" cy="235" r="3" fill="#f59e0b" />
+            <circle cx="120" cy="235" r="3" fill="#f59e0b" />
+          </g>
+        )}
+
+        {/* Biceps markers */}
+        {(measurements.bicepsLeft || measurements.bicepsRight) && (
+          <g>
+            <circle cx="40" cy="125" r="3" fill="#8b5cf6" />
+            <circle cx="160" cy="125" r="3" fill="#a855f7" />
+          </g>
+        )}
+      </svg>
+
+      {/* Labels positioned absolutely */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+        {/* Weight - top center */}
+        {measurements.weight && (
+          <div style={{
+            position: 'absolute',
+            top: '2%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            textAlign: 'center'
+          }}>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: '#ffcc00' }}>
+              {measurements.weight}
+            </span>
+            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>кг</span>
+          </div>
+        )}
+
+        {/* Chest - right side */}
+        {measurements.chest && (
+          <div style={{
+            position: 'absolute',
+            top: '33%',
+            right: '-5%',
+            textAlign: 'left'
+          }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e' }}>
+              {measurements.chest}
+            </span>
+            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
+          </div>
+        )}
+
+        {/* Waist - left side */}
+        {measurements.waist && (
+          <div style={{
+            position: 'absolute',
+            top: '46%',
+            left: '-5%',
+            textAlign: 'right'
+          }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6' }}>
+              {measurements.waist}
+            </span>
+            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
+          </div>
+        )}
+
+        {/* Hips - right side */}
+        {measurements.hips && (
+          <div style={{
+            position: 'absolute',
+            top: '60%',
+            right: '-5%',
+            textAlign: 'left'
+          }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#06b6d4' }}>
+              {measurements.hips}
+            </span>
+            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
+          </div>
+        )}
+
+        {/* Biceps Left */}
+        {measurements.bicepsLeft && (
+          <div style={{
+            position: 'absolute',
+            top: '36%',
+            left: '-8%',
+            textAlign: 'right'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6' }}>
+              {measurements.bicepsLeft}
+            </span>
+          </div>
+        )}
+
+        {/* Biceps Right */}
+        {measurements.bicepsRight && (
+          <div style={{
+            position: 'absolute',
+            top: '36%',
+            right: '-8%',
+            textAlign: 'left'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#a855f7' }}>
+              {measurements.bicepsRight}
+            </span>
+          </div>
+        )}
+
+        {/* Thighs */}
+        {measurements.thighs && (
+          <div style={{
+            position: 'absolute',
+            top: '72%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            textAlign: 'center'
+          }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#f59e0b' }}>
+              {measurements.thighs}
+            </span>
+            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -1289,6 +1494,59 @@ export default function ClientDetailPage() {
         {/* Measurements Tab */}
         {activeTab === 'measurements' && (
           <div>
+            {/* Body Silhouette with latest measurements */}
+            {(() => {
+              const allMeasurements = clientData?.fitnessData.bodyMeasurements || [];
+              if (allMeasurements.length === 0) return null;
+
+              // Get latest value for each measurement type
+              const latestValues: Record<string, number | undefined> = {};
+              const measurementKeys = ['weight', 'chest', 'waist', 'hips', 'bicepsLeft', 'bicepsRight', 'thighs'];
+
+              for (const key of measurementKeys) {
+                const withValue = allMeasurements
+                  .filter(m => (m as Record<string, unknown>)[key] != null)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                if (withValue.length > 0) {
+                  latestValues[key] = (withValue[0] as Record<string, number>)[key];
+                }
+              }
+
+              // Only show if we have at least some body measurements
+              const hasBodyMeasurements = latestValues.chest || latestValues.waist || latestValues.hips ||
+                                          latestValues.bicepsLeft || latestValues.thighs;
+              if (!hasBodyMeasurements) return null;
+
+              return (
+                <div style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}>
+                  <h3 style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.7)',
+                    margin: '0 0 12px',
+                    textAlign: 'center'
+                  }}>
+                    Текущие замеры
+                  </h3>
+                  <BodySilhouette measurements={latestValues as {
+                    weight?: number;
+                    chest?: number;
+                    waist?: number;
+                    hips?: number;
+                    bicepsLeft?: number;
+                    bicepsRight?: number;
+                    thighs?: number;
+                  }} />
+                </div>
+              );
+            })()}
+
             {/* Measurements Progress Cards */}
             {(() => {
               const allMeasurements = clientData?.fitnessData.bodyMeasurements || [];
