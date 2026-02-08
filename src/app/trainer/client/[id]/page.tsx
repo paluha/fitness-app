@@ -77,6 +77,8 @@ interface BodyMeasurement {
   waist?: number;
   chest?: number;
   biceps?: number;
+  bicepsLeft?: number;
+  bicepsRight?: number;
   thighs?: number;
   hips?: number;
   notes?: string;
@@ -1157,6 +1159,22 @@ export default function ClientDetailPage() {
                             {measurement.biceps}
                           </p>
                           <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бицепс, см</p>
+                        </div>
+                      )}
+                      {measurement.bicepsLeft && (
+                        <div>
+                          <p style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6', margin: 0 }}>
+                            {measurement.bicepsLeft}
+                          </p>
+                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бицепс Л, см</p>
+                        </div>
+                      )}
+                      {measurement.bicepsRight && (
+                        <div>
+                          <p style={{ fontSize: '18px', fontWeight: 700, color: '#a855f7', margin: 0 }}>
+                            {measurement.bicepsRight}
+                          </p>
+                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бицепс П, см</p>
                         </div>
                       )}
                       {measurement.thighs && (
