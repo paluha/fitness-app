@@ -381,207 +381,454 @@ function WeightChart({ data, labels }: {
   );
 }
 
-// Body silhouette component with measurement labels
-function BodySilhouette({ measurements }: {
-  measurements: {
-    weight?: number;
-    chest?: number;
-    waist?: number;
-    hips?: number;
-    bicepsLeft?: number;
-    bicepsRight?: number;
-    thighs?: number;
-  };
-}) {
+// Helper functions for body progress
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function format1(n: number) {
+  return n.toFixed(1);
+}
+
+// Growth Ring component for goals
+function GrowthRing({ value, goal, label }: { value: number; goal: number; label: string }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const pct = clamp(value / goal, 0, 1);
+  const dash = c * pct;
+
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: '280px', margin: '0 auto' }}>
-      <svg viewBox="0 0 200 320" style={{ width: '100%', height: 'auto' }}>
-        {/* Body silhouette */}
-        <path
-          d="M100 20
-             C115 20 125 30 125 45
-             C125 55 120 65 115 70
-             L118 75
-             C140 80 155 100 155 120
-             L155 130
-             C155 140 150 145 145 150
-             L140 155
-             L142 200
-             C142 210 138 220 130 225
-             L128 280
-             C128 295 120 305 110 305
-             L100 305
-             L90 305
-             C80 305 72 295 72 280
-             L70 225
-             C62 220 58 210 58 200
-             L60 155
-             L55 150
-             C50 145 45 140 45 130
-             L45 120
-             C45 100 60 80 82 75
-             L85 70
-             C80 65 75 55 75 45
-             C75 30 85 20 100 20
-             Z"
-          fill="rgba(255,255,255,0.08)"
-          stroke="rgba(255,255,255,0.2)"
-          strokeWidth="1"
+    <div style={{ display: 'grid', gap: 6, justifyItems: 'center' }}>
+      <svg width="74" height="74" viewBox="0 0 74 74">
+        <defs>
+          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#22c55e" />
+            <stop offset="0.6" stopColor="#facc15" />
+            <stop offset="1" stopColor="#38bdf8" />
+          </linearGradient>
+          <filter id="ringGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3.5" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <circle cx="37" cy="37" r={r} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="8" />
+        <circle
+          cx="37"
+          cy="37"
+          r={r}
+          fill="none"
+          stroke="url(#ringGrad)"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${c - dash}`}
+          transform="rotate(-90 37 37)"
+          filter="url(#ringGlow)"
         />
-
-        {/* Head */}
-        <circle cx="100" cy="35" r="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-
-        {/* Measurement lines and labels */}
-
-        {/* Chest line */}
-        {measurements.chest && (
-          <g>
-            <line x1="45" y1="115" x2="155" y2="115" stroke="#22c55e" strokeWidth="2" strokeDasharray="4,2" />
-            <circle cx="155" cy="115" r="3" fill="#22c55e" />
-          </g>
-        )}
-
-        {/* Waist line */}
-        {measurements.waist && (
-          <g>
-            <line x1="58" y1="155" x2="142" y2="155" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4,2" />
-            <circle cx="58" cy="155" r="3" fill="#3b82f6" />
-          </g>
-        )}
-
-        {/* Hips line */}
-        {measurements.hips && (
-          <g>
-            <line x1="60" y1="200" x2="140" y2="200" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,2" />
-            <circle cx="140" cy="200" r="3" fill="#06b6d4" />
-          </g>
-        )}
-
-        {/* Thighs markers */}
-        {measurements.thighs && (
-          <g>
-            <circle cx="80" cy="235" r="3" fill="#f59e0b" />
-            <circle cx="120" cy="235" r="3" fill="#f59e0b" />
-          </g>
-        )}
-
-        {/* Biceps markers */}
-        {(measurements.bicepsLeft || measurements.bicepsRight) && (
-          <g>
-            <circle cx="40" cy="125" r="3" fill="#8b5cf6" />
-            <circle cx="160" cy="125" r="3" fill="#a855f7" />
-          </g>
-        )}
+        <text
+          x="37"
+          y="41"
+          textAnchor="middle"
+          fontSize="12"
+          fill="rgba(255,255,255,0.88)"
+          style={{ fontFamily: 'ui-sans-serif, system-ui' }}
+        >
+          {Math.round(pct * 100)}%
+        </text>
       </svg>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: 'ui-sans-serif, system-ui' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
 
-      {/* Labels positioned absolutely */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-        {/* Weight - top center */}
-        {measurements.weight && (
-          <div style={{
-            position: 'absolute',
-            top: '2%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            textAlign: 'center'
-          }}>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: '#ffcc00' }}>
-              {measurements.weight}
-            </span>
-            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>кг</span>
-          </div>
-        )}
+// Body Progress Visualization with realistic anatomy image
+function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyMeasurement[] }) {
+  const [selectedIdx, setSelectedIdx] = useState(allMeasurements.length - 1);
 
-        {/* Chest - right side */}
-        {measurements.chest && (
-          <div style={{
-            position: 'absolute',
-            top: '33%',
-            right: '-5%',
-            textAlign: 'left'
-          }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e' }}>
-              {measurements.chest}
-            </span>
-            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
-          </div>
-        )}
+  // Sort measurements by date
+  const sortedMeasurements = useMemo(() => {
+    return [...allMeasurements].sort((a, b) =>
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  }, [allMeasurements]);
 
-        {/* Waist - left side */}
-        {measurements.waist && (
-          <div style={{
-            position: 'absolute',
-            top: '46%',
-            left: '-5%',
-            textAlign: 'right'
-          }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6' }}>
-              {measurements.waist}
-            </span>
-            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
-          </div>
-        )}
+  if (sortedMeasurements.length === 0) return null;
 
-        {/* Hips - right side */}
-        {measurements.hips && (
-          <div style={{
-            position: 'absolute',
-            top: '60%',
-            right: '-5%',
-            textAlign: 'left'
-          }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#06b6d4' }}>
-              {measurements.hips}
-            </span>
-            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
-          </div>
-        )}
+  const cur = sortedMeasurements[Math.min(selectedIdx, sortedMeasurements.length - 1)];
+  const base = sortedMeasurements[0];
 
-        {/* Biceps Left */}
-        {measurements.bicepsLeft && (
-          <div style={{
-            position: 'absolute',
-            top: '36%',
-            left: '-8%',
-            textAlign: 'right'
-          }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6' }}>
-              {measurements.bicepsLeft}
-            </span>
-          </div>
-        )}
+  // Get current values with fallbacks
+  const curWeight = cur.weight || 0;
+  const curChest = cur.chest || 0;
+  const curWaist = cur.waist || 0;
+  const curHips = cur.hips || 0;
+  const curBicepsL = cur.bicepsLeft || 0;
+  const curBicepsR = cur.bicepsRight || 0;
+  const curThighs = cur.thighs || 0;
 
-        {/* Biceps Right */}
-        {measurements.bicepsRight && (
-          <div style={{
-            position: 'absolute',
-            top: '36%',
-            right: '-8%',
-            textAlign: 'left'
-          }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#a855f7' }}>
-              {measurements.bicepsRight}
-            </span>
-          </div>
-        )}
+  const baseWeight = base.weight || curWeight;
+  const baseChest = base.chest || curChest;
+  const baseWaist = base.waist || curWaist;
+  const baseHips = base.hips || curHips;
+  const baseBicepsL = base.bicepsLeft || curBicepsL;
+  const baseBicepsR = base.bicepsRight || curBicepsR;
+  const baseThighs = base.thighs || curThighs;
 
-        {/* Thighs */}
-        {measurements.thighs && (
-          <div style={{
-            position: 'absolute',
-            top: '72%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            textAlign: 'center'
-          }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#f59e0b' }}>
-              {measurements.thighs}
-            </span>
-            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>см</span>
+  // Calculate deltas
+  const weightDelta = curWeight - baseWeight;
+  const chestDelta = curChest - baseChest;
+  const waistDelta = baseWaist - curWaist; // Decrease is good for waist
+  const hipsDelta = curHips - baseHips;
+  const bicepsLDelta = curBicepsL - baseBicepsL;
+  const bicepsRDelta = curBicepsR - baseBicepsR;
+  const thighsDelta = curThighs - baseThighs;
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  return (
+    <div style={{
+      borderRadius: 18,
+      background: 'linear-gradient(180deg, #0a0a0a 0%, #111 50%, #0a0a0a 100%)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      boxShadow: '0 18px 60px rgba(0,0,0,0.6)',
+      overflow: 'hidden',
+      marginBottom: '16px'
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '16px 20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, transparent 50%, rgba(34,197,94,0.1) 100%)'
+      }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'white' }}>🏋️ Прогресс тела</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{formatDate(cur.date)}</div>
+        </div>
+        {curWeight > 0 && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#facc15' }}>{format1(curWeight)} кг</div>
+            {weightDelta !== 0 && (
+              <div style={{ fontSize: 12, color: weightDelta > 0 ? '#22c55e' : '#f87171' }}>
+                {weightDelta > 0 ? '+' : ''}{format1(weightDelta)} кг
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Main visualization area */}
+      <div style={{
+        position: 'relative',
+        minHeight: 420,
+        background: 'linear-gradient(180deg, #0a0a0a 0%, #0d0d0d 50%, #0a0a0a 100%)',
+        padding: '20px 0'
+      }}>
+        {/* Body image in center */}
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 262,
+          height: 523,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <img
+            src="/mubd.png"
+            alt="Body"
+            style={{
+              height: '100%',
+              width: 'auto',
+              objectFit: 'contain',
+              opacity: 0.95
+            }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+
+        {/* SVG for connector lines */}
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          {/* Left side lines */}
+          {(curBicepsL > 0 || curBicepsR > 0) && (
+            <line x1="22%" y1="80" x2="38%" y2="130" stroke="#facc15" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+          )}
+          {curWaist > 0 && (
+            <line x1="22%" y1="260" x2="42%" y2="210" stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+          )}
+          {/* Right side lines */}
+          {curChest > 0 && (
+            <line x1="78%" y1="80" x2="62%" y2="120" stroke="#facc15" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+          )}
+          {curHips > 0 && (
+            <line x1="78%" y1="260" x2="58%" y2="240" stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+          )}
+        </svg>
+
+        {/* Circular metric cards */}
+        {/* Top Left - Biceps/Arms */}
+        {(curBicepsL > 0 || curBicepsR > 0) && (
+          <div style={{ position: 'absolute', left: 10, top: 30 }}>
+            <div style={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.7)',
+              border: '3px solid #22c55e',
+              boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 2 }}>Руки</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>
+                {format1(Math.max(curBicepsL, curBicepsR))}
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>см</div>
+              {(bicepsLDelta !== 0 || bicepsRDelta !== 0) && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  background: bicepsLDelta > 0 ? '#22c55e' : '#ef4444',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: 10
+                }}>
+                  {bicepsLDelta > 0 ? '+' : ''}{format1(bicepsLDelta)}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Left - Waist */}
+        {curWaist > 0 && (
+          <div style={{ position: 'absolute', left: 10, bottom: 50 }}>
+            <div style={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.7)',
+              border: '3px solid #22c55e',
+              boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 2 }}>Талия</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>{curWaist}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>см</div>
+              {waistDelta !== 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: -8,
+                  background: waistDelta < 0 ? '#22c55e' : '#ef4444',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: 10
+                }}>
+                  {waistDelta > 0 ? '+' : ''}{format1(waistDelta)}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Top Right - Chest */}
+        {curChest > 0 && (
+          <div style={{ position: 'absolute', right: 10, top: 30 }}>
+            <div style={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.7)',
+              border: '3px solid #facc15',
+              boxShadow: '0 0 20px rgba(250, 204, 21, 0.4), inset 0 0 20px rgba(250, 204, 21, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              {chestDelta !== 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: -8,
+                  background: chestDelta > 0 ? '#22c55e' : '#ef4444',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: 10
+                }}>
+                  {chestDelta > 0 ? '+' : ''}{format1(chestDelta)} см
+                </div>
+              )}
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>{curChest}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>см</div>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Right - Hips/Thighs */}
+        {(curHips > 0 || curThighs > 0) && (
+          <div style={{ position: 'absolute', right: 10, bottom: 50 }}>
+            <div style={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.7)',
+              border: '3px solid #22c55e',
+              boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              {(hipsDelta !== 0 || thighsDelta !== 0) && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  background: (hipsDelta > 0 || thighsDelta > 0) ? '#22c55e' : '#ef4444',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: 10
+                }}>
+                  {(hipsDelta || thighsDelta) > 0 ? '+' : ''}{format1(hipsDelta || thighsDelta)} см
+                </div>
+              )}
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>{curHips || curThighs}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{curHips ? 'бёдра' : 'ноги'}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Timeline slider */}
+      {sortedMeasurements.length > 1 && (
+        <div style={{ padding: '0 20px 16px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.5)',
+            marginBottom: 8
+          }}>
+            <span>📅 {formatDate(sortedMeasurements[0].date)}</span>
+            <span style={{ color: '#facc15' }}>⬤ Замер {selectedIdx + 1} из {sortedMeasurements.length}</span>
+            <span>{formatDate(sortedMeasurements[sortedMeasurements.length - 1].date)} 📅</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={sortedMeasurements.length - 1}
+            value={selectedIdx}
+            onChange={(e) => setSelectedIdx(Number(e.target.value))}
+            style={{
+              width: '100%',
+              height: 8,
+              borderRadius: 4,
+              background: 'linear-gradient(90deg, #38bdf8, #22c55e, #facc15)',
+              cursor: 'pointer',
+              WebkitAppearance: 'none',
+              appearance: 'none'
+            }}
+          />
+        </div>
+      )}
+
+      {/* Summary cards grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 8,
+        padding: '0 16px 16px'
+      }}>
+        {[
+          { name: 'Грудь', v: curChest, b: baseChest, icon: '💪', good: (d: number) => d >= 0 },
+          { name: 'Талия', v: curWaist, b: baseWaist, icon: '📏', good: (d: number) => d <= 0 },
+          { name: 'Бёдра', v: curHips, b: baseHips, icon: '🦵', good: (d: number) => d >= 0 },
+        ].filter(item => item.v > 0).map((item) => {
+          const delta = item.v - item.b;
+          const isGood = item.good(delta);
+
+          return (
+            <div
+              key={item.name}
+              style={{
+                padding: '12px',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                textAlign: 'center'
+              }}
+            >
+              <div style={{ fontSize: 18, marginBottom: 4 }}>{item.icon}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{item.name}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>{item.v} см</div>
+              {delta !== 0 && (
+                <div style={{ fontSize: 11, color: isGood ? '#22c55e' : '#f87171', marginTop: 2 }}>
+                  {delta >= 0 ? '+' : ''}{format1(delta)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Growth rings */}
+      {sortedMeasurements.length > 1 && (
+        <div style={{
+          borderRadius: 12,
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          padding: 12,
+          margin: '0 16px 16px'
+        }}>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 12, textAlign: 'center' }}>
+            🎯 Прогресс к целям
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {curChest > 0 && <GrowthRing value={Math.max(0, chestDelta)} goal={3} label="Грудь +3" />}
+            {curWaist > 0 && <GrowthRing value={Math.max(0, waistDelta)} goal={4} label="Талия -4" />}
+            {curHips > 0 && <GrowthRing value={Math.max(0, hipsDelta)} goal={2} label="Бёдра +2" />}
+            {(curBicepsL > 0 || curBicepsR > 0) && <GrowthRing value={Math.max(0, Math.max(bicepsLDelta, bicepsRDelta))} goal={1.5} label="Бицепс +1.5" />}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -601,6 +848,7 @@ export default function ClientDetailPage() {
   const [showRecommendationsEditor, setShowRecommendationsEditor] = useState(false);
   const [recommendations, setRecommendations] = useState<NutritionRecommendation[]>([]);
   const [isSavingRecommendations, setIsSavingRecommendations] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -751,7 +999,7 @@ export default function ClientDetailPage() {
     };
   }, [clientData]);
 
-  // Get last 14 days for calendar
+  // Get last 14 days for calendar (legacy, kept for compatibility)
   const recentDays = useMemo(() => {
     if (!clientData) return [];
 
@@ -776,6 +1024,104 @@ export default function ClientDetailPage() {
 
     return days;
   }, [clientData]);
+
+  // Full month calendar days
+  const calendarDays = useMemo(() => {
+    if (!clientData) return { days: [], monthName: '', year: 0 };
+
+    const dayLogs = clientData.fitnessData.dayLogs || {};
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+
+    // First day of month
+    const firstDay = new Date(year, month, 1);
+    // Last day of month
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    // Get day of week for first day (0 = Sunday, we want Monday = 0)
+    let startDayOfWeek = firstDay.getDay() - 1;
+    if (startDayOfWeek < 0) startDayOfWeek = 6; // Sunday becomes 6
+
+    const days: Array<{
+      date: string;
+      dayNum: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      hasWorkout: boolean;
+      workoutType: string | null;
+      isOffDay: boolean;
+      hasMeals: boolean;
+      workoutRating: number | null;
+    }> = [];
+
+    // Previous month days to fill the first week
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      const dayNum = prevMonthLastDay - i;
+      const date = new Date(year, month - 1, dayNum);
+      const dateStr = date.toISOString().split('T')[0];
+      const log = dayLogs[dateStr];
+
+      days.push({
+        date: dateStr,
+        dayNum,
+        isCurrentMonth: false,
+        isToday: false,
+        hasWorkout: !!log?.workoutCompleted,
+        workoutType: log?.workoutCompleted || null,
+        isOffDay: log?.isOffDay || false,
+        hasMeals: (log?.meals?.length || 0) > 0,
+        workoutRating: log?.workoutRating || null
+      });
+    }
+
+    // Current month days
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+      const date = new Date(year, month, dayNum);
+      const dateStr = date.toISOString().split('T')[0];
+      const log = dayLogs[dateStr];
+
+      days.push({
+        date: dateStr,
+        dayNum,
+        isCurrentMonth: true,
+        isToday: dateStr === todayStr,
+        hasWorkout: !!log?.workoutCompleted,
+        workoutType: log?.workoutCompleted || null,
+        isOffDay: log?.isOffDay || false,
+        hasMeals: (log?.meals?.length || 0) > 0,
+        workoutRating: log?.workoutRating || null
+      });
+    }
+
+    // Next month days to complete the grid (6 rows × 7 days = 42)
+    const remainingDays = 42 - days.length;
+    for (let dayNum = 1; dayNum <= remainingDays; dayNum++) {
+      const date = new Date(year, month + 1, dayNum);
+      const dateStr = date.toISOString().split('T')[0];
+      const log = dayLogs[dateStr];
+
+      days.push({
+        date: dateStr,
+        dayNum,
+        isCurrentMonth: false,
+        isToday: false,
+        hasWorkout: !!log?.workoutCompleted,
+        workoutType: log?.workoutCompleted || null,
+        isOffDay: log?.isOffDay || false,
+        hasMeals: (log?.meals?.length || 0) > 0,
+        workoutRating: log?.workoutRating || null
+      });
+    }
+
+    const monthName = calendarMonth.toLocaleDateString('ru-RU', { month: 'long' });
+
+    return { days, monthName, year };
+  }, [clientData, calendarMonth]);
 
   // Nutrition stats for last 7 days
   const nutritionStats = useMemo(() => {
@@ -1104,7 +1450,7 @@ export default function ClientDetailPage() {
         {/* Workouts Tab */}
         {activeTab === 'workouts' && (
           <div>
-            {/* Mini Calendar */}
+            {/* Full Month Calendar */}
             <div style={{
               background: 'rgba(255,255,255,0.03)',
               borderRadius: '16px',
@@ -1112,56 +1458,170 @@ export default function ClientDetailPage() {
               border: '1px solid rgba(255,255,255,0.08)',
               marginBottom: '16px'
             }}>
-              <h3 style={{
-                fontSize: '14px',
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.7)',
-                margin: '0 0 12px'
+              {/* Calendar Header with Navigation */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px'
               }}>
-                Последние 14 дней
-              </h3>
+                <button
+                  onClick={() => setCalendarMonth(prev => {
+                    const newDate = new Date(prev);
+                    newDate.setMonth(newDate.getMonth() - 1);
+                    return newDate;
+                  })}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    color: 'white',
+                    fontSize: '16px'
+                  }}
+                >
+                  ←
+                </button>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: 'white',
+                  margin: 0,
+                  textTransform: 'capitalize'
+                }}>
+                  {calendarDays.monthName} {calendarDays.year}
+                </h3>
+                <button
+                  onClick={() => setCalendarMonth(prev => {
+                    const newDate = new Date(prev);
+                    newDate.setMonth(newDate.getMonth() + 1);
+                    return newDate;
+                  })}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    color: 'white',
+                    fontSize: '16px'
+                  }}
+                >
+                  →
+                </button>
+              </div>
+
+              {/* Day of week headers */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: '8px'
+                gap: '4px',
+                marginBottom: '8px'
               }}>
-                {recentDays.map(day => (
+                {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
                   <div
-                    key={day.date}
+                    key={day}
                     style={{
                       textAlign: 'center',
-                      padding: '8px 4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'rgba(255,255,255,0.4)',
+                      padding: '4px'
+                    }}
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: '4px'
+              }}>
+                {calendarDays.days.map((day, idx) => (
+                  <div
+                    key={`${day.date}-${idx}`}
+                    onClick={() => {
+                      if (day.hasWorkout) {
+                        setExpandedWorkoutDate(expandedWorkoutDate === day.date ? null : day.date);
+                      }
+                    }}
+                    style={{
+                      textAlign: 'center',
+                      padding: '6px 2px',
                       borderRadius: '8px',
-                      background: day.hasWorkout
-                        ? 'rgba(34, 197, 94, 0.2)'
-                        : day.isOffDay
-                          ? 'rgba(147, 112, 219, 0.15)'
-                          : 'transparent'
+                      minHeight: '52px',
+                      cursor: day.hasWorkout ? 'pointer' : 'default',
+                      background: day.isToday
+                        ? 'rgba(59, 130, 246, 0.3)'
+                        : day.hasWorkout
+                          ? 'rgba(34, 197, 94, 0.2)'
+                          : day.isOffDay
+                            ? 'rgba(147, 112, 219, 0.15)'
+                            : 'transparent',
+                      opacity: day.isCurrentMonth ? 1 : 0.3,
+                      border: day.isToday ? '2px solid rgba(59, 130, 246, 0.5)' : '1px solid transparent',
+                      transition: 'all 0.2s'
                     }}
                   >
                     <p style={{
-                      fontSize: '10px',
-                      color: 'rgba(255,255,255,0.4)',
-                      margin: '0 0 4px',
-                      textTransform: 'capitalize'
-                    }}>
-                      {day.dayName}
-                    </p>
-                    <p style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: day.hasWorkout ? '#22c55e' : '#fff',
+                      fontSize: '13px',
+                      fontWeight: day.isToday ? 700 : 500,
+                      color: day.hasWorkout ? '#22c55e' : day.isToday ? '#3b82f6' : '#fff',
                       margin: 0
                     }}>
                       {day.dayNum}
                     </p>
-                    {day.hasWorkout ? (
-                      <CheckCircle2 size={12} color="#22c55e" style={{ marginTop: '4px' }} />
-                    ) : day.isOffDay ? (
-                      <span style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>😴</span>
-                    ) : null}
+                    <div style={{ marginTop: '2px', minHeight: '16px' }}>
+                      {day.hasWorkout ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                          <span style={{ fontSize: '9px', color: '#22c55e', fontWeight: 600 }}>
+                            {day.workoutType?.toUpperCase()}
+                          </span>
+                          {day.workoutRating && (
+                            <span style={{ fontSize: '10px' }}>
+                              {day.workoutRating === 1 && '😫'}
+                              {day.workoutRating === 2 && '😐'}
+                              {day.workoutRating === 3 && '😊'}
+                              {day.workoutRating === 4 && '💪'}
+                              {day.workoutRating === 5 && '🔥'}
+                            </span>
+                          )}
+                        </div>
+                      ) : day.isOffDay ? (
+                        <span style={{ fontSize: '12px' }}>😴</span>
+                      ) : day.hasMeals ? (
+                        <span style={{ fontSize: '10px' }}>🍽️</span>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Legend */}
+              <div style={{
+                display: 'flex',
+                gap: '16px',
+                marginTop: '12px',
+                paddingTop: '12px',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.3)' }} />
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Тренировка</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: 'rgba(147, 112, 219, 0.3)' }} />
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Отдых</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.3)', border: '1px solid rgba(59, 130, 246, 0.5)' }} />
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Сегодня</span>
+                </div>
               </div>
             </div>
 
@@ -1494,58 +1954,10 @@ export default function ClientDetailPage() {
         {/* Measurements Tab */}
         {activeTab === 'measurements' && (
           <div>
-            {/* Body Silhouette with latest measurements */}
-            {(() => {
-              const allMeasurements = clientData?.fitnessData.bodyMeasurements || [];
-              if (allMeasurements.length === 0) return null;
-
-              // Get latest value for each measurement type
-              const latestValues: Record<string, number | undefined> = {};
-              const measurementKeys = ['weight', 'chest', 'waist', 'hips', 'bicepsLeft', 'bicepsRight', 'thighs'];
-
-              for (const key of measurementKeys) {
-                const withValue = allMeasurements
-                  .filter(m => (m as Record<string, unknown>)[key] != null)
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                if (withValue.length > 0) {
-                  latestValues[key] = (withValue[0] as Record<string, number>)[key];
-                }
-              }
-
-              // Only show if we have at least some body measurements
-              const hasBodyMeasurements = latestValues.chest || latestValues.waist || latestValues.hips ||
-                                          latestValues.bicepsLeft || latestValues.thighs;
-              if (!hasBodyMeasurements) return null;
-
-              return (
-                <div style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  marginBottom: '16px',
-                  border: '1px solid rgba(255,255,255,0.08)'
-                }}>
-                  <h3 style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.7)',
-                    margin: '0 0 12px',
-                    textAlign: 'center'
-                  }}>
-                    Текущие замеры
-                  </h3>
-                  <BodySilhouette measurements={latestValues as {
-                    weight?: number;
-                    chest?: number;
-                    waist?: number;
-                    hips?: number;
-                    bicepsLeft?: number;
-                    bicepsRight?: number;
-                    thighs?: number;
-                  }} />
-                </div>
-              );
-            })()}
+            {/* Body Progress Visualization with timeline */}
+            <BodyProgressVisualization
+              allMeasurements={clientData?.fitnessData.bodyMeasurements || []}
+            />
 
             {/* Measurements Progress Cards */}
             {(() => {
