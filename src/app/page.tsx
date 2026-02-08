@@ -391,6 +391,7 @@ interface DayLog {
   steps: number | null;
   dayClosed: boolean;
   isOffDay?: boolean; // Day off - no workout required
+  cycleStartDate?: string; // Date when new workout cycle was started
 }
 
 interface ExerciseProgress {
@@ -2006,37 +2007,61 @@ export default function FitnessPage() {
     updateDayLog({ selectedWorkout: workoutId });
   };
 
-  // Get next available workout (not completed this week)
-  const getNextAvailableWorkout = useCallback(() => {
-    // Get Monday of current week
-    const today = getTodayInTimezone(userSettings.timezone);
-    const dayOfWeek = today.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + mondayOffset);
+  // Get completed workouts in current cycle (last N unique workouts where N = active workout count)
+  const completedWorkoutsInCycle = useMemo(() => {
+    const completed = new Set<string>();
+    const sortedDates = Object.keys(dayLogs).sort((a, b) =>
+      new Date(b).getTime() - new Date(a).getTime()
+    );
+    const activeWorkouts = workouts.filter(w => w.exercises.length > 0);
+    const activeWorkoutCount = activeWorkouts.length;
 
-    // Get all completed workouts this week
-    const completedThisWeek = new Set<string>();
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      const dateStr = formatDate(date);
+    for (const dateStr of sortedDates) {
       const log = dayLogs[dateStr];
       if (log?.workoutCompleted) {
-        completedThisWeek.add(log.workoutCompleted);
+        completed.add(log.workoutCompleted);
+        // Stop when we have all unique workouts
+        if (completed.size >= activeWorkoutCount) break;
       }
     }
+    return completed;
+  }, [dayLogs, workouts]);
 
-    // Find first workout not completed this week
+  // Check if all workouts in cycle are completed
+  const allWorkoutsCompleted = useMemo(() => {
+    const activeWorkouts = workouts.filter(w => w.exercises.length > 0);
+    if (activeWorkouts.length === 0) return false;
+    return activeWorkouts.every(w => completedWorkoutsInCycle.has(w.id));
+  }, [workouts, completedWorkoutsInCycle]);
+
+  // Auto-reset exercises when all workouts completed and user is on a rest day (day > activeWorkoutCount)
+  useEffect(() => {
+    if (!isLoaded) return;
+    const activeWorkoutCount = workouts.filter(w => w.exercises.length > 0).length;
+    const dayOfWeek = selectedDate.getDay();
+    const adjustedDay = dayOfWeek === 0 ? 7 : dayOfWeek; // 1=Mon, 7=Sun
+
+    // If all workouts completed AND we're on a rest day (day > active count) AND day not closed
+    if (allWorkoutsCompleted && adjustedDay > activeWorkoutCount && !currentDayLog.dayClosed) {
+      // Reset all exercises completed status
+      setWorkouts(prev => prev.map(w => ({
+        ...w,
+        exercises: w.exercises.map(ex => ({ ...ex, completed: false, actualSets: '' }))
+      })));
+    }
+  }, [allWorkoutsCompleted, selectedDate, workouts, currentDayLog.dayClosed, isLoaded]);
+
+  // Get next available workout (not completed in current cycle)
+  const getNextAvailableWorkout = useCallback(() => {
+    // Find first workout not completed in current cycle
     for (const workout of workouts) {
-      if (!completedThisWeek.has(workout.id) && workout.exercises.length > 0) {
+      if (!completedWorkoutsInCycle.has(workout.id) && workout.exercises.length > 0) {
         return workout.id;
       }
     }
-
     // If all completed, return first workout
     return workouts[0]?.id || 't1';
-  }, [dayLogs, workouts, userSettings.timezone]);
+  }, [completedWorkoutsInCycle, workouts]);
 
   // Restore selected workout when date changes
   useEffect(() => {
@@ -2052,7 +2077,8 @@ export default function FitnessPage() {
       setSelectedWorkout(nextWorkout);
       updateDayLog({ selectedWorkout: nextWorkout });
     }
-  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout, currentDayLog.isOffDay, getNextAvailableWorkout]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateKey]);
 
   // Get unique meals from all days for autocomplete
   const uniqueMeals = useMemo(() => {

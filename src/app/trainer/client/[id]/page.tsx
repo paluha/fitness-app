@@ -513,7 +513,9 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
       }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'white' }}>🏋️ Прогресс тела</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{formatDate(cur.date)}</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+            Последний замер: {formatDate(sortedMeasurements[sortedMeasurements.length - 1].date)}
+          </div>
         </div>
         {curWeight > 0 && (
           <div style={{ textAlign: 'right' }}>
@@ -559,63 +561,115 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
           />
         </div>
 
-        {/* SVG for connector lines */}
+        {/* SVG for ray lines */}
         <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
           <defs>
-            <filter id="glow">
+            {/* Static gradients */}
+            <linearGradient id="rayGradientLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#facc15" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#facc15" stopOpacity="0.1"/>
+            </linearGradient>
+            <linearGradient id="rayGradientRight" x1="100%" y1="0%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#facc15" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#facc15" stopOpacity="0.1"/>
+            </linearGradient>
+            {/* Animated progress gradients - green pulse */}
+            <linearGradient id="rayProgressLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity="1">
+                <animate attributeName="stopOpacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="50%" stopColor="#4ade80" stopOpacity="0.6">
+                <animate attributeName="offset" values="0.3;0.7;0.3" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.1"/>
+            </linearGradient>
+            <linearGradient id="rayProgressRight" x1="100%" y1="0%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity="1">
+                <animate attributeName="stopOpacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="50%" stopColor="#4ade80" stopOpacity="0.6">
+                <animate attributeName="offset" values="0.3;0.7;0.3" dur="1.5s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.1"/>
+            </linearGradient>
+            <filter id="rayGlow">
+              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="progressGlow">
               <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
               <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
             </filter>
           </defs>
-          {/* Left side lines */}
+          {/* Left side rays */}
           {(curBicepsL > 0 || curBicepsR > 0) && (
-            <line x1="22%" y1="80" x2="38%" y2="130" stroke="#facc15" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+            <line
+              x1="20%" y1="60" x2="42%" y2="130"
+              stroke={(bicepsLDelta !== 0 || bicepsRDelta !== 0) ? "url(#rayProgressLeft)" : "url(#rayGradientLeft)"}
+              strokeWidth={(bicepsLDelta !== 0 || bicepsRDelta !== 0) ? 3 : 2}
+              filter={(bicepsLDelta !== 0 || bicepsRDelta !== 0) ? "url(#progressGlow)" : "url(#rayGlow)"}
+            />
           )}
           {curWaist > 0 && (
-            <line x1="22%" y1="260" x2="42%" y2="210" stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+            <line
+              x1="20%" y1="290" x2="42%" y2="210"
+              stroke={waistDelta !== 0 ? "url(#rayProgressLeft)" : "url(#rayGradientLeft)"}
+              strokeWidth={waistDelta !== 0 ? 3 : 2}
+              filter={waistDelta !== 0 ? "url(#progressGlow)" : "url(#rayGlow)"}
+            />
           )}
-          {/* Right side lines */}
+          {/* Right side rays */}
           {curChest > 0 && (
-            <line x1="78%" y1="80" x2="62%" y2="120" stroke="#facc15" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+            <line
+              x1="80%" y1="60" x2="58%" y2="120"
+              stroke={chestDelta !== 0 ? "url(#rayProgressRight)" : "url(#rayGradientRight)"}
+              strokeWidth={chestDelta !== 0 ? 3 : 2}
+              filter={chestDelta !== 0 ? "url(#progressGlow)" : "url(#rayGlow)"}
+            />
           )}
           {curHips > 0 && (
-            <line x1="78%" y1="260" x2="58%" y2="240" stroke="#22c55e" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"/>
+            <line
+              x1="80%" y1="290" x2="58%" y2="250"
+              stroke={(hipsDelta !== 0 || thighsDelta !== 0) ? "url(#rayProgressRight)" : "url(#rayGradientRight)"}
+              strokeWidth={(hipsDelta !== 0 || thighsDelta !== 0) ? 3 : 2}
+              filter={(hipsDelta !== 0 || thighsDelta !== 0) ? "url(#progressGlow)" : "url(#rayGlow)"}
+            />
           )}
         </svg>
 
-        {/* Circular metric cards */}
+        {/* Circular metric cards - compact */}
         {/* Top Left - Biceps/Arms */}
         {(curBicepsL > 0 || curBicepsR > 0) && (
-          <div style={{ position: 'absolute', left: 10, top: 30 }}>
+          <div style={{ position: 'absolute', left: 8, top: 25 }}>
             <div style={{
-              width: 100,
-              height: 100,
+              width: 70,
+              height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.7)',
-              border: '3px solid #22c55e',
-              boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1)',
+              background: 'rgba(0,0,0,0.8)',
+              border: '2px solid #22c55e',
+              boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 2 }}>Руки</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>Руки</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>
                 {format1(Math.max(curBicepsL, curBicepsR))}
               </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>см</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
               {(bicepsLDelta !== 0 || bicepsRDelta !== 0) && (
                 <div style={{
                   position: 'absolute',
-                  top: -8,
-                  right: -8,
+                  top: -6,
+                  right: -6,
                   background: bicepsLDelta > 0 ? '#22c55e' : '#ef4444',
                   color: 'white',
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 600,
-                  padding: '2px 6px',
-                  borderRadius: 10
+                  padding: '1px 5px',
+                  borderRadius: 8
                 }}>
                   {bicepsLDelta > 0 ? '+' : ''}{format1(bicepsLDelta)}
                 </div>
@@ -626,34 +680,34 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
 
         {/* Bottom Left - Waist */}
         {curWaist > 0 && (
-          <div style={{ position: 'absolute', left: 10, bottom: 50 }}>
+          <div style={{ position: 'absolute', left: 8, bottom: 45 }}>
             <div style={{
-              width: 100,
-              height: 100,
+              width: 70,
+              height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.7)',
-              border: '3px solid #22c55e',
-              boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1)',
+              background: 'rgba(0,0,0,0.8)',
+              border: '2px solid #22c55e',
+              boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 2 }}>Талия</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>{curWaist}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>см</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>Талия</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{curWaist}</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
               {waistDelta !== 0 && (
                 <div style={{
                   position: 'absolute',
-                  top: -8,
-                  left: -8,
+                  top: -6,
+                  left: -6,
                   background: waistDelta < 0 ? '#22c55e' : '#ef4444',
                   color: 'white',
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 600,
-                  padding: '2px 6px',
-                  borderRadius: 10
+                  padding: '1px 5px',
+                  borderRadius: 8
                 }}>
                   {waistDelta > 0 ? '+' : ''}{format1(waistDelta)}
                 </div>
@@ -664,74 +718,76 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
 
         {/* Top Right - Chest */}
         {curChest > 0 && (
-          <div style={{ position: 'absolute', right: 10, top: 30 }}>
+          <div style={{ position: 'absolute', right: 8, top: 25 }}>
             <div style={{
-              width: 100,
-              height: 100,
+              width: 70,
+              height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.7)',
-              border: '3px solid #facc15',
-              boxShadow: '0 0 20px rgba(250, 204, 21, 0.4), inset 0 0 20px rgba(250, 204, 21, 0.1)',
+              background: 'rgba(0,0,0,0.8)',
+              border: '2px solid #facc15',
+              boxShadow: '0 0 15px rgba(250, 204, 21, 0.4)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative'
             }}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>Грудь</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{curChest}</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
               {chestDelta !== 0 && (
                 <div style={{
                   position: 'absolute',
-                  top: -8,
-                  left: -8,
+                  top: -6,
+                  left: -6,
                   background: chestDelta > 0 ? '#22c55e' : '#ef4444',
                   color: 'white',
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 600,
-                  padding: '2px 6px',
-                  borderRadius: 10
+                  padding: '1px 5px',
+                  borderRadius: 8
                 }}>
-                  {chestDelta > 0 ? '+' : ''}{format1(chestDelta)} см
+                  {chestDelta > 0 ? '+' : ''}{format1(chestDelta)}
                 </div>
               )}
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>{curChest}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>см</div>
             </div>
           </div>
         )}
 
         {/* Bottom Right - Hips/Thighs */}
         {(curHips > 0 || curThighs > 0) && (
-          <div style={{ position: 'absolute', right: 10, bottom: 50 }}>
+          <div style={{ position: 'absolute', right: 8, bottom: 45 }}>
             <div style={{
-              width: 100,
-              height: 100,
+              width: 70,
+              height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.7)',
-              border: '3px solid #22c55e',
-              boxShadow: '0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1)',
+              background: 'rgba(0,0,0,0.8)',
+              border: '2px solid #22c55e',
+              boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative'
             }}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>{curHips ? 'Бёдра' : 'Ноги'}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{curHips || curThighs}</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
               {(hipsDelta !== 0 || thighsDelta !== 0) && (
                 <div style={{
                   position: 'absolute',
-                  top: -8,
-                  right: -8,
+                  top: -6,
+                  right: -6,
                   background: (hipsDelta > 0 || thighsDelta > 0) ? '#22c55e' : '#ef4444',
                   color: 'white',
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 600,
-                  padding: '2px 6px',
-                  borderRadius: 10
+                  padding: '1px 5px',
+                  borderRadius: 8
                 }}>
-                  {(hipsDelta || thighsDelta) > 0 ? '+' : ''}{format1(hipsDelta || thighsDelta)} см
+                  {(hipsDelta || thighsDelta) > 0 ? '+' : ''}{format1(hipsDelta || thighsDelta)}
                 </div>
               )}
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#facc15' }}>{curHips || curThighs}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{curHips ? 'бёдра' : 'ноги'}</div>
             </div>
           </div>
         )}
