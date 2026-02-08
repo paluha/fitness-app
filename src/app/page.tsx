@@ -30,6 +30,108 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Motivational messages based on streak
+function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): string {
+  if (streak === 0) {
+    const zeroMessages = [
+      'Начни сегодня — стань лучше завтра!',
+      'Каждый путь начинается с первого шага',
+      'Сегодня отличный день чтобы начать!',
+      'Твоя серия ждёт тебя 💪'
+    ];
+    return zeroMessages[Math.floor(Math.random() * zeroMessages.length)];
+  }
+
+  if (isTodayCloseToGoal && streak < 7) {
+    const closeMessages = [
+      '🎯 Почти у цели! Добей сегодня!',
+      '🎯 Ещё чуть-чуть до победы!',
+      '🎯 Сегодня близко — дожми!'
+    ];
+    return closeMessages[Math.floor(Math.random() * closeMessages.length)];
+  }
+
+  if (streak === 1) {
+    const day1 = [
+      'Отличное начало! Продолжай! 🚀',
+      'Первый день в кармане! 💪',
+      'Хороший старт — половина дела!'
+    ];
+    return day1[Math.floor(Math.random() * day1.length)];
+  }
+
+  if (streak === 2) {
+    const day2 = [
+      'Два дня подряд! Ты на верном пути!',
+      'Отлично! Привычка формируется 🔥',
+      'Второй день! Момент набирает силу!'
+    ];
+    return day2[Math.floor(Math.random() * day2.length)];
+  }
+
+  if (streak >= 3 && streak <= 4) {
+    const days3_4 = [
+      `${streak} дня подряд! Ты машина! 🔥`,
+      'Серия растёт! Не останавливайся!',
+      'Впечатляющий прогресс! 💪'
+    ];
+    return days3_4[Math.floor(Math.random() * days3_4.length)];
+  }
+
+  if (streak >= 5 && streak <= 6) {
+    const days5_6 = [
+      `${streak} дней! Почти неделя! 🏆`,
+      'Скоро полная неделя! Дожимай!',
+      'Невероятная дисциплина! 🔥'
+    ];
+    return days5_6[Math.floor(Math.random() * days5_6.length)];
+  }
+
+  if (streak === 7) {
+    const week1 = [
+      '🏆 НЕДЕЛЯ! Ты легенда!',
+      '🏆 7 дней подряд! Чемпион!',
+      '🏆 Полная неделя! Невероятно!'
+    ];
+    return week1[Math.floor(Math.random() * week1.length)];
+  }
+
+  if (streak > 7 && streak < 14) {
+    const week1plus = [
+      `${streak} дней! Больше недели! 🌟`,
+      'Ты создаёшь историю! 🔥',
+      'Железная дисциплина! 💪'
+    ];
+    return week1plus[Math.floor(Math.random() * week1plus.length)];
+  }
+
+  if (streak >= 14 && streak < 21) {
+    const weeks2 = [
+      `${streak} дней! Две недели! 👑`,
+      'Привычка закреплена! 🏆',
+      'Ты неудержим! 🔥'
+    ];
+    return weeks2[Math.floor(Math.random() * weeks2.length)];
+  }
+
+  if (streak >= 21 && streak < 30) {
+    const weeks3 = [
+      `${streak} дней! Три недели! 🏅`,
+      '21+ день — это уже образ жизни!',
+      'Мастер дисциплины! 👑'
+    ];
+    return weeks3[Math.floor(Math.random() * weeks3.length)];
+  }
+
+  // 30+ days
+  const month = [
+    `${streak} дней! ЛЕГЕНДА! 🏆👑`,
+    'Месяц+ подряд! Невероятно! 🌟',
+    'Ты вдохновляешь! 🔥👑'
+  ];
+  return month[Math.floor(Math.random() * month.length)];
+}
+
 // Rest Timer Component
 function RestTimer({ restTime }: { restTime: string }) {
   const totalSeconds = parseRestTime(restTime);
@@ -3253,21 +3355,17 @@ export default function FitnessPage() {
                         ? isTodayCloseToGoal
                           ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.3) 0%, rgba(255, 193, 7, 0.3) 100%)'
                           : 'var(--bg-elevated)'
-                        : day.completed
-                          ? 'transparent'
-                          : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(185, 28, 28, 0.1) 100%)',
+                        : 'transparent',
                       border: day.isToday
                         ? isTodayCloseToGoal
                           ? '2px solid rgba(255, 152, 0, 0.5)'
                           : '2px dashed var(--border-strong)'
-                        : day.completed
-                          ? 'none'
-                          : '1px solid rgba(239, 68, 68, 0.3)',
-                      opacity: !day.isToday && !day.completed ? 0.7 : 1
+                        : 'none',
+                      opacity: 1
                     }}>
                       {day.isToday ? (
                         <span style={{
-                          fontSize: '16px',
+                          fontSize: isTodayCloseToGoal ? '16px' : '14px',
                           animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
                           filter: isTodayCloseToGoal ? 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8))' : 'none'
                         }}>
@@ -3275,16 +3373,14 @@ export default function FitnessPage() {
                         </span>
                       ) : day.completed ? (
                         <span style={{
-                          fontSize: '22px',
+                          fontSize: '18px',
                           animation: 'fireBurn 1.5s ease-in-out infinite',
-                          filter: 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.9)) drop-shadow(0 0 12px rgba(255, 193, 7, 0.6))'
+                          filter: 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 193, 7, 0.5))'
                         }}>🔥</span>
                       ) : (
                         <span style={{
-                          fontSize: '14px',
-                          color: 'rgba(239, 68, 68, 0.6)',
-                          fontWeight: 700
-                        }}>✕</span>
+                          fontSize: '14px'
+                        }}>💩</span>
                       )}
                     </div>
                   </div>
@@ -3298,13 +3394,7 @@ export default function FitnessPage() {
                 color: 'var(--text-muted)',
                 marginTop: '2px'
               }}>
-                {nutritionStreak === 0
-                  ? 'Выполни план сегодня и начни серию!'
-                  : nutritionStreak >= 7
-                    ? '🏆 Отличная неделя! Так держать!'
-                    : isTodayCloseToGoal
-                      ? '🎯 Сегодня близко к цели!'
-                      : `Ещё ${7 - nutritionStreak} ${7 - nutritionStreak === 1 ? 'день' : 7 - nutritionStreak >= 2 && 7 - nutritionStreak <= 4 ? 'дня' : 'дней'} до полной недели`}
+                {getStreakMotivation(nutritionStreak, isTodayCloseToGoal)}
               </div>
             </div>
 
