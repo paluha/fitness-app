@@ -1629,10 +1629,10 @@ export default function FitnessPage() {
     calories: Math.min(100, (macroTotals.calories / MACRO_TARGETS.calories) * 100),
   }), [macroTotals]);
 
-  // Calculate nutrition streak (consecutive days with >= 80% of macro targets)
-  const nutritionStreak = useMemo(() => {
+  // Calculate last 7 days nutrition status and streak
+  const { last7Days, nutritionStreak } = useMemo(() => {
     const today = getTodayInTimezone(userSettings.timezone);
-    let streak = 0;
+    const todayStr = formatDate(today);
 
     // Check if day meets macro targets (>= 80% for all macros)
     const isDayCompleted = (dateStr: string): boolean => {
@@ -1647,30 +1647,46 @@ export default function FitnessPage() {
         totals.calories += meal.calories;
       }
 
-      const threshold = 0.8; // 80%
-      return (
-        totals.protein >= MACRO_TARGETS.protein * threshold &&
-        totals.fat >= MACRO_TARGETS.fat * threshold &&
-        totals.carbs >= MACRO_TARGETS.carbs * threshold &&
-        totals.calories >= MACRO_TARGETS.calories * threshold
-      );
+      // Day is "completed" if average macro completion >= 70%
+      const proteinPct = totals.protein / MACRO_TARGETS.protein;
+      const fatPct = totals.fat / MACRO_TARGETS.fat;
+      const carbsPct = totals.carbs / MACRO_TARGETS.carbs;
+      const caloriesPct = totals.calories / MACRO_TARGETS.calories;
+      const avgCompletion = (proteinPct + fatPct + carbsPct + caloriesPct) / 4;
+
+      return avgCompletion >= 0.7; // 70% average across all macros
     };
 
-    // Count consecutive days backward from yesterday
-    const checkDate = new Date(today);
-    checkDate.setDate(checkDate.getDate() - 1); // Start from yesterday
+    // Build last 7 days array (6 days ago -> today)
+    const days: { date: string; dayName: string; completed: boolean; isToday: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = formatDate(date);
+      const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      const isToday = dateStr === todayStr;
+      days.push({
+        date: dateStr,
+        dayName: dayNames[date.getDay()],
+        completed: isDayCompleted(dateStr), // Check all days including today
+        isToday
+      });
+    }
 
-    while (true) {
-      const dateStr = formatDate(checkDate);
-      if (isDayCompleted(dateStr)) {
+    // Count streak (consecutive completed days from most recent backward)
+    // Start from index 6 (today) or 5 (yesterday) depending on if today is complete
+    let streak = 0;
+    // If today is complete, include it; otherwise start from yesterday
+    const startIndex = days[6].completed ? 6 : 5;
+    for (let i = startIndex; i >= 0; i--) {
+      if (days[i].completed) {
         streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
       } else {
         break;
       }
     }
 
-    return streak;
+    return { last7Days: days, nutritionStreak: streak };
   }, [dayLogs, userSettings.timezone]);
 
   // Check if today is close to completing nutrition targets (>= 60%)
@@ -3163,97 +3179,133 @@ export default function FitnessPage() {
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} {t('kcal')}</span>
             </div>
 
-            {/* Nutrition Streak - always visible */}
+            {/* Nutrition Streak - 7 day visual */}
             <div style={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              flexDirection: 'column',
               gap: '10px',
               marginBottom: '12px',
-              padding: '12px 16px',
-              background: isTodayCloseToGoal
-                ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.15) 0%, rgba(255, 193, 7, 0.15) 100%)'
-                : 'var(--bg-card)',
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
               borderRadius: '12px',
-              border: isTodayCloseToGoal
-                ? '1px solid rgba(255, 152, 0, 0.3)'
-                : '1px solid var(--border)',
-              position: 'relative',
-              overflow: 'hidden'
+              border: '1px solid var(--border)'
             }}>
-              {/* Fire glow effect when close to goal */}
-              {isTodayCloseToGoal && (
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'radial-gradient(ellipse at center bottom, rgba(255, 107, 0, 0.2) 0%, transparent 70%)',
-                  animation: 'fireGlow 2s ease-in-out infinite',
-                  pointerEvents: 'none'
-                }} />
-              )}
-
+              {/* Header with streak count */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                position: 'relative',
-                zIndex: 1
+                justifyContent: 'space-between'
               }}>
-                <span
-                  style={{
-                    fontSize: '24px',
-                    animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
-                    filter: isTodayCloseToGoal ? 'drop-shadow(0 0 8px rgba(255, 107, 0, 0.6))' : 'none'
-                  }}
-                >
-                  🔥
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{
-                    fontSize: '18px',
-                    fontWeight: 800,
-                    color: isTodayCloseToGoal ? '#ff6b00' : 'var(--text-primary)',
-                    lineHeight: 1.1
+                    fontSize: '20px',
+                    filter: nutritionStreak > 0 ? 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.5))' : 'grayscale(0.5)'
+                  }}>
+                    🔥
+                  </span>
+                  <span style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: nutritionStreak > 0 ? '#ff6b00' : 'var(--text-muted)'
                   }}>
                     {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
                   </span>
-                  <span style={{
-                    fontSize: '11px',
-                    color: 'var(--text-muted)',
-                    fontWeight: 500
-                  }}>
-                    {nutritionStreak === 0
-                      ? 'Начни серию сегодня!'
-                      : isTodayCloseToGoal
-                        ? '🎯 Сегодня близко к цели!'
-                        : 'серия дней по КБЖУ'}
-                  </span>
                 </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  последние 7 дней
+                </span>
               </div>
 
-              {/* Streak milestones */}
-              {nutritionStreak >= 7 && (
-                <div style={{
-                  padding: '4px 10px',
-                  background: nutritionStreak >= 30
-                    ? 'linear-gradient(135deg, #ff6b00, #ff9500)'
-                    : nutritionStreak >= 14
-                      ? 'linear-gradient(135deg, #9c27b0, #e91e63)'
-                      : 'linear-gradient(135deg, #2196f3, #03a9f4)',
-                  borderRadius: '20px',
-                  position: 'relative',
-                  zIndex: 1
-                }}>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#fff',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                  }}>
-                    {nutritionStreak >= 30 ? '🏆 ЛЕГЕНДА' : nutritionStreak >= 14 ? '⭐ МАСТЕР' : '💪 НЕДЕЛЯ'}
-                  </span>
-                </div>
-              )}
+              {/* 7 day cells */}
+              <div style={{
+                display: 'flex',
+                gap: '6px',
+                justifyContent: 'space-between'
+              }}>
+                {last7Days.map((day) => (
+                  <div
+                    key={day.date}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {/* Day name */}
+                    <span style={{
+                      fontSize: '10px',
+                      color: day.isToday ? 'var(--yellow)' : 'var(--text-muted)',
+                      fontWeight: day.isToday ? 600 : 400
+                    }}>
+                      {day.isToday ? 'Сег' : day.dayName}
+                    </span>
+                    {/* Cell */}
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: day.isToday
+                        ? isTodayCloseToGoal
+                          ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.3) 0%, rgba(255, 193, 7, 0.3) 100%)'
+                          : 'var(--bg-elevated)'
+                        : day.completed
+                          ? 'transparent'
+                          : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(185, 28, 28, 0.1) 100%)',
+                      border: day.isToday
+                        ? isTodayCloseToGoal
+                          ? '2px solid rgba(255, 152, 0, 0.5)'
+                          : '2px dashed var(--border-strong)'
+                        : day.completed
+                          ? 'none'
+                          : '1px solid rgba(239, 68, 68, 0.3)',
+                      opacity: !day.isToday && !day.completed ? 0.7 : 1
+                    }}>
+                      {day.isToday ? (
+                        <span style={{
+                          fontSize: '16px',
+                          animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
+                          filter: isTodayCloseToGoal ? 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8))' : 'none'
+                        }}>
+                          {isTodayCloseToGoal ? '🔥' : '⏳'}
+                        </span>
+                      ) : day.completed ? (
+                        <span style={{
+                          fontSize: '22px',
+                          animation: 'fireBurn 1.5s ease-in-out infinite',
+                          filter: 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.9)) drop-shadow(0 0 12px rgba(255, 193, 7, 0.6))'
+                        }}>🔥</span>
+                      ) : (
+                        <span style={{
+                          fontSize: '14px',
+                          color: 'rgba(239, 68, 68, 0.6)',
+                          fontWeight: 700
+                        }}>✕</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Motivational text */}
+              <div style={{
+                textAlign: 'center',
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                marginTop: '2px'
+              }}>
+                {nutritionStreak === 0
+                  ? 'Выполни план сегодня и начни серию!'
+                  : nutritionStreak >= 7
+                    ? '🏆 Отличная неделя! Так держать!'
+                    : isTodayCloseToGoal
+                      ? '🎯 Сегодня близко к цели!'
+                      : `Ещё ${7 - nutritionStreak} ${7 - nutritionStreak === 1 ? 'день' : 7 - nutritionStreak >= 2 && 7 - nutritionStreak <= 4 ? 'дня' : 'дней'} до полной недели`}
+              </div>
             </div>
 
             {/* Compact Macro summary - 2x2 grid */}
