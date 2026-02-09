@@ -1728,6 +1728,8 @@ export default function FitnessPage() {
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [offDayHoldProgress, setOffDayHoldProgress] = useState(0);
+  const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
 
@@ -2870,19 +2872,60 @@ export default function FitnessPage() {
                   </span>
                 </div>
                 <button
-                  onClick={toggleOffDay}
+                  onMouseDown={() => {
+                    setOffDayHoldProgress(0);
+                    let progress = 0;
+                    offDayHoldRef.current = setInterval(() => {
+                      progress += 5;
+                      setOffDayHoldProgress(progress);
+                      if (progress >= 100) {
+                        if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
+                        toggleOffDay();
+                        setOffDayHoldProgress(0);
+                      }
+                    }, 50);
+                  }}
+                  onMouseUp={() => {
+                    if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
+                    setOffDayHoldProgress(0);
+                  }}
+                  onMouseLeave={() => {
+                    if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
+                    setOffDayHoldProgress(0);
+                  }}
+                  onTouchStart={() => {
+                    setOffDayHoldProgress(0);
+                    let progress = 0;
+                    offDayHoldRef.current = setInterval(() => {
+                      progress += 5;
+                      setOffDayHoldProgress(progress);
+                      if (progress >= 100) {
+                        if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
+                        toggleOffDay();
+                        setOffDayHoldProgress(0);
+                      }
+                    }, 50);
+                  }}
+                  onTouchEnd={() => {
+                    if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
+                    setOffDayHoldProgress(0);
+                  }}
                   style={{
                     padding: '8px 12px',
-                    background: 'var(--bg-elevated)',
+                    background: offDayHoldProgress > 0
+                      ? `linear-gradient(90deg, rgba(147, 112, 219, 0.3) ${offDayHoldProgress}%, var(--bg-elevated) ${offDayHoldProgress}%)`
+                      : 'var(--bg-elevated)',
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
                     color: 'var(--text-muted)',
                     fontSize: '12px',
                     fontWeight: 500,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    transition: 'none',
+                    userSelect: 'none'
                   }}
                 >
-                  {t('cancelOffDay')}
+                  {offDayHoldProgress > 0 ? `${Math.round(offDayHoldProgress)}%` : t('cancelOffDay')}
                 </button>
               </div>
             )}
@@ -3731,23 +3774,28 @@ export default function FitnessPage() {
               );
             })()}
 
-            {/* Compact Macro summary - single row */}
+            {/* Compact Macro summary - 2x2 grid */}
             <div style={{
-              display: 'flex',
-              gap: '4px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '6px',
               marginBottom: '12px'
             }}>
               {/* Protein */}
               <div className="macro-card" style={{
-                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600 }}>Б</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.protein}</span></span>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '3px'
+                }}>
+                  <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600 }}>{t('protein')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '1px' }} />
@@ -3756,15 +3804,19 @@ export default function FitnessPage() {
 
               {/* Fat */}
               <div className="macro-card" style={{
-                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>Ж</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.fat}</span></span>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '3px'
+                }}>
+                  <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>{t('fat')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '1px' }} />
@@ -3773,15 +3825,19 @@ export default function FitnessPage() {
 
               {/* Carbs */}
               <div className="macro-card" style={{
-                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>У</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.carbs}</span></span>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '3px'
+                }}>
+                  <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>{t('carbs')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '1px' }} />
@@ -3790,15 +3846,19 @@ export default function FitnessPage() {
 
               {/* Calories */}
               <div className="macro-card" style={{
-                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--red)', fontWeight: 600 }}>кк</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.calories}</span></span>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '3px'
+                }}>
+                  <span style={{ fontSize: '10px', color: 'var(--red)', fontWeight: 600 }}>{t('kcal')}</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '1px' }} />
@@ -5777,46 +5837,40 @@ export default function FitnessPage() {
         </div>
       )}
 
-      {/* Sync status indicator - bottom */}
-      {syncStatus !== 'idle' && (
-        <div style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '8px 14px',
-          background: syncStatus === 'error' ? 'var(--red-dim)' : 'var(--bg-card)',
-          borderRadius: '20px',
-          border: `1px solid ${syncStatus === 'error' ? 'rgba(255, 107, 107, 0.3)' : 'var(--border)'}`,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-          fontSize: '12px',
-          color: 'var(--text-muted)',
-          zIndex: 100,
-          animation: syncStatus === 'syncing' ? 'pulse 2s ease-in-out infinite' : 'none'
-        }}>
-          {syncStatus === 'syncing' && (
-            <>
-              <Cloud size={14} style={{ color: 'var(--blue)', animation: 'pulse 1s ease-in-out infinite' }} />
-              <span>{t('syncing')}</span>
-            </>
-          )}
-          {syncStatus === 'synced' && (
-            <>
-              <Cloud size={14} style={{ color: 'var(--green)' }} />
-              <span>{t('synced')}</span>
-            </>
-          )}
-          {syncStatus === 'error' && (
-            <>
-              <CloudOff size={14} style={{ color: 'var(--red)' }} />
-              <span>{t('offline')}</span>
-            </>
-          )}
-        </div>
-      )}
+      {/* Footer with sync status */}
+      <footer style={{
+        padding: '12px 20px',
+        borderTop: '1px solid var(--border)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '11px',
+        color: 'var(--text-muted)',
+        background: 'var(--bg-primary)'
+      }}>
+        {syncStatus === 'syncing' && (
+          <>
+            <Cloud size={12} style={{ color: 'var(--blue)', animation: 'pulse 1s ease-in-out infinite' }} />
+            <span>{t('syncing')}</span>
+          </>
+        )}
+        {syncStatus === 'synced' && (
+          <>
+            <Cloud size={12} style={{ color: 'var(--green)' }} />
+            <span>{t('synced')}</span>
+          </>
+        )}
+        {syncStatus === 'error' && (
+          <>
+            <CloudOff size={12} style={{ color: 'var(--red)' }} />
+            <span>{t('offline')}</span>
+          </>
+        )}
+        {syncStatus === 'idle' && (
+          <span style={{ opacity: 0.5 }}>AI Fitness</span>
+        )}
+      </footer>
     </main>
   );
 }
