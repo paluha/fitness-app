@@ -30,70 +30,37 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Motivational messages based on streak
+// Motivational messages based on streak (deterministic to avoid hydration mismatch)
 function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): string {
+  // Use streak as seed for deterministic selection
+  const pick = (arr: string[]) => arr[streak % arr.length];
+
   if (streak === 0) {
-    const zeroMessages = [
-      'Начни сегодня — стань лучше завтра!',
-      'Каждый путь начинается с первого шага',
-      'Сегодня отличный день чтобы начать!',
-      'Твоя серия ждёт тебя 💪'
-    ];
-    return zeroMessages[Math.floor(Math.random() * zeroMessages.length)];
+    return 'Начни сегодня — стань лучше завтра!';
   }
 
   if (isTodayCloseToGoal && streak < 7) {
-    const closeMessages = [
-      '🎯 Почти у цели! Добей сегодня!',
-      '🎯 Ещё чуть-чуть до победы!',
-      '🎯 Сегодня близко — дожми!'
-    ];
-    return closeMessages[Math.floor(Math.random() * closeMessages.length)];
+    return '🎯 Почти у цели! Добей сегодня!';
   }
 
   if (streak === 1) {
-    const day1 = [
-      'Отличное начало! Продолжай! 🚀',
-      'Первый день в кармане! 💪',
-      'Хороший старт — половина дела!'
-    ];
-    return day1[Math.floor(Math.random() * day1.length)];
+    return 'Отличное начало! Продолжай! 🚀';
   }
 
   if (streak === 2) {
-    const day2 = [
-      'Два дня подряд! Ты на верном пути!',
-      'Отлично! Привычка формируется 🔥',
-      'Второй день! Момент набирает силу!'
-    ];
-    return day2[Math.floor(Math.random() * day2.length)];
+    return 'Два дня подряд! Ты на верном пути!';
   }
 
   if (streak >= 3 && streak <= 4) {
-    const days3_4 = [
-      `${streak} дня подряд! Ты машина! 🔥`,
-      'Серия растёт! Не останавливайся!',
-      'Впечатляющий прогресс! 💪'
-    ];
-    return days3_4[Math.floor(Math.random() * days3_4.length)];
+    return `${streak} дня подряд! Ты машина! 🔥`;
   }
 
   if (streak >= 5 && streak <= 6) {
-    const days5_6 = [
-      `${streak} дней! Почти неделя! 🏆`,
-      'Скоро полная неделя! Дожимай!',
-      'Невероятная дисциплина! 🔥'
-    ];
-    return days5_6[Math.floor(Math.random() * days5_6.length)];
+    return `${streak} дней! Почти неделя! 🏆`;
   }
 
   if (streak === 7) {
-    const week1 = [
-      '🏆 НЕДЕЛЯ! Ты легенда!',
-      '🏆 7 дней подряд! Чемпион!',
-      '🏆 Полная неделя! Невероятно!'
-    ];
-    return week1[Math.floor(Math.random() * week1.length)];
+    return '🏆 НЕДЕЛЯ! Ты легенда!';
   }
 
   if (streak > 7 && streak < 14) {
@@ -102,7 +69,7 @@ function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): strin
       'Ты создаёшь историю! 🔥',
       'Железная дисциплина! 💪'
     ];
-    return week1plus[Math.floor(Math.random() * week1plus.length)];
+    return pick(week1plus);
   }
 
   if (streak >= 14 && streak < 21) {
@@ -111,7 +78,7 @@ function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): strin
       'Привычка закреплена! 🏆',
       'Ты неудержим! 🔥'
     ];
-    return weeks2[Math.floor(Math.random() * weeks2.length)];
+    return pick(weeks2);
   }
 
   if (streak >= 21 && streak < 30) {
@@ -120,7 +87,7 @@ function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): strin
       '21+ день — это уже образ жизни!',
       'Мастер дисциплины! 👑'
     ];
-    return weeks3[Math.floor(Math.random() * weeks3.length)];
+    return pick(weeks3);
   }
 
   // 30+ days
@@ -129,7 +96,7 @@ function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): strin
     'Месяц+ подряд! Невероятно! 🌟',
     'Ты вдохновляешь! 🔥👑'
   ];
-  return month[Math.floor(Math.random() * month.length)];
+  return pick(month);
 }
 
 // Rest Timer Component
@@ -2447,7 +2414,7 @@ export default function FitnessPage() {
                 color: 'var(--text-muted)',
                 letterSpacing: '0.5px'
               }}>
-                Artificial Intelligence Fitness
+                <span style={{ color: 'var(--green)' }}>AI</span> Fitness
               </div>
             </div>
           </div>
@@ -3764,28 +3731,23 @@ export default function FitnessPage() {
               );
             })()}
 
-            {/* Compact Macro summary - 2x2 grid */}
+            {/* Compact Macro summary - single row */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '6px',
+              display: 'flex',
+              gap: '4px',
               marginBottom: '12px'
             }}>
               {/* Protein */}
               <div className="macro-card" style={{
+                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600 }}>{t('protein')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600 }}>Б</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.protein}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '1px' }} />
@@ -3794,19 +3756,15 @@ export default function FitnessPage() {
 
               {/* Fat */}
               <div className="macro-card" style={{
+                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>{t('fat')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>Ж</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.fat}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '1px' }} />
@@ -3815,19 +3773,15 @@ export default function FitnessPage() {
 
               {/* Carbs */}
               <div className="macro-card" style={{
+                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>{t('carbs')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>У</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.carbs}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '1px' }} />
@@ -3836,19 +3790,15 @@ export default function FitnessPage() {
 
               {/* Calories */}
               <div className="macro-card" style={{
+                flex: 1,
                 background: 'var(--bg-card)',
                 padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid var(--border)'
               }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--red)', fontWeight: 600 }}>{t('kcal')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--red)', fontWeight: 600 }}>кк</span>
+                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-muted)' }}>/{MACRO_TARGETS.calories}</span></span>
                 </div>
                 <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
                   <div className="progress-fill-animated" style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '1px' }} />
