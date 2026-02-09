@@ -55,6 +55,38 @@
   --border-strong: rgba(255, 255, 255, 0.12);
 }
 
+/* Night mode - blue-tinted dark theme for easier on eyes at night */
+.night-mode {
+  --bg-primary: #050508;
+  --bg-secondary: #08080c;
+  --bg-card: #0c0c12;
+  --bg-elevated: #101018;
+  --bg-input: #14141c;
+
+  /* Warmer, dimmer accent colors */
+  --yellow: #c9a800;
+  --yellow-dim: rgba(201, 168, 0, 0.08);
+  --yellow-glow: rgba(201, 168, 0, 0.2);
+
+  --green: #009940;
+  --green-dim: rgba(0, 153, 64, 0.1);
+  --green-glow: rgba(0, 153, 64, 0.2);
+
+  /* Dimmer, warmer text */
+  --text-primary: #c8c8cc;
+  --text-secondary: #707078;
+  --text-muted: #404048;
+
+  /* Subtle borders */
+  --border: rgba(255, 255, 255, 0.03);
+  --border-strong: rgba(255, 255, 255, 0.06);
+
+  /* Reduce blue light */
+  --blue: #3d8ad4;
+  --cyan: #00b090;
+  --red: #d44060;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

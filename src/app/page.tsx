@@ -762,14 +762,12 @@ function formatDateInTimezone(date: Date, timezone: string): string {
   return date.toLocaleDateString('en-CA', { timeZone: timezone });
 }
 
-function getDateLabel(date: Date, timezone: string = 'Europe/Moscow'): string {
-  const today = getTodayInTimezone(timezone);
+function getDateLabel(date: Date, todayDateStr: string): string {
   const dateStr = formatDate(date);
-  const todayStr = formatDate(today);
 
   // Calculate difference in days
   const dateTime = new Date(dateStr).getTime();
-  const todayTime = new Date(todayStr).getTime();
+  const todayTime = new Date(todayDateStr).getTime();
   const diff = Math.floor((todayTime - dateTime) / (1000 * 60 * 60 * 24));
 
   if (diff === 0) return 'Сегодня';
@@ -1308,9 +1306,17 @@ function FitnessCalendar({
   workouts: Workout[];
   timezone?: string;
 }) {
-  const [currentMonth, setCurrentMonth] = useState(() => getTodayInTimezone(timezone));
+  const [currentMonth, setCurrentMonth] = useState<Date | null>(null);
+
+  // Initialize currentMonth on client to avoid hydration mismatch
+  useEffect(() => {
+    if (!currentMonth) {
+      setCurrentMonth(getTodayInTimezone(timezone));
+    }
+  }, [timezone]);
 
   const monthDays = useMemo(() => {
+    if (!currentMonth) return [];
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -1334,8 +1340,12 @@ function FitnessCalendar({
     return days;
   }, [currentMonth]);
 
-  const today = formatDate(getTodayInTimezone(timezone));
+  const [today, setToday] = useState('');
   const selectedDateStr = formatDate(selectedDate);
+
+  useEffect(() => {
+    setToday(formatDate(getTodayInTimezone(timezone)));
+  }, [timezone]);
 
   // Stats for the month
   const monthStats = useMemo(() => {
@@ -1356,6 +1366,22 @@ function FitnessCalendar({
 
     return { workoutDays, totalSteps, stepDays };
   }, [monthDays, dayLogs]);
+
+  // Don't render until currentMonth is initialized on client
+  if (!currentMonth) {
+    return (
+      <div style={{
+        background: 'var(--bg-card)',
+        borderRadius: '20px',
+        border: '1px solid var(--border)',
+        padding: '40px',
+        textAlign: 'center',
+        color: 'var(--text-muted)'
+      }}>
+        Загрузка...
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -1677,16 +1703,40 @@ function getDefaultWorkout(): string {
 }
 
 export default function FitnessPage() {
-  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('fitness_view');
-      if (saved === 'workout' || saved === 'nutrition' || saved === 'analytics' || saved === 'gains' || saved === 'profile') {
-        return saved;
-      }
-    }
-    return 'workout';
-  });
+  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [todayStr, setTodayStr] = useState(''); // Initialize on client to avoid hydration mismatch
+  const [isNightMode, setIsNightMode] = useState(false);
+
+  // Load saved view from localStorage on client
+  useEffect(() => {
+    const saved = localStorage.getItem('fitness_view');
+    if (saved === 'workout' || saved === 'nutrition' || saved === 'analytics' || saved === 'gains' || saved === 'profile') {
+      setView(saved);
+    }
+  }, []);
+
+  // Night mode - apply to body to avoid hydration issues
+  useEffect(() => {
+    const checkNightMode = () => {
+      const hour = new Date().getHours();
+      const isNight = hour >= 22 || hour < 6;
+      setIsNightMode(isNight);
+
+      if (isNight) {
+        document.body.classList.add('night-mode');
+      } else {
+        document.body.classList.remove('night-mode');
+      }
+    };
+
+    checkNightMode();
+    const interval = setInterval(checkNightMode, 60000);
+    return () => {
+      clearInterval(interval);
+      document.body.classList.remove('night-mode');
+    };
+  }, []);
   const [workouts, setWorkouts] = useState<Workout[]>(DEFAULT_WORKOUTS);
   const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
@@ -1732,6 +1782,8 @@ export default function FitnessPage() {
   const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
+  const [showNightMealPrompt, setShowNightMealPrompt] = useState(false);
+  const [pendingMealData, setPendingMealData] = useState<Meal | null>(null);
 
   // Translation helper
   const t = (key: keyof typeof translations.ru) => translations[userSettings.language][key];
@@ -1767,12 +1819,14 @@ export default function FitnessPage() {
     loadData();
   }, []);
 
-  // Update selectedDate when timezone changes or on initial load
+  // Update selectedDate and todayStr when timezone changes or on initial load
   useEffect(() => {
+    const todayInTz = getTodayInTimezone(userSettings.timezone);
+    const todayKey = formatDate(todayInTz);
+    setTodayStr(todayKey);
+
     if (isLoaded) {
-      const todayInTz = getTodayInTimezone(userSettings.timezone);
       const currentDateKey = formatDate(selectedDate);
-      const todayKey = formatDate(todayInTz);
       // Only update if we're on "today" in a different timezone
       if (currentDateKey !== todayKey) {
         // Check if we should auto-update (only on initial load or if date was "today")
@@ -1848,8 +1902,10 @@ export default function FitnessPage() {
 
   // Calculate current week nutrition status and streak
   const { last7Days, nutritionStreak } = useMemo(() => {
-    const today = getTodayInTimezone(userSettings.timezone);
-    const todayStr = formatDate(today);
+    // Don't calculate until todayStr is initialized on client
+    if (!todayStr) {
+      return { last7Days: [], nutritionStreak: 0 };
+    }
 
     // Check if day meets macro targets (>= 80% for all macros)
     const isDayCompleted = (dateStr: string): boolean => {
@@ -1875,6 +1931,9 @@ export default function FitnessPage() {
     };
 
     // Build current week array (Monday -> Sunday)
+    // Parse todayStr to get today's date
+    const [year, month, day] = todayStr.split('-').map(Number);
+    const today = new Date(year, month - 1, day);
     const dayOfWeek = today.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(today);
@@ -1912,7 +1971,7 @@ export default function FitnessPage() {
     }
 
     return { last7Days: days, nutritionStreak: streak };
-  }, [dayLogs, userSettings.timezone]);
+  }, [dayLogs, todayStr]);
 
   // Check if today is close to completing nutrition targets (>= 60%)
   const isTodayCloseToGoal = useMemo(() => {
@@ -2036,6 +2095,23 @@ export default function FitnessPage() {
     ));
   };
 
+  // Check if it's late night (00:00 - 05:00) for meal prompt
+  const isLateNight = () => {
+    const hour = new Date().getHours();
+    return hour >= 0 && hour < 5;
+  };
+
+  // Add meal to specific date
+  const addMealToDate = (meal: Meal, targetDateKey: string) => {
+    const targetLog = dayLogs[targetDateKey] || { meals: [], steps: 0 };
+    const updatedMeals = [...(targetLog.meals || []), meal];
+
+    setDayLogs(prev => ({
+      ...prev,
+      [targetDateKey]: { ...targetLog, meals: updatedMeals }
+    }));
+  };
+
   const addMeal = () => {
     const newMeal: Meal = {
       id: Date.now().toString(),
@@ -2049,13 +2125,40 @@ export default function FitnessPage() {
 
     if (editingMeal) {
       updateDayLog({ meals: currentDayLog.meals.map(m => m.id === editingMeal.id ? { ...newMeal, id: editingMeal.id } : m) });
+      setShowMealModal(false);
+      setEditingMeal(null);
+      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+    } else if (isLateNight() && !editingMeal) {
+      // Late night - ask which day to log
+      setPendingMealData(newMeal);
+      setShowMealModal(false);
+      setShowNightMealPrompt(true);
+      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
     } else {
       updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
+      setShowMealModal(false);
+      setEditingMeal(null);
+      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+    }
+  };
+
+  // Handle night meal day selection
+  const handleNightMealDaySelect = (useYesterday: boolean) => {
+    if (!pendingMealData) return;
+
+    if (useYesterday) {
+      // Get yesterday's date
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = formatDate(yesterday);
+      addMealToDate(pendingMealData, yesterdayKey);
+    } else {
+      // Add to current day (today)
+      updateDayLog({ meals: [...currentDayLog.meals, pendingMealData] });
     }
 
-    setShowMealModal(false);
-    setEditingMeal(null);
-    setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+    setPendingMealData(null);
+    setShowNightMealPrompt(false);
   };
 
   const deleteMeal = (mealId: string) => {
@@ -2364,12 +2467,15 @@ export default function FitnessPage() {
   };
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--bg-primary)'
-    }}>
+    <main
+      suppressHydrationWarning
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-primary)'
+      }}
+    >
       {/* Header */}
       <header style={{
         padding: '16px 20px',
@@ -2401,15 +2507,15 @@ export default function FitnessPage() {
             }}>
               {/* Trainx logo - T with dynamic X */}
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                {/* T letter - shifted down */}
-                <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#000" />
-                <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#000" />
+                {/* T letter */}
+                <rect x="4" y="5" width="12" height="3.5" rx="1" fill="#000" />
+                <rect x="8.25" y="5" width="3.5" height="16" rx="1" fill="#000" />
                 {/* X accent */}
-                <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-                <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+                <path d="M15 13L22 20" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+                <path d="M22 13L15 20" stroke="#000" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
-            <div>
+            <div style={{ marginTop: '-2px' }}>
               <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Trainx</h1>
               <div style={{
                 fontSize: '11px',
@@ -2420,6 +2526,9 @@ export default function FitnessPage() {
               </div>
             </div>
           </div>
+
+          {/* Night Mode Indicator */}
+          {isNightMode && <span style={{ fontSize: '18px' }}>🌙</span>}
 
           {/* Date Navigator */}
           <div style={{
@@ -2445,13 +2554,16 @@ export default function FitnessPage() {
             >
               <ChevronLeft size={18} />
             </button>
-            <span style={{
-              fontWeight: 600,
-              minWidth: '90px',
-              textAlign: 'center',
-              fontSize: '13px'
-            }}>
-              {getDateLabel(selectedDate, userSettings.timezone)}
+            <span
+              suppressHydrationWarning
+              style={{
+                fontWeight: 600,
+                minWidth: '90px',
+                textAlign: 'center',
+                fontSize: '13px'
+              }}
+            >
+              {todayStr ? getDateLabel(selectedDate, todayStr) : selectedDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}
             </span>
             <button
               onClick={() => navigateDate(1)}
@@ -2748,8 +2860,10 @@ export default function FitnessPage() {
                 gap: '4px'
               }}>
                 {(() => {
-                  const today = getTodayInTimezone(userSettings.timezone);
-                  const todayStr = formatDate(today);
+                  if (!todayStr) return null;
+                  // Parse todayStr to get today's date
+                  const [year, month, day] = todayStr.split('-').map(Number);
+                  const today = new Date(year, month - 1, day);
                   // Get Monday of current week
                   const dayOfWeek = today.getDay();
                   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -4902,6 +5016,73 @@ export default function FitnessPage() {
                 {t('save')}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Night Meal Day Selection Modal */}
+      {showNightMealPrompt && pendingMealData && (
+        <div className="modal-overlay" onClick={() => {
+          setShowNightMealPrompt(false);
+          setPendingMealData(null);
+        }}>
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              padding: '24px',
+              maxWidth: '320px',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌙</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
+              Поздний перекус
+            </div>
+            <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '24px' }}>
+              На какой день записать «{pendingMealData.name}»?
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                onClick={() => handleNightMealDaySelect(true)}
+                style={{
+                  padding: '14px 20px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  color: 'var(--text-primary)',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span>⬅️</span> Вчера (ещё не спал)
+              </button>
+              <button
+                onClick={() => handleNightMealDaySelect(false)}
+                style={{
+                  padding: '14px 20px',
+                  background: 'var(--yellow)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#000',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span>➡️</span> Сегодня (новый день)
+              </button>
+            </div>
           </div>
         </div>
       )}
