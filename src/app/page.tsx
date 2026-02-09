@@ -1534,6 +1534,9 @@ function FitnessCalendar({
           const hasWorkout = log?.dayClosed && !isOffDay;
           const hasSteps = log?.steps && log.steps > 0 && !hasWorkout && !isOffDay;
 
+          // Незакрытый прошлый день (не сегодня, не будущий, не закрыт)
+          const isUnclosedPastDay = !isFuture && !isToday && !log?.dayClosed && !isOffDay;
+
           // Get completed workout label
           const completedWorkoutId = log?.workoutCompleted;
           const completedWorkout = completedWorkoutId
@@ -1545,9 +1548,12 @@ function FitnessCalendar({
 
           // Определяем стиль фона
           const getBackground = () => {
+            if (isSelected && isToday) return 'linear-gradient(135deg, var(--yellow) 0%, var(--green) 100%)';
             if (isSelected) return 'var(--yellow)';
+            if (isToday) return 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)';
             if (hasWorkout) return 'var(--green-dim)';
-            if (isOffDay) return 'rgba(147, 112, 219, 0.15)'; // Calming purple for off days
+            if (isOffDay) return 'rgba(147, 112, 219, 0.15)';
+            if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.15)'; // Red dim for unclosed
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -1555,27 +1561,49 @@ function FitnessCalendar({
 
           // Определяем цвет текста
           const getColor = () => {
+            if (isSelected && isToday) return '#000';
             if (isSelected) return '#000';
+            if (isToday) return 'var(--yellow)';
             if (hasWorkout) return 'var(--green)';
-            if (isOffDay) return 'rgb(147, 112, 219)'; // Purple for off days
+            if (isOffDay) return 'rgb(147, 112, 219)';
+            if (isUnclosedPastDay) return 'var(--red)';
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
+          };
+
+          // Parse date correctly to avoid timezone issues
+          const [year, month, dayNum] = d.dateStr.split('-').map(Number);
+          const clickDate = new Date(year, month - 1, dayNum);
+
+          // Определяем border
+          const getBorder = () => {
+            if (isToday && isSelected) return '2px solid var(--green)';
+            if (isToday) return '2px solid var(--yellow)';
+            if (isUnclosedPastDay && !isSelected) return '1px solid rgba(239, 68, 68, 0.5)';
+            if (hasWorkout && !isSelected) return '1px solid rgba(0, 200, 83, 0.3)';
+            if (isOffDay && !isSelected) return '1px solid rgba(147, 112, 219, 0.3)';
+            return '1px solid transparent';
+          };
+
+          // Определяем boxShadow
+          const getBoxShadow = () => {
+            if (isSelected && isToday) return '0 4px 20px rgba(0, 200, 83, 0.4)';
+            if (isSelected) return '0 4px 20px var(--yellow-glow)';
+            if (isToday) return '0 2px 12px rgba(255, 193, 7, 0.3)';
+            if (hasWorkout) return '0 2px 8px var(--green-glow)';
+            if (isOffDay) return '0 2px 8px rgba(147, 112, 219, 0.2)';
+            if (isUnclosedPastDay) return '0 2px 8px rgba(239, 68, 68, 0.2)';
+            return 'none';
           };
 
           return (
             <button
               key={d.day}
-              onClick={() => onSelectDate(new Date(d.dateStr))}
+              onClick={() => onSelectDate(clickDate)}
               style={{
                 aspectRatio: '1',
                 background: getBackground(),
-                border: isToday
-                  ? '2px solid var(--yellow)'
-                  : hasWorkout && !isSelected
-                    ? '1px solid rgba(0, 200, 83, 0.3)'
-                    : isOffDay && !isSelected
-                      ? '1px solid rgba(147, 112, 219, 0.3)'
-                      : '1px solid transparent',
+                border: getBorder(),
                 borderRadius: '10px',
                 cursor: isFuture ? 'default' : 'pointer',
                 display: 'flex',
@@ -1584,21 +1612,17 @@ function FitnessCalendar({
                 justifyContent: 'center',
                 gap: '1px',
                 color: getColor(),
-                fontWeight: isToday || isSelected || hasWorkout || isOffDay ? 700 : 500,
+                fontWeight: isToday || isSelected || hasWorkout || isOffDay || isUnclosedPastDay ? 700 : 500,
                 fontSize: '14px',
                 transition: 'all 0.2s ease',
-                boxShadow: isSelected
-                  ? '0 4px 20px var(--yellow-glow)'
-                  : hasWorkout && !isSelected
-                    ? '0 2px 8px var(--green-glow)'
-                    : isOffDay && !isSelected
-                      ? '0 2px 8px rgba(147, 112, 219, 0.2)'
-                      : 'none',
+                boxShadow: getBoxShadow(),
                 opacity: isFuture ? 0.4 : 1
               }}
             >
               <span>{d.day}</span>
-              {hasWorkout ? (
+              {isToday && !isSelected ? (
+                <span style={{ fontSize: '8px', color: 'var(--yellow)' }}>сегодня</span>
+              ) : hasWorkout ? (
                 <span style={{
                   fontSize: '9px',
                   fontWeight: 700,
@@ -1612,6 +1636,8 @@ function FitnessCalendar({
                 </span>
               ) : isOffDay ? (
                 <span style={{ fontSize: '10px' }}>😴</span>
+              ) : isUnclosedPastDay ? (
+                <span style={{ fontSize: '8px', color: 'var(--red)' }}>!</span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
@@ -1687,10 +1713,32 @@ function FitnessCalendar({
             width: '14px',
             height: '14px',
             borderRadius: '4px',
-            border: '2px solid var(--green)',
-            background: 'transparent'
+            border: '2px solid var(--yellow)',
+            background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)'
           }} />
           Сегодня
+        </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '11px',
+          color: 'var(--text-muted)'
+        }}>
+          <div style={{
+            width: '14px',
+            height: '14px',
+            borderRadius: '4px',
+            border: '1px solid rgba(239, 68, 68, 0.5)',
+            background: 'rgba(239, 68, 68, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '9px',
+            color: 'var(--red)',
+            fontWeight: 700
+          }}>!</div>
+          Не закрыто
         </div>
       </div>
     </div>
@@ -1760,8 +1808,10 @@ export default function FitnessPage() {
       carbs: number;
       calories: number;
       isFavorite: boolean;
+      reason?: string;
     }>;
     tip: string;
+    warning?: string | null;
   } | null>(null);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const foodImageInputRef = useRef<HTMLInputElement>(null);
@@ -2087,6 +2137,32 @@ export default function FitnessPage() {
       .slice(0, 5);
   }, [mealForm.name, uniqueMeals]);
 
+  // Get all unique meals from history sorted by frequency
+  const mealHistory = useMemo(() => {
+    const history: Record<string, { meal: Meal; count: number; lastDate: string }> = {};
+
+    // Collect meals from all days except today
+    Object.entries(dayLogs).forEach(([date, log]) => {
+      if (date === dateKey) return; // Skip today
+      log.meals?.forEach(meal => {
+        const key = meal.name.toLowerCase();
+        if (!history[key]) {
+          history[key] = { meal, count: 0, lastDate: date };
+        }
+        history[key].count++;
+        // Update lastDate if this date is more recent
+        if (date > history[key].lastDate) {
+          history[key].lastDate = date;
+        }
+      });
+    });
+
+    // Convert to array and sort by frequency
+    return Object.values(history)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [dayLogs, dateKey]);
+
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     setWorkouts(prev => prev.map(w =>
       w.id === workoutId
@@ -2234,6 +2310,15 @@ export default function FitnessPage() {
     }
   };
 
+  // Determine current meal time based on hour
+  const getMealTime = (): 'morning' | 'day' | 'evening' | 'night' => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 18) return 'day';
+    if (hour >= 18 && hour < 22) return 'evening';
+    return 'night';
+  };
+
   // Get AI food recommendations
   const getFoodRecommendations = async () => {
     setIsLoadingRecommendations(true);
@@ -2246,6 +2331,20 @@ export default function FitnessPage() {
         fat: Math.max(0, MACRO_TARGETS.fat - macroTotals.fat),
         carbs: Math.max(0, MACRO_TARGETS.carbs - macroTotals.carbs),
         calories: Math.max(0, MACRO_TARGETS.calories - macroTotals.calories)
+      };
+
+      const currentMacros = {
+        protein: macroTotals.protein,
+        fat: macroTotals.fat,
+        carbs: macroTotals.carbs,
+        calories: macroTotals.calories
+      };
+
+      const targetMacros = {
+        protein: MACRO_TARGETS.protein,
+        fat: MACRO_TARGETS.fat,
+        carbs: MACRO_TARGETS.carbs,
+        calories: MACRO_TARGETS.calories
       };
 
       // Collect favorite meals from all day logs
@@ -2269,8 +2368,16 @@ export default function FitnessPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           remainingMacros,
+          currentMacros,
+          targetMacros,
           favoriteMeals: favMeals,
-          language: userSettings.language
+          language: userSettings.language,
+          mealTime: getMealTime(),
+          nutritionRecommendations: nutritionRecommendations?.map(r => ({
+            title: r.title,
+            description: r.description
+          })) || null,
+          goal: null // TODO: add user goal setting
         })
       });
 
@@ -2549,7 +2656,8 @@ export default function FitnessPage() {
                 padding: '8px 10px',
                 borderRadius: '8px',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                cursor: 'pointer'
               }}
             >
               <ChevronLeft size={18} />
@@ -2574,7 +2682,8 @@ export default function FitnessPage() {
                 padding: '8px 10px',
                 borderRadius: '8px',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                cursor: 'pointer'
               }}
             >
               <ChevronRight size={18} />
@@ -3629,13 +3738,16 @@ export default function FitnessPage() {
                       cursor: day.isFuture ? 'default' : 'pointer'
                     }}
                   >
-                    {/* Day name */}
+                    {/* Day name and number */}
                     <span style={{
                       fontSize: '10px',
                       color: day.isToday ? 'var(--yellow)' : 'var(--text-muted)',
-                      fontWeight: day.isToday ? 600 : 400
+                      fontWeight: day.isToday ? 600 : 400,
+                      textAlign: 'center'
                     }}>
                       {day.isToday ? 'Сег' : day.dayName}
+                      <br />
+                      <span style={{ fontSize: '9px' }}>{day.date.split('-')[2]}</span>
                     </span>
                     {/* Cell */}
                     <div style={{
@@ -3713,7 +3825,9 @@ export default function FitnessPage() {
                 calories: acc.calories + m.calories
               }), { protein: 0, fat: 0, carbs: 0, calories: 0 });
               const dayInfo = last7Days.find(d => d.date === streakDetailDate);
-              const dateObj = new Date(streakDetailDate);
+              // Parse date correctly to avoid timezone issues
+              const [year, month, dayNum] = streakDetailDate.split('-').map(Number);
+              const dateObj = new Date(year, month - 1, dayNum);
               const dateStr = dateObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
 
               return (
@@ -5118,6 +5232,79 @@ export default function FitnessPage() {
               </button>
             </div>
 
+            {/* Quick add from history - only when adding new meal */}
+            {!editingMeal && mealHistory.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <History size={14} />
+                  {userSettings.language === 'ru' ? 'Быстрое добавление' : 'Quick add'}
+                </div>
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  paddingBottom: '8px'
+                }}>
+                  {mealHistory.slice(0, 6).map((item, idx) => (
+                    <button
+                      key={`history-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        const newMeal: Meal = {
+                          id: Date.now().toString(),
+                          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                          name: item.meal.name,
+                          protein: item.meal.protein,
+                          fat: item.meal.fat,
+                          carbs: item.meal.carbs,
+                          calories: item.meal.calories
+                        };
+                        updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
+                        setShowMealModal(false);
+                      }}
+                      style={{
+                        flexShrink: 0,
+                        padding: '10px 14px',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        minWidth: '120px',
+                        maxWidth: '160px'
+                      }}
+                    >
+                      <div style={{
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {item.meal.name}
+                      </div>
+                      <div style={{
+                        fontSize: '10px',
+                        color: 'var(--text-muted)',
+                        marginTop: '4px'
+                      }}>
+                        {item.meal.protein}Б {item.meal.fat}Ж {item.meal.carbs}У
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* AI Scan Section */}
             {!editingMeal && (
               <div style={{ marginBottom: '16px' }}>
@@ -5595,6 +5782,24 @@ export default function FitnessPage() {
                 </div>
               ) : foodRecommendations ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Warning */}
+                  {foodRecommendations.warning && (
+                    <div style={{
+                      background: 'var(--red-dim)',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--red)',
+                      display: 'flex',
+                      gap: '10px',
+                      alignItems: 'flex-start'
+                    }}>
+                      <span style={{ fontSize: '16px' }}>⚠️</span>
+                      <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                        {foodRecommendations.warning}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Analysis */}
                   <div style={{
                     background: 'var(--bg-elevated)',
@@ -5613,7 +5818,7 @@ export default function FitnessPage() {
                       {userSettings.language === 'ru' ? 'Рекомендации' : 'Suggestions'}
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {foodRecommendations.suggestions?.map((suggestion: { name: string; description: string; protein: number; fat: number; carbs: number; calories: number; isFavorite?: boolean }, idx: number) => (
+                      {foodRecommendations.suggestions?.map((suggestion: { name: string; description: string; protein: number; fat: number; carbs: number; calories: number; isFavorite?: boolean; reason?: string }, idx: number) => (
                         <div
                           key={idx}
                           className="card-hover"
@@ -5656,9 +5861,14 @@ export default function FitnessPage() {
                             </div>
                             <Plus size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
                             {suggestion.description}
                           </div>
+                          {suggestion.reason && (
+                            <div style={{ fontSize: '11px', color: 'var(--purple)', marginBottom: '8px', fontStyle: 'italic' }}>
+                              {suggestion.reason}
+                            </div>
+                          )}
                           <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
                             <span style={{ color: 'var(--blue)' }}>Б: {suggestion.protein}г</span>
                             <span style={{ color: 'var(--yellow)' }}>Ж: {suggestion.fat}г</span>

@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// POST - Get AI food recommendations based on remaining macros
+interface NutritionRec {
+  title: string;
+  description: string;
+}
+
+// POST - Get AI food recommendations based on context
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -11,11 +16,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { remainingMacros, favoriteMeals, language } = await request.json();
+    const {
+      remainingMacros,
+      currentMacros,
+      targetMacros,
+      favoriteMeals,
+      language,
+      mealTime,
+      nutritionRecommendations,
+      goal
+    } = await request.json();
 
-    // remainingMacros: { protein: number, fat: number, carbs: number, calories: number }
+    // remainingMacros: { protein, fat, carbs, calories } - что осталось добрать
+    // currentMacros: { protein, fat, carbs, calories } - уже съедено за день
+    // targetMacros: { protein, fat, carbs, calories } - цель на день
     // favoriteMeals: array of { name, protein, fat, carbs, calories }
     // language: 'ru' | 'en'
+    // mealTime: 'morning' | 'day' | 'evening' | 'night' | 'pre_workout' | 'post_workout'
+    // nutritionRecommendations: array of { title, description } - рекомендации тренера
+    // goal: 'lose_weight' | 'gain_mass' | 'maintain' | null
 
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 
@@ -27,44 +46,87 @@ export async function POST(request: Request) {
 
     // Build favorites context
     const favoritesContext = favoriteMeals && favoriteMeals.length > 0
-      ? `\n\nUser's favorite meals (prefer these when appropriate):\n${favoriteMeals.map((m: { name: string; protein: number; fat: number; carbs: number; calories: number }) =>
-          `- ${m.name}: ${m.protein}g protein, ${m.fat}g fat, ${m.carbs}g carbs, ${m.calories} kcal`
+      ? `\n\n${isRussian ? 'Любимые блюда пользователя (предпочтительно их, если подходят)' : 'User\'s favorite meals (prefer these when appropriate)'}:\n${favoriteMeals.map((m: { name: string; protein: number; fat: number; carbs: number; calories: number }) =>
+          `- ${m.name}: ${m.protein}г белка, ${m.fat}г жира, ${m.carbs}г углеводов, ${m.calories} ккал`
         ).join('\n')}`
       : '';
 
-    const prompt = `You are a nutrition assistant. The user needs to eat more to reach their daily macro goals.
+    // Build trainer recommendations context
+    const trainerContext = nutritionRecommendations && nutritionRecommendations.length > 0
+      ? `\n\n🎯 РЕКОМЕНДАЦИИ ТРЕНЕРА (ВАЖНО - следуй этим указаниям!):\n${nutritionRecommendations.map((r: NutritionRec) =>
+          `- ${r.title}: ${r.description}`
+        ).join('\n')}`
+      : '';
 
-Remaining macros needed:
-- Protein: ${remainingMacros.protein}g
-- Fat: ${remainingMacros.fat}g
-- Carbs: ${remainingMacros.carbs}g
-- Calories: ${remainingMacros.calories} kcal
+    // Build goal context
+    const goalText = goal === 'lose_weight' ? 'ПОХУДЕНИЕ (дефицит калорий, больше белка, меньше углеводов вечером)'
+      : goal === 'gain_mass' ? 'НАБОР МАССЫ (профицит калорий, много белка и углеводов)'
+      : goal === 'maintain' ? 'ПОДДЕРЖАНИЕ ВЕСА (сбалансированное питание)'
+      : 'Не указана';
+
+    // Build meal time context
+    const mealTimeContext = {
+      morning: '🌅 УТРО - Хорошо: каши, яйца, творог, хлебцы. Белок + сложные углеводы для энергии на день.',
+      day: '☀️ ДЕНЬ - Основной приём пищи. Можно всё: мясо, рыба, гарнир, овощи.',
+      evening: '🌙 ВЕЧЕР - Лёгкий белок + овощи. Меньше углеводов. Творог, рыба, курица.',
+      night: '🌑 НОЧЬ - Только лёгкий белок если голодно. Творог, казеин. Минимум углеводов!',
+      pre_workout: '💪 ДО ТРЕНИРОВКИ (1-2 часа) - Углеводы + немного белка. Рис, картофель, банан.',
+      post_workout: '🏋️ ПОСЛЕ ТРЕНИРОВКИ (до 1 часа) - Быстрые углеводы + белок. Whey + банан, рисовые хлебцы.'
+    }[mealTime] || '';
+
+    // Calculate what's most needed
+    const proteinPct = currentMacros ? (currentMacros.protein / targetMacros.protein * 100).toFixed(0) : '?';
+    const fatPct = currentMacros ? (currentMacros.fat / targetMacros.fat * 100).toFixed(0) : '?';
+    const carbsPct = currentMacros ? (currentMacros.carbs / targetMacros.carbs * 100).toFixed(0) : '?';
+    const caloriesPct = currentMacros ? (currentMacros.calories / targetMacros.calories * 100).toFixed(0) : '?';
+
+    const prompt = `Ты - умный помощник по питанию. Помоги пользователю выбрать следующий приём пищи.
+
+📊 ТЕКУЩИЙ ПРОГРЕСС ЗА ДЕНЬ:
+- Белок: ${currentMacros?.protein || 0}г из ${targetMacros?.protein || 200}г (${proteinPct}%)
+- Жиры: ${currentMacros?.fat || 0}г из ${targetMacros?.fat || 90}г (${fatPct}%)
+- Углеводы: ${currentMacros?.carbs || 0}г из ${targetMacros?.carbs || 200}г (${carbsPct}%)
+- Калории: ${currentMacros?.calories || 0} из ${targetMacros?.calories || 2400} ккал (${caloriesPct}%)
+
+⏰ ОСТАЛОСЬ ДОБРАТЬ:
+- Белок: ${remainingMacros.protein}г
+- Жиры: ${remainingMacros.fat}г
+- Углеводы: ${remainingMacros.carbs}г
+- Калории: ${remainingMacros.calories} ккал
+
+🎯 ЦЕЛЬ ПОЛЬЗОВАТЕЛЯ: ${goalText}
+
+⏰ ВРЕМЯ ПРИЁМА ПИЩИ: ${mealTimeContext || 'Не указано'}
+${trainerContext}
 ${favoritesContext}
 
-Suggest 2-3 meal options that would help them reach these goals. Consider:
-1. If user has favorites that fit - suggest those first
-2. Suggest practical, common foods
-3. Include portion sizes
-4. Focus on what's most needed (if low protein - suggest protein-rich foods, etc.)
+ЛОГИКА РЕКОМЕНДАЦИЙ:
+1. ПРИОРИТЕТ №1: Учитывай рекомендации тренера (если есть) - там указаны разрешённые продукты и время
+2. ПРИОРИТЕТ №2: Смотри на текущий прогресс - что нужно добрать больше всего
+3. ПРИОРИТЕТ №3: Учитывай время суток - утром можно углеводы, вечером меньше
+4. ПРИОРИТЕТ №4: Учитывай цель - при похудении меньше углеводов вечером, при наборе можно больше
+5. Если цель близка к выполнению (>90%) - предложи лёгкий перекус или сообщи что можно не есть
 
-Respond in ${isRussian ? 'Russian' : 'English'} with JSON format:
+Предложи 2-3 варианта еды, подходящих именно сейчас.
+
+Ответь ТОЛЬКО JSON в формате:
 {
-  "analysis": "Brief analysis of what macros are most needed (1-2 sentences)",
+  "analysis": "Краткий анализ: что съедено, чего не хватает, что лучше сейчас (2-3 предложения)",
   "suggestions": [
     {
-      "name": "meal name",
-      "description": "brief description with portion size",
-      "protein": number,
-      "fat": number,
-      "carbs": number,
-      "calories": number,
-      "isFavorite": boolean
+      "name": "название блюда",
+      "description": "описание с размером порции",
+      "protein": число,
+      "fat": число,
+      "carbs": число,
+      "calories": число,
+      "isFavorite": boolean,
+      "reason": "почему именно это блюдо подходит сейчас"
     }
   ],
-  "tip": "One practical tip for the user"
-}
-
-Only respond with JSON, no markdown.`;
+  "tip": "Один практический совет",
+  "warning": "Предупреждение если что-то не так (переедание, неподходящее время и т.д.) или null"
+}`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
@@ -81,7 +143,7 @@ Only respond with JSON, no markdown.`;
           ],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 800
+            maxOutputTokens: 1000
           }
         })
       }
