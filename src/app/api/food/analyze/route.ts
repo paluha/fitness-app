@@ -11,10 +11,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { image, type } = await request.json();
+    const { image, type, hint } = await request.json();
 
     // image should be base64 encoded
     // type: 'nutrition_label' | 'food_photo'
+    // hint: optional user hint to help identify food (e.g., "жареная курица")
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
@@ -49,11 +50,11 @@ Respond ONLY with a JSON object in this exact format:
 
 If you cannot read some values, use 0. Do not include any explanation, only the JSON.`
       : `Analyze this photo of food/meal. Estimate the nutritional content based on what you see.
-
+${hint ? `\nUSER HINT: The user says this is "${hint}". Use this information to better identify the food and its preparation method (e.g., fried, boiled, with sauce, etc.).\n` : ''}
 IMPORTANT: If you see a kitchen scale with a digital display showing weight in grams, READ THE EXACT WEIGHT from the display and use it for precise calculation. Look for numbers on any electronic scale display.
 
 Steps:
-1. Identify the food item(s)
+1. Identify the food item(s)${hint ? ' (consider the user hint)' : ''}
 2. Check if there's a scale with visible weight reading
 3. If weight is visible - calculate KBJU based on exact weight
 4. If no scale - estimate portion size visually

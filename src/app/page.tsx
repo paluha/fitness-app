@@ -812,14 +812,12 @@ function getDateLabel(date: Date, timezone: string = 'Europe/Moscow'): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory, onSaveProgress }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
   onUpdate: (updates: Partial<Exercise>) => void;
-  workoutId: string;
   progressHistory: ExerciseProgress[];
-  onSaveProgress: (weight: string, notes: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -1007,32 +1005,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             </div>
           </div>
 
-          {/* Unmark button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-              setExpanded(false);
-            }}
-            style={{
-              width: '100%',
-              padding: '8px',
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <X size={14} />
-            Снять отметку
-          </button>
         </div>
       )}
 
@@ -1048,18 +1020,31 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
               <label style={{
                 fontSize: '11px',
                 color: 'var(--text-muted)',
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
                 marginBottom: '6px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
                 Текущий вес
+                {progressHistory.length > 0 && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: 'var(--blue)',
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    letterSpacing: 'normal'
+                  }}>
+                    (пред: {progressHistory[progressHistory.length - 1].weight})
+                  </span>
+                )}
               </label>
               <input
                 type="text"
                 value={ex.actualSets}
                 onChange={(e) => onUpdate({ actualSets: e.target.value })}
-                placeholder="0 кг"
+                placeholder={progressHistory.length > 0 ? progressHistory[progressHistory.length - 1].weight : "0 кг"}
                 style={{
                   width: '100%',
                   background: 'var(--bg-elevated)',
@@ -1155,31 +1140,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
             </div>
           </div>
 
-          {/* Save progress & History buttons */}
-          <div style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
-            {ex.actualSets && (
-              <button
-                onClick={() => onSaveProgress(ex.actualSets, ex.feedback)}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: 'var(--yellow-dim)',
-                  border: '1px solid rgba(255, 232, 4, 0.3)',
-                  borderRadius: '10px',
-                  color: 'var(--yellow)',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Save size={16} /> Сохранить прогресс
-              </button>
-            )}
-            {progressHistory.length > 0 && (
+          {/* History button */}
+          {progressHistory.length > 0 && (
+            <div style={{ marginTop: '14px' }}>
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 style={{
@@ -1196,10 +1159,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, workoutId, progressHistory,
                   gap: '8px'
                 }}
               >
-                <History size={16} /> {progressHistory.length}
+                <History size={16} /> История ({progressHistory.length})
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Progress History */}
           {showHistory && progressHistory.length > 0 && (
@@ -1767,6 +1730,7 @@ export default function FitnessPage() {
   const [isAnalyzingFood, setIsAnalyzingFood] = useState(false);
   const [foodAnalysisError, setFoodAnalysisError] = useState<string | null>(null);
   const [showScanOptions, setShowScanOptions] = useState(false);
+  const [foodHint, setFoodHint] = useState('');
   const foodImageInputRef = useRef<HTMLInputElement>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
@@ -2127,7 +2091,7 @@ export default function FitnessPage() {
   };
 
   // Food AI Analysis
-  const analyzeFood = async (file: File, type: 'nutrition_label' | 'food_photo') => {
+  const analyzeFood = async (file: File, type: 'nutrition_label' | 'food_photo', hint?: string) => {
     setIsAnalyzingFood(true);
     setFoodAnalysisError(null);
     setShowScanOptions(false);
@@ -2145,7 +2109,7 @@ export default function FitnessPage() {
       const response = await fetch('/api/food/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image, type }),
+        body: JSON.stringify({ image: base64Image, type, hint: hint || undefined }),
       });
 
       const result = await response.json();
@@ -2173,7 +2137,8 @@ export default function FitnessPage() {
   const handleFoodImageSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'nutrition_label' | 'food_photo') => {
     const file = e.target.files?.[0];
     if (file) {
-      analyzeFood(file, type);
+      analyzeFood(file, type, foodHint);
+      setFoodHint(''); // Clear hint after use
     }
     // Reset input
     if (foodImageInputRef.current) {
@@ -3071,22 +3036,9 @@ export default function FitnessPage() {
                       key={ex.id}
                       ex={ex}
                       idx={idx}
-                      workoutId={workoutId}
                       onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
-                      onSaveProgress={(weight, notes) => {
-                        if (viewingPastWorkout) return;
-                        const newEntry: ExerciseProgress = {
-                          date: formatDate(selectedDate),
-                          weight,
-                          notes
-                        };
-                        setProgressHistory(prev => ({
-                          ...prev,
-                          [exerciseKey]: [...(prev[exerciseKey] || []), newEntry]
-                        }));
-                      }}
                     />
                   );
                 })
@@ -4730,6 +4682,27 @@ export default function FitnessPage() {
                       handleFoodImageSelect(e, scanType || 'food_photo');
                     }}
                   />
+
+                  {/* Hint input for AI */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <input
+                      type="text"
+                      value={foodHint}
+                      onChange={(e) => setFoodHint(e.target.value)}
+                      placeholder={userSettings.language === 'ru'
+                        ? 'Подсказка для AI (напр: жареная курица, без масла)'
+                        : 'Hint for AI (e.g.: fried chicken, no oil)'}
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px'
+                      }}
+                    />
+                  </div>
 
                   {isAnalyzingFood ? (
                     <div style={{
