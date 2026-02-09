@@ -3476,16 +3476,16 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{
-                    fontSize: '20px',
+                    fontSize: '16px',
                     filter: nutritionStreak > 0 ? 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.5))' : 'grayscale(0.5)'
                   }}>
                     🔥
                   </span>
                   <span style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
+                    fontSize: '11px',
+                    fontWeight: 600,
                     color: nutritionStreak > 0 ? '#ff6b00' : 'var(--text-muted)'
                   }}>
                     {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
