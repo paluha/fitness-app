@@ -8,7 +8,7 @@ import {
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
-  Camera, Loader2, ScanLine, Video, ExternalLink
+  Camera, ScanLine, Video, ExternalLink, Sparkles
 } from 'lucide-react';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -879,7 +879,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
           <div style={{
             fontWeight: 600,
             fontSize: ex.completed ? '13px' : '14px',
-            color: ex.completed ? 'var(--green)' : 'var(--text-primary)',
+            color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)',
             display: 'flex',
             alignItems: 'center',
             gap: '6px'
@@ -933,7 +933,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
 
         {/* Chevron for all items */}
         <div style={{
-          color: ex.completed ? 'var(--green)' : 'var(--text-muted)',
+          color: 'var(--text-muted)',
           transition: 'transform 0.2s ease',
           transform: expanded ? 'rotate(180deg)' : 'rotate(0)'
         }}>
@@ -1731,6 +1731,22 @@ export default function FitnessPage() {
   const [foodAnalysisError, setFoodAnalysisError] = useState<string | null>(null);
   const [showScanOptions, setShowScanOptions] = useState(false);
   const [foodHint, setFoodHint] = useState('');
+  const [streakDetailDate, setStreakDetailDate] = useState<string | null>(null);
+  const [showFoodAssistant, setShowFoodAssistant] = useState(false);
+  const [foodRecommendations, setFoodRecommendations] = useState<{
+    analysis: string;
+    suggestions: Array<{
+      name: string;
+      description: string;
+      protein: number;
+      fat: number;
+      carbs: number;
+      calories: number;
+      isFavorite: boolean;
+    }>;
+    tip: string;
+  } | null>(null);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const foodImageInputRef = useRef<HTMLInputElement>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
@@ -2146,6 +2162,58 @@ export default function FitnessPage() {
     }
   };
 
+  // Get AI food recommendations
+  const getFoodRecommendations = async () => {
+    setIsLoadingRecommendations(true);
+    setFoodRecommendations(null);
+    setShowFoodAssistant(true);
+
+    try {
+      const remainingMacros = {
+        protein: Math.max(0, MACRO_TARGETS.protein - macroTotals.protein),
+        fat: Math.max(0, MACRO_TARGETS.fat - macroTotals.fat),
+        carbs: Math.max(0, MACRO_TARGETS.carbs - macroTotals.carbs),
+        calories: Math.max(0, MACRO_TARGETS.calories - macroTotals.calories)
+      };
+
+      // Collect favorite meals from all day logs
+      const favMeals: Array<{ name: string; protein: number; fat: number; carbs: number; calories: number }> = [];
+      Object.values(dayLogs).forEach(log => {
+        log.meals?.forEach(meal => {
+          if (meal.isFavorite && !favMeals.find(m => m.name === meal.name)) {
+            favMeals.push({
+              name: meal.name,
+              protein: meal.protein,
+              fat: meal.fat,
+              carbs: meal.carbs,
+              calories: meal.calories
+            });
+          }
+        });
+      });
+
+      const response = await fetch('/api/food/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          remainingMacros,
+          favoriteMeals: favMeals,
+          language: userSettings.language
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setFoodRecommendations(result.data);
+      }
+    } catch (error) {
+      console.error('Error getting food recommendations:', error);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
+
   // Workout Editor Functions
   const openWorkoutEditor = (workoutId: string) => {
     setEditingWorkoutId(workoutId);
@@ -2375,30 +2443,11 @@ export default function FitnessPage() {
             <div>
               <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Trainx</h1>
               <div style={{
-                fontSize: '12px',
+                fontSize: '11px',
                 color: 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
+                letterSpacing: '0.5px'
               }}>
-                {syncStatus === 'syncing' && (
-                  <>
-                    <Cloud size={12} className="animate-pulse" style={{ color: 'var(--blue)' }} />
-                    {t('syncing')}
-                  </>
-                )}
-                {syncStatus === 'synced' && (
-                  <>
-                    <Cloud size={12} style={{ color: 'var(--green)' }} />
-                    {t('synced')}
-                  </>
-                )}
-                {syncStatus === 'error' && (
-                  <>
-                    <CloudOff size={12} style={{ color: 'var(--red)' }} />
-                    {t('offline')}
-                  </>
-                )}
+                Artificial Intelligence Fitness
               </div>
             </div>
           </div>
@@ -3446,12 +3495,14 @@ export default function FitnessPage() {
                 {last7Days.map((day) => (
                   <div
                     key={day.date}
+                    onClick={() => !day.isFuture && setStreakDetailDate(day.date)}
                     style={{
                       flex: 1,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      cursor: day.isFuture ? 'default' : 'pointer'
                     }}
                   >
                     {/* Day name */}
@@ -3526,6 +3577,192 @@ export default function FitnessPage() {
                 {getStreakMotivation(nutritionStreak, isTodayCloseToGoal)}
               </div>
             </div>
+
+            {/* Streak Day Detail Modal */}
+            {streakDetailDate && (() => {
+              const log = dayLogs[streakDetailDate];
+              const meals = log?.meals || [];
+              const totals = meals.reduce((acc, m) => ({
+                protein: acc.protein + m.protein,
+                fat: acc.fat + m.fat,
+                carbs: acc.carbs + m.carbs,
+                calories: acc.calories + m.calories
+              }), { protein: 0, fat: 0, carbs: 0, calories: 0 });
+              const dayInfo = last7Days.find(d => d.date === streakDetailDate);
+              const dateObj = new Date(streakDetailDate);
+              const dateStr = dateObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+
+              return (
+                <div
+                  onClick={() => setStreakDetailDate(null)}
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                  }}
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: 'var(--bg-primary)',
+                      borderRadius: '16px',
+                      width: '100%',
+                      maxWidth: '360px',
+                      maxHeight: '80vh',
+                      overflow: 'auto',
+                      padding: '20px'
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '24px' }}>
+                          {dayInfo?.completed ? '🔥' : '💩'}
+                        </span>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '15px', textTransform: 'capitalize' }}>
+                            {dateStr}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            {dayInfo?.completed ? 'Цель выполнена' : 'Цель не выполнена'}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setStreakDetailDate(null)}
+                        style={{
+                          background: 'var(--bg-elevated)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '8px',
+                          cursor: 'pointer',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    {/* Totals */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(4, 1fr)',
+                      gap: '8px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>
+                          {totals.protein}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Б</div>
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--yellow)' }}>
+                          {totals.fat}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Ж</div>
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--blue)' }}>
+                          {totals.carbs}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>У</div>
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>
+                          {totals.calories}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ккал</div>
+                      </div>
+                    </div>
+
+                    {/* Meals list */}
+                    {meals.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {meals.map((meal, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              background: 'var(--bg-card)',
+                              padding: '12px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)'
+                            }}
+                          >
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              marginBottom: '6px'
+                            }}>
+                              <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                                {meal.name}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                {meal.time}
+                              </div>
+                            </div>
+                            <div style={{
+                              display: 'flex',
+                              gap: '12px',
+                              fontSize: '11px',
+                              color: 'var(--text-secondary)'
+                            }}>
+                              <span>Б: {meal.protein}</span>
+                              <span>Ж: {meal.fat}</span>
+                              <span>У: {meal.carbs}</span>
+                              <span style={{ color: 'var(--green)' }}>{meal.calories} ккал</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '30px',
+                        color: 'var(--text-muted)',
+                        fontSize: '13px'
+                      }}>
+                        Нет записей о питании
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Compact Macro summary - 2x2 grid */}
             <div style={{
@@ -3627,29 +3864,52 @@ export default function FitnessPage() {
               marginBottom: '16px'
             }}>
               <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px' }}>{t('meals')}</h3>
-              <button
-                onClick={() => {
-                  setEditingMeal(null);
-                  setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
-                  setShowMealModal(true);
-                }}
-                className="btn-press fab"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 18px',
-                  background: 'var(--yellow)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  color: '#000',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  boxShadow: '0 4px 20px var(--yellow-glow)'
-                }}
-              >
-                <Plus size={18} /> {t('addMeal')}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={getFoodRecommendations}
+                  className="btn-press"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '12px 14px',
+                    background: 'linear-gradient(135deg, var(--purple) 0%, var(--blue) 100%)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)'
+                  }}
+                  title={userSettings.language === 'ru' ? 'AI подскажет что съесть' : 'AI food suggestions'}
+                >
+                  <Sparkles size={16} />
+                  AI
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingMeal(null);
+                    setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+                    setShowMealModal(true);
+                  }}
+                  className="btn-press fab"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '12px 18px',
+                    background: 'var(--yellow)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    color: '#000',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    boxShadow: '0 4px 20px var(--yellow-glow)'
+                  }}
+                >
+                  <Plus size={18} /> {t('addMeal')}
+                </button>
+              </div>
             </div>
 
             {/* Meals list */}
@@ -4707,18 +4967,47 @@ export default function FitnessPage() {
                   {isAnalyzingFood ? (
                     <div style={{
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '12px',
-                      padding: '20px',
-                      background: 'var(--bg-elevated)',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border)'
+                      gap: '16px',
+                      padding: '30px 20px',
+                      background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%)',
+                      borderRadius: '16px',
+                      border: '1px solid var(--border)',
+                      animation: 'pulse 2s ease-in-out infinite'
                     }}>
-                      <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--yellow)' }} />
-                      <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
-                        {userSettings.language === 'ru' ? 'Анализируем фото...' : 'Analyzing photo...'}
-                      </span>
+                      <div style={{
+                        position: 'relative',
+                        width: '60px',
+                        height: '60px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {/* Spinning ring */}
+                        <div style={{
+                          position: 'absolute',
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '50%',
+                          border: '3px solid var(--border)',
+                          borderTopColor: 'var(--yellow)',
+                          animation: 'spin 1s linear infinite'
+                        }} />
+                        {/* Food emoji in center */}
+                        <span style={{ fontSize: '24px', animation: 'bounce 1s ease-in-out infinite' }}>
+                          🍽️
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px' }}>
+                          {userSettings.language === 'ru' ? 'Анализируем фото...' : 'Analyzing photo...'}
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
+                          {userSettings.language === 'ru' ? 'AI распознаёт еду и считает КБЖУ' : 'AI recognizing food & calculating macros'}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -5047,6 +5336,182 @@ export default function FitnessPage() {
         </div>
       )}
 
+      {/* AI Food Assistant Modal */}
+      {showFoodAssistant && (
+        <div className="modal-overlay" onClick={() => setShowFoodAssistant(false)}>
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '420px', maxHeight: '85vh' }}
+          >
+            <div style={{
+              padding: '20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, var(--purple) 0%, var(--blue) 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Sparkles size={20} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
+                    {userSettings.language === 'ru' ? 'AI Ассистент' : 'AI Assistant'}
+                  </h3>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {userSettings.language === 'ru' ? 'Рекомендации по питанию' : 'Food recommendations'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFoodAssistant(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '8px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', overflowY: 'auto', maxHeight: 'calc(85vh - 80px)' }}>
+              {isLoadingRecommendations ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    margin: '0 auto 16px',
+                    borderRadius: '50%',
+                    border: '3px solid var(--border)',
+                    borderTopColor: 'var(--purple)',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                    {userSettings.language === 'ru' ? 'Анализирую ваш рацион...' : 'Analyzing your diet...'}
+                  </div>
+                </div>
+              ) : foodRecommendations ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Analysis */}
+                  <div style={{
+                    background: 'var(--bg-elevated)',
+                    padding: '14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border)'
+                  }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      {foodRecommendations.analysis}
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  <div>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600 }}>
+                      {userSettings.language === 'ru' ? 'Рекомендации' : 'Suggestions'}
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {foodRecommendations.suggestions?.map((suggestion: { name: string; description: string; protein: number; fat: number; carbs: number; calories: number; isFavorite?: boolean }, idx: number) => (
+                        <div
+                          key={idx}
+                          className="card-hover"
+                          style={{
+                            background: 'var(--bg-card)',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            border: suggestion.isFavorite ? '1px solid var(--red)' : '1px solid var(--border)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            // Add this suggestion as a meal
+                            const now = new Date();
+                            const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                            const newMeal = {
+                              id: Date.now().toString(),
+                              time,
+                              name: suggestion.name,
+                              protein: suggestion.protein,
+                              fat: suggestion.fat,
+                              carbs: suggestion.carbs,
+                              calories: suggestion.calories,
+                              isFavorite: suggestion.isFavorite || false
+                            };
+                            const updatedLog = {
+                              ...currentDayLog,
+                              meals: [...currentDayLog.meals, newMeal]
+                            };
+                            setDayLogs(prev => ({
+                              ...prev,
+                              [currentDayLog.date]: updatedLog
+                            }));
+                            setShowFoodAssistant(false);
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                              {suggestion.isFavorite && <span style={{ marginRight: '6px' }}>❤️</span>}
+                              {suggestion.name}
+                            </div>
+                            <Plus size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                            {suggestion.description}
+                          </div>
+                          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                            <span style={{ color: 'var(--blue)' }}>Б: {suggestion.protein}г</span>
+                            <span style={{ color: 'var(--yellow)' }}>Ж: {suggestion.fat}г</span>
+                            <span style={{ color: 'var(--green)' }}>У: {suggestion.carbs}г</span>
+                            <span style={{ color: 'var(--red)' }}>{suggestion.calories} ккал</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tip */}
+                  {foodRecommendations.tip && (
+                    <div style={{
+                      background: 'var(--yellow-dim)',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--yellow)',
+                      display: 'flex',
+                      gap: '10px',
+                      alignItems: 'flex-start'
+                    }}>
+                      <span style={{ fontSize: '16px' }}>💡</span>
+                      <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                        {foodRecommendations.tip}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hint */}
+                  <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    {userSettings.language === 'ru' ? 'Нажмите на блюдо чтобы добавить' : 'Tap a meal to add it'}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  {userSettings.language === 'ru' ? 'Не удалось получить рекомендации' : 'Failed to get recommendations'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Workout Editor Modal */}
       {showWorkoutEditor && editingWorkoutId && (
         <div className="modal-overlay" onClick={() => setShowWorkoutEditor(false)}>
@@ -5359,6 +5824,47 @@ export default function FitnessPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Sync status indicator - bottom */}
+      {syncStatus !== 'idle' && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '8px 14px',
+          background: syncStatus === 'error' ? 'var(--red-dim)' : 'var(--bg-card)',
+          borderRadius: '20px',
+          border: `1px solid ${syncStatus === 'error' ? 'rgba(255, 107, 107, 0.3)' : 'var(--border)'}`,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          fontSize: '12px',
+          color: 'var(--text-muted)',
+          zIndex: 100,
+          animation: syncStatus === 'syncing' ? 'pulse 2s ease-in-out infinite' : 'none'
+        }}>
+          {syncStatus === 'syncing' && (
+            <>
+              <Cloud size={14} style={{ color: 'var(--blue)', animation: 'pulse 1s ease-in-out infinite' }} />
+              <span>{t('syncing')}</span>
+            </>
+          )}
+          {syncStatus === 'synced' && (
+            <>
+              <Cloud size={14} style={{ color: 'var(--green)' }} />
+              <span>{t('synced')}</span>
+            </>
+          )}
+          {syncStatus === 'error' && (
+            <>
+              <CloudOff size={14} style={{ color: 'var(--red)' }} />
+              <span>{t('offline')}</span>
+            </>
+          )}
         </div>
       )}
     </main>
