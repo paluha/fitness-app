@@ -2347,21 +2347,40 @@ export default function FitnessPage() {
         calories: MACRO_TARGETS.calories
       };
 
-      // Collect favorite meals from all day logs
-      const favMeals: Array<{ name: string; protein: number; fat: number; carbs: number; calories: number }> = [];
+      // Collect ALL unique meals from history (for AI to use user's naming)
+      const allMeals: Record<string, { name: string; protein: number; fat: number; carbs: number; calories: number; count: number; isFavorite: boolean }> = {};
       Object.values(dayLogs).forEach(log => {
         log.meals?.forEach(meal => {
-          if (meal.isFavorite && !favMeals.find(m => m.name === meal.name)) {
-            favMeals.push({
+          const key = meal.name.toLowerCase();
+          if (!allMeals[key]) {
+            allMeals[key] = {
               name: meal.name,
               protein: meal.protein,
               fat: meal.fat,
               carbs: meal.carbs,
-              calories: meal.calories
-            });
+              calories: meal.calories,
+              count: 1,
+              isFavorite: meal.isFavorite || false
+            };
+          } else {
+            allMeals[key].count++;
+            if (meal.isFavorite) allMeals[key].isFavorite = true;
           }
         });
       });
+
+      // Sort by frequency and take top 30 for context
+      const userFoodHistory = Object.values(allMeals)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 30)
+        .map(m => ({
+          name: m.name,
+          protein: m.protein,
+          fat: m.fat,
+          carbs: m.carbs,
+          calories: m.calories,
+          isFavorite: m.isFavorite
+        }));
 
       const response = await fetch('/api/food/recommend', {
         method: 'POST',
@@ -2370,7 +2389,7 @@ export default function FitnessPage() {
           remainingMacros,
           currentMacros,
           targetMacros,
-          favoriteMeals: favMeals,
+          userFoodHistory, // All user's foods with their naming
           language: userSettings.language,
           mealTime: getMealTime(),
           nutritionRecommendations: nutritionRecommendations?.map(r => ({

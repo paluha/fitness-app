@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       remainingMacros,
       currentMacros,
       targetMacros,
-      favoriteMeals,
+      userFoodHistory,
       language,
       mealTime,
       nutritionRecommendations,
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // remainingMacros: { protein, fat, carbs, calories } - что осталось добрать
     // currentMacros: { protein, fat, carbs, calories } - уже съедено за день
     // targetMacros: { protein, fat, carbs, calories } - цель на день
-    // favoriteMeals: array of { name, protein, fat, carbs, calories }
+    // userFoodHistory: array of { name, protein, fat, carbs, calories, isFavorite } - история еды пользователя
     // language: 'ru' | 'en'
     // mealTime: 'morning' | 'day' | 'evening' | 'night' | 'pre_workout' | 'post_workout'
     // nutritionRecommendations: array of { title, description } - рекомендации тренера
@@ -42,13 +42,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Google AI API key not configured' }, { status: 500 });
     }
 
-    const isRussian = language === 'ru';
+    // Build user food history context - AI should use these exact names
+    interface FoodItem {
+      name: string;
+      protein: number;
+      fat: number;
+      carbs: number;
+      calories: number;
+      isFavorite?: boolean;
+    }
 
-    // Build favorites context
-    const favoritesContext = favoriteMeals && favoriteMeals.length > 0
-      ? `\n\n${isRussian ? 'Любимые блюда пользователя (предпочтительно их, если подходят)' : 'User\'s favorite meals (prefer these when appropriate)'}:\n${favoriteMeals.map((m: { name: string; protein: number; fat: number; carbs: number; calories: number }) =>
-          `- ${m.name}: ${m.protein}г белка, ${m.fat}г жира, ${m.carbs}г углеводов, ${m.calories} ккал`
-        ).join('\n')}`
+    const userFoodsContext = userFoodHistory && userFoodHistory.length > 0
+      ? `\n\n📋 ПРОДУКТЫ ПОЛЬЗОВАТЕЛЯ (используй ТОЧНО эти названия если рекомендуешь их!):\n${userFoodHistory.map((m: FoodItem) =>
+          `- ${m.isFavorite ? '❤️ ' : ''}${m.name}: Б${m.protein} Ж${m.fat} У${m.carbs} = ${m.calories} ккал`
+        ).join('\n')}\n\nВАЖНО: Если рекомендуешь продукт из этого списка - используй ТОЧНОЕ название как у пользователя!`
       : '';
 
     // Build trainer recommendations context
@@ -99,14 +106,16 @@ export async function POST(request: Request) {
 
 ⏰ ВРЕМЯ ПРИЁМА ПИЩИ: ${mealTimeContext || 'Не указано'}
 ${trainerContext}
-${favoritesContext}
+${userFoodsContext}
 
 ЛОГИКА РЕКОМЕНДАЦИЙ:
-1. ПРИОРИТЕТ №1: Учитывай рекомендации тренера (если есть) - там указаны разрешённые продукты и время
-2. ПРИОРИТЕТ №2: Смотри на текущий прогресс - что нужно добрать больше всего
-3. ПРИОРИТЕТ №3: Учитывай время суток - утром можно углеводы, вечером меньше
-4. ПРИОРИТЕТ №4: Учитывай цель - при похудении меньше углеводов вечером, при наборе можно больше
-5. Если цель близка к выполнению (>90%) - предложи лёгкий перекус или сообщи что можно не есть
+1. ПРИОРИТЕТ №1: Если рекомендуешь продукт из истории пользователя - используй ТОЧНОЕ название!
+2. ПРИОРИТЕТ №2: Учитывай рекомендации тренера (если есть) - там указаны разрешённые продукты и время
+3. ПРИОРИТЕТ №3: Смотри на текущий прогресс - что нужно добрать больше всего
+4. ПРИОРИТЕТ №4: Учитывай время суток - утром можно углеводы, вечером меньше
+5. ПРИОРИТЕТ №5: Учитывай цель - при похудении меньше углеводов вечером, при наборе можно больше
+6. Если цель близка к выполнению (>90%) - предложи лёгкий перекус или сообщи что можно не есть
+7. Предпочитай продукты из истории пользователя (❤️ = любимые)
 
 Предложи 2-3 варианта еды, подходящих именно сейчас.
 
