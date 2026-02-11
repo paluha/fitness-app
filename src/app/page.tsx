@@ -30,75 +30,6 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Motivational messages based on streak (deterministic to avoid hydration mismatch)
-function getStreakMotivation(streak: number, isTodayCloseToGoal: boolean): string {
-  // Use streak as seed for deterministic selection
-  const pick = (arr: string[]) => arr[streak % arr.length];
-
-  if (streak === 0) {
-    return 'Начни сегодня — стань лучше завтра!';
-  }
-
-  if (isTodayCloseToGoal && streak < 7) {
-    return '🎯 Почти у цели! Добей сегодня!';
-  }
-
-  if (streak === 1) {
-    return 'Отличное начало! Продолжай! 🚀';
-  }
-
-  if (streak === 2) {
-    return 'Два дня подряд! Ты на верном пути!';
-  }
-
-  if (streak >= 3 && streak <= 4) {
-    return `${streak} дня подряд! Ты машина! 🔥`;
-  }
-
-  if (streak >= 5 && streak <= 6) {
-    return `${streak} дней! Почти неделя! 🏆`;
-  }
-
-  if (streak === 7) {
-    return '🏆 НЕДЕЛЯ! Ты легенда!';
-  }
-
-  if (streak > 7 && streak < 14) {
-    const week1plus = [
-      `${streak} дней! Больше недели! 🌟`,
-      'Ты создаёшь историю! 🔥',
-      'Железная дисциплина! 💪'
-    ];
-    return pick(week1plus);
-  }
-
-  if (streak >= 14 && streak < 21) {
-    const weeks2 = [
-      `${streak} дней! Две недели! 👑`,
-      'Привычка закреплена! 🏆',
-      'Ты неудержим! 🔥'
-    ];
-    return pick(weeks2);
-  }
-
-  if (streak >= 21 && streak < 30) {
-    const weeks3 = [
-      `${streak} дней! Три недели! 🏅`,
-      '21+ день — это уже образ жизни!',
-      'Мастер дисциплины! 👑'
-    ];
-    return pick(weeks3);
-  }
-
-  // 30+ days
-  const month = [
-    `${streak} дней! ЛЕГЕНДА! 🏆👑`,
-    'Месяц+ подряд! Невероятно! 🌟',
-    'Ты вдохновляешь! 🔥👑'
-  ];
-  return pick(month);
-}
-
 // Rest Timer Component
 function RestTimer({ restTime }: { restTime: string }) {
   const totalSeconds = parseRestTime(restTime);
@@ -2053,10 +1984,13 @@ export default function FitnessPage() {
   }, [selectedDate, dayLogs]);
 
   const updateDayLog = (updates: Partial<DayLog>) => {
-    setDayLogs(prev => ({
-      ...prev,
-      [dateKey]: { ...currentDayLog, ...updates }
-    }));
+    setDayLogs(prev => {
+      const existingLog = prev[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+      return {
+        ...prev,
+        [dateKey]: { ...existingLog, ...updates }
+      };
+    });
   };
 
   // Select workout and save to dayLog
@@ -2179,13 +2113,14 @@ export default function FitnessPage() {
 
   // Add meal to specific date
   const addMealToDate = (meal: Meal, targetDateKey: string) => {
-    const targetLog = dayLogs[targetDateKey] || { meals: [], steps: 0 };
-    const updatedMeals = [...(targetLog.meals || []), meal];
-
-    setDayLogs(prev => ({
-      ...prev,
-      [targetDateKey]: { ...targetLog, meals: updatedMeals }
-    }));
+    setDayLogs(prev => {
+      const targetLog = prev[targetDateKey] || { date: targetDateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+      const updatedMeals = [...(targetLog.meals || []), meal];
+      return {
+        ...prev,
+        [targetDateKey]: { ...targetLog, meals: updatedMeals }
+      };
+    });
   };
 
   const addMeal = () => {
@@ -3822,15 +3757,6 @@ export default function FitnessPage() {
                 ))}
               </div>
 
-              {/* Motivational text */}
-              <div style={{
-                textAlign: 'center',
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                marginTop: '2px'
-              }}>
-                {getStreakMotivation(nutritionStreak, isTodayCloseToGoal)}
-              </div>
             </div>
 
             {/* Streak Day Detail Modal */}
@@ -4229,13 +4155,16 @@ export default function FitnessPage() {
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button
                           onClick={() => {
-                            const newMeals = currentDayLog.meals.map(m =>
-                              m.id === meal.id ? { ...m, isFavorite: !m.isFavorite } : m
-                            );
-                            setDayLogs(prev => ({
-                              ...prev,
-                              [dateKey]: { ...currentDayLog, meals: newMeals }
-                            }));
+                            setDayLogs(prev => {
+                              const existingLog = prev[dateKey] || currentDayLog;
+                              const newMeals = existingLog.meals.map(m =>
+                                m.id === meal.id ? { ...m, isFavorite: !m.isFavorite } : m
+                              );
+                              return {
+                                ...prev,
+                                [dateKey]: { ...existingLog, meals: newMeals }
+                              };
+                            });
                           }}
                           style={{
                             background: 'transparent',
@@ -5852,7 +5781,7 @@ export default function FitnessPage() {
                             // Add this suggestion as a meal
                             const now = new Date();
                             const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-                            const newMeal = {
+                            const newMeal: Meal = {
                               id: Date.now().toString(),
                               time,
                               name: suggestion.name,
@@ -5862,14 +5791,13 @@ export default function FitnessPage() {
                               calories: suggestion.calories,
                               isFavorite: suggestion.isFavorite || false
                             };
-                            const updatedLog = {
-                              ...currentDayLog,
-                              meals: [...currentDayLog.meals, newMeal]
-                            };
-                            setDayLogs(prev => ({
-                              ...prev,
-                              [currentDayLog.date]: updatedLog
-                            }));
+                            setDayLogs(prev => {
+                              const existingLog = prev[dateKey] || currentDayLog;
+                              return {
+                                ...prev,
+                                [dateKey]: { ...existingLog, meals: [...existingLog.meals, newMeal] }
+                              };
+                            });
                             setShowFoodAssistant(false);
                           }}
                         >
