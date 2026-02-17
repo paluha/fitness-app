@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Allow up to 60s for AI recommendations
+export const maxDuration = 60;
+
 interface NutritionRec {
   title: string;
   description: string;

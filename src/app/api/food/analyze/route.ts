@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Allow up to 60s for AI image analysis
+export const maxDuration = 60;
+
 // POST - Analyze food image using Gemini Flash
 export async function POST(request: Request) {
   try {
