@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { trackError, trackLatency } from '@/lib/monitor';
 
 // Allow up to 60s for AI recommendations
 export const maxDuration = 60;
@@ -12,6 +13,8 @@ interface NutritionRec {
 
 // POST - Get AI food recommendations based on context
 export async function POST(request: Request) {
+  const startTime = Date.now();
+
   try {
     const session = await getServerSession(authOptions);
 
@@ -30,18 +33,10 @@ export async function POST(request: Request) {
       goal
     } = await request.json();
 
-    // remainingMacros: { protein, fat, carbs, calories } - что осталось добрать
-    // currentMacros: { protein, fat, carbs, calories } - уже съедено за день
-    // targetMacros: { protein, fat, carbs, calories } - цель на день
-    // userFoodHistory: array of { name, protein, fat, carbs, calories, isFavorite } - история еды пользователя
-    // language: 'ru' | 'en'
-    // mealTime: 'morning' | 'day' | 'evening' | 'night' | 'pre_workout' | 'post_workout'
-    // nutritionRecommendations: array of { title, description } - рекомендации тренера
-    // goal: 'lose_weight' | 'gain_mass' | 'maintain' | null
-
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 
     if (!GOOGLE_AI_API_KEY) {
+      await trackError({ route: '/api/food/recommend', method: 'POST', error: 'GOOGLE_AI_API_KEY not configured', userId: session.user.id });
       return NextResponse.json({ error: 'Google AI API key not configured' }, { status: 500 });
     }
 
@@ -164,7 +159,13 @@ ${userFoodsContext}
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('Gemini API error:', error);
+      const duration = await trackLatency('/api/food/recommend', startTime);
+      await trackError({
+        route: '/api/food/recommend', method: 'POST',
+        error: `Gemini API ${response.status}`,
+        details: JSON.stringify(error),
+        userId: session.user.id, duration
+      });
       return NextResponse.json({ error: 'Failed to get recommendations' }, { status: 500 });
     }
 
@@ -172,38 +173,47 @@ ${userFoodsContext}
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
+      const duration = await trackLatency('/api/food/recommend', startTime);
+      await trackError({
+        route: '/api/food/recommend', method: 'POST',
+        error: 'Empty AI response',
+        details: JSON.stringify(data),
+        userId: session.user.id, duration
+      });
       return NextResponse.json({ error: 'No response from AI' }, { status: 500 });
     }
 
     // Parse the JSON response
     try {
       let jsonStr = content.trim();
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.slice(7);
-      }
-      if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.slice(3);
-      }
-      if (jsonStr.endsWith('```')) {
-        jsonStr = jsonStr.slice(0, -3);
-      }
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
       jsonStr = jsonStr.trim();
 
       const result = JSON.parse(jsonStr);
+      const duration = await trackLatency('/api/food/recommend', startTime);
+      console.log(`[MONITOR] /api/food/recommend OK ${duration}ms user=${session.user.id}`);
 
-      return NextResponse.json({
-        success: true,
-        data: result
-      });
+      return NextResponse.json({ success: true, data: result });
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
-      return NextResponse.json({
-        error: 'Failed to parse AI response',
-        raw: content
-      }, { status: 500 });
+      const duration = await trackLatency('/api/food/recommend', startTime);
+      await trackError({
+        route: '/api/food/recommend', method: 'POST',
+        error: 'Failed to parse AI JSON',
+        details: content.slice(0, 500),
+        userId: session.user.id, duration
+      });
+      return NextResponse.json({ error: 'Failed to parse AI response', raw: content }, { status: 500 });
     }
   } catch (error) {
-    console.error('Error getting food recommendations:', error);
+    const duration = await trackLatency('/api/food/recommend', startTime);
+    await trackError({
+      route: '/api/food/recommend', method: 'POST',
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error),
+      duration
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { trackError, trackLatency } from '@/lib/monitor';
 
 // Allow up to 60s for AI image analysis
 export const maxDuration = 60;
 
 // POST - Analyze food image using Gemini Flash
 export async function POST(request: Request) {
+  const startTime = Date.now();
+
   try {
     const session = await getServerSession(authOptions);
 
@@ -16,10 +19,6 @@ export async function POST(request: Request) {
 
     const { image, type, hint } = await request.json();
 
-    // image should be base64 encoded
-    // type: 'nutrition_label' | 'food_photo'
-    // hint: optional user hint to help identify food (e.g., "жареная курица")
-
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
@@ -27,6 +26,7 @@ export async function POST(request: Request) {
     const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 
     if (!GOOGLE_AI_API_KEY) {
+      await trackError({ route: '/api/food/analyze', method: 'POST', error: 'GOOGLE_AI_API_KEY not configured', userId: session.user.id });
       return NextResponse.json({ error: 'Google AI API key not configured' }, { status: 500 });
     }
 
@@ -121,7 +121,13 @@ Be realistic with estimates. Do not include any explanation, only the JSON.`;
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('Gemini API error:', error);
+      const duration = await trackLatency('/api/food/analyze', startTime);
+      await trackError({
+        route: '/api/food/analyze', method: 'POST',
+        error: `Gemini API ${response.status}`,
+        details: JSON.stringify(error),
+        userId: session.user.id, duration
+      });
       return NextResponse.json({ error: 'Failed to analyze image' }, { status: 500 });
     }
 
@@ -129,25 +135,27 @@ Be realistic with estimates. Do not include any explanation, only the JSON.`;
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
+      const duration = await trackLatency('/api/food/analyze', startTime);
+      await trackError({
+        route: '/api/food/analyze', method: 'POST',
+        error: 'Empty AI response',
+        details: JSON.stringify(data),
+        userId: session.user.id, duration
+      });
       return NextResponse.json({ error: 'No response from AI' }, { status: 500 });
     }
 
     // Parse the JSON response
     try {
-      // Clean up the response - remove markdown code blocks if present
       let jsonStr = content.trim();
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.slice(7);
-      }
-      if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.slice(3);
-      }
-      if (jsonStr.endsWith('```')) {
-        jsonStr = jsonStr.slice(0, -3);
-      }
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
       jsonStr = jsonStr.trim();
 
       const result = JSON.parse(jsonStr);
+      const duration = await trackLatency('/api/food/analyze', startTime);
+      console.log(`[MONITOR] /api/food/analyze OK ${duration}ms user=${session.user.id}`);
 
       return NextResponse.json({
         success: true,
@@ -164,14 +172,23 @@ Be realistic with estimates. Do not include any explanation, only the JSON.`;
         }
       });
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
-      return NextResponse.json({
-        error: 'Failed to parse AI response',
-        raw: content
-      }, { status: 500 });
+      const duration = await trackLatency('/api/food/analyze', startTime);
+      await trackError({
+        route: '/api/food/analyze', method: 'POST',
+        error: 'Failed to parse AI JSON',
+        details: content.slice(0, 500),
+        userId: session.user.id, duration
+      });
+      return NextResponse.json({ error: 'Failed to parse AI response', raw: content }, { status: 500 });
     }
   } catch (error) {
-    console.error('Error analyzing food image:', error);
+    const duration = await trackLatency('/api/food/analyze', startTime);
+    await trackError({
+      route: '/api/food/analyze', method: 'POST',
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error),
+      duration
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
