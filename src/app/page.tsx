@@ -2036,16 +2036,22 @@ export default function FitnessPage() {
   // Restore selected workout when date changes
   useEffect(() => {
     if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
-      // If day is closed, show the completed workout
+      // If day is closed, show the completed workout (snapshot)
       setSelectedWorkout(currentDayLog.workoutCompleted);
-    } else if (currentDayLog.selectedWorkout) {
-      // Restore previously selected workout for this day
-      setSelectedWorkout(currentDayLog.selectedWorkout);
-    } else if (!currentDayLog.isOffDay) {
-      // New day without selection - pick next available workout
-      const nextWorkout = getNextAvailableWorkout();
-      setSelectedWorkout(nextWorkout);
-      updateDayLog({ selectedWorkout: nextWorkout });
+    } else {
+      // Day is NOT closed — reset all exercise completion flags to fresh state
+      setWorkouts(prev => prev.map(w => ({
+        ...w,
+        exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' }))
+      })));
+
+      if (currentDayLog.selectedWorkout) {
+        setSelectedWorkout(currentDayLog.selectedWorkout);
+      } else if (!currentDayLog.isOffDay) {
+        const nextWorkout = getNextAvailableWorkout();
+        setSelectedWorkout(nextWorkout);
+        updateDayLog({ selectedWorkout: nextWorkout });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);
