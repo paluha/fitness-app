@@ -53,8 +53,8 @@ Return JSON only:
       }
     }
 
-    // Call Gemini API — use flash-lite for speed on food photos, flash for nutrition labels (need OCR precision)
-    const model = isNutritionLabel ? 'gemini-2.0-flash' : 'gemini-2.0-flash-lite';
+    // Call Gemini API
+    const model = 'gemini-2.0-flash';
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_AI_API_KEY}`,
       {
