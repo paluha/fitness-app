@@ -1484,7 +1484,7 @@ function FitnessCalendar({
             if (isToday) return 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)';
             if (hasWorkout) return 'var(--green-dim)';
             if (isOffDay) return 'rgba(147, 112, 219, 0.15)';
-            if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.15)'; // Red dim for unclosed
+            if (isUnclosedPastDay) return 'rgba(255, 255, 255, 0.03)'; // Grey dim for unclosed
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -1497,7 +1497,7 @@ function FitnessCalendar({
             if (isToday) return 'var(--yellow)';
             if (hasWorkout) return 'var(--green)';
             if (isOffDay) return 'rgb(147, 112, 219)';
-            if (isUnclosedPastDay) return 'var(--red)';
+            if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.25)';
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
           };
@@ -1510,7 +1510,7 @@ function FitnessCalendar({
           const getBorder = () => {
             if (isToday && isSelected) return '2px solid var(--green)';
             if (isToday) return '2px solid var(--yellow)';
-            if (isUnclosedPastDay && !isSelected) return '1px solid rgba(239, 68, 68, 0.5)';
+            if (isUnclosedPastDay && !isSelected) return '1px solid rgba(255, 255, 255, 0.05)';
             if (hasWorkout && !isSelected) return '1px solid rgba(0, 200, 83, 0.3)';
             if (isOffDay && !isSelected) return '1px solid rgba(147, 112, 219, 0.3)';
             return '1px solid transparent';
@@ -1523,7 +1523,7 @@ function FitnessCalendar({
             if (isToday) return '0 2px 12px rgba(255, 193, 7, 0.3)';
             if (hasWorkout) return '0 2px 8px var(--green-glow)';
             if (isOffDay) return '0 2px 8px rgba(147, 112, 219, 0.2)';
-            if (isUnclosedPastDay) return '0 2px 8px rgba(239, 68, 68, 0.2)';
+            if (isUnclosedPastDay) return 'none';
             return 'none';
           };
 
@@ -1543,7 +1543,7 @@ function FitnessCalendar({
                 justifyContent: 'center',
                 gap: '1px',
                 color: getColor(),
-                fontWeight: isToday || isSelected || hasWorkout || isOffDay || isUnclosedPastDay ? 700 : 500,
+                fontWeight: isUnclosedPastDay ? 400 : (isToday || isSelected || hasWorkout || isOffDay ? 700 : 500),
                 fontSize: '14px',
                 transition: 'all 0.2s ease',
                 boxShadow: getBoxShadow(),
@@ -1568,7 +1568,7 @@ function FitnessCalendar({
               ) : isOffDay ? (
                 <span style={{ fontSize: '10px' }}>😴</span>
               ) : isUnclosedPastDay ? (
-                <span style={{ fontSize: '8px', color: 'var(--red)' }}>!</span>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(239, 68, 68, 0.3)' }}>!</span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
