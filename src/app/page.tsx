@@ -1762,6 +1762,7 @@ export default function FitnessPage() {
   const [offDayHoldProgress, setOffDayHoldProgress] = useState(0);
   const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const serverDataLoadedRef = useRef(false);
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
   const [showNightMealPrompt, setShowNightMealPrompt] = useState(false);
   const [pendingMealData, setPendingMealData] = useState<Meal | null>(null);
@@ -1786,6 +1787,7 @@ export default function FitnessPage() {
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
           if (data.settings) setUserSettings(data.settings);
           if (data.nutritionRecommendations) setNutritionRecommendations(data.nutritionRecommendations);
+          serverDataLoadedRef.current = true;
           setIsLoaded(true);
           setSyncStatus('synced');
           return;
@@ -1842,7 +1844,7 @@ export default function FitnessPage() {
 
   // Sync directly to server (with small debounce to batch rapid changes)
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !serverDataLoadedRef.current) return;
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
@@ -2190,20 +2192,39 @@ export default function FitnessPage() {
   };
 
   // Food AI Analysis
+  const compressImage = (file: File, maxSize = 800): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          const ratio = Math.min(maxSize / width, maxSize / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('No canvas context')); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
   const analyzeFood = async (file: File, type: 'nutrition_label' | 'food_photo', hint?: string) => {
     setIsAnalyzingFood(true);
     setFoodAnalysisError(null);
     setShowScanOptions(false);
 
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Image = await base64Promise;
+      // Compress image to max 800px, JPEG 70% quality — much faster upload
+      const base64Image = await compressImage(file, type === 'nutrition_label' ? 1200 : 800);
 
       const response = await fetch('/api/food/analyze', {
         method: 'POST',
@@ -3429,10 +3450,11 @@ export default function FitnessPage() {
               {(() => {
                 const isDayClosed = currentDayLog.dayClosed;
                 const isOffDay = currentDayLog.isOffDay;
-                // For off days, only need steps. For workout days, need completed exercises + steps
-                const canCloseDay = isOffDay
-                  ? (currentDayLog.steps && currentDayLog.steps > 0)
-                  : (completedExercises === totalExercises && currentDayLog.steps && currentDayLog.steps > 0);
+                const hasSteps = currentDayLog.steps && currentDayLog.steps > 0;
+                const allExercisesDone = completedExercises === totalExercises;
+                const hasSkippedExercises = !isOffDay && !allExercisesDone && totalExercises > 0;
+                // Allow closing with steps — exercises can be incomplete (with confirmation)
+                const canCloseDay = hasSteps ? true : false;
                 const readyToClose = canCloseDay && !isDayClosed;
 
                 return (
@@ -3441,13 +3463,15 @@ export default function FitnessPage() {
                       <div style={{
                         textAlign: 'center',
                         marginBottom: '12px',
-                        color: 'var(--green)',
+                        color: hasSkippedExercises ? 'var(--yellow, #ffcc55)' : 'var(--green)',
                         fontSize: '14px',
                         fontWeight: 600
                       }}
                       className="animate-pulse"
                       >
-                        ✨ Всё готово! Закройте день ✨
+                        {hasSkippedExercises
+                          ? `⚠️ ${completedExercises}/${totalExercises} упражнений выполнено`
+                          : '✨ Всё готово! Закройте день ✨'}
                       </div>
                     )}
                     <button
@@ -3560,11 +3584,11 @@ export default function FitnessPage() {
                         background: isDayClosed
                           ? 'var(--bg-elevated)'
                           : readyToClose
-                            ? 'var(--green-dim)'
+                            ? (hasSkippedExercises ? 'rgba(255,204,85,0.15)' : 'var(--green-dim)')
                             : 'var(--bg-card)',
-                        border: `2px solid ${isDayClosed ? 'var(--border-strong)' : readyToClose ? 'var(--green)' : 'var(--border)'}`,
+                        border: `2px solid ${isDayClosed ? 'var(--border-strong)' : readyToClose ? (hasSkippedExercises ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--border)'}`,
                         borderRadius: '16px',
-                        color: isDayClosed ? 'var(--text-secondary)' : readyToClose ? 'var(--green)' : 'var(--text-primary)',
+                        color: isDayClosed ? 'var(--text-secondary)' : readyToClose ? (hasSkippedExercises ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--text-primary)',
                         fontWeight: 700,
                         fontSize: '15px',
                         display: 'flex',
@@ -3572,7 +3596,7 @@ export default function FitnessPage() {
                         justifyContent: 'center',
                         gap: '10px',
                         boxShadow: readyToClose
-                          ? '0 4px 20px var(--green-glow)'
+                          ? (hasSkippedExercises ? '0 4px 20px rgba(255,204,85,0.2)' : '0 4px 20px var(--green-glow)')
                           : 'none'
                       }}
                       className={readyToClose ? 'animate-glow' : ''}

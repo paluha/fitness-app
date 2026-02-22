@@ -75,11 +75,45 @@ export async function POST(request: Request) {
     const userId = session.user.id;
     const body = await request.json();
 
+    // Safety: reject empty data — prevents accidental wipe from race conditions
+    if (body.dayLogs !== undefined && typeof body.dayLogs === 'object' && Object.keys(body.dayLogs).length === 0) {
+      delete body.dayLogs;
+    }
+    if (body.progressHistory !== undefined && typeof body.progressHistory === 'object' && Object.keys(body.progressHistory).length === 0) {
+      delete body.progressHistory;
+    }
+    if (body.workouts !== undefined && Array.isArray(body.workouts) && body.workouts.length === 0) {
+      delete body.workouts;
+    }
+    if (body.bodyMeasurements !== undefined && Array.isArray(body.bodyMeasurements) && body.bodyMeasurements.length === 0) {
+      delete body.bodyMeasurements;
+    }
+
+    // Fetch existing data once for merge operations
+    const existing = await prisma.fitnessData.findUnique({
+      where: { userId },
+      select: { dayLogs: true, progressHistory: true }
+    });
+
+    // Merge dayLogs: client keys take priority, existing keys preserved
+    let mergedDayLogs: Record<string, unknown> | undefined;
+    if (body.dayLogs !== undefined) {
+      const existingLogs = (existing?.dayLogs as Record<string, unknown>) || {};
+      mergedDayLogs = { ...existingLogs, ...body.dayLogs };
+    }
+
+    // Merge progressHistory: same merge strategy as dayLogs
+    let mergedProgress: Record<string, unknown> | undefined;
+    if (body.progressHistory !== undefined) {
+      const existingProgress = (existing?.progressHistory as Record<string, unknown>) || {};
+      mergedProgress = { ...existingProgress, ...body.progressHistory };
+    }
+
     // Build update object - only include fields that were explicitly passed
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (body.workouts !== undefined) updateData.workouts = body.workouts;
-    if (body.dayLogs !== undefined) updateData.dayLogs = body.dayLogs;
-    if (body.progressHistory !== undefined) updateData.progressHistory = body.progressHistory;
+    if (mergedDayLogs !== undefined) updateData.dayLogs = mergedDayLogs;
+    if (mergedProgress !== undefined) updateData.progressHistory = mergedProgress;
     if (body.bodyMeasurements !== undefined) updateData.bodyMeasurements = body.bodyMeasurements;
     if (body.favoriteMeals !== undefined) updateData.favoriteMeals = body.favoriteMeals;
 

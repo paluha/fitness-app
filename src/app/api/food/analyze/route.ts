@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { trackError, trackLatency } from '@/lib/monitor';
 
-// Allow up to 60s for AI image analysis
-export const maxDuration = 60;
+// Allow up to 30s for AI image analysis
+export const maxDuration = 30;
 
 // POST - Analyze food image using Gemini Flash
 export async function POST(request: Request) {
@@ -33,49 +33,13 @@ export async function POST(request: Request) {
     const isNutritionLabel = type === 'nutrition_label';
 
     const prompt = isNutritionLabel
-      ? `Analyze this nutrition facts label. Extract the following values per serving:
-- Name of the product (if visible)
-- Calories (kcal)
-- Protein (grams)
-- Fat (grams)
-- Carbohydrates (grams)
-- Serving size
+      ? `Read this nutrition label. Return JSON only:
+{"name":"product name","calories":number,"protein":number,"fat":number,"carbs":number,"serving":"size"}
+Use 0 for unreadable values.`
+      : `Food photo analysis.${hint ? ` Hint: "${hint}".` : ''} If scale visible, read exact weight.
+Return JSON only:
+{"name":"название на русском","calories":number,"protein":number,"fat":number,"carbs":number,"weight":number|null,"confidence":"high"|"medium"|"low","notes":"кратко"}`;
 
-Respond ONLY with a JSON object in this exact format:
-{
-  "name": "product name or 'Продукт'",
-  "calories": number,
-  "protein": number,
-  "fat": number,
-  "carbs": number,
-  "serving": "serving size description"
-}
-
-If you cannot read some values, use 0. Do not include any explanation, only the JSON.`
-      : `Analyze this photo of food/meal. Estimate the nutritional content based on what you see.
-${hint ? `\nUSER HINT: The user says this is "${hint}". Use this information to better identify the food and its preparation method (e.g., fried, boiled, with sauce, etc.).\n` : ''}
-IMPORTANT: If you see a kitchen scale with a digital display showing weight in grams, READ THE EXACT WEIGHT from the display and use it for precise calculation. Look for numbers on any electronic scale display.
-
-Steps:
-1. Identify the food item(s)${hint ? ' (consider the user hint)' : ''}
-2. Check if there's a scale with visible weight reading
-3. If weight is visible - calculate KBJU based on exact weight
-4. If no scale - estimate portion size visually
-
-Respond ONLY with a JSON object in this exact format:
-{
-  "name": "название блюда на русском",
-  "calories": number (kcal),
-  "protein": number (grams),
-  "fat": number (grams),
-  "carbs": number (grams),
-  "weight": number or null (grams from scale if visible),
-  "confidence": "high" | "medium" | "low",
-  "notes": "brief note in Russian (mention if weight was read from scale)"
-}
-
-If scale weight is visible, confidence should be "high".
-Be realistic with estimates. Do not include any explanation, only the JSON.`;
 
     // Extract base64 data from data URL if needed
     let base64Data = image;
@@ -89,9 +53,10 @@ Be realistic with estimates. Do not include any explanation, only the JSON.`;
       }
     }
 
-    // Call Gemini API
+    // Call Gemini API — use flash-lite for speed on food photos, flash for nutrition labels (need OCR precision)
+    const model = isNutritionLabel ? 'gemini-2.0-flash' : 'gemini-2.0-flash-lite';
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_AI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -112,8 +77,8 @@ Be realistic with estimates. Do not include any explanation, only the JSON.`;
             }
           ],
           generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 500
+            temperature: 0.2,
+            maxOutputTokens: 200
           }
         })
       }

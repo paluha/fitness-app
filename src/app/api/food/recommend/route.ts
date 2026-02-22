@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { trackError, trackLatency } from '@/lib/monitor';
 
-// Allow up to 60s for AI recommendations
-export const maxDuration = 60;
+// Allow up to 30s for AI recommendations
+export const maxDuration = 30;
 
 interface NutritionRec {
   title: string;
@@ -137,7 +137,7 @@ ${userFoodsContext}
 }`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GOOGLE_AI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -150,8 +150,8 @@ ${userFoodsContext}
             }
           ],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1000
+            temperature: 0.5,
+            maxOutputTokens: 600
           }
         })
       }
