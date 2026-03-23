@@ -2531,14 +2531,18 @@ export default function FitnessPage() {
         updateDayLog({
           dayClosed: true,
           workoutCompleted: workoutId,
-          workoutSnapshot: snapshot
+          workoutSnapshot: snapshot,
+          workoutDraft: null
         });
       }
     } else {
+      // Reopening a closed day — preserve snapshot as draft so exercises aren't lost
+      const existingSnapshot = currentDayLog.workoutSnapshot;
       updateDayLog({
         dayClosed: false,
         workoutCompleted: null,
         workoutSnapshot: null,
+        workoutDraft: existingSnapshot || currentDayLog.workoutDraft,
         isOffDay: false
       });
     }
