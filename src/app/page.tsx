@@ -284,6 +284,7 @@ interface DayLog {
   workoutCompleted: string | null;
   workoutRating: number | null;
   workoutSnapshot: WorkoutSnapshot | null; // Snapshot of the workout when day was closed
+  workoutDraft: WorkoutSnapshot | null; // Live draft saved on every exercise change (before day close)
   meals: Meal[];
   notes: string;
   steps: number | null;
@@ -1862,7 +1863,7 @@ export default function FitnessPage() {
   }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded, syncToServer]);
 
   const currentDayLog = useMemo(() => {
-    return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+    return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
   }, [dayLogs, dateKey]);
 
   const macroTotals = useMemo(() => {
@@ -1987,7 +1988,7 @@ export default function FitnessPage() {
 
   const updateDayLog = (updates: Partial<DayLog>) => {
     setDayLogs(prev => {
-      const existingLog = prev[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+      const existingLog = prev[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
       return {
         ...prev,
         [dateKey]: { ...existingLog, ...updates }
@@ -2038,8 +2039,16 @@ export default function FitnessPage() {
     if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
       // If day is closed, show the completed workout (snapshot)
       setSelectedWorkout(currentDayLog.workoutCompleted);
+    } else if (currentDayLog.workoutDraft) {
+      // Day is open but has a saved draft — restore exercise state from draft
+      setWorkouts(prev => prev.map(w =>
+        w.id === currentDayLog.workoutDraft!.workoutId
+          ? { ...w, exercises: currentDayLog.workoutDraft!.exercises }
+          : { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })) }
+      ));
+      setSelectedWorkout(currentDayLog.workoutDraft.workoutId);
     } else {
-      // Day is NOT closed — reset all exercise completion flags to fresh state
+      // Day is NOT closed, no draft — reset all exercise completion flags to fresh state
       setWorkouts(prev => prev.map(w => ({
         ...w,
         exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' }))
@@ -2106,11 +2115,26 @@ export default function FitnessPage() {
   }, [dayLogs, dateKey]);
 
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
-    setWorkouts(prev => prev.map(w =>
-      w.id === workoutId
-        ? { ...w, exercises: w.exercises.map(e => e.id === exerciseId ? { ...e, ...updates } : e) }
-        : w
-    ));
+    setWorkouts(prev => {
+      const updated = prev.map(w =>
+        w.id === workoutId
+          ? { ...w, exercises: w.exercises.map(e => e.id === exerciseId ? { ...e, ...updates } : e) }
+          : w
+      );
+      // Save draft to dayLog so exercise state survives date navigation
+      if (!currentDayLog.dayClosed) {
+        const workout = updated.find(w => w.id === workoutId);
+        if (workout) {
+          const draft: WorkoutSnapshot = {
+            workoutId: workout.id,
+            workoutName: workout.name,
+            exercises: JSON.parse(JSON.stringify(workout.exercises)),
+          };
+          updateDayLog({ workoutDraft: draft });
+        }
+      }
+      return updated;
+    });
   };
 
   // Check if it's late night (00:00 - 05:00) for meal prompt
@@ -2122,7 +2146,7 @@ export default function FitnessPage() {
   // Add meal to specific date
   const addMealToDate = (meal: Meal, targetDateKey: string) => {
     setDayLogs(prev => {
-      const targetLog = prev[targetDateKey] || { date: targetDateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+      const targetLog = prev[targetDateKey] || { date: targetDateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
       const updatedMeals = [...(targetLog.meals || []), meal];
       return {
         ...prev,
