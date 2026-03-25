@@ -2921,46 +2921,25 @@ export default function FitnessPage() {
         {/* WORKOUT VIEW */}
         {view === 'workout' && (
           <div className="view-content">
-            {/* Show history banner if viewing past day */}
+            {/* Show history badge if viewing closed day */}
             {viewingPastWorkout && (
               <div style={{
-                background: 'var(--blue-dim)',
-                border: '1px solid rgba(0, 180, 216, 0.3)',
+                background: 'var(--green-dim)',
+                border: '1px solid rgba(0, 200, 83, 0.2)',
                 borderRadius: '12px',
-                padding: '14px 16px',
+                padding: '10px 16px',
                 marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px'
+                gap: '10px'
               }}>
-                <History size={20} style={{ color: 'var(--blue)' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--blue)', fontSize: '14px' }}>
-                    Просмотр истории
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    {currentDayLog.workoutSnapshot?.workoutName} • {new Date(dateKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-                  </div>
-                </div>
-                <button
-                  onClick={() => closeDay(currentDayLog.workoutCompleted!, false)}
-                  style={{
-                    padding: '8px 12px',
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    color: 'var(--text-muted)',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Edit2 size={14} />
-                  Изменить
-                </button>
+                <Check size={18} style={{ color: 'var(--green)' }} />
+                <span style={{ fontWeight: 600, color: 'var(--green)', fontSize: '13px' }}>
+                  {t('dayCompleted')}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  • {currentDayLog.workoutSnapshot?.workoutName}
+                </span>
               </div>
             )}
 
@@ -3249,6 +3228,13 @@ export default function FitnessPage() {
               </div>
             )}
 
+            {/* Closed day dimming wrapper for exercises + steps */}
+            <div style={{
+              opacity: currentDayLog.dayClosed ? 0.5 : 1,
+              pointerEvents: currentDayLog.dayClosed ? 'none' : 'auto',
+              transition: 'opacity 0.3s ease'
+            }}>
+
             {/* Compact Progress bar - hidden for Off Days */}
             {!currentDayLog.isOffDay && (
             <div style={{
@@ -3382,33 +3368,10 @@ export default function FitnessPage() {
               )
             )}
 
-            {/* Steps alert - show for completed workouts or off days without steps */}
-            {!currentDayLog.dayClosed && (
-              (completedExercises === totalExercises && totalExercises > 0) || currentDayLog.isOffDay
-            ) && (!currentDayLog.steps || currentDayLog.steps === 0) && (
-              <div
-                ref={stepsAlertRef}
-                className={stepsAlertPulse ? 'animate-pulse' : ''}
-                style={{
-                  marginTop: '16px',
-                  padding: '12px 16px',
-                  background: stepsAlertPulse ? 'var(--yellow)' : 'var(--yellow-dim)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 232, 4, 0.5)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  color: stepsAlertPulse ? '#000' : 'var(--yellow)',
-                  transition: 'all 0.3s ease',
-                  boxShadow: stepsAlertPulse ? '0 4px 20px var(--yellow-glow)' : 'none'
-                }}
-              >
-                <Footprints size={18} />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Добавьте шаги чтобы закрыть день</span>
-              </div>
-            )}
 
-            {/* Steps input */}
+            </div>{/* end closed day dimming wrapper */}
+
+            {/* Steps input — always editable, even when day is closed */}
             <div style={{
               marginTop: '16px',
               padding: '12px 14px',
@@ -3487,9 +3450,9 @@ export default function FitnessPage() {
                 const hasSteps = currentDayLog.steps && currentDayLog.steps > 0;
                 const allExercisesDone = completedExercises === totalExercises;
                 const hasSkippedExercises = !isOffDay && !allExercisesDone && totalExercises > 0;
-                // Allow closing with steps — exercises can be incomplete (with confirmation)
-                const canCloseDay = hasSteps ? true : false;
-                const readyToClose = canCloseDay && !isDayClosed;
+                // Allow closing always — steps are optional (user gets warned)
+                const canCloseDay = true;
+                const readyToClose = !isDayClosed;
 
                 if (isDayClosed) {
                   // --- CLOSED DAY SUMMARY CARD ---
@@ -3624,28 +3587,21 @@ export default function FitnessPage() {
                       <div style={{
                         textAlign: 'center',
                         marginBottom: '12px',
-                        color: hasSkippedExercises ? 'var(--yellow, #ffcc55)' : 'var(--green)',
+                        color: (hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)',
                         fontSize: '14px',
                         fontWeight: 600
                       }}
                       className="animate-pulse"
                       >
                         {hasSkippedExercises
-                          ? `⚠️ ${completedExercises}/${totalExercises} упражнений выполнено`
-                          : '✨ Всё готово! Закройте день ✨'}
+                          ? `⚠️ ${completedExercises}/${totalExercises} ${userSettings.language === 'ru' ? 'упражнений выполнено' : 'exercises done'}`
+                          : !hasSteps
+                            ? (userSettings.language === 'ru' ? '⚠️ Шаги не добавлены' : '⚠️ No steps added')
+                            : '✨ Всё готово! Закройте день ✨'}
                       </div>
                     )}
                     <button
-                      onClick={() => {
-                        if (!currentDayLog.steps || currentDayLog.steps === 0) {
-                          stepsAlertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          setStepsAlertPulse(true);
-                          setTimeout(() => setStepsAlertPulse(false), 2000);
-                          return;
-                        }
-                      }}
                       onMouseDown={(e) => {
-                        if (!currentDayLog.steps || currentDayLog.steps === 0) return;
                         const btn = e.currentTarget;
                         btn.dataset.pressing = 'true';
                         btn.dataset.progress = '0';
@@ -3675,12 +3631,6 @@ export default function FitnessPage() {
                       onMouseUp={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
                       onMouseLeave={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
                       onTouchStart={(e) => {
-                        if (!currentDayLog.steps || currentDayLog.steps === 0) {
-                          stepsAlertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          setStepsAlertPulse(true);
-                          setTimeout(() => setStepsAlertPulse(false), 2000);
-                          return;
-                        }
                         const btn = e.currentTarget;
                         btn.dataset.pressing = 'true';
                         btn.dataset.progress = '0';
@@ -3712,11 +3662,11 @@ export default function FitnessPage() {
                         width: '100%',
                         padding: '20px',
                         background: readyToClose
-                          ? (hasSkippedExercises ? 'rgba(255,204,85,0.15)' : 'var(--green-dim)')
+                          ? ((hasSkippedExercises || !hasSteps) ? 'rgba(255,204,85,0.15)' : 'var(--green-dim)')
                           : 'var(--bg-card)',
-                        border: `2px solid ${readyToClose ? (hasSkippedExercises ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--border)'}`,
+                        border: `2px solid ${readyToClose ? ((hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--border)'}`,
                         borderRadius: '16px',
-                        color: readyToClose ? (hasSkippedExercises ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--text-primary)',
+                        color: readyToClose ? ((hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--text-primary)',
                         fontWeight: 700,
                         fontSize: '15px',
                         display: 'flex',
@@ -3724,7 +3674,7 @@ export default function FitnessPage() {
                         justifyContent: 'center',
                         gap: '10px',
                         boxShadow: readyToClose
-                          ? (hasSkippedExercises ? '0 4px 20px rgba(255,204,85,0.2)' : '0 4px 20px var(--green-glow)')
+                          ? ((hasSkippedExercises || !hasSteps) ? '0 4px 20px rgba(255,204,85,0.2)' : '0 4px 20px var(--green-glow)')
                           : 'none'
                       }}
                       className={readyToClose ? 'animate-glow' : ''}
