@@ -3798,8 +3798,8 @@ export default function FitnessPage() {
                     {/* Day name and number */}
                     <span style={{
                       fontSize: '10px',
-                      color: isSelected ? 'var(--text-primary)' : day.isToday ? 'var(--yellow)' : 'var(--text-muted)',
-                      fontWeight: isSelected || day.isToday ? 600 : 400,
+                      color: day.isToday ? 'var(--yellow)' : isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+                      fontWeight: day.isToday || isSelected ? 600 : 400,
                       textAlign: 'center'
                     }}>
                       {day.isToday ? 'Сег' : day.dayName}
@@ -3814,21 +3814,21 @@ export default function FitnessPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: isSelected
-                        ? 'var(--bg-elevated)'
-                        : day.isToday
-                          ? isTodayCloseToGoal
-                            ? 'transparent'
-                            : 'var(--bg-elevated)'
-                          : day.isFuture
-                            ? 'rgba(239, 68, 68, 0.05)'
+                      background: day.isToday
+                        ? isTodayCloseToGoal
+                          ? 'transparent'
+                          : 'var(--bg-elevated)'
+                        : day.isFuture
+                          ? 'rgba(239, 68, 68, 0.05)'
+                          : isSelected
+                            ? 'rgba(255, 255, 255, 0.05)'
                             : 'transparent',
-                      border: isSelected
-                        ? '2px solid var(--green)'
-                        : day.isToday
-                          ? isTodayCloseToGoal
-                            ? '1px solid rgba(255, 152, 0, 0.1)'
-                            : '2px dashed var(--border-strong)'
+                      border: day.isToday
+                        ? isTodayCloseToGoal
+                          ? '1px solid rgba(255, 152, 0, 0.1)'
+                          : '2px dashed var(--border-strong)'
+                        : isSelected && !day.isToday
+                          ? '1px solid rgba(255, 255, 255, 0.15)'
                           : day.isFuture
                             ? '1px dashed rgba(239, 68, 68, 0.25)'
                             : 'none',
