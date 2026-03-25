@@ -697,14 +697,17 @@ function formatDateInTimezone(date: Date, timezone: string): string {
 function getDateLabel(date: Date, todayDateStr: string): string {
   const dateStr = formatDate(date);
 
-  // Calculate difference in days
-  const dateTime = new Date(dateStr).getTime();
-  const todayTime = new Date(todayDateStr).getTime();
-  const diff = Math.floor((todayTime - dateTime) / (1000 * 60 * 60 * 24));
+  // Compare as strings to avoid UTC parsing issues
+  if (dateStr === todayDateStr) return 'Сегодня';
 
-  if (diff === 0) return 'Сегодня';
-  if (diff === 1) return 'Вчера';
-  if (diff === -1) return 'Завтра';
+  // Calculate yesterday/tomorrow from todayDateStr using local date parts
+  const [y, m, d] = todayDateStr.split('-').map(Number);
+  const todayLocal = new Date(y, m - 1, d);
+  const yesterdayLocal = new Date(y, m - 1, d - 1);
+  const tomorrowLocal = new Date(y, m - 1, d + 1);
+
+  if (dateStr === formatDate(yesterdayLocal)) return 'Вчера';
+  if (dateStr === formatDate(tomorrowLocal)) return 'Завтра';
   return date.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
