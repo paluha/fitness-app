@@ -3775,10 +3775,17 @@ export default function FitnessPage() {
                 gap: '6px',
                 justifyContent: 'space-between'
               }}>
-                {last7Days.map((day) => (
+                {last7Days.map((day) => {
+                  const isSelected = day.date === dateKey;
+                  return (
                   <div
                     key={day.date}
-                    onClick={() => !day.isFuture && setStreakDetailDate(day.date)}
+                    onClick={() => {
+                      if (!day.isFuture) {
+                        const [y, m, d] = day.date.split('-').map(Number);
+                        setSelectedDate(new Date(y, m - 1, d));
+                      }
+                    }}
                     style={{
                       flex: 1,
                       display: 'flex',
@@ -3791,8 +3798,8 @@ export default function FitnessPage() {
                     {/* Day name and number */}
                     <span style={{
                       fontSize: '10px',
-                      color: day.isToday ? 'var(--yellow)' : 'var(--text-muted)',
-                      fontWeight: day.isToday ? 600 : 400,
+                      color: isSelected ? 'var(--text-primary)' : day.isToday ? 'var(--yellow)' : 'var(--text-muted)',
+                      fontWeight: isSelected || day.isToday ? 600 : 400,
                       textAlign: 'center'
                     }}>
                       {day.isToday ? 'Сег' : day.dayName}
@@ -3807,20 +3814,24 @@ export default function FitnessPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: day.isToday
-                        ? isTodayCloseToGoal
-                          ? 'transparent'
-                          : 'var(--bg-elevated)'
-                        : day.isFuture
-                          ? 'rgba(239, 68, 68, 0.05)'
-                          : 'transparent',
-                      border: day.isToday
-                        ? isTodayCloseToGoal
-                          ? '1px solid rgba(255, 152, 0, 0.1)'
-                          : '2px dashed var(--border-strong)'
-                        : day.isFuture
-                          ? '1px dashed rgba(239, 68, 68, 0.25)'
-                          : 'none',
+                      background: isSelected
+                        ? 'var(--bg-elevated)'
+                        : day.isToday
+                          ? isTodayCloseToGoal
+                            ? 'transparent'
+                            : 'var(--bg-elevated)'
+                          : day.isFuture
+                            ? 'rgba(239, 68, 68, 0.05)'
+                            : 'transparent',
+                      border: isSelected
+                        ? '2px solid var(--green)'
+                        : day.isToday
+                          ? isTodayCloseToGoal
+                            ? '1px solid rgba(255, 152, 0, 0.1)'
+                            : '2px dashed var(--border-strong)'
+                          : day.isFuture
+                            ? '1px dashed rgba(239, 68, 68, 0.25)'
+                            : 'none',
                       opacity: day.isFuture ? 0.5 : 1
                     }}>
                       {day.isToday ? (
@@ -3850,7 +3861,8 @@ export default function FitnessPage() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
             </div>
