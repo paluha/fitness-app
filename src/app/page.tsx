@@ -1960,11 +1960,26 @@ export default function FitnessPage() {
     return { last7Days: days, nutritionStreak: streak };
   }, [dayLogs, todayStr]);
 
-  // Check if today is close to completing nutrition targets (>= 60%)
+  // Check if today is close to completing nutrition targets (>= 60%) — always uses today's data, not selected date
   const isTodayCloseToGoal = useMemo(() => {
-    const avgProgress = (macroProgress.protein + macroProgress.fat + macroProgress.carbs + macroProgress.calories) / 4;
+    if (!todayStr) return false;
+    const todayLog = dayLogs[todayStr];
+    if (!todayLog?.meals || todayLog.meals.length === 0) return false;
+    const totals = { protein: 0, fat: 0, carbs: 0, calories: 0 };
+    for (const meal of todayLog.meals) {
+      totals.protein += meal.protein;
+      totals.fat += meal.fat;
+      totals.carbs += meal.carbs;
+      totals.calories += meal.calories;
+    }
+    const avgProgress = (
+      Math.min(100, (totals.protein / MACRO_TARGETS.protein) * 100) +
+      Math.min(100, (totals.fat / MACRO_TARGETS.fat) * 100) +
+      Math.min(100, (totals.carbs / MACRO_TARGETS.carbs) * 100) +
+      Math.min(100, (totals.calories / MACRO_TARGETS.calories) * 100)
+    ) / 4;
     return avgProgress >= 60;
-  }, [macroProgress]);
+  }, [dayLogs, todayStr]);
 
   // Calculate weekly steps (Monday to Sunday)
   const weeklySteps = useMemo(() => {
