@@ -187,6 +187,7 @@ async function getTodayEvents(userId: string): Promise<string> {
 }
 
 export async function POST(request: Request) {
+  let chatId: number | string | null = null;
   try {
     const body = await request.json();
     const message = body.message;
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const chatId = message.chat.id;
+    chatId = message.chat.id;
 
     // Security: only respond to allowed chat
     if (ALLOWED_CHAT_ID && String(chatId) !== ALLOWED_CHAT_ID) {
@@ -244,7 +245,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Telegram webhook error:', error);
-    return NextResponse.json({ ok: true }); // Always return 200 to Telegram
+    if (chatId) {
+      try {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        await sendTelegram(chatId, `⚠️ Ошибка: ${errMsg.substring(0, 300)}`);
+      } catch { /* ignore */ }
+    }
+    return NextResponse.json({ ok: true });
   }
 }
 
