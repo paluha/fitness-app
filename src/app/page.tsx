@@ -918,10 +918,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
           {/* Image link for completed */}
           {ex.imageUrl && (
             <div style={{ marginBottom: '8px' }}>
-              <a href={ex.imageUrl} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => setShowImageFull(true)}
+                style={{ background: 'none', border: 'none', fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, cursor: 'pointer' }}>
                 <Camera size={12} /> Фото упражнения
-              </a>
+              </button>
             </div>
           )}
 
@@ -1110,10 +1110,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
           {/* Exercise image link */}
           {ex.imageUrl && (
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <a href={ex.imageUrl} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => setShowImageFull(true)}
+                style={{ background: 'none', border: 'none', fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, cursor: 'pointer' }}>
                 <Camera size={12} /> Фото упражнения
-              </a>
+              </button>
               <button onClick={() => onUpdate({ imageUrl: undefined })}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '2px', fontSize: '10px', cursor: 'pointer' }}>
                 <X size={12} />
@@ -1193,6 +1193,26 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
       )}
 
       {/* Video Modal */}
+      {/* Compact image popup */}
+      {showImageFull && ex.imageUrl && (
+        <div onClick={() => setShowImageFull(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '40px'
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '400px', width: '100%' }}>
+            <img src={ex.imageUrl} alt={ex.name} style={{ width: '100%', borderRadius: '12px', objectFit: 'contain' }} />
+            <div style={{ textAlign: 'center', marginTop: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>{ex.name}</div>
+            <button onClick={() => setShowImageFull(false)} style={{
+              position: 'absolute', top: '-12px', right: '-12px',
+              width: '28px', height: '28px', borderRadius: '50%',
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+            }}><X size={14} /></button>
+          </div>
+        </div>
+      )}
+
       {showVideoModal && (
         <div
           onClick={() => setShowVideoModal(false)}
