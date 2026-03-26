@@ -730,14 +730,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
   const [showImageFull, setShowImageFull] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-load image from library if exercise has none
-  const libImageKey = ex.name.toLowerCase().trim();
-  const libImage = exerciseLibrary?.[libImageKey];
-  useEffect(() => {
-    if (!ex.imageUrl && libImage) {
-      onUpdate({ imageUrl: libImage });
-    }
-  }, [libImage]); // Trigger when library loads or exercise name matches
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1899,7 +1891,23 @@ export default function FitnessPage() {
         const response = await fetch('/api/fitness');
         if (response.ok) {
           const data = await response.json();
-          if (data.workouts) setWorkouts(data.workouts);
+          if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
+          // Apply library images to all workouts before setting state
+          if (data.workouts && data.exerciseLibrary) {
+            const lib = data.exerciseLibrary as Record<string, string>;
+            let changed = false;
+            for (const workout of data.workouts) {
+              for (const ex of workout.exercises) {
+                if (!ex.imageUrl) {
+                  const libImg = lib[ex.name.toLowerCase().trim()];
+                  if (libImg) { ex.imageUrl = libImg; changed = true; }
+                }
+              }
+            }
+            setWorkouts(data.workouts);
+          } else if (data.workouts) {
+            setWorkouts(data.workouts);
+          }
           if (data.dayLogs) setDayLogs(data.dayLogs);
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
@@ -1907,7 +1915,6 @@ export default function FitnessPage() {
             setPlannerEventsRaw(data.plannerEvents);
             plannerLoadedFromServer.current = true;
           }
-          if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
           if (data.settings) setUserSettings(data.settings);
           if (data.nutritionRecommendations) setNutritionRecommendations(data.nutritionRecommendations);
           serverDataLoadedRef.current = true;
