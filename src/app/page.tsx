@@ -1820,6 +1820,23 @@ export default function FitnessPage() {
     loadData();
   }, []);
 
+  // Poll for planner updates from Telegram bot (every 30s when planner tab active)
+  useEffect(() => {
+    if (view !== 'planner' || !isLoaded) return;
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch('/api/fitness');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.plannerEvents && !plannerUserChanged.current) {
+            setPlannerEventsRaw(data.plannerEvents);
+          }
+        }
+      } catch { /* silent */ }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [view, isLoaded]);
+
   // Update selectedDate and todayStr when timezone changes or on initial load
   useEffect(() => {
     const todayInTz = getTodayInTimezone(userSettings.timezone);
