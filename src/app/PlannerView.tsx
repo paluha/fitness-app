@@ -415,7 +415,10 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {todos.filter(t => !t.done).sort((a, b) => {
                   const prio = { high: 0, medium: 1, low: 2 };
-                  return (prio[a.priority || 'medium'] || 1) - (prio[b.priority || 'medium'] || 1);
+                  const prioDiff = (prio[a.priority || 'medium'] || 1) - (prio[b.priority || 'medium'] || 1);
+                  if (prioDiff !== 0) return prioDiff;
+                  // Newer first (higher id timestamp = newer)
+                  return b.id.localeCompare(a.id);
                 }).map(ev => (
                   <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone}
                     onEdit={(e) => { setEditingEvent(e); setAddType('todo'); setShowAddModal(true); }}
@@ -435,7 +438,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                 {isRu ? `Выполнено (${todos.filter(t => t.done).length})` : `Done (${todos.filter(t => t.done).length})`}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {todos.filter(t => t.done).slice(0, 10).map(ev => (
+                {todos.filter(t => t.done).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10).map(ev => (
                   <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone}
                     onEdit={(e) => { setEditingEvent(e); setAddType('todo'); setShowAddModal(true); }}
                     onDelete={deleteEvent}
@@ -489,7 +492,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
 
           {ideas.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {ideas.map(ev => (
+              {[...ideas].sort((a, b) => b.id.localeCompare(a.id)).map(ev => (
                 <div key={ev.id} style={{
                   padding: '14px', background: 'rgba(168, 85, 247, 0.05)', borderRadius: '12px',
                   border: '1px solid rgba(168, 85, 247, 0.15)'
