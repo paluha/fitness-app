@@ -915,11 +915,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
             )}
           </div>
 
-          {/* Image for completed */}
+          {/* Image link for completed */}
           {ex.imageUrl && (
             <div style={{ marginBottom: '8px' }}>
-              <img src={ex.imageUrl} alt={ex.name}
-                style={{ width: '100%', borderRadius: '8px', maxHeight: '120px', objectFit: 'cover' }} />
+              <a href={ex.imageUrl} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Camera size={12} /> Фото упражнения
+              </a>
             </div>
           )}
 
@@ -1105,23 +1107,15 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
             </div>
           </div>
 
-          {/* Exercise image preview */}
+          {/* Exercise image link */}
           {ex.imageUrl && (
-            <div style={{ marginTop: '8px', position: 'relative' }}>
-              <img
-                src={ex.imageUrl}
-                alt={ex.name}
-                style={{ width: '100%', borderRadius: '8px', maxHeight: '150px', objectFit: 'cover' }}
-              />
-              <button
-                onClick={() => onUpdate({ imageUrl: undefined })}
-                style={{
-                  position: 'absolute', top: '6px', right: '6px',
-                  width: '24px', height: '24px', borderRadius: '6px',
-                  background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-                }}
-              >
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <a href={ex.imageUrl} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Camera size={12} /> Фото упражнения
+              </a>
+              <button onClick={() => onUpdate({ imageUrl: undefined })}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '2px', fontSize: '10px', cursor: 'pointer' }}>
                 <X size={12} />
               </button>
             </div>
