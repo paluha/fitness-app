@@ -15,7 +15,17 @@ export interface PlannerEvent {
   reminder: boolean;
   type: 'event' | 'todo' | 'idea'; // event = calendar, todo = backlog, idea = ideas
   priority?: 'low' | 'medium' | 'high';
+  reminderOffsets?: string[]; // e.g. ['5m', '1h', '1d', '2d']
+  remindersSent?: string[]; // track which reminders were already sent
 }
+
+export const REMINDER_OPTIONS = [
+  { key: '5m', label: 'За 5 мин', labelEn: '5 min before', minutes: 5 },
+  { key: '1h', label: 'За 1 час', labelEn: '1 hour before', minutes: 60 },
+  { key: '3h', label: 'За 3 часа', labelEn: '3 hours before', minutes: 180 },
+  { key: '1d', label: 'За 1 день', labelEn: '1 day before', minutes: 1440 },
+  { key: '2d', label: 'За 2 дня', labelEn: '2 days before', minutes: 2880 },
+];
 
 export type EventCategory = 'health' | 'business' | 'personal' | 'finance' | 'fitness' | 'travel' | 'other';
 
@@ -605,14 +615,23 @@ function EventModal({ event, date, type, lang, onSave, onClose, onDelete }: {
   const [category, setCategory] = useState<EventCategory>(event?.category || (type === 'idea' ? 'personal' : 'other'));
   const [eventDate, setEventDate] = useState(event?.date || (type === 'event' ? date : ''));
   const [reminder, setReminder] = useState(event?.reminder ?? (type === 'event'));
+  const [reminderOffsets, setReminderOffsets] = useState<string[]>(event?.reminderOffsets || (type === 'event' ? ['1h'] : []));
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>(event?.priority || 'medium');
+
+  const toggleOffset = (key: string) => {
+    setReminderOffsets(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    if (!reminder) setReminder(true);
+  };
 
   const handleSave = () => {
     if (!title.trim()) return;
     onSave({
       id: event?.id || `ev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       date: eventDate, time, title: title.trim(), description: description.trim(),
-      category, done: event?.done || false, reminder, type: event?.type || type, priority,
+      category, done: event?.done || false, reminder,
+      reminderOffsets: reminder ? reminderOffsets : [],
+      remindersSent: event?.remindersSent || [],
+      type: event?.type || type, priority,
     });
   };
 
@@ -691,18 +710,31 @@ function EventModal({ event, date, type, lang, onSave, onClose, onDelete }: {
           </div>
         </div>
 
-        {/* Reminder — for events */}
+        {/* Reminders — for events with date+time */}
         {type === 'event' && (
-          <button onClick={() => setReminder(!reminder)} style={{
-            display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-            padding: '12px 16px', borderRadius: '12px',
-            background: reminder ? 'rgba(234, 179, 8, 0.08)' : 'var(--bg-elevated)',
-            border: reminder ? '1px solid rgba(234, 179, 8, 0.2)' : '1px solid var(--border)',
-            color: reminder ? 'var(--yellow)' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, marginBottom: '20px'
-          }}>
-            <Bell size={16} /> {isRu ? 'Напоминание' : 'Reminder'}
-            <span style={{ marginLeft: 'auto', fontSize: '11px' }}>{reminder ? (isRu ? 'Вкл' : 'On') : (isRu ? 'Выкл' : 'Off')}</span>
-          </button>
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <Bell size={14} style={{ color: reminder ? 'var(--yellow)' : 'var(--text-muted)' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                {isRu ? 'Напомнить в Telegram' : 'Remind via Telegram'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {REMINDER_OPTIONS.map(opt => {
+                const active = reminderOffsets.includes(opt.key);
+                return (
+                  <button key={opt.key} onClick={() => toggleOffset(opt.key)} style={{
+                    padding: '8px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: 600,
+                    border: active ? '2px solid var(--yellow)' : '1px solid var(--border)',
+                    background: active ? 'rgba(234, 179, 8, 0.1)' : 'var(--bg-elevated)',
+                    color: active ? 'var(--yellow)' : 'var(--text-muted)',
+                  }}>
+                    {isRu ? opt.label : opt.labelEn}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* Actions */}
