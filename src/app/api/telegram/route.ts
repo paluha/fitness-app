@@ -51,7 +51,7 @@ async function parseWithClaude(message: string): Promise<{
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 500,
     system: `You are Alisa, a personal assistant bot for a planner app. Your job is to parse user messages (usually in Russian) and extract structured data for their planner.
 
