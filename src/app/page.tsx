@@ -918,8 +918,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
           {/* Image for completed */}
           {ex.imageUrl && (
             <div style={{ marginBottom: '8px' }}>
-              <img src={ex.imageUrl} alt={ex.name} onClick={() => setShowImageFull(true)}
-                style={{ width: '100%', borderRadius: '8px', cursor: 'pointer', maxHeight: '120px', objectFit: 'cover' }} />
+              <img src={ex.imageUrl} alt={ex.name}
+                style={{ width: '100%', borderRadius: '8px', maxHeight: '120px', objectFit: 'cover' }} />
             </div>
           )}
 
@@ -1111,8 +1111,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
               <img
                 src={ex.imageUrl}
                 alt={ex.name}
-                onClick={() => setShowImageFull(true)}
-                style={{ width: '100%', borderRadius: '8px', cursor: 'pointer', maxHeight: '150px', objectFit: 'cover' }}
+                style={{ width: '100%', borderRadius: '8px', maxHeight: '150px', objectFit: 'cover' }}
               />
               <button
                 onClick={() => onUpdate({ imageUrl: undefined })}
@@ -1200,20 +1199,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
       )}
 
       {/* Video Modal */}
-      {/* Fullscreen image modal */}
-      {showImageFull && ex.imageUrl && (
-        <div
-          onClick={() => setShowImageFull(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000, padding: '20px', cursor: 'pointer'
-          }}
-        >
-          <img src={ex.imageUrl} alt={ex.name} style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: '12px', objectFit: 'contain' }} />
-        </div>
-      )}
-
       {showVideoModal && (
         <div
           onClick={() => setShowVideoModal(false)}
