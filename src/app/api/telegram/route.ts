@@ -217,7 +217,7 @@ export async function POST(request: Request) {
 
     const userId = await getUserId();
     if (!userId) {
-      await sendTelegram(chatId, '❌ Пользователь не найден.');
+      await sendTelegram(chatId, '❌ Пользователь не найден в базе.');
       return NextResponse.json({ ok: true });
     }
 
@@ -227,6 +227,9 @@ export async function POST(request: Request) {
 
     // Parse with Claude
     const parsed = await parseWithClaude(text, context);
+
+    // Debug: show what Claude parsed
+    console.log('Parsed action:', parsed.action, 'title:', parsed.title, 'target:', parsed.target_id);
 
     switch (parsed.action) {
       case 'list': {
