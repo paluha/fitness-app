@@ -1589,7 +1589,7 @@ function FitnessCalendar({
             if (isSelected) return 'var(--yellow)';
             if (isToday) return 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)';
             if (hasWorkout) return 'var(--green-dim)';
-            if (isOffDay) return 'rgba(147, 112, 219, 0.15)';
+            if (isOffDay) return 'rgba(100, 116, 139, 0.15)';
             if (isUnclosedPastDay) return 'rgba(255, 255, 255, 0.03)'; // Grey dim for unclosed
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
@@ -1602,7 +1602,7 @@ function FitnessCalendar({
             if (isSelected) return '#000';
             if (isToday) return 'var(--yellow)';
             if (hasWorkout) return 'var(--green)';
-            if (isOffDay) return 'rgb(147, 112, 219)';
+            if (isOffDay) return 'rgb(148, 163, 184)';
             if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.25)';
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
@@ -1618,7 +1618,7 @@ function FitnessCalendar({
             if (isToday) return '2px solid var(--yellow)';
             if (isUnclosedPastDay && !isSelected) return '1px solid rgba(255, 255, 255, 0.05)';
             if (hasWorkout && !isSelected) return '1px solid rgba(0, 200, 83, 0.3)';
-            if (isOffDay && !isSelected) return '1px solid rgba(147, 112, 219, 0.3)';
+            if (isOffDay && !isSelected) return '1px solid rgba(100, 116, 139, 0.3)';
             return '1px solid transparent';
           };
 
@@ -1628,7 +1628,7 @@ function FitnessCalendar({
             if (isSelected) return '0 4px 20px var(--yellow-glow)';
             if (isToday) return '0 2px 12px rgba(255, 193, 7, 0.3)';
             if (hasWorkout) return '0 2px 8px var(--green-glow)';
-            if (isOffDay) return '0 2px 8px rgba(147, 112, 219, 0.2)';
+            if (isOffDay) return '0 2px 8px rgba(100, 116, 139, 0.2)';
             if (isUnclosedPastDay) return 'none';
             return 'none';
           };
@@ -3217,7 +3217,7 @@ export default function FitnessPage() {
                           background: isSelected
                             ? 'var(--yellow)'
                             : isOffDay
-                              ? 'rgba(147, 112, 219, 0.15)'
+                              ? 'rgba(100, 116, 139, 0.15)'
                               : isLightDay
                                 ? 'rgba(100, 116, 139, 0.1)'
                                 : isClosed
@@ -3226,7 +3226,7 @@ export default function FitnessPage() {
                           border: isToday
                             ? '2px solid var(--yellow)'
                             : isOffDay && !isSelected
-                              ? '1px solid rgba(147, 112, 219, 0.3)'
+                              ? '1px solid rgba(100, 116, 139, 0.3)'
                               : isLightDay && !isSelected
                                 ? '1px solid rgba(100, 116, 139, 0.2)'
                                 : isClosed && !isSelected
@@ -3238,7 +3238,7 @@ export default function FitnessPage() {
                           boxShadow: isSelected
                             ? '0 2px 10px var(--yellow-glow)'
                             : isOffDay && !isSelected
-                              ? '0 1px 4px rgba(147, 112, 219, 0.2)'
+                              ? '0 1px 4px rgba(100, 116, 139, 0.2)'
                               : isLightDay && !isSelected
                                 ? 'none'
                                 : isClosed && !isSelected
@@ -3256,7 +3256,7 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '12px',
                           fontWeight: 700,
-                          color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
@@ -3264,7 +3264,7 @@ export default function FitnessPage() {
                           <span style={{
                             fontSize: isOffDay ? '10px' : '9px',
                             fontWeight: 600,
-                            color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '1px'
@@ -3283,8 +3283,8 @@ export default function FitnessPage() {
             {/* Off Day indicator */}
             {currentDayLog.isOffDay && (
               <div style={{
-                background: 'rgba(147, 112, 219, 0.15)',
-                border: '1px solid rgba(147, 112, 219, 0.3)',
+                background: 'rgba(100, 116, 139, 0.15)',
+                border: '1px solid rgba(100, 116, 139, 0.3)',
                 borderRadius: '12px',
                 padding: '14px 16px',
                 marginBottom: '16px',
@@ -3294,7 +3294,7 @@ export default function FitnessPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '20px' }}>😴</span>
-                  <span style={{ color: 'rgb(147, 112, 219)', fontWeight: 600, fontSize: '14px' }}>
+                  <span style={{ color: 'rgb(148, 163, 184)', fontWeight: 600, fontSize: '14px' }}>
                     {t('offDay')}
                   </span>
                 </div>
@@ -3340,7 +3340,7 @@ export default function FitnessPage() {
                   style={{
                     padding: '8px 12px',
                     background: offDayHoldProgress > 0
-                      ? `linear-gradient(90deg, rgba(147, 112, 219, 0.3) ${offDayHoldProgress}%, var(--bg-elevated) ${offDayHoldProgress}%)`
+                      ? `linear-gradient(90deg, rgba(100, 116, 139, 0.3) ${offDayHoldProgress}%, var(--bg-elevated) ${offDayHoldProgress}%)`
                       : 'var(--bg-elevated)',
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
