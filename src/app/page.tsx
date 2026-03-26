@@ -10,7 +10,7 @@ import {
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays
 } from 'lucide-react';
-import PlannerView, { PlannerEvent } from './PlannerView';
+import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
 function parseRestTime(restTime: string): number {
@@ -1862,6 +1862,7 @@ export default function FitnessPage() {
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [plannerEvents, setPlannerEventsRaw] = useState<PlannerEvent[]>([]);
   const [exerciseLibrary, setExerciseLibrary] = useState<Record<string, string>>({});
+  const [habits, setHabits] = useState<Habit[]>([]);
   const plannerLoadedFromServer = useRef(false);
   const plannerUserChanged = useRef(false);
   const setPlannerEvents = useCallback((events: PlannerEvent[]) => {
@@ -1897,6 +1898,7 @@ export default function FitnessPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
+          if (data.habits) setHabits(data.habits);
           // Apply library images to all workouts before setting state
           if (data.workouts && data.exerciseLibrary) {
             const lib = data.exerciseLibrary as Record<string, string>;
@@ -1978,6 +1980,8 @@ export default function FitnessPage() {
   // Sync to server with debounce
   const exerciseLibraryRef = useRef(exerciseLibrary);
   exerciseLibraryRef.current = exerciseLibrary;
+  const habitsRef = useRef(habits);
+  habitsRef.current = habits;
 
   const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[], plannerData?: PlannerEvent[]) => {
     setSyncStatus('syncing');
@@ -1990,6 +1994,9 @@ export default function FitnessPage() {
       // Always sync exercise library if it has data
       if (Object.keys(exerciseLibraryRef.current).length > 0) {
         payload.exerciseLibrary = exerciseLibraryRef.current;
+      }
+      if (habitsRef.current.length > 0) {
+        payload.habits = habitsRef.current;
       }
       const response = await fetch('/api/fitness', {
         method: 'POST',
@@ -2029,7 +2036,7 @@ export default function FitnessPage() {
   useEffect(() => {
     if (!isLoaded || !serverDataLoadedRef.current) return;
     doSync();
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded, doSync]);
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, habits, isLoaded, doSync]);
 
   // Also save to localStorage as emergency backup
   useEffect(() => {
@@ -5009,6 +5016,8 @@ export default function FitnessPage() {
             <PlannerView
               events={plannerEvents}
               onEventsChange={setPlannerEvents}
+              habits={habits}
+              onHabitsChange={setHabits}
               todayStr={todayStr}
               lang={userSettings.language === 'ru' ? 'ru' : 'en'}
             />

@@ -43,6 +43,7 @@ export async function GET() {
       favoriteMeals: fitnessData?.favoriteMeals || null,
       plannerEvents: fitnessData?.plannerEvents || null,
       exerciseLibrary: fitnessData?.exerciseLibrary || null,
+      habits: fitnessData?.habits || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
     if (body.plannerEvents !== undefined) {
       updateData.plannerEvents = body.plannerEvents;
     }
+    if (body.habits !== undefined) updateData.habits = body.habits;
     // exerciseLibrary: merge — new images added, existing preserved
     if (body.exerciseLibrary !== undefined) {
       const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
@@ -148,7 +150,8 @@ export async function POST(request: Request) {
         bodyMeasurements: body.bodyMeasurements || [],
         favoriteMeals: body.favoriteMeals || [],
         plannerEvents: body.plannerEvents || [],
-        exerciseLibrary: body.exerciseLibrary || {}
+        exerciseLibrary: body.exerciseLibrary || {},
+        habits: body.habits || []
       }
     });
 

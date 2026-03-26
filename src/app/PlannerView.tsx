@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays, Archive, RotateCcw } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays, Archive, RotateCcw, Repeat } from 'lucide-react';
 
 // ── Types ──
 export interface PlannerEvent {
@@ -19,6 +19,16 @@ export interface PlannerEvent {
   remindersSent?: string[]; // track which reminders were already sent
   archived?: boolean;
   archivedAt?: string;
+}
+
+export interface Habit {
+  id: string;
+  title: string;
+  time: string; // HH:MM — when to do it
+  icon: string; // emoji
+  reminderEnabled: boolean;
+  active: boolean; // can disable without deleting
+  completedDates: string[]; // ["2026-03-26", "2026-03-25", ...]
 }
 
 export const REMINDER_OPTIONS = [
@@ -63,16 +73,20 @@ const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 
 const DAY_NAMES_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const DAY_NAMES_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type PlannerTab = 'calendar' | 'todos' | 'ideas' | 'archive';
+type PlannerTab = 'calendar' | 'todos' | 'ideas' | 'habits' | 'archive';
+
+const HABIT_ICONS = ['💊', '🪥', '💧', '🏃', '📖', '🧘', '💤', '🍎', '🧴', '☀️'];
 
 interface PlannerViewProps {
   events: PlannerEvent[];
   onEventsChange: (events: PlannerEvent[]) => void;
+  habits: Habit[];
+  onHabitsChange: (habits: Habit[]) => void;
   todayStr: string;
   lang: 'ru' | 'en';
 }
 
-export default function PlannerView({ events, onEventsChange, todayStr, lang }: PlannerViewProps) {
+export default function PlannerView({ events, onEventsChange, habits, onHabitsChange, todayStr, lang }: PlannerViewProps) {
   const [tab, setTab] = useState<PlannerTab>('calendar');
   const [viewMonth, setViewMonth] = useState(() => {
     if (!todayStr) return new Date();
@@ -225,6 +239,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
         {([
           { key: 'calendar' as PlannerTab, icon: <CalendarDays size={14} />, label: isRu ? 'Календарь' : 'Calendar', badge: todayEvents.length || undefined },
           { key: 'todos' as PlannerTab, icon: <ListTodo size={14} />, label: isRu ? 'Дела' : 'To-Do', badge: undoneTodos || undefined },
+          { key: 'habits' as PlannerTab, icon: <Repeat size={14} />, label: isRu ? 'Трекер' : 'Habits', badge: habits.filter(h => h.active && !h.completedDates.includes(todayStr)).length || undefined },
           { key: 'ideas' as PlannerTab, icon: <Lightbulb size={14} />, label: isRu ? 'Идеи' : 'Ideas', badge: ideas.length || undefined },
           { key: 'archive' as PlannerTab, icon: <Archive size={14} />, label: isRu ? 'Архив' : 'Archive', badge: archived.length || undefined },
         ]).map(t => (
@@ -542,6 +557,11 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
         </>
       )}
 
+      {/* ══════════ HABITS TAB ══════════ */}
+      {tab === 'habits' && (
+        <HabitsSection habits={habits} onHabitsChange={onHabitsChange} todayStr={todayStr} isRu={isRu} />
+      )}
+
       {/* ══════════ ARCHIVE TAB ══════════ */}
       {tab === 'archive' && (
         <>
@@ -816,6 +836,194 @@ function EventModal({ event, date, type, lang, onSave, onClose, onDelete }: {
           }}>
             <Save size={16} /> {isRu ? 'Сохранить' : 'Save'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Habits Section ──
+function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
+  habits: Habit[]; onHabitsChange: (h: Habit[]) => void; todayStr: string; isRu: boolean;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+
+  const activeHabits = habits.filter(h => h.active);
+  const doneToday = activeHabits.filter(h => h.completedDates.includes(todayStr)).length;
+
+  const toggleToday = (id: string) => {
+    onHabitsChange(habits.map(h => {
+      if (h.id !== id) return h;
+      const done = h.completedDates.includes(todayStr);
+      return { ...h, completedDates: done ? h.completedDates.filter(d => d !== todayStr) : [...h.completedDates, todayStr] };
+    }));
+  };
+
+  const saveHabit = (habit: Habit) => {
+    if (editingHabit) {
+      onHabitsChange(habits.map(h => h.id === habit.id ? habit : h));
+    } else {
+      onHabitsChange([...habits, habit]);
+    }
+    setShowAdd(false);
+    setEditingHabit(null);
+  };
+
+  const deleteHabit = (id: string) => {
+    onHabitsChange(habits.filter(h => h.id !== id));
+  };
+
+  const getStreak = (habit: Habit): number => {
+    let streak = 0;
+    const [y, m, d] = todayStr.split('-').map(Number);
+    let checkDate = habit.completedDates.includes(todayStr) ? new Date(y, m - 1, d) : new Date(y, m - 1, d - 1);
+    for (let i = 0; i < 365; i++) {
+      if (habit.completedDates.includes(formatDate(checkDate))) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
+      else break;
+    }
+    return streak;
+  };
+
+  const last7 = useMemo(() => {
+    const days: { date: string }[] = [];
+    const [y, m, d] = todayStr.split('-').map(Number);
+    for (let i = 6; i >= 0; i--) days.push({ date: formatDate(new Date(y, m - 1, d - i)) });
+    return days;
+  }, [todayStr]);
+
+  return (
+    <>
+      {activeHabits.length > 0 && (
+        <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700 }}>{isRu ? 'Сегодня' : 'Today'}</span>
+            <span style={{ fontSize: '12px', color: doneToday === activeHabits.length ? 'var(--green)' : 'var(--text-muted)', fontWeight: 600 }}>{doneToday}/{activeHabits.length}</span>
+          </div>
+          <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: '2px', transition: 'width 0.3s', width: `${(doneToday / activeHabits.length) * 100}%`, background: doneToday === activeHabits.length ? 'var(--green)' : 'var(--yellow)' }} />
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+        {activeHabits.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')).map(habit => {
+          const done = habit.completedDates.includes(todayStr);
+          const streak = getStreak(habit);
+          return (
+            <div key={habit.id} style={{
+              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
+              background: done ? 'rgba(34, 197, 94, 0.05)' : 'var(--bg-elevated)',
+              borderRadius: '12px', border: `1px solid ${done ? 'rgba(34, 197, 94, 0.15)' : 'var(--border)'}`
+            }}>
+              <button onClick={() => toggleToday(habit.id)} style={{
+                width: '28px', height: '28px', borderRadius: '8px',
+                border: done ? 'none' : '2px solid rgba(255,255,255,0.2)',
+                background: done ? 'var(--green)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0, fontSize: '14px'
+              }}>{done ? <Check size={16} style={{ color: '#000' }} /> : habit.icon}</button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, opacity: done ? 0.6 : 1 }}>{habit.title}</div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                  {habit.time && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{habit.time}</span>}
+                  {streak > 0 && <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>🔥 {streak} {isRu ? 'дн.' : 'd'}</span>}
+                  {habit.reminderEnabled && <Bell size={10} style={{ color: 'var(--text-muted)' }} />}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                {last7.map(day => (
+                  <div key={day.date} style={{ width: '6px', height: '6px', borderRadius: '50%', background: habit.completedDates.includes(day.date) ? 'var(--green)' : 'rgba(255,255,255,0.1)' }} />
+                ))}
+              </div>
+              <button onClick={() => { setEditingHabit(habit); setShowAdd(true); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}><Edit2 size={14} /></button>
+            </div>
+          );
+        })}
+      </div>
+
+      <button onClick={() => { setEditingHabit(null); setShowAdd(true); }} style={{
+        width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)',
+        border: '1px dashed var(--border)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
+      }}><Plus size={14} /> {isRu ? 'Добавить привычку' : 'Add habit'}</button>
+
+      {activeHabits.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>
+          <Repeat size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
+          <p style={{ fontSize: '14px' }}>{isRu ? 'Добавь ежедневные привычки' : 'Add daily habits'}</p>
+          <p style={{ fontSize: '12px', marginTop: '4px' }}>{isRu ? 'Лекарства, зубы, вода, спорт...' : 'Meds, teeth, water, exercise...'}</p>
+        </div>
+      )}
+
+      {showAdd && (
+        <HabitModal habit={editingHabit} isRu={isRu} onSave={saveHabit}
+          onDelete={editingHabit ? () => { deleteHabit(editingHabit.id); setShowAdd(false); setEditingHabit(null); } : undefined}
+          onClose={() => { setShowAdd(false); setEditingHabit(null); }} />
+      )}
+    </>
+  );
+}
+
+// ── Habit Add/Edit Modal ──
+function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
+  habit: Habit | null; isRu: boolean; onSave: (h: Habit) => void; onDelete?: () => void; onClose: () => void;
+}) {
+  const [title, setTitle] = useState(habit?.title || '');
+  const [time, setTime] = useState(habit?.time || '');
+  const [icon, setIcon] = useState(habit?.icon || '💊');
+  const [reminderEnabled, setReminderEnabled] = useState(habit?.reminderEnabled ?? true);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: '480px', padding: '24px 20px 32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{habit ? (isRu ? 'Редактировать' : 'Edit') : (isRu ? 'Новая привычка' : 'New Habit')}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}><X size={20} /></button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          {HABIT_ICONS.map(ic => (
+            <button key={ic} onClick={() => setIcon(ic)} style={{
+              width: '40px', height: '40px', borderRadius: '10px', fontSize: '20px',
+              border: icon === ic ? '2px solid var(--yellow)' : '1px solid var(--border)',
+              background: icon === ic ? 'rgba(234, 179, 8, 0.1)' : 'var(--bg-elevated)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+            }}>{ic}</button>
+          ))}
+        </div>
+
+        <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
+          placeholder={isRu ? 'Название привычки' : 'Habit name'}
+          style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '12px' }} />
+
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
+          <Clock size={16} style={{ color: 'var(--text-muted)' }} />
+          <input type="time" value={time} onChange={e => setTime(e.target.value)}
+            style={{ flex: 1, padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '14px' }} />
+        </div>
+
+        <button onClick={() => setReminderEnabled(!reminderEnabled)} style={{
+          display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '12px 16px', borderRadius: '12px',
+          background: reminderEnabled ? 'rgba(234, 179, 8, 0.08)' : 'var(--bg-elevated)',
+          border: reminderEnabled ? '1px solid rgba(234, 179, 8, 0.2)' : '1px solid var(--border)',
+          color: reminderEnabled ? 'var(--yellow)' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, marginBottom: '20px'
+        }}>
+          <Bell size={16} /> {isRu ? 'Ежедневное напоминание' : 'Daily reminder'}
+          <span style={{ marginLeft: 'auto', fontSize: '11px' }}>{reminderEnabled ? (isRu ? 'Вкл' : 'On') : (isRu ? 'Выкл' : 'Off')}</span>
+        </button>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {onDelete && (
+            <button onClick={onDelete} style={{ padding: '14px 20px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', fontSize: '14px', fontWeight: 700 }}><Trash2 size={16} /></button>
+          )}
+          <button onClick={() => { if (!title.trim()) return; onSave({ id: habit?.id || `hab_${Date.now()}`, title: title.trim(), time, icon, reminderEnabled, active: true, completedDates: habit?.completedDates || [] }); }}
+            disabled={!title.trim()} style={{
+            flex: 1, padding: '14px', borderRadius: '12px',
+            background: title.trim() ? 'var(--yellow)' : 'var(--bg-elevated)',
+            border: 'none', color: title.trim() ? '#000' : 'var(--text-muted)',
+            fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+          }}><Save size={16} /> {isRu ? 'Сохранить' : 'Save'}</button>
         </div>
       </div>
     </div>
