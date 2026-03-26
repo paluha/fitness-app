@@ -187,7 +187,7 @@ async function getTodayEvents(userId: string): Promise<string> {
 }
 
 export async function POST(request: Request) {
-  let chatId: number | string | null = null;
+  let chatId: number | string = 0;
   try {
     const body = await request.json();
     const message = body.message;
@@ -245,7 +245,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Telegram webhook error:', error);
-    if (chatId) {
+    if (chatId && chatId !== 0) {
       try {
         const errMsg = error instanceof Error ? error.message : String(error);
         await sendTelegram(chatId, `⚠️ Ошибка: ${errMsg.substring(0, 300)}`);
