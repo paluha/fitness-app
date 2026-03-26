@@ -3196,10 +3196,10 @@ export default function FitnessPage() {
                     const completedWorkout = completedWorkoutId
                       ? workouts.find(w => w.id === completedWorkoutId)
                       : null;
-                    const isSkippedDay = isClosed && !completedWorkout && !isOffDay;
+                    const isLightDay = isClosed && !completedWorkout && !isOffDay;
                     const workoutLabel = isClosed && completedWorkout
                       ? completedWorkout.name.replace('Тренировка ', 'T')
-                      : isOffDay ? '😴' : isSkippedDay ? '💤' : isRestDay ? '—' : '';
+                      : isOffDay ? '😴' : isLightDay ? '🚶' : isRestDay ? '—' : '';
 
                     // Empty day = not closed and not rest day (no workout done yet)
                     const isEmptyDay = !isClosed && !isRestDay && !isFuture;
@@ -3218,8 +3218,8 @@ export default function FitnessPage() {
                             ? 'var(--yellow)'
                             : isOffDay
                               ? 'rgba(147, 112, 219, 0.15)'
-                              : isSkippedDay
-                                ? 'rgba(251, 191, 36, 0.08)'
+                              : isLightDay
+                                ? 'rgba(100, 116, 139, 0.1)'
                                 : isClosed
                                   ? 'var(--green-dim)'
                                   : 'var(--bg-elevated)',
@@ -3227,8 +3227,8 @@ export default function FitnessPage() {
                             ? '2px solid var(--yellow)'
                             : isOffDay && !isSelected
                               ? '1px solid rgba(147, 112, 219, 0.3)'
-                              : isSkippedDay && !isSelected
-                                ? '1px solid rgba(251, 191, 36, 0.2)'
+                              : isLightDay && !isSelected
+                                ? '1px solid rgba(100, 116, 139, 0.2)'
                                 : isClosed && !isSelected
                                   ? '1px solid rgba(0, 200, 83, 0.3)'
                                   : '1px solid var(--border)',
@@ -3239,7 +3239,7 @@ export default function FitnessPage() {
                             ? '0 2px 10px var(--yellow-glow)'
                             : isOffDay && !isSelected
                               ? '0 1px 4px rgba(147, 112, 219, 0.2)'
-                              : isSkippedDay && !isSelected
+                              : isLightDay && !isSelected
                                 ? 'none'
                                 : isClosed && !isSelected
                                   ? '0 1px 4px var(--green-glow)'
@@ -3256,7 +3256,7 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '12px',
                           fontWeight: 700,
-                          color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isSkippedDay ? 'var(--yellow)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
@@ -3264,12 +3264,12 @@ export default function FitnessPage() {
                           <span style={{
                             fontSize: isOffDay ? '10px' : '9px',
                             fontWeight: 600,
-                            color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isSkippedDay ? 'var(--yellow)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            color: isSelected ? '#000' : isOffDay ? 'rgb(147, 112, 219)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '1px'
                           }}>
-                            {isClosed && !isOffDay && !isSkippedDay && <Check size={8} strokeWidth={3} />}
+                            {isClosed && !isOffDay && !isLightDay && <Check size={8} strokeWidth={3} />}
                             {workoutLabel}
                           </span>
                         )}
