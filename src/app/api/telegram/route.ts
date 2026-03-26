@@ -7,7 +7,21 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_PLANNER_CHAT_ID;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-// Send message back to Telegram
+interface PlannerEvent {
+  id: string;
+  date: string;
+  time: string;
+  title: string;
+  description: string;
+  category: string;
+  done: boolean;
+  reminder: boolean;
+  type: 'event' | 'todo' | 'idea';
+  priority?: string;
+  reminderOffsets?: string[];
+  remindersSent?: string[];
+}
+
 async function sendTelegram(chatId: number | string, text: string) {
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -16,7 +30,6 @@ async function sendTelegram(chatId: number | string, text: string) {
   });
 }
 
-// Get today's date in user timezone
 function getTodayStr(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
@@ -27,76 +40,6 @@ function getTomorrowStr(): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
-// Parse Claude's response to structured planner event
-async function parseWithClaude(message: string): Promise<{
-  action: 'add_event' | 'add_todo' | 'add_idea' | 'list' | 'unknown';
-  title?: string;
-  description?: string;
-  date?: string;
-  time?: string;
-  category?: string;
-  priority?: string;
-  reply: string;
-}> {
-  if (!ANTHROPIC_API_KEY) {
-    return { action: 'unknown', reply: 'Claude API key not configured' };
-  }
-
-  const today = getTodayStr();
-  const tomorrow = getTomorrowStr();
-
-  // Get day of week for context
-  const now = new Date();
-  const dayOfWeek = now.toLocaleDateString('ru-RU', { weekday: 'long', timeZone: 'America/New_York' });
-
-  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 500,
-    system: `You are Alisa, a personal assistant bot for a planner app. Your job is to parse user messages (usually in Russian) and extract structured data for their planner.
-
-Today is ${today} (${dayOfWeek}). Tomorrow is ${tomorrow}.
-
-Reply ONLY with valid JSON (no markdown, no code blocks, just raw JSON):
-{
-  "action": "add_event" | "add_todo" | "add_idea" | "list",
-  "title": "short title",
-  "description": "optional details",
-  "date": "YYYY-MM-DD or empty",
-  "time": "HH:MM or empty",
-  "category": "health" | "business" | "personal" | "finance" | "fitness" | "travel" | "other",
-  "priority": "high" | "medium" | "low",
-  "reply": "friendly confirmation in Russian"
-}
-
-Rules:
-- "завтра в 14:00 стоматолог" → add_event, date=tomorrow, time=14:00, category=health
-- "купить продукты" → add_todo, no date, category=personal
-- "идея: сделать лендинг для X" → add_idea, category=business
-- "через неделю" = today + 7 days, "послезавтра" = today + 2 days
-- "в понедельник" = next Monday from today
-- "список" or "что на сегодня" → action=list
-- If user just chats or says hi, action=unknown and reply friendly
-- reply should be short, friendly, in Russian, confirming what was added
-- For add_todo without explicit date, leave date empty`,
-    messages: [{ role: 'user', content: message }],
-  });
-
-  try {
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
-    // Try to extract JSON from response (handle if wrapped in markdown)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    return { action: 'unknown', reply: 'Не удалось обработать сообщение. Попробуй ещё раз.' };
-  } catch {
-    return { action: 'unknown', reply: 'Ошибка обработки. Попробуй сформулировать иначе.' };
-  }
-}
-
-// Find the main user (Pavel)
 async function getUserId(): Promise<string | null> {
   const user = await prisma.user.findFirst({
     where: { email: 'paveloshmanski@gmail.com' },
@@ -105,89 +48,145 @@ async function getUserId(): Promise<string | null> {
   return user?.id || null;
 }
 
-// Add event to planner
-async function addToPlan(userId: string, event: {
-  title: string; description?: string; date?: string; time?: string;
-  category?: string; priority?: string;
-  type: 'event' | 'todo' | 'idea';
-}) {
-  const fitnessData = await prisma.fitnessData.findUnique({
+async function getEvents(userId: string): Promise<PlannerEvent[]> {
+  const data = await prisma.fitnessData.findUnique({
     where: { userId },
     select: { plannerEvents: true }
   });
+  return (data?.plannerEvents as unknown as PlannerEvent[]) || [];
+}
 
-  const existingEvents = (fitnessData?.plannerEvents as unknown[]) || [];
-  const newEvent = {
-    id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    date: event.date || '',
-    time: event.time || '',
-    title: event.title,
-    description: event.description || '',
-    category: event.category || 'other',
-    done: false,
-    reminder: event.type === 'event',
-    type: event.type,
-    priority: event.priority || 'medium',
-  };
-
-  const updatedEvents = [...existingEvents, newEvent];
+async function saveEvents(userId: string, events: PlannerEvent[]) {
   await prisma.fitnessData.update({
     where: { userId },
     data: {
-      plannerEvents: updatedEvents as unknown as Prisma.InputJsonValue,
+      plannerEvents: events as unknown as Prisma.InputJsonValue,
       updatedAt: new Date(),
     },
   });
-
-  return newEvent;
 }
 
-// Get today's events for listing
-async function getTodayEvents(userId: string): Promise<string> {
-  const fitnessData = await prisma.fitnessData.findUnique({
-    where: { userId },
-    select: { plannerEvents: true }
-  });
+const CATEGORY_EMOJI: Record<string, string> = {
+  health: '🏥', business: '💼', personal: '👤', finance: '💰',
+  fitness: '💪', travel: '✈️', other: '📌',
+};
 
-  const events = ((fitnessData?.plannerEvents || []) as Array<{
-    type: string; date: string; time: string; title: string; done: boolean; category: string;
-  }>);
-  const today = getTodayStr();
-  const tomorrow = getTomorrowStr();
-
-  const todayEvents = events.filter(e => e.date === today && !e.done);
-  const tomorrowEvents = events.filter(e => e.date === tomorrow && !e.done);
-  const todos = events.filter(e => e.type === 'todo' && !e.done);
+// Build context of existing events for Claude
+function buildEventsContext(events: PlannerEvent[]): string {
+  if (events.length === 0) return 'Список пуст.';
 
   const lines: string[] = [];
+  const undoneEvents = events.filter(e => !e.done && e.type === 'event').slice(-10);
+  const undoneTodos = events.filter(e => !e.done && e.type === 'todo').slice(-10);
+  const ideas = events.filter(e => e.type === 'idea').slice(-10);
+  const doneRecent = events.filter(e => e.done).slice(-5);
 
-  if (todayEvents.length > 0) {
-    lines.push('📅 *Сегодня:*');
-    todayEvents.forEach(e => {
-      lines.push(`  ${e.time ? e.time + ' — ' : ''}${e.title}`);
-    });
-  } else {
-    lines.push('📅 *Сегодня:* нет событий');
+  if (undoneEvents.length > 0) {
+    lines.push('СОБЫТИЯ:');
+    undoneEvents.forEach((e, i) => lines.push(`  [${i}] id=${e.id} "${e.title}" ${e.date} ${e.time} (${e.category})`));
+  }
+  if (undoneTodos.length > 0) {
+    lines.push('ДЕЛА:');
+    undoneTodos.forEach((e, i) => lines.push(`  [${i}] id=${e.id} "${e.title}" приоритет=${e.priority || 'medium'} (${e.category})`));
+  }
+  if (ideas.length > 0) {
+    lines.push('ИДЕИ:');
+    ideas.forEach((e, i) => lines.push(`  [${i}] id=${e.id} "${e.title}"`));
+  }
+  if (doneRecent.length > 0) {
+    lines.push('ВЫПОЛНЕНО (последние):');
+    doneRecent.forEach(e => lines.push(`  ✓ "${e.title}"`));
   }
 
-  if (tomorrowEvents.length > 0) {
-    lines.push('');
-    lines.push('🔜 *Завтра:*');
-    tomorrowEvents.forEach(e => {
-      lines.push(`  ${e.time ? e.time + ' — ' : ''}${e.title}`);
-    });
+  return lines.join('\n');
+}
+
+interface ParsedAction {
+  action: 'add_event' | 'add_todo' | 'add_idea' | 'edit' | 'delete' | 'complete' | 'list' | 'list_all' | 'list_ideas' | 'unknown';
+  target_id?: string; // id of event to edit/delete/complete
+  title?: string;
+  description?: string;
+  date?: string;
+  time?: string;
+  category?: string;
+  priority?: string;
+  reply: string;
+}
+
+async function parseWithClaude(message: string, eventsContext: string): Promise<ParsedAction> {
+  if (!ANTHROPIC_API_KEY) {
+    return { action: 'unknown', reply: 'Claude API key not configured' };
   }
 
-  if (todos.length > 0) {
-    lines.push('');
-    lines.push(`📋 *Дела (${todos.length}):*`);
-    todos.slice(0, 5).forEach(e => {
-      lines.push(`  • ${e.title}`);
-    });
-    if (todos.length > 5) lines.push(`  _...и ещё ${todos.length - 5}_`);
-  }
+  const today = getTodayStr();
+  const tomorrow = getTomorrowStr();
+  const now = new Date();
+  const dayOfWeek = now.toLocaleDateString('ru-RU', { weekday: 'long', timeZone: 'America/New_York' });
 
-  return lines.join('\n') || 'Ничего не запланировано 🎉';
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 600,
+    system: `You are Alisa, a smart personal assistant. You manage the user's planner: events (with date/time), todos (backlog tasks), and ideas. User speaks Russian.
+
+Today: ${today} (${dayOfWeek}). Tomorrow: ${tomorrow}.
+
+CURRENT PLANNER:
+${eventsContext}
+
+Reply ONLY with raw JSON:
+{
+  "action": "add_event" | "add_todo" | "add_idea" | "edit" | "delete" | "complete" | "list" | "list_all" | "list_ideas" | "unknown",
+  "target_id": "event id to edit/delete/complete (from CURRENT PLANNER above)",
+  "title": "new or updated title",
+  "description": "details",
+  "date": "YYYY-MM-DD",
+  "time": "HH:MM",
+  "category": "health|business|personal|finance|fitness|travel|other",
+  "priority": "high|medium|low",
+  "reply": "friendly confirmation in Russian"
+}
+
+RULES:
+- ADD: "завтра стоматолог в 14" → add_event. "купить молоко" → add_todo. "идея: ..." → add_idea
+- EDIT: "исправь массаж на 15:00" or "перенеси встречу на пятницу" → action=edit, target_id from list, include changed fields only
+- DELETE: "удали массаж" or "удали последнее" → action=delete, target_id from list
+- COMPLETE: "отметь молоко" or "готово молоко" or "сделал X" → action=complete, target_id from list
+- LIST: "что на сегодня" → list. "покажи всё" or "все дела" → list_all. "покажи идеи" → list_ideas
+- DATES: "через неделю" = +7 days. "послезавтра" = +2. "в понедельник" = next Monday. "1 апреля" = 2026-04-01
+- Find the right target_id by matching the title from user's message to items in CURRENT PLANNER
+- If user says "последнее" (last one), use the last item's id from the relevant list
+- reply: short, friendly, Russian, confirm what you did
+- If unclear, action=unknown, ask for clarification in reply`,
+    messages: [{ role: 'user', content: message }],
+  });
+
+  try {
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return { action: 'unknown', reply: 'Не удалось обработать. Попробуй ещё раз.' };
+  } catch {
+    return { action: 'unknown', reply: 'Ошибка. Попробуй сформулировать иначе.' };
+  }
+}
+
+function formatEventsList(events: PlannerEvent[], title: string, filterFn: (e: PlannerEvent) => boolean): string {
+  const filtered = events.filter(filterFn);
+  if (filtered.length === 0) return `${title}\n  _пусто_`;
+
+  const lines = [title];
+  filtered.forEach(e => {
+    const emoji = CATEGORY_EMOJI[e.category] || '📌';
+    const done = e.done ? '✅ ' : '';
+    const time = e.time ? `${e.time} — ` : '';
+    const date = e.date ? ` (${e.date})` : '';
+    lines.push(`  ${done}${emoji} ${time}${e.title}${date}`);
+  });
+  return lines.join('\n');
 }
 
 export async function POST(request: Request) {
@@ -202,7 +201,6 @@ export async function POST(request: Request) {
 
     chatId = message.chat.id;
 
-    // Security: only respond to allowed chat
     if (ALLOWED_CHAT_ID && String(chatId) !== ALLOWED_CHAT_ID) {
       await sendTelegram(chatId, '⛔ Доступ запрещён.');
       return NextResponse.json({ ok: true });
@@ -210,40 +208,134 @@ export async function POST(request: Request) {
 
     const text = message.text.trim();
 
-    // Handle /start command
     if (text === '/start') {
       await sendTelegram(chatId,
-        `👋 Привет! Я *Alisa* — твой персональный ассистент.\n\nПросто напиши мне что нужно сделать:\n\n📅 _"завтра в 14:00 стоматолог"_\n📋 _"купить продукты"_\n💡 _"идея: запустить рассылку"_\n📊 _"что на сегодня?"_\n\nЯ сама разберусь куда это добавить!`
+        `👋 Привет! Я *Alisa* — твой персональный ассистент.\n\nЯ умею:\n📅 _"завтра в 14:00 стоматолог"_ — событие\n📋 _"купить продукты"_ — задача\n💡 _"идея: запустить рассылку"_ — идея\n✏️ _"перенеси массаж на 15:00"_ — изменить\n✅ _"отметь молоко"_ — выполнено\n🗑 _"удали последнее"_ — удалить\n📊 _"что на сегодня?"_ — список\n📋 _"покажи всё"_ — все дела\n\nПросто пиши как обычно — я разберусь!`
       );
       return NextResponse.json({ ok: true });
     }
 
-    // Parse with Claude
-    const parsed = await parseWithClaude(text);
-
     const userId = await getUserId();
     if (!userId) {
-      await sendTelegram(chatId, '❌ Пользователь не найден в системе.');
+      await sendTelegram(chatId, '❌ Пользователь не найден.');
       return NextResponse.json({ ok: true });
     }
 
-    if (parsed.action === 'list') {
-      const list = await getTodayEvents(userId);
-      await sendTelegram(chatId, list);
-    } else if (parsed.action === 'add_event' || parsed.action === 'add_todo' || parsed.action === 'add_idea') {
-      const type = parsed.action === 'add_event' ? 'event' : parsed.action === 'add_todo' ? 'todo' : 'idea';
-      await addToPlan(userId, {
-        title: parsed.title || text,
-        description: parsed.description,
-        date: parsed.date,
-        time: parsed.time,
-        category: parsed.category,
-        priority: parsed.priority,
-        type,
-      });
-      await sendTelegram(chatId, parsed.reply || '✅ Добавлено!');
-    } else {
-      await sendTelegram(chatId, parsed.reply || 'Не совсем понял. Попробуй сформулировать как задачу, событие или идею.');
+    // Load current events for context
+    const events = await getEvents(userId);
+    const context = buildEventsContext(events);
+
+    // Parse with Claude
+    const parsed = await parseWithClaude(text, context);
+
+    switch (parsed.action) {
+      case 'list': {
+        const today = getTodayStr();
+        const tomorrow = getTomorrowStr();
+        const parts: string[] = [];
+        parts.push(formatEventsList(events, '📅 *Сегодня:*', e => e.date === today && !e.done));
+        const tmrw = events.filter(e => e.date === tomorrow && !e.done);
+        if (tmrw.length > 0) parts.push(formatEventsList(events, '\n🔜 *Завтра:*', e => e.date === tomorrow && !e.done));
+        const todos = events.filter(e => e.type === 'todo' && !e.done);
+        if (todos.length > 0) parts.push(`\n📋 *Дела (${todos.length}):*\n` + todos.slice(0, 8).map(e => `  • ${e.title}`).join('\n'));
+        await sendTelegram(chatId, parts.join('\n') || 'Ничего не запланировано 🎉');
+        break;
+      }
+
+      case 'list_all': {
+        const parts: string[] = [];
+        parts.push(formatEventsList(events, '📅 *События:*', e => e.type === 'event' && !e.done));
+        parts.push(formatEventsList(events, '\n📋 *Дела:*', e => e.type === 'todo' && !e.done));
+        parts.push(formatEventsList(events, '\n💡 *Идеи:*', e => e.type === 'idea'));
+        const doneCount = events.filter(e => e.done).length;
+        if (doneCount > 0) parts.push(`\n✅ _Выполнено: ${doneCount}_`);
+        await sendTelegram(chatId, parts.join('\n'));
+        break;
+      }
+
+      case 'list_ideas': {
+        await sendTelegram(chatId, formatEventsList(events, '💡 *Идеи:*', e => e.type === 'idea'));
+        break;
+      }
+
+      case 'add_event':
+      case 'add_todo':
+      case 'add_idea': {
+        const type = parsed.action === 'add_event' ? 'event' : parsed.action === 'add_todo' ? 'todo' : 'idea';
+        const newEvent: PlannerEvent = {
+          id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          date: parsed.date || '',
+          time: parsed.time || '',
+          title: parsed.title || text,
+          description: parsed.description || '',
+          category: parsed.category || 'other',
+          done: false,
+          reminder: type === 'event',
+          type,
+          priority: parsed.priority || 'medium',
+          reminderOffsets: type === 'event' && parsed.date && parsed.time ? ['1h'] : [],
+        };
+        events.push(newEvent);
+        await saveEvents(userId, events);
+        await sendTelegram(chatId, parsed.reply || '✅ Добавлено!');
+        break;
+      }
+
+      case 'edit': {
+        if (!parsed.target_id) {
+          await sendTelegram(chatId, parsed.reply || '❓ Не понял что исправить. Уточни.');
+          break;
+        }
+        const idx = events.findIndex(e => e.id === parsed.target_id);
+        if (idx === -1) {
+          await sendTelegram(chatId, '❓ Не нашла это событие. Попробуй "покажи всё".');
+          break;
+        }
+        if (parsed.title) events[idx].title = parsed.title;
+        if (parsed.description) events[idx].description = parsed.description;
+        if (parsed.date) events[idx].date = parsed.date;
+        if (parsed.time) events[idx].time = parsed.time;
+        if (parsed.category) events[idx].category = parsed.category;
+        if (parsed.priority) events[idx].priority = parsed.priority;
+        await saveEvents(userId, events);
+        await sendTelegram(chatId, parsed.reply || '✏️ Исправлено!');
+        break;
+      }
+
+      case 'delete': {
+        if (!parsed.target_id) {
+          await sendTelegram(chatId, parsed.reply || '❓ Не понял что удалить.');
+          break;
+        }
+        const deleteIdx = events.findIndex(e => e.id === parsed.target_id);
+        if (deleteIdx === -1) {
+          await sendTelegram(chatId, '❓ Не нашла это событие.');
+          break;
+        }
+        const deleted = events.splice(deleteIdx, 1)[0];
+        await saveEvents(userId, events);
+        await sendTelegram(chatId, parsed.reply || `🗑 Удалено: "${deleted.title}"`);
+        break;
+      }
+
+      case 'complete': {
+        if (!parsed.target_id) {
+          await sendTelegram(chatId, parsed.reply || '❓ Не понял что отметить.');
+          break;
+        }
+        const completeIdx = events.findIndex(e => e.id === parsed.target_id);
+        if (completeIdx === -1) {
+          await sendTelegram(chatId, '❓ Не нашла это событие.');
+          break;
+        }
+        events[completeIdx].done = true;
+        await saveEvents(userId, events);
+        await sendTelegram(chatId, parsed.reply || `✅ Выполнено: "${events[completeIdx].title}"`);
+        break;
+      }
+
+      default:
+        await sendTelegram(chatId, parsed.reply || 'Не совсем поняла. Попробуй сформулировать как задачу, событие или идею.');
     }
 
     return NextResponse.json({ ok: true });
@@ -259,7 +351,6 @@ export async function POST(request: Request) {
   }
 }
 
-// GET — for webhook verification
 export async function GET() {
   return NextResponse.json({ status: 'Telegram webhook active' });
 }
