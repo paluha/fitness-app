@@ -158,7 +158,10 @@ RULES:
 - Find the right target_id by matching the title from user's message to items in CURRENT PLANNER
 - If user says "последнее" (last one), use the last item's id from the relevant list
 - reply: short, friendly, Russian, confirm what you did
-- If unclear, action=unknown, ask for clarification in reply`,
+- NEVER ask for clarification. ALWAYS add the item as-is. Even short messages like "тест" or "хлеб" → add_todo with that exact title
+- If message has a date/time → add_event. If starts with "идея" → add_idea. Everything else without date → add_todo
+- "добавь тест" → add_todo title="тест". "добавь X в дела" → add_todo title="X"
+- User is busy. Be fast, don't ask questions. Just do it.`,
     messages: [{ role: 'user', content: message }],
   });
 
