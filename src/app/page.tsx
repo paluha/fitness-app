@@ -1760,7 +1760,15 @@ export default function FitnessPage() {
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [stepsAlertPulse, setStepsAlertPulse] = useState(false);
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
-  const [plannerEvents, setPlannerEvents] = useState<PlannerEvent[]>([]);
+  const [plannerEvents, setPlannerEventsRaw] = useState<PlannerEvent[]>([]);
+  const plannerLoadedFromServer = useRef(false);
+  const plannerUserChanged = useRef(false);
+  const setPlannerEvents = useCallback((events: PlannerEvent[]) => {
+    if (plannerLoadedFromServer.current) {
+      plannerUserChanged.current = true;
+    }
+    setPlannerEventsRaw(events);
+  }, []);
   const [showMeasurementModal, setShowMeasurementModal] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
@@ -1791,7 +1799,10 @@ export default function FitnessPage() {
           if (data.dayLogs) setDayLogs(data.dayLogs);
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
-          if (data.plannerEvents) setPlannerEvents(data.plannerEvents);
+          if (data.plannerEvents) {
+            setPlannerEventsRaw(data.plannerEvents);
+            plannerLoadedFromServer.current = true;
+          }
           if (data.settings) setUserSettings(data.settings);
           if (data.nutritionRecommendations) setNutritionRecommendations(data.nutritionRecommendations);
           serverDataLoadedRef.current = true;
@@ -1834,7 +1845,10 @@ export default function FitnessPage() {
     setSyncStatus('syncing');
     try {
       const payload: Record<string, unknown> = { workouts: workoutsData, dayLogs: dayLogsData, progressHistory: progressData, bodyMeasurements: measurementsData };
-      if (plannerData !== undefined) payload.plannerEvents = plannerData;
+      if (plannerData !== undefined && plannerUserChanged.current) {
+        payload.plannerEvents = plannerData;
+        plannerUserChanged.current = false;
+      }
       const response = await fetch('/api/fitness', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

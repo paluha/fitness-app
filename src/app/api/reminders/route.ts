@@ -133,12 +133,25 @@ export async function GET(request: Request) {
       }
     }
 
-    // Save updated remindersSent flags
+    // Save updated remindersSent flags — re-read to avoid overwriting client changes
     if (updated) {
+      const freshData = await prisma.fitnessData.findUnique({
+        where: { userId: user.id },
+        select: { plannerEvents: true }
+      });
+      const freshEvents = (freshData?.plannerEvents as unknown as PlannerEvent[]) || [];
+      // Only update remindersSent on events that still exist
+      for (const event of events) {
+        if (!event.remindersSent?.length) continue;
+        const freshEvent = freshEvents.find(e => e.id === event.id);
+        if (freshEvent) {
+          freshEvent.remindersSent = event.remindersSent;
+        }
+      }
       await prisma.fitnessData.update({
         where: { userId: user.id },
         data: {
-          plannerEvents: events as unknown as Prisma.InputJsonValue,
+          plannerEvents: freshEvents as unknown as Prisma.InputJsonValue,
         },
       });
     }
