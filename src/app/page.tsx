@@ -745,7 +745,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
     const canvas = document.createElement('canvas');
     const img = new Image();
     img.onload = () => {
-      const maxSize = 600;
+      const maxSize = 1200;
       let w = img.width, h = img.height;
       if (w > maxSize || h > maxSize) {
         if (w > h) { h = (h / w) * maxSize; w = maxSize; }
@@ -754,7 +754,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
       canvas.width = w;
       canvas.height = h;
       canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       onUpdate({ imageUrl: dataUrl });
       // Save to exercise library
       if (onImageSaved) onImageSaved(ex.name.toLowerCase().trim(), dataUrl);
