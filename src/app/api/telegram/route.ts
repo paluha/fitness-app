@@ -96,10 +96,12 @@ Rules:
   }
 }
 
-// Find user by Telegram chat ID — for now hardcoded to the first user
+// Find the main user (Pavel)
 async function getUserId(): Promise<string | null> {
-  // Get the first user (single-user app for now)
-  const user = await prisma.user.findFirst({ select: { id: true } });
+  const user = await prisma.user.findFirst({
+    where: { email: 'paveloshmanski@gmail.com' },
+    select: { id: true }
+  });
   return user?.id || null;
 }
 
