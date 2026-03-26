@@ -714,12 +714,14 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLibrary, onImageSaved }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
   onUpdate: (updates: Partial<Exercise>) => void;
   progressHistory: ExerciseProgress[];
+  exerciseLibrary?: Record<string, string>;
+  onImageSaved?: (name: string, imageUrl: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -727,6 +729,14 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
   const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
   const [showImageFull, setShowImageFull] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-load image from library if exercise has none
+  useEffect(() => {
+    if (!ex.imageUrl && exerciseLibrary) {
+      const libImage = exerciseLibrary[ex.name.toLowerCase().trim()];
+      if (libImage) onUpdate({ imageUrl: libImage });
+    }
+  }, []); // Only on mount
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -746,6 +756,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
       canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
       onUpdate({ imageUrl: dataUrl });
+      // Save to exercise library
+      if (onImageSaved) onImageSaved(ex.name.toLowerCase().trim(), dataUrl);
     };
     img.src = URL.createObjectURL(file);
     e.target.value = '';
@@ -1851,6 +1863,7 @@ export default function FitnessPage() {
   const [stepsAlertPulse, setStepsAlertPulse] = useState(false);
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [plannerEvents, setPlannerEventsRaw] = useState<PlannerEvent[]>([]);
+  const [exerciseLibrary, setExerciseLibrary] = useState<Record<string, string>>({});
   const plannerLoadedFromServer = useRef(false);
   const plannerUserChanged = useRef(false);
   const setPlannerEvents = useCallback((events: PlannerEvent[]) => {
@@ -1893,6 +1906,7 @@ export default function FitnessPage() {
             setPlannerEventsRaw(data.plannerEvents);
             plannerLoadedFromServer.current = true;
           }
+          if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
           if (data.settings) setUserSettings(data.settings);
           if (data.nutritionRecommendations) setNutritionRecommendations(data.nutritionRecommendations);
           serverDataLoadedRef.current = true;
@@ -1949,6 +1963,9 @@ export default function FitnessPage() {
   }, [userSettings.timezone, isLoaded]);
 
   // Sync to server with debounce
+  const exerciseLibraryRef = useRef(exerciseLibrary);
+  exerciseLibraryRef.current = exerciseLibrary;
+
   const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[], plannerData?: PlannerEvent[]) => {
     setSyncStatus('syncing');
     try {
@@ -1956,6 +1973,10 @@ export default function FitnessPage() {
       if (plannerData !== undefined && plannerUserChanged.current) {
         payload.plannerEvents = plannerData;
         plannerUserChanged.current = false;
+      }
+      // Always sync exercise library if it has data
+      if (Object.keys(exerciseLibraryRef.current).length > 0) {
+        payload.exerciseLibrary = exerciseLibraryRef.current;
       }
       const response = await fetch('/api/fitness', {
         method: 'POST',
@@ -3490,6 +3511,8 @@ export default function FitnessPage() {
                       onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
+                      exerciseLibrary={exerciseLibrary}
+                      onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
                     />
                   );
                 })

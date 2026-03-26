@@ -42,6 +42,7 @@ export async function GET() {
       bodyMeasurements: fitnessData?.bodyMeasurements || null,
       favoriteMeals: fitnessData?.favoriteMeals || null,
       plannerEvents: fitnessData?.plannerEvents || null,
+      exerciseLibrary: fitnessData?.exerciseLibrary || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
     // Fetch existing data once for merge operations
     const existing = await prisma.fitnessData.findUnique({
       where: { userId },
-      select: { dayLogs: true, progressHistory: true, plannerEvents: true }
+      select: { dayLogs: true, progressHistory: true, plannerEvents: true, exerciseLibrary: true }
     });
 
     // Merge dayLogs: client keys take priority, existing keys preserved
@@ -122,6 +123,11 @@ export async function POST(request: Request) {
     if (body.plannerEvents !== undefined) {
       updateData.plannerEvents = body.plannerEvents;
     }
+    // exerciseLibrary: merge — new images added, existing preserved
+    if (body.exerciseLibrary !== undefined) {
+      const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
+      updateData.exerciseLibrary = { ...existingLib, ...body.exerciseLibrary };
+    }
 
     const fitnessData = await prisma.fitnessData.upsert({
       where: { userId },
@@ -133,7 +139,8 @@ export async function POST(request: Request) {
         progressHistory: body.progressHistory || {},
         bodyMeasurements: body.bodyMeasurements || [],
         favoriteMeals: body.favoriteMeals || [],
-        plannerEvents: body.plannerEvents || []
+        plannerEvents: body.plannerEvents || [],
+        exerciseLibrary: body.exerciseLibrary || {}
       }
     });
 

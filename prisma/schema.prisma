@@ -110,6 +110,7 @@ model FitnessData {
   bodyMeasurements Json?   // Body measurements history (weight, waist, biceps, etc.)
   favoriteMeals   Json?    // Array of favorite meal IDs
   plannerEvents   Json?    // Personal planner/calendar events
+  exerciseLibrary Json?    // Exercise image library: { "exercise name": "base64 image" }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
