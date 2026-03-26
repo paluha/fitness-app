@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN_PLANNER;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_PLANNER_CHAT_ID;
@@ -127,10 +128,11 @@ async function addToPlan(userId: string, event: {
     priority: event.priority || 'medium',
   };
 
+  const updatedEvents = [...existingEvents, newEvent];
   await prisma.fitnessData.update({
     where: { userId },
     data: {
-      plannerEvents: [...existingEvents, newEvent] as unknown as undefined,
+      plannerEvents: updatedEvents as unknown as Prisma.InputJsonValue,
       updatedAt: new Date(),
     },
   });

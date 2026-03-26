@@ -89,11 +89,15 @@ export async function POST(request: Request) {
     if (body.bodyMeasurements !== undefined && Array.isArray(body.bodyMeasurements) && body.bodyMeasurements.length === 0) {
       delete body.bodyMeasurements;
     }
+    // Don't wipe plannerEvents if client sends empty array but server has data
+    if (body.plannerEvents !== undefined && Array.isArray(body.plannerEvents) && body.plannerEvents.length === 0) {
+      delete body.plannerEvents;
+    }
 
     // Fetch existing data once for merge operations
     const existing = await prisma.fitnessData.findUnique({
       where: { userId },
-      select: { dayLogs: true, progressHistory: true }
+      select: { dayLogs: true, progressHistory: true, plannerEvents: true }
     });
 
     // Merge dayLogs: client keys take priority, existing keys preserved
@@ -117,7 +121,15 @@ export async function POST(request: Request) {
     if (mergedProgress !== undefined) updateData.progressHistory = mergedProgress;
     if (body.bodyMeasurements !== undefined) updateData.bodyMeasurements = body.bodyMeasurements;
     if (body.favoriteMeals !== undefined) updateData.favoriteMeals = body.favoriteMeals;
-    if (body.plannerEvents !== undefined) updateData.plannerEvents = body.plannerEvents;
+    // Merge plannerEvents: client events take priority by ID, server-only events (from bot) preserved
+    if (body.plannerEvents !== undefined) {
+      const clientEvents = (body.plannerEvents as Array<{ id: string }>) || [];
+      const serverEvents = (existing?.plannerEvents as Array<{ id: string }>) || [];
+      const clientIds = new Set(clientEvents.map((e: { id: string }) => e.id));
+      // Keep server events that client doesn't have (added by bot while page was open)
+      const botOnlyEvents = serverEvents.filter((e: { id: string }) => !clientIds.has(e.id));
+      updateData.plannerEvents = [...clientEvents, ...botOnlyEvents];
+    }
 
     const fitnessData = await prisma.fitnessData.upsert({
       where: { userId },
