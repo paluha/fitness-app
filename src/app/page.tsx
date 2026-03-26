@@ -1085,7 +1085,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
                 <Video size={14} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
               </div>
               {/* Photo icon */}
-              <input ref={imageInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleImageUpload} />
+              <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
               <div
                 onClick={() => imageInputRef.current?.click()}
                 style={{
