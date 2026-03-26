@@ -75,7 +75,15 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
-    const body = await request.json();
+    // Handle both JSON and text/plain (sendBeacon) content types
+    let body;
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      body = await request.json();
+    } else {
+      const text = await request.text();
+      body = JSON.parse(text);
+    }
 
     // Safety: reject empty data — prevents accidental wipe from race conditions
     if (body.dayLogs !== undefined && typeof body.dayLogs === 'object' && Object.keys(body.dayLogs).length === 0) {

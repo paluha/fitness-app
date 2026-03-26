@@ -2012,6 +2012,11 @@ export default function FitnessPage() {
   useEffect(() => {
     if (!isLoaded || !serverDataLoadedRef.current) return;
 
+    // Save to localStorage immediately as backup
+    try {
+      localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, ts: Date.now() }));
+    } catch { /* quota exceeded */ }
+
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
@@ -2026,6 +2031,51 @@ export default function FitnessPage() {
       }
     };
   }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded, syncToServer]);
+
+  // Force sync when page is closing (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!isLoaded || !serverDataLoadedRef.current) return;
+      // Use sendBeacon for reliable sync on page close
+      const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
+      if (plannerUserChanged.current) payload.plannerEvents = plannerEvents;
+      if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
+      navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded]);
+
+  // On load: check if localStorage backup is newer than server data
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      const backup = localStorage.getItem('fitness_backup');
+      if (backup) {
+        const parsed = JSON.parse(backup);
+        // If backup is from last 24h and has data, check if server is behind
+        if (parsed.ts && Date.now() - parsed.ts < 86400000) {
+          const serverDayLogs = dayLogs;
+          const backupDayLogs = parsed.dayLogs || {};
+          // Compare: if backup has more data for today, use it
+          const today = formatDate(new Date());
+          const serverToday = serverDayLogs[today];
+          const backupToday = backupDayLogs[today];
+          if (backupToday && serverToday) {
+            const backupDraft = backupToday.workoutDraft;
+            const serverDraft = serverToday.workoutDraft;
+            // If backup draft has completed exercises but server doesn't
+            if (backupDraft?.exercises?.some((e: Exercise) => e.completed || e.actualSets) &&
+                !serverDraft?.exercises?.some((e: Exercise) => e.completed || e.actualSets)) {
+              setDayLogs(prev => ({ ...prev, [today]: backupToday }));
+              if (parsed.workouts) setWorkouts(parsed.workouts);
+            }
+          }
+        }
+        localStorage.removeItem('fitness_backup');
+      }
+    } catch { /* ignore */ }
+  }, [isLoaded]);
 
   const currentDayLog = useMemo(() => {
     return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
