@@ -1,40 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays, AlertTriangle } from 'lucide-react';
-
-// ── Custom Confirm Dialog ──
-function ConfirmDialog({ message, onConfirm, onCancel, isRu }: { message: string; onConfirm: () => void; onCancel: () => void; isRu: boolean }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '20px'
-    }} onClick={onCancel}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: 'var(--bg-primary)', borderRadius: '16px', padding: '24px',
-        maxWidth: '320px', width: '100%', textAlign: 'center',
-        border: '1px solid var(--border)', boxShadow: '0 16px 48px rgba(0,0,0,0.4)'
-      }}>
-        <AlertTriangle size={32} style={{ color: '#ef4444', marginBottom: '12px' }} />
-        <p style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', lineHeight: 1.4 }}>{message}</p>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={onCancel} style={{
-            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)'
-          }}>
-            {isRu ? 'Отмена' : 'Cancel'}
-          </button>
-          <button onClick={onConfirm} style={{
-            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
-            background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444'
-          }}>
-            {isRu ? 'Удалить' : 'Delete'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays, Archive, RotateCcw } from 'lucide-react';
 
 // ── Types ──
 export interface PlannerEvent {
@@ -50,6 +17,8 @@ export interface PlannerEvent {
   priority?: 'low' | 'medium' | 'high';
   reminderOffsets?: string[]; // e.g. ['5m', '1h', '1d', '2d']
   remindersSent?: string[]; // track which reminders were already sent
+  archived?: boolean;
+  archivedAt?: string;
 }
 
 export const REMINDER_OPTIONS = [
@@ -94,7 +63,7 @@ const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 
 const DAY_NAMES_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const DAY_NAMES_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type PlannerTab = 'calendar' | 'todos' | 'ideas';
+type PlannerTab = 'calendar' | 'todos' | 'ideas' | 'archive';
 
 interface PlannerViewProps {
   events: PlannerEvent[];
@@ -115,16 +84,17 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
   const [editingEvent, setEditingEvent] = useState<PlannerEvent | null>(null);
   const [addType, setAddType] = useState<'event' | 'todo' | 'idea'>('event');
   const [quickAddText, setQuickAddText] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
 
   const isRu = lang === 'ru';
   const monthNames = isRu ? MONTH_NAMES_RU : MONTH_NAMES_EN;
   const dayNames = isRu ? DAY_NAMES_RU : DAY_NAMES_EN;
 
-  // Split events by type
-  const calendarEvents = useMemo(() => events.filter(e => e.type === 'event' || (!e.type && e.date)), [events]);
-  const todos = useMemo(() => events.filter(e => e.type === 'todo'), [events]);
-  const ideas = useMemo(() => events.filter(e => e.type === 'idea'), [events]);
+  // Split events by type (exclude archived)
+  const active = useMemo(() => events.filter(e => !e.archived), [events]);
+  const archived = useMemo(() => events.filter(e => e.archived).sort((a, b) => (b.archivedAt || b.id).localeCompare(a.archivedAt || a.id)), [events]);
+  const calendarEvents = useMemo(() => active.filter(e => e.type === 'event' || (!e.type && e.date)), [active]);
+  const todos = useMemo(() => active.filter(e => e.type === 'todo'), [active]);
+  const ideas = useMemo(() => active.filter(e => e.type === 'idea'), [active]);
 
   // Undone todos count for badge
   const undoneTodos = useMemo(() => todos.filter(t => !t.done).length, [todos]);
@@ -194,15 +164,16 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
     setEditingEvent(null);
     setShowAddModal(false);
   };
-  const deleteEvent = (id: string) => {
-    onEventsChange(events.filter(e => e.id !== id));
+  const archiveEvent = (id: string) => {
+    onEventsChange(events.map(e => e.id === id ? { ...e, archived: true, archivedAt: new Date().toISOString() } : e));
     setEditingEvent(null);
     setShowAddModal(false);
-    setConfirmDelete(null);
   };
-  const requestDelete = (id: string) => {
-    const ev = events.find(e => e.id === id);
-    setConfirmDelete({ id, title: ev?.title || '' });
+  const restoreEvent = (id: string) => {
+    onEventsChange(events.map(e => e.id === id ? { ...e, archived: false, archivedAt: undefined } : e));
+  };
+  const permanentDelete = (id: string) => {
+    onEventsChange(events.filter(e => e.id !== id));
   };
   const toggleDone = (id: string) => {
     onEventsChange(events.map(e => e.id === id ? { ...e, done: !e.done } : e));
@@ -255,6 +226,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
           { key: 'calendar' as PlannerTab, icon: <CalendarDays size={14} />, label: isRu ? 'Календарь' : 'Calendar', badge: todayEvents.length || undefined },
           { key: 'todos' as PlannerTab, icon: <ListTodo size={14} />, label: isRu ? 'Дела' : 'To-Do', badge: undoneTodos || undefined },
           { key: 'ideas' as PlannerTab, icon: <Lightbulb size={14} />, label: isRu ? 'Идеи' : 'Ideas', badge: ideas.length || undefined },
+          { key: 'archive' as PlannerTab, icon: <Archive size={14} />, label: isRu ? 'Архив' : 'Archive', badge: archived.length || undefined },
         ]).map(t => (
           <button
             key={t.key}
@@ -405,7 +377,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {selectedEvents.map(ev => <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone} onEdit={(e) => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }} onDelete={requestDelete} />)}
+                {selectedEvents.map(ev => <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone} onEdit={(e) => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }} onDelete={archiveEvent} />)}
               </div>
             )}
           </div>
@@ -461,7 +433,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                 }).map(ev => (
                   <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone}
                     onEdit={(e) => { setEditingEvent(e); setAddType('todo'); setShowAddModal(true); }}
-                    onDelete={requestDelete}
+                    onDelete={archiveEvent}
                     onMoveToCalendar={(id) => moveToCalendar(id, todayStr)}
                     showPriority
                   />
@@ -480,7 +452,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                 {todos.filter(t => t.done).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10).map(ev => (
                   <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone}
                     onEdit={(e) => { setEditingEvent(e); setAddType('todo'); setShowAddModal(true); }}
-                    onDelete={requestDelete}
+                    onDelete={archiveEvent}
                   />
                 ))}
               </div>
@@ -551,7 +523,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                         style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}>
                         <Edit2 size={14} />
                       </button>
-                      <button onClick={() => { requestDelete(ev.id); }}
+                      <button onClick={() => { archiveEvent(ev.id); }}
                         style={{ background: 'none', border: 'none', color: '#ef4444', padding: '4px' }}>
                         <Trash2 size={14} />
                       </button>
@@ -570,6 +542,55 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
         </>
       )}
 
+      {/* ══════════ ARCHIVE TAB ══════════ */}
+      {tab === 'archive' && (
+        <>
+          {archived.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {archived.map(ev => {
+                const cat = CATEGORIES.find(c => c.key === ev.category) || CATEGORIES[6];
+                return (
+                  <div key={ev.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
+                    background: 'var(--bg-elevated)', borderRadius: '12px',
+                    border: '1px solid var(--border)', opacity: 0.7
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {cat.emoji} {ev.title}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span style={{ color: cat.color, background: `${cat.color}15`, padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                          {isRu ? cat.label : cat.labelEn}
+                        </span>
+                        {ev.date && <span>{ev.date}</span>}
+                        <span>{ev.type === 'event' ? '📅' : ev.type === 'idea' ? '💡' : '📋'}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => restoreEvent(ev.id)}
+                      title={isRu ? 'Восстановить' : 'Restore'}
+                      style={{ background: 'none', border: 'none', color: 'var(--green)', padding: '8px' }}>
+                      <RotateCcw size={16} />
+                    </button>
+                    <button onClick={() => permanentDelete(ev.id)}
+                      title={isRu ? 'Удалить навсегда' : 'Delete permanently'}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', padding: '8px', opacity: 0.5 }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+              <Archive size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
+              <p style={{ fontSize: '14px' }}>{isRu ? 'Архив пуст' : 'Archive is empty'}</p>
+              <p style={{ fontSize: '12px', marginTop: '4px' }}>{isRu ? 'Удалённые записи будут здесь' : 'Deleted items will appear here'}</p>
+            </div>
+          )}
+        </>
+      )}
+
       {/* ── Add/Edit Modal ── */}
       {showAddModal && (
         <EventModal
@@ -579,19 +600,10 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
           lang={lang}
           onSave={(ev) => editingEvent ? updateEvent(ev) : addEvent(ev)}
           onClose={() => { setShowAddModal(false); setEditingEvent(null); }}
-          onDelete={editingEvent ? () => requestDelete(editingEvent.id) : undefined}
+          onDelete={editingEvent ? () => archiveEvent(editingEvent.id) : undefined}
         />
       )}
 
-      {/* ── Delete Confirmation ── */}
-      {confirmDelete && (
-        <ConfirmDialog
-          message={isRu ? `Удалить "${confirmDelete.title}"?` : `Delete "${confirmDelete.title}"?`}
-          isRu={isRu}
-          onConfirm={() => deleteEvent(confirmDelete.id)}
-          onCancel={() => setConfirmDelete(null)}
-        />
-      )}
     </div>
   );
 }
