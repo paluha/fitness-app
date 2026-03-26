@@ -210,6 +210,7 @@ interface Exercise {
   feedback: string;
   completed: boolean;
   videoUrl?: string;
+  imageUrl?: string;
 }
 
 interface Workout {
@@ -724,6 +725,31 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
   const [showHistory, setShowHistory] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
+  const [showImageFull, setShowImageFull] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Compress to base64
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 600;
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+        else { w = (w / h) * maxSize; h = maxSize; }
+      }
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      onUpdate({ imageUrl: dataUrl });
+    };
+    img.src = URL.createObjectURL(file);
+    e.target.value = '';
+  };
 
   return (
     <div
@@ -878,6 +904,14 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
             )}
           </div>
 
+          {/* Image for completed */}
+          {ex.imageUrl && (
+            <div style={{ marginBottom: '8px' }}>
+              <img src={ex.imageUrl} alt={ex.name} onClick={() => setShowImageFull(true)}
+                style={{ width: '100%', borderRadius: '8px', cursor: 'pointer', maxHeight: '120px', objectFit: 'cover' }} />
+            </div>
+          )}
+
           {/* Video icon for completed */}
           <div style={{
             display: 'flex',
@@ -912,26 +946,26 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
       {/* Expanded content - only for incomplete exercises */}
       {expanded && !ex.completed && (
         <div style={{
-          padding: '0 16px 16px',
+          padding: '0 12px 12px',
           borderTop: '1px solid var(--border)',
           animation: 'slideUp 0.2s ease'
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
             <div>
               <label style={{
-                fontSize: '11px',
+                fontSize: '10px',
                 color: 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                marginBottom: '6px',
+                gap: '6px',
+                marginBottom: '4px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                Текущий вес
+                Вес
                 {progressHistory.length > 0 && (
                   <span style={{
-                    fontSize: '11px',
+                    fontSize: '10px',
                     color: 'var(--blue)',
                     fontWeight: 500,
                     textTransform: 'none',
@@ -950,20 +984,20 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
                   width: '100%',
                   background: 'var(--bg-elevated)',
                   border: '1px solid var(--border)',
-                  borderRadius: '10px',
-                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  padding: '8px 10px',
                   color: 'var(--text-primary)',
-                  fontSize: '15px',
+                  fontSize: '13px',
                   fontWeight: 600
                 }}
               />
             </div>
             <div>
               <label style={{
-                fontSize: '11px',
+                fontSize: '10px',
                 color: 'var(--yellow)',
                 display: 'block',
-                marginBottom: '6px',
+                marginBottom: '4px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
@@ -978,43 +1012,43 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
                   width: '100%',
                   background: 'var(--yellow-dim)',
                   border: '1px solid rgba(251, 191, 36, 0.3)',
-                  borderRadius: '10px',
-                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  padding: '8px 10px',
                   color: 'var(--yellow)',
-                  fontSize: '15px',
+                  fontSize: '13px',
                   fontWeight: 600
                 }}
               />
             </div>
           </div>
 
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ marginTop: '8px' }}>
             <label style={{
-              fontSize: '11px',
+              fontSize: '10px',
               color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              marginBottom: '6px'
+              marginBottom: '4px'
             }}>
-              <Timer size={12} />
+              <Timer size={11} />
               Отдых: {ex.restTime}
             </label>
             <RestTimer restTime={ex.restTime} />
-            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
               <input
                 type="text"
                 value={ex.feedback}
                 onChange={(e) => onUpdate({ feedback: e.target.value })}
-                placeholder="Заметки к упражнению..."
+                placeholder="Заметки..."
                 style={{
                   flex: 1,
                   background: 'var(--bg-elevated)',
                   border: '1px solid var(--border)',
-                  borderRadius: '10px',
-                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  padding: '8px 10px',
                   color: 'var(--text-primary)',
-                  fontSize: '14px'
+                  fontSize: '12px'
                 }}
               />
               {/* Video icon */}
@@ -1024,9 +1058,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
                   setShowVideoModal(true);
                 }}
                 style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '10px',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
                   background: ex.videoUrl ? 'var(--blue-dim)' : 'var(--bg-elevated)',
                   border: ex.videoUrl ? '1px solid rgba(0, 180, 216, 0.3)' : '1px solid var(--border)',
                   display: 'flex',
@@ -1036,10 +1070,52 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
                   flexShrink: 0
                 }}
               >
-                <Video size={18} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
+                <Video size={14} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
+              </div>
+              {/* Photo icon */}
+              <input ref={imageInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleImageUpload} />
+              <div
+                onClick={() => imageInputRef.current?.click()}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: ex.imageUrl ? 'rgba(168, 85, 247, 0.1)' : 'var(--bg-elevated)',
+                  border: ex.imageUrl ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                <Camera size={14} style={{ color: ex.imageUrl ? '#a855f7' : 'var(--text-muted)' }} />
               </div>
             </div>
           </div>
+
+          {/* Exercise image preview */}
+          {ex.imageUrl && (
+            <div style={{ marginTop: '8px', position: 'relative' }}>
+              <img
+                src={ex.imageUrl}
+                alt={ex.name}
+                onClick={() => setShowImageFull(true)}
+                style={{ width: '100%', borderRadius: '8px', cursor: 'pointer', maxHeight: '150px', objectFit: 'cover' }}
+              />
+              <button
+                onClick={() => onUpdate({ imageUrl: undefined })}
+                style={{
+                  position: 'absolute', top: '6px', right: '6px',
+                  width: '24px', height: '24px', borderRadius: '6px',
+                  background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
 
           {/* History button */}
           {progressHistory.length > 0 && (
@@ -1113,6 +1189,20 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory }: {
       )}
 
       {/* Video Modal */}
+      {/* Fullscreen image modal */}
+      {showImageFull && ex.imageUrl && (
+        <div
+          onClick={() => setShowImageFull(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '20px', cursor: 'pointer'
+          }}
+        >
+          <img src={ex.imageUrl} alt={ex.name} style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: '12px', objectFit: 'contain' }} />
+        </div>
+      )}
+
       {showVideoModal && (
         <div
           onClick={() => setShowVideoModal(false)}
