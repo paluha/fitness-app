@@ -567,7 +567,7 @@ function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, sho
     }}>
       <button onClick={() => onToggle(ev.id)} style={{
         width: '22px', height: '22px', borderRadius: '6px',
-        border: ev.done ? 'none' : '2px solid var(--yellow)',
+        border: ev.done ? 'none' : '2px solid rgba(255,255,255,0.2)',
         background: ev.done ? 'var(--green)' : 'transparent',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0
       }}>
