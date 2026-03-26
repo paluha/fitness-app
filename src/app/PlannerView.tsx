@@ -512,7 +512,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                         style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}>
                         <Edit2 size={14} />
                       </button>
-                      <button onClick={() => deleteEvent(ev.id)}
+                      <button onClick={() => { if (confirm(isRu ? 'Удалить эту идею?' : 'Delete this idea?')) deleteEvent(ev.id); }}
                         style={{ background: 'none', border: 'none', color: '#ef4444', padding: '4px' }}>
                         <Trash2 size={14} />
                       </button>
@@ -567,7 +567,7 @@ function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, sho
     }}>
       <button onClick={() => onToggle(ev.id)} style={{
         width: '22px', height: '22px', borderRadius: '6px',
-        border: ev.done ? 'none' : `2px solid ${cat.color}`,
+        border: ev.done ? 'none' : '2px solid var(--yellow)',
         background: ev.done ? 'var(--green)' : 'transparent',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0
       }}>
@@ -576,7 +576,7 @@ function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, sho
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: '14px', fontWeight: 600,
-          textDecoration: ev.done ? 'line-through' : 'none',
+          textDecoration: 'none',
           color: ev.done ? 'var(--text-muted)' : 'var(--text-primary)'
         }}>
           {cat.emoji} {ev.title}
@@ -600,7 +600,7 @@ function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, sho
           </button>
         )}
         <button onClick={() => onEdit(ev)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '6px' }}><Edit2 size={14} /></button>
-        <button onClick={() => onDelete(ev.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '6px' }}><Trash2 size={14} /></button>
+        <button onClick={() => { if (confirm(isRu ? 'Удалить эту запись?' : 'Delete this item?')) onDelete(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '6px' }}><Trash2 size={14} /></button>
       </div>
     </div>
   );
