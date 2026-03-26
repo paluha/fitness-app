@@ -2008,63 +2008,75 @@ export default function FitnessPage() {
     }
   }, []);
 
-  // Sync directly to server (with small debounce to batch rapid changes)
+  // Sync IMMEDIATELY to server on every change — no debounce, no data loss
+  const syncInFlightRef = useRef(false);
+  const syncQueuedRef = useRef(false);
+
+  const doSync = useCallback(async () => {
+    if (syncInFlightRef.current) {
+      syncQueuedRef.current = true;
+      return;
+    }
+    syncInFlightRef.current = true;
+    await syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents);
+    syncInFlightRef.current = false;
+    if (syncQueuedRef.current) {
+      syncQueuedRef.current = false;
+      // Re-sync with latest data
+      setTimeout(() => doSync(), 50);
+    }
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, syncToServer]);
+
   useEffect(() => {
     if (!isLoaded || !serverDataLoadedRef.current) return;
+    doSync();
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded, doSync]);
 
-    // Save to localStorage immediately as backup
+  // Also save to localStorage as emergency backup
+  useEffect(() => {
+    if (!isLoaded || !serverDataLoadedRef.current) return;
     try {
       localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, ts: Date.now() }));
     } catch { /* quota exceeded */ }
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded]);
 
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
-    }
-    // Small debounce (500ms) to batch rapid changes, but sync quickly
-    syncTimeoutRef.current = setTimeout(() => {
-      syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents);
-    }, 500);
-
-    return () => {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-    };
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded, syncToServer]);
-
-  // Force sync when page is closing (beforeunload)
+  // Force sync when page is closing
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (!isLoaded || !serverDataLoadedRef.current) return;
-      // Use sendBeacon for reliable sync on page close
       const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
-      if (plannerUserChanged.current) payload.plannerEvents = plannerEvents;
       if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
       navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
     };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && isLoaded && serverDataLoadedRef.current) {
+        const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
+        if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
+        navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
+      }
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded]);
 
-  // On load: check if localStorage backup is newer than server data
+  // On load: restore from localStorage if server data is behind
   useEffect(() => {
     if (!isLoaded) return;
     try {
       const backup = localStorage.getItem('fitness_backup');
       if (backup) {
         const parsed = JSON.parse(backup);
-        // If backup is from last 24h and has data, check if server is behind
         if (parsed.ts && Date.now() - parsed.ts < 86400000) {
-          const serverDayLogs = dayLogs;
-          const backupDayLogs = parsed.dayLogs || {};
-          // Compare: if backup has more data for today, use it
           const today = formatDate(new Date());
-          const serverToday = serverDayLogs[today];
-          const backupToday = backupDayLogs[today];
+          const backupToday = parsed.dayLogs?.[today];
+          const serverToday = dayLogs[today];
           if (backupToday && serverToday) {
             const backupDraft = backupToday.workoutDraft;
             const serverDraft = serverToday.workoutDraft;
-            // If backup draft has completed exercises but server doesn't
             if (backupDraft?.exercises?.some((e: Exercise) => e.completed || e.actualSets) &&
                 !serverDraft?.exercises?.some((e: Exercise) => e.completed || e.actualSets)) {
               setDayLogs(prev => ({ ...prev, [today]: backupToday }));
