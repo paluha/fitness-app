@@ -109,6 +109,7 @@ model FitnessData {
   progressHistory Json?    // Exercise progress history
   bodyMeasurements Json?   // Body measurements history (weight, waist, biceps, etc.)
   favoriteMeals   Json?    // Array of favorite meal IDs
+  plannerEvents   Json?    // Personal planner/calendar events
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

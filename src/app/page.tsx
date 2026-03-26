@@ -8,8 +8,9 @@ import {
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
-  Camera, ScanLine, Video, ExternalLink, Sparkles
+  Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays
 } from 'lucide-react';
+import PlannerView, { PlannerEvent } from './PlannerView';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
 function parseRestTime(restTime: string): number {
@@ -1686,7 +1687,7 @@ function getDefaultWorkout(): string {
 }
 
 export default function FitnessPage() {
-  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile'>('workout');
+  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [todayStr, setTodayStr] = useState(''); // Initialize on client to avoid hydration mismatch
   const [isNightMode, setIsNightMode] = useState(false);
@@ -1694,7 +1695,7 @@ export default function FitnessPage() {
   // Load saved view from localStorage on client
   useEffect(() => {
     const saved = localStorage.getItem('fitness_view');
-    if (saved === 'workout' || saved === 'nutrition' || saved === 'analytics' || saved === 'gains' || saved === 'profile') {
+    if (saved === 'workout' || saved === 'nutrition' || saved === 'analytics' || saved === 'gains' || saved === 'profile' || saved === 'planner') {
       setView(saved);
     }
   }, []);
@@ -1759,6 +1760,7 @@ export default function FitnessPage() {
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [stepsAlertPulse, setStepsAlertPulse] = useState(false);
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
+  const [plannerEvents, setPlannerEvents] = useState<PlannerEvent[]>([]);
   const [showMeasurementModal, setShowMeasurementModal] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
@@ -1789,6 +1791,7 @@ export default function FitnessPage() {
           if (data.dayLogs) setDayLogs(data.dayLogs);
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
+          if (data.plannerEvents) setPlannerEvents(data.plannerEvents);
           if (data.settings) setUserSettings(data.settings);
           if (data.nutritionRecommendations) setNutritionRecommendations(data.nutritionRecommendations);
           serverDataLoadedRef.current = true;
@@ -1827,13 +1830,15 @@ export default function FitnessPage() {
   }, [userSettings.timezone, isLoaded]);
 
   // Sync to server with debounce
-  const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[]) => {
+  const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[], plannerData?: PlannerEvent[]) => {
     setSyncStatus('syncing');
     try {
+      const payload: Record<string, unknown> = { workouts: workoutsData, dayLogs: dayLogsData, progressHistory: progressData, bodyMeasurements: measurementsData };
+      if (plannerData !== undefined) payload.plannerEvents = plannerData;
       const response = await fetch('/api/fitness', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workouts: workoutsData, dayLogs: dayLogsData, progressHistory: progressData, bodyMeasurements: measurementsData })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         setSyncStatus('synced');
@@ -1855,7 +1860,7 @@ export default function FitnessPage() {
     }
     // Small debounce (500ms) to batch rapid changes, but sync quickly
     syncTimeoutRef.current = setTimeout(() => {
-      syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements);
+      syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents);
     }, 500);
 
     return () => {
@@ -1863,7 +1868,7 @@ export default function FitnessPage() {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded, syncToServer]);
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, isLoaded, syncToServer]);
 
   const currentDayLog = useMemo(() => {
     return dayLogs[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
@@ -2787,6 +2792,35 @@ export default function FitnessPage() {
           >
             <Apple size={16} />
             {t('food')}
+          </button>
+
+          {/* Planner tab */}
+          <button
+            className="tab-button btn-press"
+            onClick={() => {
+              setView('planner');
+              localStorage.setItem('fitness_view', 'planner');
+              setShowProfileDropdown(false);
+            }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: view === 'planner' ? 'var(--yellow)' : 'var(--bg-elevated)',
+              border: view === 'planner' ? 'none' : '1px solid var(--border)',
+              borderRadius: '12px',
+              color: view === 'planner' ? '#000' : 'var(--text-secondary)',
+              fontWeight: view === 'planner' ? 700 : 500,
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: view === 'planner' ? '0 4px 20px var(--yellow-glow)' : 'none',
+              transform: view === 'planner' ? 'scale(1.02)' : 'scale(1)'
+            }}
+          >
+            <CalendarDays size={16} />
+            {userSettings.language === 'ru' ? 'Дела' : 'Plan'}
           </button>
 
           {/* Profile tab with dropdown */}
@@ -4738,6 +4772,18 @@ export default function FitnessPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* PLANNER VIEW */}
+        {view === 'planner' && (
+          <div className="view-content">
+            <PlannerView
+              events={plannerEvents}
+              onEventsChange={setPlannerEvents}
+              todayStr={todayStr}
+              lang={userSettings.language === 'ru' ? 'ru' : 'en'}
+            />
           </div>
         )}
 

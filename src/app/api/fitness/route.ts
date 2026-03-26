@@ -41,6 +41,7 @@ export async function GET() {
       progressHistory: fitnessData?.progressHistory || null,
       bodyMeasurements: fitnessData?.bodyMeasurements || null,
       favoriteMeals: fitnessData?.favoriteMeals || null,
+      plannerEvents: fitnessData?.plannerEvents || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -116,6 +117,7 @@ export async function POST(request: Request) {
     if (mergedProgress !== undefined) updateData.progressHistory = mergedProgress;
     if (body.bodyMeasurements !== undefined) updateData.bodyMeasurements = body.bodyMeasurements;
     if (body.favoriteMeals !== undefined) updateData.favoriteMeals = body.favoriteMeals;
+    if (body.plannerEvents !== undefined) updateData.plannerEvents = body.plannerEvents;
 
     const fitnessData = await prisma.fitnessData.upsert({
       where: { userId },
@@ -126,7 +128,8 @@ export async function POST(request: Request) {
         dayLogs: body.dayLogs || {},
         progressHistory: body.progressHistory || {},
         bodyMeasurements: body.bodyMeasurements || [],
-        favoriteMeals: body.favoriteMeals || []
+        favoriteMeals: body.favoriteMeals || [],
+        plannerEvents: body.plannerEvents || []
       }
     });
 
