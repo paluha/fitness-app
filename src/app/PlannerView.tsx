@@ -21,14 +21,19 @@ export interface PlannerEvent {
   archivedAt?: string;
 }
 
+export type HabitSchedule = 'daily' | 'weekdays' | 'weekends' | 'custom';
+
 export interface Habit {
   id: string;
   title: string;
   time: string; // HH:MM — when to do it
   icon: string; // emoji
   reminderEnabled: boolean;
-  active: boolean; // can disable without deleting
-  completedDates: string[]; // ["2026-03-26", "2026-03-25", ...]
+  reminderMinutesBefore: number; // 0 = at time, 5, 15, 30
+  schedule: HabitSchedule; // when to repeat
+  customDays?: number[]; // [1,2,3,4,5] = Mon-Fri (0=Sun, 1=Mon, ...)
+  active: boolean;
+  completedDates: string[];
 }
 
 export const REMINDER_OPTIONS = [
@@ -239,7 +244,7 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
         {([
           { key: 'calendar' as PlannerTab, icon: <CalendarDays size={14} />, label: isRu ? 'Календарь' : 'Calendar', badge: todayEvents.length || undefined },
           { key: 'todos' as PlannerTab, icon: <ListTodo size={14} />, label: isRu ? 'Дела' : 'To-Do', badge: undoneTodos || undefined },
-          { key: 'habits' as PlannerTab, icon: <Repeat size={14} />, label: isRu ? 'Трекер' : 'Habits', badge: habits.filter(h => h.active && !h.completedDates.includes(todayStr)).length || undefined },
+          { key: 'habits' as PlannerTab, icon: <Repeat size={14} />, label: isRu ? 'Трекер' : 'Habits', badge: (() => { const dow = (() => { const [y,m,d] = todayStr.split('-').map(Number); return new Date(y,m-1,d).getDay(); })(); return habits.filter(h => { if (!h.active) return false; const s = h.schedule||'daily'; if (s==='daily') return true; if (s==='weekdays') return dow>=1&&dow<=5; if (s==='weekends') return dow===0||dow===6; if (s==='custom'&&h.customDays) return h.customDays.includes(dow); return true; }).filter(h => !h.completedDates.includes(todayStr)).length || undefined; })() },
           { key: 'ideas' as PlannerTab, icon: <Lightbulb size={14} />, label: isRu ? 'Идеи' : 'Ideas', badge: ideas.length || undefined },
           { key: 'archive' as PlannerTab, icon: <Archive size={14} />, label: isRu ? 'Архив' : 'Archive', badge: archived.length || undefined },
         ]).map(t => (
@@ -849,8 +854,19 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
   const [showAdd, setShowAdd] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
+  // Filter habits that are scheduled for today
+  const todayDayOfWeek = (() => { const [y, m, d] = todayStr.split('-').map(Number); return new Date(y, m - 1, d).getDay(); })();
+  const isHabitScheduledToday = (h: Habit): boolean => {
+    const sched = h.schedule || 'daily';
+    if (sched === 'daily') return true;
+    if (sched === 'weekdays') return todayDayOfWeek >= 1 && todayDayOfWeek <= 5;
+    if (sched === 'weekends') return todayDayOfWeek === 0 || todayDayOfWeek === 6;
+    if (sched === 'custom' && h.customDays) return h.customDays.includes(todayDayOfWeek);
+    return true;
+  };
   const activeHabits = habits.filter(h => h.active);
-  const doneToday = activeHabits.filter(h => h.completedDates.includes(todayStr)).length;
+  const todayHabits = activeHabits.filter(isHabitScheduledToday);
+  const doneToday = todayHabits.filter(h => h.completedDates.includes(todayStr)).length;
 
   const toggleToday = (id: string) => {
     onHabitsChange(habits.map(h => {
@@ -898,18 +914,22 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
         <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 700 }}>{isRu ? 'Сегодня' : 'Today'}</span>
-            <span style={{ fontSize: '12px', color: doneToday === activeHabits.length ? 'var(--green)' : 'var(--text-muted)', fontWeight: 600 }}>{doneToday}/{activeHabits.length}</span>
+            <span style={{ fontSize: '12px', color: doneToday === todayHabits.length ? 'var(--green)' : 'var(--text-muted)', fontWeight: 600 }}>{doneToday}/{todayHabits.length}</span>
           </div>
           <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: '2px', transition: 'width 0.3s', width: `${(doneToday / activeHabits.length) * 100}%`, background: doneToday === activeHabits.length ? 'var(--green)' : 'var(--yellow)' }} />
+            <div style={{ height: '100%', borderRadius: '2px', transition: 'width 0.3s', width: todayHabits.length > 0 ? `${(doneToday / todayHabits.length) * 100}%` : '0%', background: doneToday === todayHabits.length ? 'var(--green)' : 'var(--yellow)' }} />
           </div>
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-        {activeHabits.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')).map(habit => {
+        {todayHabits.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')).map(habit => {
           const done = habit.completedDates.includes(todayStr);
           const streak = getStreak(habit);
+          const schedLabels: Record<string, string> = isRu
+            ? { daily: '', weekdays: 'Будни', weekends: 'Выходные', custom: 'По дням' }
+            : { daily: '', weekdays: 'Weekdays', weekends: 'Weekends', custom: 'Custom' };
+          const schedLabel = schedLabels[habit.schedule || 'daily'];
           return (
             <div key={habit.id} style={{
               display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
@@ -928,6 +948,7 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
                   {habit.time && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{habit.time}</span>}
                   {streak > 0 && <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>🔥 {streak} {isRu ? 'дн.' : 'd'}</span>}
                   {habit.reminderEnabled && <Bell size={10} style={{ color: 'var(--text-muted)' }} />}
+                  {schedLabel && <span style={{ fontSize: '9px', color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '1px 5px', borderRadius: '3px' }}>{schedLabel}</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
@@ -972,16 +993,49 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
   const [time, setTime] = useState(habit?.time || '');
   const [icon, setIcon] = useState(habit?.icon || '💊');
   const [reminderEnabled, setReminderEnabled] = useState(habit?.reminderEnabled ?? true);
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState(habit?.reminderMinutesBefore ?? 0);
+  const [schedule, setSchedule] = useState<HabitSchedule>(habit?.schedule || 'daily');
+  const [customDays, setCustomDays] = useState<number[]>(habit?.customDays || [1, 2, 3, 4, 5]);
+
+  const toggleDay = (day: number) => {
+    setCustomDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort());
+  };
+
+  const QUICK_TIMES = ['06:00', '07:00', '08:00', '09:00', '12:00', '14:00', '18:00', '20:00', '21:00', '22:00'];
+  const REMINDER_BEFORE = [
+    { min: 0, label: isRu ? 'Точно в срок' : 'On time' },
+    { min: 5, label: isRu ? 'За 5 мин' : '5 min before' },
+    { min: 15, label: isRu ? 'За 15 мин' : '15 min before' },
+    { min: 30, label: isRu ? 'За 30 мин' : '30 min before' },
+  ];
+  const SCHEDULE_OPTIONS: { key: HabitSchedule; label: string }[] = [
+    { key: 'daily', label: isRu ? 'Каждый день' : 'Every day' },
+    { key: 'weekdays', label: isRu ? 'Будни (Пн-Пт)' : 'Weekdays' },
+    { key: 'weekends', label: isRu ? 'Выходные (Сб-Вс)' : 'Weekends' },
+    { key: 'custom', label: isRu ? 'По дням' : 'Custom days' },
+  ];
+  const DAY_LABELS = isRu ? ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+    onSave({
+      id: habit?.id || `hab_${Date.now()}`,
+      title: title.trim(), time, icon, reminderEnabled, reminderMinutesBefore,
+      schedule, customDays: schedule === 'custom' ? customDays : undefined,
+      active: true, completedDates: habit?.completedDates || [],
+    });
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: '480px', padding: '24px 20px 32px' }}>
+      <div style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: '480px', padding: '24px 20px 32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{habit ? (isRu ? 'Редактировать' : 'Edit') : (isRu ? 'Новая привычка' : 'New Habit')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}><X size={20} /></button>
         </div>
 
+        {/* Icon */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
           {HABIT_ICONS.map(ic => (
             <button key={ic} onClick={() => setIcon(ic)} style={{
@@ -993,32 +1047,93 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
           ))}
         </div>
 
+        {/* Title */}
         <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
           placeholder={isRu ? 'Название привычки' : 'Habit name'}
-          style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '12px' }} />
+          style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '16px' }} />
 
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
-          <Clock size={16} style={{ color: 'var(--text-muted)' }} />
-          <input type="time" value={time} onChange={e => setTime(e.target.value)}
-            style={{ flex: 1, padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '14px' }} />
+        {/* Time — quick select */}
+        <div style={{ marginBottom: '16px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            ⏰ {isRu ? 'Время' : 'Time'}
+          </span>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {QUICK_TIMES.map(t => (
+              <button key={t} onClick={() => setTime(t)} style={{
+                padding: '8px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                border: time === t ? '2px solid var(--yellow)' : '1px solid var(--border)',
+                background: time === t ? 'rgba(234, 179, 8, 0.1)' : 'var(--bg-elevated)',
+                color: time === t ? 'var(--yellow)' : 'var(--text-muted)', cursor: 'pointer'
+              }}>{t.replace(':00', '')}</button>
+            ))}
+            <input type="time" value={time} onChange={e => setTime(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '13px', width: '90px' }} />
+          </div>
         </div>
 
-        <button onClick={() => setReminderEnabled(!reminderEnabled)} style={{
-          display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '12px 16px', borderRadius: '12px',
-          background: reminderEnabled ? 'rgba(234, 179, 8, 0.08)' : 'var(--bg-elevated)',
-          border: reminderEnabled ? '1px solid rgba(234, 179, 8, 0.2)' : '1px solid var(--border)',
-          color: reminderEnabled ? 'var(--yellow)' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, marginBottom: '20px'
-        }}>
-          <Bell size={16} /> {isRu ? 'Ежедневное напоминание' : 'Daily reminder'}
-          <span style={{ marginLeft: 'auto', fontSize: '11px' }}>{reminderEnabled ? (isRu ? 'Вкл' : 'On') : (isRu ? 'Выкл' : 'Off')}</span>
-        </button>
+        {/* Schedule */}
+        <div style={{ marginBottom: '16px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            📅 {isRu ? 'Повтор' : 'Schedule'}
+          </span>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {SCHEDULE_OPTIONS.map(opt => (
+              <button key={opt.key} onClick={() => setSchedule(opt.key)} style={{
+                padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                border: schedule === opt.key ? '2px solid var(--green)' : '1px solid var(--border)',
+                background: schedule === opt.key ? 'rgba(34, 197, 94, 0.08)' : 'var(--bg-elevated)',
+                color: schedule === opt.key ? 'var(--green)' : 'var(--text-muted)', cursor: 'pointer'
+              }}>{opt.label}</button>
+            ))}
+          </div>
+          {/* Custom days picker */}
+          {schedule === 'custom' && (
+            <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+              {DAY_LABELS.map((label, i) => (
+                <button key={i} onClick={() => toggleDay(i)} style={{
+                  flex: 1, padding: '10px 0', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                  border: customDays.includes(i) ? '2px solid var(--green)' : '1px solid var(--border)',
+                  background: customDays.includes(i) ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-elevated)',
+                  color: customDays.includes(i) ? 'var(--green)' : 'var(--text-muted)', cursor: 'pointer'
+                }}>{label}</button>
+              ))}
+            </div>
+          )}
+        </div>
 
+        {/* Reminder */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <Bell size={14} style={{ color: reminderEnabled ? 'var(--yellow)' : 'var(--text-muted)' }} />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {isRu ? 'Напоминание' : 'Reminder'}
+            </span>
+            <button onClick={() => setReminderEnabled(!reminderEnabled)} style={{
+              marginLeft: 'auto', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+              background: reminderEnabled ? 'rgba(234, 179, 8, 0.1)' : 'var(--bg-elevated)',
+              border: '1px solid var(--border)', color: reminderEnabled ? 'var(--yellow)' : 'var(--text-muted)', cursor: 'pointer'
+            }}>{reminderEnabled ? (isRu ? 'Вкл' : 'On') : (isRu ? 'Выкл' : 'Off')}</button>
+          </div>
+          {reminderEnabled && (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {REMINDER_BEFORE.map(r => (
+                <button key={r.min} onClick={() => setReminderMinutesBefore(r.min)} style={{
+                  padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+                  border: reminderMinutesBefore === r.min ? '2px solid var(--yellow)' : '1px solid var(--border)',
+                  background: reminderMinutesBefore === r.min ? 'rgba(234, 179, 8, 0.1)' : 'var(--bg-elevated)',
+                  color: reminderMinutesBefore === r.min ? 'var(--yellow)' : 'var(--text-muted)', cursor: 'pointer'
+                }}>{r.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
         <div style={{ display: 'flex', gap: '10px' }}>
           {onDelete && (
             <button onClick={onDelete} style={{ padding: '14px 20px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', fontSize: '14px', fontWeight: 700 }}><Trash2 size={16} /></button>
           )}
-          <button onClick={() => { if (!title.trim()) return; onSave({ id: habit?.id || `hab_${Date.now()}`, title: title.trim(), time, icon, reminderEnabled, active: true, completedDates: habit?.completedDates || [] }); }}
-            disabled={!title.trim()} style={{
+          <button onClick={handleSave} disabled={!title.trim()} style={{
             flex: 1, padding: '14px', borderRadius: '12px',
             background: title.trim() ? 'var(--yellow)' : 'var(--bg-elevated)',
             border: 'none', color: title.trim() ? '#000' : 'var(--text-muted)',
