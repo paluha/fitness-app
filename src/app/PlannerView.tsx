@@ -1,7 +1,40 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays, AlertTriangle } from 'lucide-react';
+
+// ── Custom Confirm Dialog ──
+function ConfirmDialog({ message, onConfirm, onCancel, isRu }: { message: string; onConfirm: () => void; onCancel: () => void; isRu: boolean }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '20px'
+    }} onClick={onCancel}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--bg-primary)', borderRadius: '16px', padding: '24px',
+        maxWidth: '320px', width: '100%', textAlign: 'center',
+        border: '1px solid var(--border)', boxShadow: '0 16px 48px rgba(0,0,0,0.4)'
+      }}>
+        <AlertTriangle size={32} style={{ color: '#ef4444', marginBottom: '12px' }} />
+        <p style={{ fontSize: '15px', fontWeight: 600, marginBottom: '20px', lineHeight: 1.4 }}>{message}</p>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)'
+          }}>
+            {isRu ? 'Отмена' : 'Cancel'}
+          </button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
+            background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444'
+          }}>
+            {isRu ? 'Удалить' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Types ──
 export interface PlannerEvent {
@@ -82,6 +115,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
   const [editingEvent, setEditingEvent] = useState<PlannerEvent | null>(null);
   const [addType, setAddType] = useState<'event' | 'todo' | 'idea'>('event');
   const [quickAddText, setQuickAddText] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
 
   const isRu = lang === 'ru';
   const monthNames = isRu ? MONTH_NAMES_RU : MONTH_NAMES_EN;
@@ -164,6 +198,11 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
     onEventsChange(events.filter(e => e.id !== id));
     setEditingEvent(null);
     setShowAddModal(false);
+    setConfirmDelete(null);
+  };
+  const requestDelete = (id: string) => {
+    const ev = events.find(e => e.id === id);
+    setConfirmDelete({ id, title: ev?.title || '' });
   };
   const toggleDone = (id: string) => {
     onEventsChange(events.map(e => e.id === id ? { ...e, done: !e.done } : e));
@@ -366,7 +405,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {selectedEvents.map(ev => <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone} onEdit={(e) => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }} onDelete={deleteEvent} />)}
+                {selectedEvents.map(ev => <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone} onEdit={(e) => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }} onDelete={requestDelete} />)}
               </div>
             )}
           </div>
@@ -422,7 +461,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                 }).map(ev => (
                   <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone}
                     onEdit={(e) => { setEditingEvent(e); setAddType('todo'); setShowAddModal(true); }}
-                    onDelete={deleteEvent}
+                    onDelete={requestDelete}
                     onMoveToCalendar={(id) => moveToCalendar(id, todayStr)}
                     showPriority
                   />
@@ -441,7 +480,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                 {todos.filter(t => t.done).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10).map(ev => (
                   <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone}
                     onEdit={(e) => { setEditingEvent(e); setAddType('todo'); setShowAddModal(true); }}
-                    onDelete={deleteEvent}
+                    onDelete={requestDelete}
                   />
                 ))}
               </div>
@@ -512,7 +551,7 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
                         style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}>
                         <Edit2 size={14} />
                       </button>
-                      <button onClick={() => { if (confirm(isRu ? 'Удалить эту идею?' : 'Delete this idea?')) deleteEvent(ev.id); }}
+                      <button onClick={() => { requestDelete(ev.id); }}
                         style={{ background: 'none', border: 'none', color: '#ef4444', padding: '4px' }}>
                         <Trash2 size={14} />
                       </button>
@@ -540,7 +579,17 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang }: 
           lang={lang}
           onSave={(ev) => editingEvent ? updateEvent(ev) : addEvent(ev)}
           onClose={() => { setShowAddModal(false); setEditingEvent(null); }}
-          onDelete={editingEvent ? () => deleteEvent(editingEvent.id) : undefined}
+          onDelete={editingEvent ? () => requestDelete(editingEvent.id) : undefined}
+        />
+      )}
+
+      {/* ── Delete Confirmation ── */}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={isRu ? `Удалить "${confirmDelete.title}"?` : `Delete "${confirmDelete.title}"?`}
+          isRu={isRu}
+          onConfirm={() => deleteEvent(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
     </div>
@@ -600,7 +649,7 @@ function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, sho
           </button>
         )}
         <button onClick={() => onEdit(ev)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '6px' }}><Edit2 size={14} /></button>
-        <button onClick={() => { if (confirm(isRu ? 'Удалить эту запись?' : 'Delete this item?')) onDelete(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '6px' }}><Trash2 size={14} /></button>
+        <button onClick={() => { onDelete(ev.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', padding: '6px' }}><Trash2 size={14} /></button>
       </div>
     </div>
   );
