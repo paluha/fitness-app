@@ -731,12 +731,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-load image from library if exercise has none
+  const libImageKey = ex.name.toLowerCase().trim();
+  const libImage = exerciseLibrary?.[libImageKey];
   useEffect(() => {
-    if (!ex.imageUrl && exerciseLibrary) {
-      const libImage = exerciseLibrary[ex.name.toLowerCase().trim()];
-      if (libImage) onUpdate({ imageUrl: libImage });
+    if (!ex.imageUrl && libImage) {
+      onUpdate({ imageUrl: libImage });
     }
-  }, []); // Only on mount
+  }, [libImage]); // Trigger when library loads or exercise name matches
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
