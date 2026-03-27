@@ -1868,6 +1868,7 @@ export default function FitnessPage() {
   const setPlannerEvents = useCallback((events: PlannerEvent[]) => {
     if (plannerLoadedFromServer.current) {
       plannerUserChanged.current = true;
+      userMadeChangeRef.current = true;
     }
     setPlannerEventsRaw(events);
   }, []);
@@ -1879,6 +1880,7 @@ export default function FitnessPage() {
   const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const serverDataLoadedRef = useRef(false);
+  const userMadeChangeRef = useRef(false); // Only sync after user actually changes something on THIS device
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
   const [showNightMealPrompt, setShowNightMealPrompt] = useState(false);
   const [pendingMealData, setPendingMealData] = useState<Meal | null>(null);
@@ -2034,7 +2036,7 @@ export default function FitnessPage() {
   }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, syncToServer]);
 
   useEffect(() => {
-    if (!isLoaded || !serverDataLoadedRef.current) return;
+    if (!isLoaded || !serverDataLoadedRef.current || !userMadeChangeRef.current) return;
     doSync();
   }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, habits, isLoaded, doSync]);
 
@@ -2049,13 +2051,13 @@ export default function FitnessPage() {
   // Force sync when page is closing
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (!isLoaded || !serverDataLoadedRef.current) return;
+      if (!isLoaded || !serverDataLoadedRef.current || !userMadeChangeRef.current) return;
       const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
       if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
       navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
     };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && isLoaded && serverDataLoadedRef.current) {
+      if (document.visibilityState === 'hidden' && isLoaded && serverDataLoadedRef.current && userMadeChangeRef.current) {
         const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
         if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
         navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
@@ -2235,6 +2237,7 @@ export default function FitnessPage() {
   }, [selectedDate, dayLogs]);
 
   const updateDayLog = (updates: Partial<DayLog>) => {
+    userMadeChangeRef.current = true;
     setDayLogs(prev => {
       const existingLog = prev[dateKey] || { date: dateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
       return {
@@ -2363,6 +2366,7 @@ export default function FitnessPage() {
   }, [dayLogs, dateKey]);
 
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
+    userMadeChangeRef.current = true;
     setWorkouts(prev => {
       const updated = prev.map(w =>
         w.id === workoutId
@@ -2393,6 +2397,7 @@ export default function FitnessPage() {
 
   // Add meal to specific date
   const addMealToDate = (meal: Meal, targetDateKey: string) => {
+    userMadeChangeRef.current = true;
     setDayLogs(prev => {
       const targetLog = prev[targetDateKey] || { date: targetDateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
       const updatedMeals = [...(targetLog.meals || []), meal];
@@ -2404,6 +2409,7 @@ export default function FitnessPage() {
   };
 
   const addMeal = () => {
+    userMadeChangeRef.current = true;
     const newMeal: Meal = {
       id: Date.now().toString(),
       time: mealForm.time || new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
@@ -2453,6 +2459,7 @@ export default function FitnessPage() {
   };
 
   const deleteMeal = (mealId: string) => {
+    userMadeChangeRef.current = true;
     updateDayLog({ meals: currentDayLog.meals.filter(m => m.id !== mealId) });
   };
 
@@ -2655,6 +2662,7 @@ export default function FitnessPage() {
   };
 
   const addExerciseToWorkout = () => {
+    userMadeChangeRef.current = true;
     if (!editingWorkoutId || !exerciseForm.name) return;
 
     const newExercise: Exercise = {
@@ -2678,6 +2686,7 @@ export default function FitnessPage() {
   };
 
   const updateExerciseInWorkout = () => {
+    userMadeChangeRef.current = true;
     if (!editingWorkoutId || !editingExerciseId || !exerciseForm.name) return;
 
     setWorkouts(prev => prev.map(w =>
@@ -2697,6 +2706,7 @@ export default function FitnessPage() {
   };
 
   const deleteExerciseFromWorkout = (exerciseId: string) => {
+    userMadeChangeRef.current = true;
     if (!editingWorkoutId) return;
     setWorkouts(prev => prev.map(w =>
       w.id === editingWorkoutId
@@ -2716,6 +2726,7 @@ export default function FitnessPage() {
   };
 
   const moveExercise = (exerciseId: string, direction: 'up' | 'down') => {
+    userMadeChangeRef.current = true;
     if (!editingWorkoutId) return;
     setWorkouts(prev => prev.map(w => {
       if (w.id !== editingWorkoutId) return w;
@@ -2733,6 +2744,7 @@ export default function FitnessPage() {
 
   // Add new workout
   const addNewWorkout = () => {
+    userMadeChangeRef.current = true;
     if (workouts.length >= MAX_WORKOUTS) return;
     const newWorkoutNum = workouts.length + 1;
     const newWorkout: Workout = {
@@ -2747,6 +2759,7 @@ export default function FitnessPage() {
 
   // Delete workout
   const deleteWorkout = (workoutId: string) => {
+    userMadeChangeRef.current = true;
     if (workouts.length <= 1) return; // Keep at least one workout
     setWorkouts(prev => {
       const filtered = prev.filter(w => w.id !== workoutId);
@@ -2768,6 +2781,7 @@ export default function FitnessPage() {
 
   // Close day with workout snapshot
   const closeDay = (workoutId: string, shouldClose: boolean) => {
+    userMadeChangeRef.current = true;
     if (shouldClose) {
       const workout = workouts.find(w => w.id === workoutId);
       if (workout) {
@@ -2798,6 +2812,7 @@ export default function FitnessPage() {
 
   // Mark day as off day (rest day - no workout required, but steps still needed)
   const toggleOffDay = () => {
+    userMadeChangeRef.current = true;
     if (currentDayLog.isOffDay) {
       // Unmark as off day
       updateDayLog({ isOffDay: false, dayClosed: false });
@@ -4982,6 +4997,7 @@ export default function FitnessPage() {
                         <button
                           onClick={() => {
                             if (confirm(t('deleteMeasurementConfirm') as string)) {
+                              userMadeChangeRef.current = true;
                               setBodyMeasurements(prev => prev.filter(item => item.id !== m.id));
                             }
                           }}
@@ -5017,7 +5033,7 @@ export default function FitnessPage() {
               events={plannerEvents}
               onEventsChange={setPlannerEvents}
               habits={habits}
-              onHabitsChange={setHabits}
+              onHabitsChange={(h) => { userMadeChangeRef.current = true; setHabits(h); }}
               todayStr={todayStr}
               lang={userSettings.language === 'ru' ? 'ru' : 'en'}
             />
@@ -5268,6 +5284,7 @@ export default function FitnessPage() {
                 hips: formData.get('hips') ? Number(formData.get('hips')) : undefined,
                 notes: formData.get('notes') as string || undefined
               };
+              userMadeChangeRef.current = true;
               if (editingMeasurement) {
                 setBodyMeasurements(prev => prev.map(m => m.id === editingMeasurement.id ? measurement : m));
               } else {
