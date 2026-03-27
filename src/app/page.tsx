@@ -1941,21 +1941,25 @@ export default function FitnessPage() {
     loadData();
   }, []);
 
-  // Poll for planner updates from Telegram bot (every 10s)
+  // Real-time sync: poll server every 5s, update ALL data if user isn't editing
   useEffect(() => {
     if (!isLoaded) return;
     const interval = setInterval(async () => {
-      if (plannerUserChanged.current) return; // skip if user is editing
+      if (userMadeChangeRef.current) return; // skip if user is actively editing on this device
       try {
         const response = await fetch('/api/fitness');
         if (response.ok) {
           const data = await response.json();
-          if (data.plannerEvents) {
-            setPlannerEventsRaw(data.plannerEvents);
-          }
+          if (data.workouts) setWorkouts(data.workouts);
+          if (data.dayLogs) setDayLogs(data.dayLogs);
+          if (data.progressHistory) setProgressHistory(data.progressHistory);
+          if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
+          if (data.plannerEvents) setPlannerEventsRaw(data.plannerEvents);
+          if (data.habits) setHabits(data.habits);
+          if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
         }
       } catch { /* silent */ }
-    }, 10000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [isLoaded]);
 
@@ -2007,6 +2011,8 @@ export default function FitnessPage() {
       });
       if (response.ok) {
         setSyncStatus('synced');
+        // Reset flag so polling can resume after 3 seconds of inactivity
+        setTimeout(() => { userMadeChangeRef.current = false; }, 3000);
       } else {
         setSyncStatus('error');
       }
