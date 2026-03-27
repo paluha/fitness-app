@@ -244,7 +244,7 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
         {([
           { key: 'calendar' as PlannerTab, icon: <CalendarDays size={14} />, label: isRu ? 'Календарь' : 'Calendar', badge: todayEvents.length || undefined },
           { key: 'todos' as PlannerTab, icon: <ListTodo size={14} />, label: isRu ? 'Дела' : 'To-Do', badge: undoneTodos || undefined },
-          { key: 'habits' as PlannerTab, icon: <Repeat size={14} />, label: isRu ? 'Трекер' : 'Habits', badge: (() => { const dow = (() => { const [y,m,d] = todayStr.split('-').map(Number); return new Date(y,m-1,d).getDay(); })(); return habits.filter(h => { if (!h.active) return false; const s = h.schedule||'daily'; if (s==='daily') return true; if (s==='weekdays') return dow>=1&&dow<=5; if (s==='weekends') return dow===0||dow===6; if (s==='custom'&&h.customDays) return h.customDays.includes(dow); return true; }).filter(h => !h.completedDates.includes(todayStr)).length || undefined; })() },
+          { key: 'habits' as PlannerTab, icon: <Repeat size={14} />, label: isRu ? 'Протокол' : 'Protocol', badge: (() => { const dow = (() => { const [y,m,d] = todayStr.split('-').map(Number); return new Date(y,m-1,d).getDay(); })(); return habits.filter(h => { if (!h.active) return false; const s = h.schedule||'daily'; if (s==='daily') return true; if (s==='weekdays') return dow>=1&&dow<=5; if (s==='weekends') return dow===0||dow===6; if (s==='custom'&&h.customDays) return h.customDays.includes(dow); return true; }).filter(h => !h.completedDates.includes(todayStr)).length || undefined; })() },
           { key: 'ideas' as PlannerTab, icon: <Lightbulb size={14} />, label: isRu ? 'Идеи' : 'Ideas', badge: ideas.length || undefined },
           { key: 'archive' as PlannerTab, icon: <Archive size={14} />, label: isRu ? 'Архив' : 'Archive', badge: archived.length || undefined },
         ]).map(t => (
@@ -966,13 +966,13 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
         width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)',
         border: '1px dashed var(--border)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
-      }}><Plus size={14} /> {isRu ? 'Добавить привычку' : 'Add habit'}</button>
+      }}><Plus size={14} /> {isRu ? 'Добавить в протокол' : 'Add to protocol'}</button>
 
       {activeHabits.length === 0 && (
         <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)' }}>
           <Repeat size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
-          <p style={{ fontSize: '14px' }}>{isRu ? 'Добавь ежедневные привычки' : 'Add daily habits'}</p>
-          <p style={{ fontSize: '12px', marginTop: '4px' }}>{isRu ? 'Лекарства, зубы, вода, спорт...' : 'Meds, teeth, water, exercise...'}</p>
+          <p style={{ fontSize: '14px' }}>{isRu ? 'Добавь ежедневный протокол' : 'Set up your daily protocol'}</p>
+          <p style={{ fontSize: '12px', marginTop: '4px' }}>{isRu ? 'Лекарства, витамины, зубы, вода...' : 'Meds, vitamins, teeth, water...'}</p>
         </div>
       )}
 
@@ -1031,7 +1031,7 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: '480px', padding: '24px 20px 32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{habit ? (isRu ? 'Редактировать' : 'Edit') : (isRu ? 'Новая привычка' : 'New Habit')}</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{habit ? (isRu ? 'Редактировать' : 'Edit') : (isRu ? 'Новый пункт протокола' : 'New Protocol Item')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}><X size={20} /></button>
         </div>
 
@@ -1049,7 +1049,7 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
 
         {/* Title */}
         <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
-          placeholder={isRu ? 'Название привычки' : 'Habit name'}
+          placeholder={isRu ? 'Название' : 'Name'}
           style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '16px' }} />
 
         {/* Time — quick select */}
