@@ -728,7 +728,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
   const [showHistory, setShowHistory] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
-  const [showImageFull, setShowImageFull] = useState(false);
+  const [showImageFull, setShowImageFullRaw] = useState(false);
+  const setShowImageFull = (val: boolean) => {
+    setShowImageFullRaw(val);
+    document.body.style.overflow = val ? 'hidden' : '';
+  };
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-collapse when day closes
@@ -1196,19 +1200,23 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
       {/* Compact image popup */}
       {showImageFull && ex.imageUrl && (
         <div onClick={() => setShowImageFull(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000, padding: '40px'
-        }}>
+          zIndex: 9999, padding: '40px',
+          touchAction: 'none', overscrollBehavior: 'contain',
+        }}
+        onTouchMove={e => e.preventDefault()}
+        >
           <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '400px', width: '100%' }}>
-            <img src={ex.imageUrl} alt={ex.name} style={{ width: '100%', borderRadius: '12px', objectFit: 'contain' }} />
+            <img src={ex.imageUrl} alt={ex.name} style={{ width: '100%', borderRadius: '12px', objectFit: 'contain', pointerEvents: 'none' }} />
             <div style={{ textAlign: 'center', marginTop: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>{ex.name}</div>
             <button onClick={() => setShowImageFull(false)} style={{
               position: 'absolute', top: '-12px', right: '-12px',
-              width: '28px', height: '28px', borderRadius: '50%',
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-            }}><X size={14} /></button>
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: '#fff', border: 'none',
+              color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            }}><X size={16} /></button>
           </div>
         </div>
       )}
