@@ -714,7 +714,7 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLibrary, onImageSaved, dayClosed }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLibrary, onImageSaved, dayClosed, onShowImage }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
@@ -723,16 +723,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
   exerciseLibrary?: Record<string, string>;
   onImageSaved?: (name: string, imageUrl: string) => void;
   dayClosed?: boolean;
+  onShowImage?: (imageUrl: string, name: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
-  const [showImageFull, setShowImageFullRaw] = useState(false);
-  const setShowImageFull = (val: boolean) => {
-    setShowImageFullRaw(val);
-    document.body.style.overflow = val ? 'hidden' : '';
-  };
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-collapse when day closes
@@ -922,7 +918,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
           {/* Image link for completed */}
           {ex.imageUrl && (
             <div style={{ marginBottom: '8px' }}>
-              <button onClick={() => setShowImageFull(true)}
+              <button onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
                 style={{ background: 'none', border: 'none', fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, cursor: 'pointer' }}>
                 <Camera size={12} /> Фото упражнения
               </button>
@@ -1114,7 +1110,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
           {/* Exercise image link */}
           {ex.imageUrl && (
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setShowImageFull(true)}
+              <button onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
                 style={{ background: 'none', border: 'none', fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, cursor: 'pointer' }}>
                 <Camera size={12} /> Фото упражнения
               </button>
@@ -1198,29 +1194,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
 
       {/* Video Modal */}
       {/* Compact image popup */}
-      {showImageFull && ex.imageUrl && (
-        <div onClick={() => setShowImageFull(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, padding: '40px',
-          touchAction: 'none', overscrollBehavior: 'contain',
-        }}
-        onTouchMove={e => e.preventDefault()}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '400px', width: '100%' }}>
-            <img src={ex.imageUrl} alt={ex.name} style={{ width: '100%', borderRadius: '12px', objectFit: 'contain', pointerEvents: 'none' }} />
-            <div style={{ textAlign: 'center', marginTop: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>{ex.name}</div>
-            <button onClick={() => setShowImageFull(false)} style={{
-              position: 'absolute', top: '-12px', right: '-12px',
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: '#fff', border: 'none',
-              color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-            }}><X size={16} /></button>
-          </div>
-        </div>
-      )}
-
       {showVideoModal && (
         <div
           onClick={() => setShowVideoModal(false)}
@@ -1870,6 +1843,7 @@ export default function FitnessPage() {
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [plannerEvents, setPlannerEventsRaw] = useState<PlannerEvent[]>([]);
   const [exerciseLibrary, setExerciseLibrary] = useState<Record<string, string>>({});
+  const [imageModal, setImageModal] = useState<{ url: string; name: string } | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const plannerLoadedFromServer = useRef(false);
   const plannerUserChanged = useRef(false);
@@ -3647,6 +3621,7 @@ export default function FitnessPage() {
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
                       dayClosed={currentDayLog.dayClosed}
+                      onShowImage={(url, name) => { setImageModal({ url, name }); document.body.style.overflow = 'hidden'; }}
                     />
                   );
                 })
@@ -6661,6 +6636,31 @@ export default function FitnessPage() {
           <span style={{ opacity: 0.5 }}>AI Fitness</span>
         )}
       </footer>
+
+      {/* Exercise image modal — rendered at root level to avoid re-render issues */}
+      {imageModal && (
+        <div
+          onClick={() => { setImageModal(null); document.body.style.overflow = ''; }}
+          onTouchMove={e => e.preventDefault()}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: '40px', touchAction: 'none',
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '400px', width: '100%' }}>
+            <img src={imageModal.url} alt={imageModal.name} style={{ width: '100%', borderRadius: '12px', objectFit: 'contain', pointerEvents: 'none' }} />
+            <div style={{ textAlign: 'center', marginTop: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>{imageModal.name}</div>
+            <button onClick={() => { setImageModal(null); document.body.style.overflow = ''; }} style={{
+              position: 'absolute', top: '-12px', right: '-12px',
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: '#fff', border: 'none', color: '#000',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            }}><X size={16} /></button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
