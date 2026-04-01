@@ -1878,7 +1878,6 @@ export default function FitnessPage() {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [offDayHoldProgress, setOffDayHoldProgress] = useState(0);
   const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const serverDataLoadedRef = useRef(false);
   const userMadeChangeRef = useRef(false); // Only sync after user actually changes something on THIS device
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
@@ -2022,37 +2021,53 @@ export default function FitnessPage() {
     }
   }, []);
 
-  // Sync IMMEDIATELY to server on every change — no debounce, no data loss
+  // Sync with debounce — saves to localStorage immediately, syncs to server after 1.5s pause
+  const syncTimeoutRef = useRef<NodeJS.Timeout>(null);
   const syncInFlightRef = useRef(false);
-  const syncQueuedRef = useRef(false);
-
-  const doSync = useCallback(async () => {
-    if (syncInFlightRef.current) {
-      syncQueuedRef.current = true;
-      return;
-    }
-    syncInFlightRef.current = true;
-    await syncToServer(workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents);
-    syncInFlightRef.current = false;
-    if (syncQueuedRef.current) {
-      syncQueuedRef.current = false;
-      // Re-sync with latest data
-      setTimeout(() => doSync(), 50);
-    }
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, syncToServer]);
 
   useEffect(() => {
     if (!isLoaded || !serverDataLoadedRef.current || !userMadeChangeRef.current) return;
-    doSync();
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, habits, isLoaded, doSync]);
 
-  // Also save to localStorage as emergency backup
-  useEffect(() => {
-    if (!isLoaded || !serverDataLoadedRef.current) return;
+    // Save to localStorage IMMEDIATELY (offline-safe)
     try {
       localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, ts: Date.now() }));
-    } catch { /* quota exceeded */ }
-  }, [workouts, dayLogs, progressHistory, bodyMeasurements, isLoaded]);
+    } catch { /* quota */ }
+
+    // Debounce server sync — 1.5s after last change
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(async () => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      try {
+        // 5 second timeout — don't block if offline
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
+        if (plannerUserChanged.current) { payload.plannerEvents = plannerEvents; plannerUserChanged.current = false; }
+        if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
+        if (habitsRef.current.length > 0) payload.habits = habitsRef.current;
+        const response = await fetch('/api/fitness', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (response.ok) {
+          setSyncStatus('synced');
+          setTimeout(() => { userMadeChangeRef.current = false; }, 3000);
+        } else {
+          setSyncStatus('error');
+        }
+      } catch {
+        setSyncStatus('error');
+        // Offline — data safe in localStorage, will sync on next successful attempt
+      }
+      syncInFlightRef.current = false;
+    }, 1500);
+
+    return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
+  }, [workouts, dayLogs, progressHistory, bodyMeasurements, plannerEvents, habits, isLoaded]);
 
   // Force sync when page is closing
   useEffect(() => {
