@@ -13,7 +13,7 @@ export async function upsertWorkoutLog(input: {
   exerciseId: string;
   workoutId?: string | null;
   completed?: boolean;
-  actualSets?: unknown[] | null;
+  actualSets?: unknown;
   notes?: string | null;
 }): Promise<void> {
   const db = getLocalDB();
@@ -28,7 +28,7 @@ export async function upsertWorkoutLog(input: {
     exerciseId: input.exerciseId,
     workoutId: input.workoutId ?? existing?.workoutId ?? null,
     completed: input.completed ?? existing?.completed ?? false,
-    actualSets: input.actualSets !== undefined ? input.actualSets : existing?.actualSets ?? null,
+    actualSets: input.actualSets !== undefined ? input.actualSets : (existing?.actualSets ?? null),
     notes: input.notes !== undefined ? input.notes : existing?.notes ?? null,
     clientUpdatedAt: now,
     serverUpdatedAt: existing?.serverUpdatedAt,

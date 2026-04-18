@@ -11,6 +11,7 @@ import {
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
+import { upsertWorkoutLog, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
 function parseRestTime(restTime: string): number {
@@ -1953,6 +1954,23 @@ export default function FitnessPage() {
     return () => clearInterval(interval);
   }, [isLoaded]);
 
+  // Offline-first sync loop (new per-row system, running in parallel with the
+  // legacy dayLogs JSON sync). Writes go local first via upsertWorkoutLog/
+  // upsertDayLog, queue up, and flush in the background. The poller pulls
+  // diffs from the server and merges. When this is fully wired through the UI
+  // the legacy POST/polling path can be retired.
+  const [pendingOpsCount, setPendingOpsCount] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    startSyncLoop(5000);
+    // Light UI indicator: re-check pending count every 2s so the user sees
+    // when their edits are in the queue vs fully synced.
+    const tick = setInterval(async () => {
+      try { setPendingOpsCount(await getPendingOpsCount()); } catch { /* ignore */ }
+    }, 2000);
+    return () => clearInterval(tick);
+  }, []);
+
   // Update selectedDate and todayStr when timezone changes or on initial load
   useEffect(() => {
     const todayInTz = getTodayInTimezone(userSettings.timezone);
@@ -2395,6 +2413,20 @@ export default function FitnessPage() {
             exercises: JSON.parse(JSON.stringify(workout.exercises)),
           };
           updateDayLog({ workoutDraft: draft });
+          // Parallel write into the new per-row system — the row carries
+          // only this single exercise's latest state so polling can't wipe
+          // it, and the outbox keeps it safe across offline periods.
+          const ex = workout.exercises.find(e => e.id === exerciseId);
+          if (ex) {
+            upsertWorkoutLog({
+              date: dateKey,
+              exerciseId,
+              workoutId,
+              completed: !!ex.completed,
+              actualSets: ex.actualSets ?? null,
+              notes: ex.notes ?? null,
+            }).catch(() => { /* stays in queue */ });
+          }
         }
       }
       return updated;
@@ -6643,6 +6675,14 @@ export default function FitnessPage() {
         )}
         {syncStatus === 'idle' && (
           <span style={{ opacity: 0.5 }}>AI Fitness</span>
+        )}
+        {pendingOpsCount > 0 && (
+          <span
+            title={`${pendingOpsCount} edits waiting to sync — safe, queued locally`}
+            style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: 'rgba(249,115,22,.18)', color: '#f97316', fontSize: 10, fontWeight: 700 }}
+          >
+            {pendingOpsCount} pending
+          </span>
         )}
       </footer>
 

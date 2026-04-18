@@ -13,7 +13,10 @@ export interface LocalWorkoutLog {
   exerciseId: string;
   workoutId: string | null;
   completed: boolean;
-  actualSets: unknown[] | null;
+  // Free-form — in the current app this is a formatted string like "3x10 40kg",
+  // but the per-row schema also supports structured arrays/objects. Keep it
+  // untyped so either shape round-trips through Dexie and the server.
+  actualSets: unknown;
   notes: string | null;
   clientUpdatedAt: string; // ISO
   serverUpdatedAt?: string; // ISO — filled when the row arrives from server
