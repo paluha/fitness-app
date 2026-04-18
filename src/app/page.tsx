@@ -1922,15 +1922,24 @@ export default function FitnessPage() {
     loadData();
   }, []);
 
-  // Real-time sync: poll server every 5s, update ALL data if user isn't editing
+  // Real-time sync: poll server every 5s, update ALL data if user isn't editing.
+  // SAFETY: also skips when a save is in flight or there's a pending debounce —
+  // overwriting unsaved local edits with stale server state was wiping out
+  // gym sessions.
   useEffect(() => {
     if (!isLoaded) return;
     const interval = setInterval(async () => {
-      if (userMadeChangeRef.current) return; // skip if user is actively editing on this device
+      if (userMadeChangeRef.current) return; // user actively editing on this device
+      if (syncInFlightRef.current) return;   // wait for in-progress save to complete
+      if (syncTimeoutRef.current) return;    // pending debounced save not flushed yet
       try {
         const response = await fetch('/api/fitness');
         if (response.ok) {
           const data = await response.json();
+          // Re-check the guards AFTER the network round-trip — the user may have
+          // started editing while we were waiting for the response. Without this
+          // check we'd still overwrite their fresh edits.
+          if (userMadeChangeRef.current || syncInFlightRef.current || syncTimeoutRef.current) return;
           if (data.workouts) setWorkouts(data.workouts);
           if (data.dayLogs) setDayLogs(data.dayLogs);
           if (data.progressHistory) setProgressHistory(data.progressHistory);
