@@ -120,6 +120,20 @@ model FitnessData {
   @@index([userId])
 }
 
+// Rolling backup of the full FitnessData blob, created on every successful save.
+// Keeps the last N snapshots per user (trimmed by the write endpoint) so we can
+// roll back when something goes wrong. This is a safety net on top of the
+// single-row FitnessData design — it'll stop being critical once per-row
+// writes ship in stage 2.
+model FitnessSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  data      Json     // Full snapshot of FitnessData fields at that moment
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 enum FoodCategory {
   PROTEIN
   CARBS

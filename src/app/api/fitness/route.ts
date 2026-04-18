@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { createSnapshotForUser } from '@/lib/fitness-snapshots';
 
 // GET - Fetch fitness data
 export async function GET() {
@@ -153,6 +154,19 @@ export async function POST(request: Request) {
         exerciseLibrary: body.exerciseLibrary || {},
         habits: body.habits || []
       }
+    });
+
+    // Rolling backup of the full post-write state. Non-blocking: even if the
+    // snapshot fails we still return success because the main save is done.
+    await createSnapshotForUser(userId, {
+      workouts: fitnessData.workouts,
+      dayLogs: fitnessData.dayLogs,
+      progressHistory: fitnessData.progressHistory,
+      bodyMeasurements: fitnessData.bodyMeasurements,
+      favoriteMeals: fitnessData.favoriteMeals,
+      plannerEvents: fitnessData.plannerEvents,
+      exerciseLibrary: fitnessData.exerciseLibrary,
+      habits: fitnessData.habits,
     });
 
     return NextResponse.json({ success: true, updatedAt: fitnessData.updatedAt });
