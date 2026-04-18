@@ -11,7 +11,7 @@ import {
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
-import { upsertWorkoutLog, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
+import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
 function parseRestTime(restTime: string): number {
@@ -1971,6 +1971,84 @@ export default function FitnessPage() {
     return () => clearInterval(tick);
   }, []);
 
+  // Hydrate dayLogs from the per-row store. Runs once on mount and every 5s
+  // thereafter to catch newly-pulled diffs. This is the bridge between the
+  // new per-row data and the old UI: we merge per-row truths on top of
+  // dayLogs JSON so the UI always sees the latest state, even when the
+  // legacy JSON hasn't caught up.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isLoaded) return;
+    let cancelled = false;
+    const hydrate = async () => {
+      try {
+        const { getLocalDB } = await import('@/lib/local-db');
+        const db = getLocalDB();
+        const [wRows, dRows] = await Promise.all([
+          db.workoutLogs.toArray(),
+          db.dayLogs.toArray(),
+        ]);
+        if (cancelled) return;
+        if (wRows.length === 0 && dRows.length === 0) return;
+
+        setDayLogs(prev => {
+          const next: Record<string, DayLog> = { ...prev };
+          // Merge workoutLogs → reconstruct workoutDraft.exercises per date.
+          // Group by date.
+          const byDate = new Map<string, typeof wRows>();
+          for (const r of wRows) {
+            const arr = byDate.get(r.date) ?? [];
+            arr.push(r);
+            byDate.set(r.date, arr);
+          }
+          for (const [date, rows] of byDate) {
+            const base: DayLog = next[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+            const workoutId = rows.find(r => r.workoutId)?.workoutId ?? base.workoutDraft?.workoutId ?? base.selectedWorkout ?? null;
+            if (!workoutId) continue;
+            // Build draft from known rows; only touch exercises mentioned in rows.
+            const existingExercises = base.workoutDraft?.exercises ?? base.workoutSnapshot?.exercises ?? [];
+            const exMap = new Map(existingExercises.map(e => [e.id, { ...e }]));
+            for (const r of rows) {
+              const prevEx = exMap.get(r.exerciseId);
+              if (prevEx) {
+                prevEx.completed = r.completed;
+                if (r.actualSets !== null && r.actualSets !== undefined) prevEx.actualSets = r.actualSets as string;
+                if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
+              }
+            }
+            if (!base.dayClosed) {
+              next[date] = {
+                ...base,
+                workoutDraft: {
+                  workoutId,
+                  workoutName: base.workoutDraft?.workoutName ?? base.workoutSnapshot?.workoutName ?? '',
+                  exercises: Array.from(exMap.values()),
+                },
+              };
+            }
+          }
+          // Merge dayLog kinds (dayClosed, workoutCompleted, workoutSnapshot, steps, etc).
+          for (const r of dRows) {
+            const base: DayLog = next[r.date] ?? { date: r.date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+            const patch: Partial<DayLog> = {};
+            if (r.kind === 'dayClosed') patch.dayClosed = !!r.payload;
+            else if (r.kind === 'workoutCompleted') patch.workoutCompleted = r.payload as string | null;
+            else if (r.kind === 'workoutSnapshot') patch.workoutSnapshot = r.payload as WorkoutSnapshot | null;
+            else if (r.kind === 'isOffDay') patch.isOffDay = !!r.payload;
+            else if (r.kind === 'steps') patch.steps = r.payload as number | null;
+            else if (r.kind === 'workoutRating') patch.workoutRating = r.payload as DayLog['workoutRating'];
+            else if (r.kind === 'selectedWorkout') patch.selectedWorkout = r.payload as DayLog['selectedWorkout'];
+            next[r.date] = { ...base, ...patch };
+          }
+          return next;
+        });
+      } catch { /* ignore */ }
+    };
+    hydrate();
+    const id = setInterval(hydrate, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isLoaded]);
+
   // Update selectedDate and todayStr when timezone changes or on initial load
   useEffect(() => {
     const todayInTz = getTodayInTimezone(userSettings.timezone);
@@ -2840,6 +2918,14 @@ export default function FitnessPage() {
           workoutSnapshot: snapshot,
           workoutDraft: null
         });
+        // Mirror into the per-row store so polling can't wipe these and a
+        // fast refresh before the legacy POST fires doesn't lose them.
+        upsertDayLog({ date: dateKey, kind: 'dayClosed', payload: true }).catch(() => {});
+        upsertDayLog({ date: dateKey, kind: 'workoutCompleted', payload: workoutId }).catch(() => {});
+        upsertDayLog({ date: dateKey, kind: 'workoutSnapshot', payload: snapshot }).catch(() => {});
+        // Force an immediate flush so "closing the day" actually reaches the
+        // server even if the user refreshes a split second later.
+        flushNow().catch(() => {});
       }
     } else {
       // Reopening a closed day — preserve snapshot as draft so exercises aren't lost
@@ -2851,6 +2937,10 @@ export default function FitnessPage() {
         workoutDraft: existingSnapshot || currentDayLog.workoutDraft,
         isOffDay: false
       });
+      upsertDayLog({ date: dateKey, kind: 'dayClosed', payload: false }).catch(() => {});
+      upsertDayLog({ date: dateKey, kind: 'workoutCompleted', payload: null }).catch(() => {});
+      upsertDayLog({ date: dateKey, kind: 'workoutSnapshot', payload: null }).catch(() => {});
+      flushNow().catch(() => {});
     }
   };
 
