@@ -134,6 +134,54 @@ model FitnessSnapshot {
   @@index([userId, createdAt])
 }
 
+// Per-exercise log — the granular replacement for dayLogs[date].workoutDraft.
+// One row per (userId, date, exerciseId). Writes target a single row, so two
+// devices editing different exercises can't clobber each other and a stale
+// poll response can't wipe fresh edits.
+//
+// serverUpdatedAt is set server-side on every write; clients poll
+// "since=<lastSeen>" to pull only changes they haven't seen yet.
+// clientId identifies which device wrote the row (for tiebreaks / debugging).
+model WorkoutLogEntry {
+  id               String   @id @default(cuid())
+  userId           String
+  date             String   // YYYY-MM-DD (stored as text to dodge timezone bugs)
+  exerciseId       String
+  workoutId        String?  // Which workout template (T1-T7) this exercise belongs to that day
+  completed        Boolean  @default(false)
+  actualSets       Json?    // Array of { weight, reps, completed } objects — same shape the UI uses
+  notes            String?  @db.Text
+  clientId         String?  // Which device made the latest write
+  clientUpdatedAt  DateTime // Client's wall clock at edit time (for conflict resolution)
+  serverUpdatedAt  DateTime @updatedAt
+  deletedAt        DateTime? // Soft-delete so tombstones can sync too
+
+  @@unique([userId, date, exerciseId])
+  @@index([userId, serverUpdatedAt])
+  @@index([userId, date])
+}
+
+// Everything else in dayLogs that isn't per-exercise. One row per
+// (userId, date, kind). kind is a short tag: "steps", "meals", "mood",
+// "notes", "completedWorkouts", etc. payload holds the kind-specific shape.
+// Smaller than one giant dayLogs JSON, but still flexible enough to grow
+// without schema changes.
+model DayLogEntry {
+  id               String   @id @default(cuid())
+  userId           String
+  date             String   // YYYY-MM-DD
+  kind             String   // "steps" | "meals" | "mood" | "notes" | "completedWorkouts" | etc
+  payload          Json
+  clientId         String?
+  clientUpdatedAt  DateTime
+  serverUpdatedAt  DateTime @updatedAt
+  deletedAt        DateTime?
+
+  @@unique([userId, date, kind])
+  @@index([userId, serverUpdatedAt])
+  @@index([userId, date])
+}
+
 enum FoodCategory {
   PROTEIN
   CARBS
