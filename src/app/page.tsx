@@ -2038,6 +2038,8 @@ export default function FitnessPage() {
             else if (r.kind === 'steps') patch.steps = r.payload as number | null;
             else if (r.kind === 'workoutRating') patch.workoutRating = r.payload as DayLog['workoutRating'];
             else if (r.kind === 'selectedWorkout') patch.selectedWorkout = r.payload as DayLog['selectedWorkout'];
+            else if (r.kind === 'notes' && typeof r.payload === 'string') patch.notes = r.payload;
+            else if (r.kind === 'meals' && Array.isArray(r.payload)) patch.meals = r.payload as DayLog['meals'];
             next[r.date] = { ...base, ...patch };
           }
           return next;
@@ -2344,6 +2346,17 @@ export default function FitnessPage() {
     return total;
   }, [selectedDate, dayLogs]);
 
+  // Fields that have a matching DayLogEntry kind in the per-row store. Mirroring
+  // them means a refresh right after a change can't lose the edit — it's in
+  // IndexedDB + pending ops + on the server, all three.
+  // workoutDraft is deliberately NOT mirrored here because individual exercise
+  // edits already go through upsertWorkoutLog (stage 3d) — one row per exercise
+  // is much finer-grained than one payload per draft.
+  const DAY_LOG_MIRRORED_FIELDS: Array<keyof DayLog> = [
+    'dayClosed', 'workoutCompleted', 'workoutSnapshot', 'workoutRating',
+    'selectedWorkout', 'isOffDay', 'steps', 'notes', 'meals',
+  ];
+
   const updateDayLog = (updates: Partial<DayLog>) => {
     userMadeChangeRef.current = true;
     setDayLogs(prev => {
@@ -2353,6 +2366,12 @@ export default function FitnessPage() {
         [dateKey]: { ...existingLog, ...updates }
       };
     });
+    // Mirror into the per-row outbox (fire-and-forget).
+    for (const field of DAY_LOG_MIRRORED_FIELDS) {
+      if (field in updates) {
+        upsertDayLog({ date: dateKey, kind: field as string, payload: updates[field] as unknown }).catch(() => {});
+      }
+    }
   };
 
   // Select workout and save to dayLog
@@ -2523,6 +2542,9 @@ export default function FitnessPage() {
     setDayLogs(prev => {
       const targetLog = prev[targetDateKey] || { date: targetDateKey, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
       const updatedMeals = [...(targetLog.meals || []), meal];
+      // Mirror the new meals array into the per-row store (cross-date add,
+      // so we can't go through updateDayLog which targets dateKey only).
+      upsertDayLog({ date: targetDateKey, kind: 'meals', payload: updatedMeals }).catch(() => {});
       return {
         ...prev,
         [targetDateKey]: { ...targetLog, meals: updatedMeals }
@@ -2918,13 +2940,9 @@ export default function FitnessPage() {
           workoutSnapshot: snapshot,
           workoutDraft: null
         });
-        // Mirror into the per-row store so polling can't wipe these and a
-        // fast refresh before the legacy POST fires doesn't lose them.
-        upsertDayLog({ date: dateKey, kind: 'dayClosed', payload: true }).catch(() => {});
-        upsertDayLog({ date: dateKey, kind: 'workoutCompleted', payload: workoutId }).catch(() => {});
-        upsertDayLog({ date: dateKey, kind: 'workoutSnapshot', payload: snapshot }).catch(() => {});
         // Force an immediate flush so "closing the day" actually reaches the
-        // server even if the user refreshes a split second later.
+        // server even if the user refreshes a split second later. The mirror
+        // into the per-row store is already handled inside updateDayLog.
         flushNow().catch(() => {});
       }
     } else {
@@ -2937,9 +2955,6 @@ export default function FitnessPage() {
         workoutDraft: existingSnapshot || currentDayLog.workoutDraft,
         isOffDay: false
       });
-      upsertDayLog({ date: dateKey, kind: 'dayClosed', payload: false }).catch(() => {});
-      upsertDayLog({ date: dateKey, kind: 'workoutCompleted', payload: null }).catch(() => {});
-      upsertDayLog({ date: dateKey, kind: 'workoutSnapshot', payload: null }).catch(() => {});
       flushNow().catch(() => {});
     }
   };
@@ -4702,6 +4717,7 @@ export default function FitnessPage() {
                               const newMeals = existingLog.meals.map(m =>
                                 m.id === meal.id ? { ...m, isFavorite: !m.isFavorite } : m
                               );
+                              upsertDayLog({ date: dateKey, kind: 'meals', payload: newMeals }).catch(() => {});
                               return {
                                 ...prev,
                                 [dateKey]: { ...existingLog, meals: newMeals }
@@ -6351,9 +6367,11 @@ export default function FitnessPage() {
                             };
                             setDayLogs(prev => {
                               const existingLog = prev[dateKey] || currentDayLog;
+                              const newMeals = [...existingLog.meals, newMeal];
+                              upsertDayLog({ date: dateKey, kind: 'meals', payload: newMeals }).catch(() => {});
                               return {
                                 ...prev,
-                                [dateKey]: { ...existingLog, meals: [...existingLog.meals, newMeal] }
+                                [dateKey]: { ...existingLog, meals: newMeals }
                               };
                             });
                             setShowFoodAssistant(false);
