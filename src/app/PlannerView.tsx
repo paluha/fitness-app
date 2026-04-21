@@ -34,6 +34,10 @@ export interface Habit {
   customDays?: number[]; // [1,2,3,4,5] = Mon-Fri (0=Sun, 1=Mon, ...)
   active: boolean;
   completedDates: string[];
+  // Marks this habit as a supplement/vitamin. Displayed in its own section
+  // above regular habits. Supplements can have a dosage string.
+  isSupplement?: boolean;
+  dosage?: string; // e.g. "500mg", "1 capsule", "1 tsp"
 }
 
 export const REMINDER_OPTIONS = [
@@ -922,13 +926,16 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-        {todayHabits.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')).map(habit => {
+      {(() => {
+        const sortedToday = [...todayHabits].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+        const supplements = sortedToday.filter(h => h.isSupplement);
+        const regular = sortedToday.filter(h => !h.isSupplement);
+        const schedLabels: Record<string, string> = isRu
+          ? { daily: '', weekdays: 'Будни', weekends: 'Выходные', custom: 'По дням' }
+          : { daily: '', weekdays: 'Weekdays', weekends: 'Weekends', custom: 'Custom' };
+        const renderHabitCard = (habit: Habit) => {
           const done = habit.completedDates.includes(todayStr);
           const streak = getStreak(habit);
-          const schedLabels: Record<string, string> = isRu
-            ? { daily: '', weekdays: 'Будни', weekends: 'Выходные', custom: 'По дням' }
-            : { daily: '', weekdays: 'Weekdays', weekends: 'Weekends', custom: 'Custom' };
           const schedLabel = schedLabels[habit.schedule || 'daily'];
           return (
             <div key={habit.id} style={{
@@ -943,7 +950,10 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0, fontSize: '14px'
               }}>{done ? <Check size={16} style={{ color: '#000' }} /> : habit.icon}</button>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, opacity: done ? 0.6 : 1 }}>{habit.title}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, opacity: done ? 0.6 : 1 }}>
+                  {habit.title}
+                  {habit.dosage && <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)' }}>· {habit.dosage}</span>}
+                </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
                   {habit.time && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{habit.time}</span>}
                   {streak > 0 && <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>🔥 {streak} {isRu ? 'дн.' : 'd'}</span>}
@@ -959,8 +969,30 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
               <button onClick={() => { setEditingHabit(habit); setShowAdd(true); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}><Edit2 size={14} /></button>
             </div>
           );
-        })}
-      </div>
+        };
+        const sectionHeader = (text: string, count: number, total: number) => (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px', marginTop: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{text}</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: count === total ? 'var(--green)' : 'var(--text-muted)' }}>{count}/{total}</span>
+          </div>
+        );
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+            {supplements.length > 0 && (
+              <>
+                {sectionHeader(isRu ? 'Добавки' : 'Supplements', supplements.filter(h => h.completedDates.includes(todayStr)).length, supplements.length)}
+                {supplements.map(renderHabitCard)}
+              </>
+            )}
+            {regular.length > 0 && (
+              <>
+                {supplements.length > 0 && sectionHeader(isRu ? 'Привычки' : 'Habits', regular.filter(h => h.completedDates.includes(todayStr)).length, regular.length)}
+                {regular.map(renderHabitCard)}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <button onClick={() => { setEditingHabit(null); setShowAdd(true); }} style={{
         width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-elevated)',
@@ -996,6 +1028,8 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
   const [reminderMinutesBefore, setReminderMinutesBefore] = useState(habit?.reminderMinutesBefore ?? 0);
   const [schedule, setSchedule] = useState<HabitSchedule>(habit?.schedule || 'daily');
   const [customDays, setCustomDays] = useState<number[]>(habit?.customDays || [1, 2, 3, 4, 5]);
+  const [isSupplement, setIsSupplement] = useState<boolean>(habit?.isSupplement ?? false);
+  const [dosage, setDosage] = useState<string>(habit?.dosage || '');
 
   const toggleDay = (day: number) => {
     setCustomDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort());
@@ -1023,6 +1057,8 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
       title: title.trim(), time, icon, reminderEnabled, reminderMinutesBefore,
       schedule, customDays: schedule === 'custom' ? customDays : undefined,
       active: true, completedDates: habit?.completedDates || [],
+      isSupplement,
+      dosage: dosage.trim() || undefined,
     });
   };
 
@@ -1050,7 +1086,26 @@ function HabitModal({ habit, isRu, onSave, onDelete, onClose }: {
         {/* Title */}
         <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
           placeholder={isRu ? 'Название' : 'Name'}
-          style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '16px' }} />
+          style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '12px' }} />
+
+        {/* Supplement toggle + dosage */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button type="button" onClick={() => setIsSupplement(v => !v)}
+            style={{
+              padding: '10px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              border: isSupplement ? '1px solid rgba(234, 179, 8, 0.4)' : '1px solid var(--border)',
+              background: isSupplement ? 'rgba(234, 179, 8, 0.1)' : 'var(--bg-elevated)',
+              color: isSupplement ? 'var(--yellow)' : 'var(--text-muted)',
+              display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+            }}>
+            {isSupplement ? '💊 ✓' : '💊'} {isRu ? 'Добавка' : 'Supplement'}
+          </button>
+          {isSupplement && (
+            <input value={dosage} onChange={e => setDosage(e.target.value)}
+              placeholder={isRu ? 'Дозировка (напр. 500мг, 1 капс.)' : 'Dosage (e.g. 500mg, 1 cap)'}
+              style={{ flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: '12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '13px' }} />
+          )}
+        </div>
 
         {/* Time — quick select */}
         <div style={{ marginBottom: '16px' }}>
