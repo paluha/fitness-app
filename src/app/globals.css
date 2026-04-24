@@ -518,6 +518,95 @@ button:disabled {
   box-shadow: 0 4px 20px var(--yellow-glow);
 }
 
+/* Soft-elevated card look per the Monica / activity-list reference design:
+   big radius, near-white bg, very subtle shadow. Used when we want a card
+   to float cleanly on the light page background. */
+.card-soft {
+  background: var(--bg-card);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(17, 20, 24, 0.04);
+}
+
+/* Floating bottom pill nav — replaces a top tabstrip with the rounded
+   dock shown in the reference. Add .bottom-nav-spacer below content so
+   nothing is hidden under the pill. */
+.bottom-nav-dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card);
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(17, 20, 24, 0.08), 0 2px 8px rgba(17, 20, 24, 0.04);
+}
+.bottom-nav-dock button {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.bottom-nav-dock button:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+.bottom-nav-dock button.active {
+  background: var(--text-primary);
+  color: var(--bg-card);
+}
+.bottom-nav-dock button.active:hover {
+  background: var(--text-primary);
+  color: var(--bg-card);
+}
+.bottom-nav-spacer { height: 80px; }
+
+/* Pill date chip — used in horizontal date carousels. Match reference:
+   rounded pill, bright red when active, muted grey otherwise. */
+.date-pill {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.date-pill.active {
+  background: #f87171;
+  color: #fff;
+  border-color: transparent;
+}
+.date-pill:hover:not(.active) { background: var(--bg-secondary); }
+
+/* Circular icon button — used for Bell, Settings, close-down arrow on cards */
+.icon-btn-round {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.icon-btn-round:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
 /* Mobile responsive */
 @media (max-width: 640px) {
   input, textarea, select {
