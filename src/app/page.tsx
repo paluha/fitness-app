@@ -1571,7 +1571,7 @@ function FitnessCalendar({
             if (isToday) return 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)';
             if (hasWorkout) return 'var(--green-dim)';
             if (isOffDay) return 'rgba(100, 116, 139, 0.15)';
-            if (isUnclosedPastDay) return 'rgba(255, 255, 255, 0.03)'; // Grey dim for unclosed
+            if (isUnclosedPastDay) return 'rgba(17, 20, 24, 0.04)'; // Grey dim for unclosed
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -1597,7 +1597,7 @@ function FitnessCalendar({
           const getBorder = () => {
             if (isToday && isSelected) return '2px solid var(--green)';
             if (isToday) return '2px solid var(--yellow)';
-            if (isUnclosedPastDay && !isSelected) return '1px solid rgba(255, 255, 255, 0.05)';
+            if (isUnclosedPastDay && !isSelected) return '1px solid rgba(17, 20, 24, 0.08)';
             if (hasWorkout && !isSelected) return '1px solid rgba(0, 200, 83, 0.3)';
             if (isOffDay && !isSelected) return '1px solid rgba(100, 116, 139, 0.3)';
             return '1px solid transparent';
@@ -4270,14 +4270,14 @@ export default function FitnessPage() {
                         : day.isFuture
                           ? 'rgba(239, 68, 68, 0.05)'
                           : isSelected
-                            ? 'rgba(255, 255, 255, 0.05)'
+                            ? 'rgba(17, 20, 24, 0.06)'
                             : 'transparent',
                       border: day.isToday
                         ? isTodayCloseToGoal
-                          ? '1px solid rgba(255, 152, 0, 0.1)'
+                          ? '1px solid rgba(255, 152, 0, 0.2)'
                           : '2px dashed var(--border-strong)'
                         : isSelected && !day.isToday
-                          ? '1px solid rgba(255, 255, 255, 0.15)'
+                          ? '1px solid rgba(17, 20, 24, 0.14)'
                           : day.isFuture
                             ? '1px dashed rgba(239, 68, 68, 0.25)'
                             : 'none',

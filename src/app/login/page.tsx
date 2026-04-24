@@ -83,7 +83,7 @@ function LoginForm() {
           <h1 style={{
             fontSize: '32px',
             fontWeight: 800,
-            color: '#fff',
+            color: 'var(--text-primary)',
             margin: '0 0 8px',
             letterSpacing: '-0.5px'
           }}>
@@ -92,7 +92,7 @@ function LoginForm() {
         </Link>
         <p style={{
           fontSize: '15px',
-          color: 'rgba(255,255,255,0.5)',
+          color: 'var(--text-secondary)',
           margin: 0
         }}>
           Войдите в свой аккаунт
@@ -101,11 +101,11 @@ function LoginForm() {
 
       {/* Login Form */}
       <form onSubmit={handleSubmit} style={{
-        background: 'rgba(255,255,255,0.03)',
+        background: 'var(--bg-card)',
         backdropFilter: 'blur(20px)',
         borderRadius: '24px',
         padding: '32px',
-        border: '1px solid rgba(255,255,255,0.08)'
+        border: '1px solid var(--border)'
       }}>
         {/* Error message */}
         {errorMessage && (
@@ -132,7 +132,7 @@ function LoginForm() {
             display: 'block',
             fontSize: '13px',
             fontWeight: 600,
-            color: 'rgba(255,255,255,0.7)',
+            color: 'var(--text-secondary)',
             marginBottom: '10px'
           }}>
             Email
@@ -143,7 +143,7 @@ function LoginForm() {
               left: '16px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: 'rgba(255,255,255,0.4)'
+              color: 'var(--text-muted)'
             }} />
             <input
               type="email"
@@ -154,10 +154,10 @@ function LoginForm() {
               style={{
                 width: '100%',
                 padding: '16px 16px 16px 48px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border)',
                 borderRadius: '12px',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontSize: '15px',
                 outline: 'none',
                 transition: 'all 0.2s ease',
@@ -168,7 +168,7 @@ function LoginForm() {
                 e.target.style.boxShadow = '0 0 0 3px rgba(255, 204, 0, 0.1)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+                e.target.style.borderColor = 'var(--border)';
                 e.target.style.boxShadow = 'none';
               }}
             />
@@ -181,7 +181,7 @@ function LoginForm() {
             display: 'block',
             fontSize: '13px',
             fontWeight: 600,
-            color: 'rgba(255,255,255,0.7)',
+            color: 'var(--text-secondary)',
             marginBottom: '10px'
           }}>
             Пароль
@@ -192,7 +192,7 @@ function LoginForm() {
               left: '16px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: 'rgba(255,255,255,0.4)'
+              color: 'var(--text-muted)'
             }} />
             <input
               type={showPassword ? 'text' : 'password'}
@@ -203,10 +203,10 @@ function LoginForm() {
               style={{
                 width: '100%',
                 padding: '16px 48px 16px 48px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border)',
                 borderRadius: '12px',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontSize: '15px',
                 outline: 'none',
                 transition: 'all 0.2s ease',
@@ -217,7 +217,7 @@ function LoginForm() {
                 e.target.style.boxShadow = '0 0 0 3px rgba(255, 204, 0, 0.1)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+                e.target.style.borderColor = 'var(--border)';
                 e.target.style.boxShadow = 'none';
               }}
             />
@@ -231,7 +231,7 @@ function LoginForm() {
                 transform: 'translateY(-50%)',
                 background: 'none',
                 border: 'none',
-                color: 'rgba(255,255,255,0.4)',
+                color: 'var(--text-muted)',
                 cursor: 'pointer',
                 padding: '4px',
                 display: 'flex'
@@ -284,7 +284,7 @@ function LoginForm() {
         textAlign: 'center',
         marginTop: '32px',
         fontSize: '13px',
-        color: 'rgba(255,255,255,0.4)'
+        color: 'var(--text-muted)'
       }}>
         Нет аккаунта? Обратитесь к вашему тренеру
       </p>
@@ -309,7 +309,7 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+      background: 'var(--bg-primary)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -361,7 +361,7 @@ export default function LoginPage() {
           to { transform: rotate(360deg); }
         }
         input::placeholder {
-          color: rgba(255,255,255,0.3);
+          color: var(--text-muted);
         }
       `}</style>
     </div>

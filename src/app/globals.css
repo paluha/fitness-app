@@ -1,58 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  /* DODO-style Dark Theme */
-  --bg-primary: #0d0d0f;
-  --bg-secondary: #121214;
-  --bg-card: #1a1a1f;
-  --bg-elevated: #222228;
-  --bg-input: #2a2a32;
+  /* Light theme — surface hierarchy from page background up to floating cards.
+     Values tuned so a card on bg-primary sits 1–2 steps whiter than its
+     surroundings, matching how the dark theme used progressively lighter
+     greys. Hover/active state backgrounds are baked into bg-elevated. */
+  --bg-primary: #f5f6f8;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-elevated: #f0f1f4;
+  --bg-input: #f5f6f8;
 
-  /* Primary accent - DODO Yellow */
-  --yellow: #ffe804;
-  --yellow-dim: rgba(255, 232, 4, 0.12);
-  --yellow-glow: rgba(255, 232, 4, 0.35);
+  /* Primary accent — keep DODO yellow as brand color but slightly deeper so
+     it reads on white without losing identity. */
+  --yellow: #e6c800;
+  --yellow-dim: rgba(230, 200, 0, 0.14);
+  --yellow-glow: rgba(230, 200, 0, 0.3);
 
-  /* Aliases for compatibility */
-  --gold: #ffe804;
-  --gold-dim: rgba(255, 232, 4, 0.12);
-  --gold-glow: rgba(255, 232, 4, 0.35);
-  --lime: #ffe804;
-  --lime-dim: rgba(255, 232, 4, 0.12);
-  --lime-glow: rgba(255, 232, 4, 0.35);
+  /* Aliases */
+  --gold: #e6c800;
+  --gold-dim: rgba(230, 200, 0, 0.14);
+  --gold-glow: rgba(230, 200, 0, 0.3);
+  --lime: #e6c800;
+  --lime-dim: rgba(230, 200, 0, 0.14);
+  --lime-glow: rgba(230, 200, 0, 0.3);
 
-  /* Success green for completed workouts */
-  --green: #00c853;
-  --green-dim: rgba(0, 200, 83, 0.15);
-  --green-glow: rgba(0, 200, 83, 0.35);
-  --success: #00c853;
-  --success-dim: rgba(0, 200, 83, 0.15);
-  --success-glow: rgba(0, 200, 83, 0.35);
+  /* Success green — darker for readability on white */
+  --green: #16a34a;
+  --green-dim: rgba(22, 163, 74, 0.12);
+  --green-glow: rgba(22, 163, 74, 0.3);
+  --success: #16a34a;
+  --success-dim: rgba(22, 163, 74, 0.12);
+  --success-glow: rgba(22, 163, 74, 0.3);
 
-  /* Secondary accents */
-  --cyan: #00d4aa;
-  --cyan-dim: rgba(0, 212, 170, 0.15);
-  --blue: #4da6ff;
-  --blue-dim: rgba(77, 166, 255, 0.12);
-  --red: #ff4d6a;
-  --red-dim: rgba(255, 77, 106, 0.12);
-  --purple: #a855f7;
-  --purple-dim: rgba(168, 85, 247, 0.12);
-  --orange: #ff9f43;
-  --orange-dim: rgba(255, 159, 67, 0.12);
+  /* Secondary accents adjusted for light backgrounds */
+  --cyan: #0891b2;
+  --cyan-dim: rgba(8, 145, 178, 0.12);
+  --blue: #2563eb;
+  --blue-dim: rgba(37, 99, 235, 0.1);
+  --red: #dc2626;
+  --red-dim: rgba(220, 38, 38, 0.1);
+  --purple: #7c3aed;
+  --purple-dim: rgba(124, 58, 237, 0.1);
+  --orange: #ea580c;
+  --orange-dim: rgba(234, 88, 12, 0.1);
 
-  /* Candlestick colors */
-  --candle-green: #00c853;
-  --candle-red: #ff5252;
+  /* Candlestick */
+  --candle-green: #16a34a;
+  --candle-red: #dc2626;
 
-  /* Text colors */
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a8;
-  --text-muted: #606068;
+  /* Text — dark on light. -primary is full black-ish for headings,
+     -secondary mid-grey for body, -muted light grey for hints. */
+  --text-primary: #111418;
+  --text-secondary: #4a4f58;
+  --text-muted: #8b91a0;
 
-  /* Border colors */
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
+  /* Borders — subtle dark lines on white */
+  --border: rgba(17, 20, 24, 0.08);
+  --border-strong: rgba(17, 20, 24, 0.14);
 }
 
 /* Night mode - blue-tinted dark theme for easier on eyes at night */
@@ -272,9 +277,10 @@ button:disabled {
 
 /* Utility classes */
 .glass {
-  background: rgba(26, 26, 31, 0.9);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
 }
 
 .gradient-border {
@@ -343,7 +349,7 @@ button:disabled {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(17, 20, 24, 0.08);
 }
 
 .card-hover:active {
@@ -483,12 +489,12 @@ button:disabled {
 /* Floating action button animation */
 .fab {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(17, 20, 24, 0.12);
 }
 
 .fab:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(17, 20, 24, 0.16);
 }
 
 .fab:active {

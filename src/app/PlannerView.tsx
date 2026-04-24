@@ -657,7 +657,7 @@ function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, sho
     }}>
       <button onClick={() => onToggle(ev.id)} style={{
         width: '22px', height: '22px', borderRadius: '6px',
-        border: ev.done ? 'none' : '2px solid rgba(255,255,255,0.2)',
+        border: ev.done ? 'none' : '2px solid var(--border-strong)',
         background: ev.done ? 'var(--green)' : 'transparent',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0
       }}>
@@ -945,7 +945,7 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
             }}>
               <button onClick={() => toggleToday(habit.id)} style={{
                 width: '28px', height: '28px', borderRadius: '8px',
-                border: done ? 'none' : '2px solid rgba(255,255,255,0.2)',
+                border: done ? 'none' : '2px solid var(--border-strong)',
                 background: done ? 'var(--green)' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0, fontSize: '14px'
               }}>{done ? <Check size={16} style={{ color: '#000' }} /> : habit.icon}</button>
@@ -963,7 +963,7 @@ function HabitsSection({ habits, onHabitsChange, todayStr, isRu }: {
               </div>
               <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
                 {last7.map(day => (
-                  <div key={day.date} style={{ width: '6px', height: '6px', borderRadius: '50%', background: habit.completedDates.includes(day.date) ? 'var(--green)' : 'rgba(255,255,255,0.1)' }} />
+                  <div key={day.date} style={{ width: '6px', height: '6px', borderRadius: '50%', background: habit.completedDates.includes(day.date) ? 'var(--green)' : 'var(--border-strong)' }} />
                 ))}
               </div>
               <button onClick={() => { setEditingHabit(habit); setShowAdd(true); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '4px' }}><Edit2 size={14} /></button>

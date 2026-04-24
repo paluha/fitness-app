@@ -22,9 +22,9 @@ function LanguageSwitcher({ lang, setLang }: { lang: Language; setLang: (l: Lang
         gap: '4px',
         padding: '6px 10px',
         background: 'transparent',
-        border: '1px solid rgba(255,255,255,0.15)',
+        border: '1px solid var(--border-strong)',
         borderRadius: '6px',
-        color: 'rgba(255,255,255,0.6)',
+        color: 'var(--text-secondary)',
         fontSize: '12px',
         fontWeight: 500,
         cursor: 'pointer',
@@ -69,7 +69,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
     const progress = (completedCount / exercises.length) * 100;
 
     return (
-      <div style={{ padding: '12px', height: '100%', background: '#0d0d0f' }}>
+      <div style={{ padding: '12px', height: '100%', background: 'var(--bg-primary)' }}>
         {/* Header - like real app */}
         <div style={{
           display: 'flex',
@@ -82,7 +82,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
             <div style={{
               fontSize: '16px',
               fontWeight: 700,
-              color: '#fff'
+              color: 'var(--text-primary)'
             }}>
               {lang === 'ru' ? 'Тренировка 1' : 'Workout 1'}
             </div>
@@ -102,7 +102,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
         {/* Progress bar */}
         <div style={{
           height: '4px',
-          background: 'rgba(255,255,255,0.1)',
+          background: 'var(--border-strong)',
           borderRadius: '2px',
           marginBottom: '12px',
           overflow: 'hidden'
@@ -119,9 +119,9 @@ function PhoneDemo({ lang }: { lang: Language }) {
         {/* Exercise cards - real app style */}
         {exercises.map((ex, i) => (
           <div key={i} style={{
-            background: ex.completed ? 'rgba(0, 200, 83, 0.08)' : '#1a1a1f',
+            background: ex.completed ? 'rgba(0, 200, 83, 0.08)' : 'var(--bg-card)',
             borderRadius: ex.completed ? '10px' : '14px',
-            border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.2)' : 'rgba(255,255,255,0.06)'}`,
+            border: `1px solid ${ex.completed ? 'rgba(0, 200, 83, 0.2)' : 'var(--border)'}`,
             padding: ex.completed ? '8px 12px' : '12px 14px',
             marginBottom: ex.completed ? '6px' : '10px',
             display: 'flex',
@@ -134,7 +134,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
               width: ex.completed ? '24px' : '32px',
               height: ex.completed ? '24px' : '32px',
               borderRadius: ex.completed ? '6px' : '8px',
-              border: ex.completed ? 'none' : '2px solid rgba(255,255,255,0.15)',
+              border: ex.completed ? 'none' : '2px solid var(--border-strong)',
               background: ex.completed ? '#00c853' : 'transparent',
               display: 'flex',
               alignItems: 'center',
@@ -151,7 +151,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
               <div style={{
                 fontWeight: 600,
                 fontSize: ex.completed ? '13px' : '14px',
-                color: ex.completed ? '#00c853' : '#fff',
+                color: ex.completed ? '#00c853' : 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px'
@@ -166,7 +166,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
                   <span style={{
                     fontSize: '11px',
                     color: '#606068',
-                    background: '#222228',
+                    background: 'var(--bg-elevated)',
                     padding: '2px 6px',
                     borderRadius: '4px',
                     marginLeft: 'auto'
@@ -207,7 +207,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
     ];
 
     return (
-      <div style={{ padding: '12px', height: '100%', background: '#0d0d0f' }}>
+      <div style={{ padding: '12px', height: '100%', background: 'var(--bg-primary)' }}>
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -215,7 +215,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
           alignItems: 'center',
           marginBottom: '16px'
         }}>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
             {t.nutrition}
           </div>
           <div style={{
@@ -234,19 +234,19 @@ function PhoneDemo({ lang }: { lang: Language }) {
         {/* Macros - card style like real app */}
         {macros.map((macro, i) => (
           <div key={i} style={{
-            background: '#1a1a1f',
-            border: '1px solid rgba(255,255,255,0.06)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
             borderRadius: '14px',
             padding: '14px',
             marginBottom: '10px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>{macro.name}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>{macro.name}</span>
               <span style={{ fontSize: '12px', color: macro.color, fontWeight: 600 }}>
                 {macro.current}{macro.unit || ''} / {macro.target}{macro.unit || ''}
               </span>
             </div>
-            <div style={{ height: '6px', background: '#222228', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ height: '6px', background: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
               <div style={{
                 width: `${Math.min((macro.current / macro.target) * 100, 100)}%`,
                 height: '100%',
@@ -285,7 +285,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
     const visibleBars = Math.min(animationPhase + 4, weights.length);
 
     return (
-      <div style={{ padding: '12px', height: '100%', background: '#0d0d0f' }}>
+      <div style={{ padding: '12px', height: '100%', background: 'var(--bg-primary)' }}>
         {/* Header */}
         <div style={{
           display: 'flex',
@@ -293,7 +293,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
           alignItems: 'center',
           marginBottom: '16px'
         }}>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
             {t.progress}
           </div>
           <div style={{
@@ -318,7 +318,7 @@ function PhoneDemo({ lang }: { lang: Language }) {
           textAlign: 'center',
           marginBottom: '12px'
         }}>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: '#fff' }}>
+          <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)' }}>
             {weights[visibleBars - 1]} <span style={{ fontSize: '14px', color: '#a0a0a8' }}>kg</span>
           </div>
           <div style={{ fontSize: '12px', color: '#4da6ff', marginTop: '4px' }}>
@@ -328,8 +328,8 @@ function PhoneDemo({ lang }: { lang: Language }) {
 
         {/* Chart */}
         <div style={{
-          background: '#1a1a1f',
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
           borderRadius: '14px',
           padding: '14px'
         }}>
@@ -363,9 +363,9 @@ function PhoneDemo({ lang }: { lang: Language }) {
       width: '260px',
       height: '520px',
       margin: '0 auto',
-      background: '#0d0d0f',
+      background: 'var(--bg-primary)',
       borderRadius: '40px',
-      border: '5px solid #2a2a32',
+      border: '5px solid var(--bg-input)',
       boxShadow: '0 40px 80px rgba(0,0,0,0.5), 0 0 100px rgba(255, 232, 4, 0.06)',
       overflow: 'hidden',
       position: 'relative'
@@ -431,7 +431,7 @@ function AppStoreButton({ store, lang }: { store: 'apple' | 'google'; lang: Lang
         alignItems: 'center',
         gap: '10px',
         padding: '12px 20px',
-        background: '#fff',
+        background: 'var(--text-primary)',
         borderRadius: '12px',
         textDecoration: 'none',
         transition: 'all 0.2s ease',
@@ -491,7 +491,7 @@ export default function LandingPage() {
         padding: '16px 24px',
         background: 'rgba(10, 10, 15, 0.8)',
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.05)'
+        borderBottom: '1px solid var(--bg-elevated)'
       }}>
         <div style={{
           maxWidth: '1200px',
@@ -521,7 +521,7 @@ export default function LandingPage() {
             <span style={{
               fontSize: '22px',
               fontWeight: 800,
-              color: '#fff',
+              color: 'var(--text-primary)',
               letterSpacing: '-0.5px'
             }}>
               Trainx
@@ -535,7 +535,7 @@ export default function LandingPage() {
             gap: '24px'
           }} className="desktop-nav">
             <Link href="#features" style={{
-              color: 'rgba(255,255,255,0.7)',
+              color: 'var(--text-secondary)',
               textDecoration: 'none',
               fontSize: '14px',
               fontWeight: 500,
@@ -544,7 +544,7 @@ export default function LandingPage() {
               {lang === 'ru' ? 'Возможности' : 'Features'}
             </Link>
             <Link href="#how-it-works" style={{
-              color: 'rgba(255,255,255,0.7)',
+              color: 'var(--text-secondary)',
               textDecoration: 'none',
               fontSize: '14px',
               fontWeight: 500,
@@ -553,7 +553,7 @@ export default function LandingPage() {
               {t.howItWorksTitle}
             </Link>
             <Link href="/login" style={{
-              color: 'rgba(255,255,255,0.7)',
+              color: 'var(--text-secondary)',
               textDecoration: 'none',
               fontSize: '14px',
               fontWeight: 500,
@@ -584,7 +584,7 @@ export default function LandingPage() {
               display: 'none',
               background: 'none',
               border: 'none',
-              color: '#fff',
+              color: 'var(--text-primary)',
               padding: '8px',
               cursor: 'pointer'
             }}
@@ -604,7 +604,7 @@ export default function LandingPage() {
             background: 'rgba(10, 10, 15, 0.98)',
             backdropFilter: 'blur(20px)',
             padding: '24px',
-            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            borderBottom: '1px solid var(--bg-elevated)',
             display: 'flex',
             flexDirection: 'column',
             gap: '16px'
@@ -613,7 +613,7 @@ export default function LandingPage() {
               <LanguageSwitcher lang={lang} setLang={setLang} />
             </div>
             <Link href="#features" onClick={() => setMenuOpen(false)} style={{
-              color: 'rgba(255,255,255,0.7)',
+              color: 'var(--text-secondary)',
               textDecoration: 'none',
               fontSize: '16px',
               fontWeight: 500,
@@ -622,7 +622,7 @@ export default function LandingPage() {
               {lang === 'ru' ? 'Возможности' : 'Features'}
             </Link>
             <Link href="#how-it-works" onClick={() => setMenuOpen(false)} style={{
-              color: 'rgba(255,255,255,0.7)',
+              color: 'var(--text-secondary)',
               textDecoration: 'none',
               fontSize: '16px',
               fontWeight: 500,
@@ -630,9 +630,9 @@ export default function LandingPage() {
             }}>
               {t.howItWorksTitle}
             </Link>
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />
+            <div style={{ height: '1px', background: 'var(--border-strong)', margin: '8px 0' }} />
             <Link href="/login" onClick={() => setMenuOpen(false)} style={{
-              color: '#fff',
+              color: 'var(--text-primary)',
               textDecoration: 'none',
               fontSize: '16px',
               fontWeight: 600,
@@ -728,7 +728,7 @@ export default function LandingPage() {
             <h1 style={{
               fontSize: 'clamp(40px, 8vw, 64px)',
               fontWeight: 800,
-              color: '#fff',
+              color: 'var(--text-primary)',
               lineHeight: 1.1,
               marginBottom: '24px',
               letterSpacing: '-2px'
@@ -757,7 +757,7 @@ export default function LandingPage() {
             {/* Subtitle */}
             <p style={{
               fontSize: '18px',
-              color: 'rgba(255,255,255,0.6)',
+              color: 'var(--text-secondary)',
               marginBottom: '32px',
               lineHeight: 1.7,
               maxWidth: '480px'
@@ -794,7 +794,7 @@ export default function LandingPage() {
                 {lang === 'ru' ? 'Открыть веб-версию' : 'Open web version'}
                 <ChevronRight size={16} />
               </Link>
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                 {lang === 'ru' ? 'Работает как приложение' : 'Works like an app'}
               </span>
             </div>
@@ -817,7 +817,7 @@ export default function LandingPage() {
             <h2 style={{
               fontSize: 'clamp(28px, 5vw, 40px)',
               fontWeight: 800,
-              color: '#fff',
+              color: 'var(--text-primary)',
               marginBottom: '16px',
               letterSpacing: '-1px'
             }}>
@@ -825,7 +825,7 @@ export default function LandingPage() {
             </h2>
             <p style={{
               fontSize: '16px',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'var(--text-secondary)',
               maxWidth: '500px',
               margin: '0 auto'
             }}>
@@ -865,8 +865,8 @@ export default function LandingPage() {
               }
             ].map((feature, i) => (
               <div key={i} style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
                 borderRadius: '20px',
                 padding: '32px',
                 transition: 'all 0.3s ease'
@@ -887,14 +887,14 @@ export default function LandingPage() {
                 <h3 style={{
                   fontSize: '20px',
                   fontWeight: 700,
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   marginBottom: '12px'
                 }}>
                   {feature.title}
                 </h3>
                 <p style={{
                   fontSize: '14px',
-                  color: 'rgba(255,255,255,0.5)',
+                  color: 'var(--text-secondary)',
                   lineHeight: 1.6
                 }}>
                   {feature.description}
@@ -915,7 +915,7 @@ export default function LandingPage() {
             <h2 style={{
               fontSize: 'clamp(28px, 5vw, 40px)',
               fontWeight: 800,
-              color: '#fff',
+              color: 'var(--text-primary)',
               marginBottom: '16px',
               letterSpacing: '-1px'
             }}>
@@ -935,8 +935,8 @@ export default function LandingPage() {
                 alignItems: 'flex-start',
                 gap: '20px',
                 padding: '24px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
                 borderRadius: '16px'
               }}>
                 <div style={{
@@ -958,14 +958,14 @@ export default function LandingPage() {
                   <h3 style={{
                     fontSize: '18px',
                     fontWeight: 700,
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     marginBottom: '6px'
                   }}>
                     {item.title}
                   </h3>
                   <p style={{
                     fontSize: '14px',
-                    color: 'rgba(255,255,255,0.5)'
+                    color: 'var(--text-secondary)'
                   }}>
                     {item.desc}
                   </p>
@@ -985,7 +985,7 @@ export default function LandingPage() {
           <h2 style={{
             fontSize: 'clamp(28px, 5vw, 40px)',
             fontWeight: 800,
-            color: '#fff',
+            color: 'var(--text-primary)',
             marginBottom: '20px',
             letterSpacing: '-1px'
           }}>
@@ -993,7 +993,7 @@ export default function LandingPage() {
           </h2>
           <p style={{
             fontSize: '16px',
-            color: 'rgba(255,255,255,0.5)',
+            color: 'var(--text-secondary)',
             marginBottom: '32px'
           }}>
             {t.ctaSubtitle}
@@ -1012,7 +1012,7 @@ export default function LandingPage() {
           </div>
 
           <Link href="/login" style={{
-            color: 'rgba(255,255,255,0.6)',
+            color: 'var(--text-secondary)',
             textDecoration: 'none',
             fontSize: '14px'
           }}>
@@ -1024,7 +1024,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer style={{
         padding: '40px 24px',
-        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderTop: '1px solid var(--bg-elevated)',
         textAlign: 'center'
       }}>
         <div style={{
@@ -1050,11 +1050,11 @@ export default function LandingPage() {
               <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
             </svg>
           </div>
-          <span style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Trainx</span>
+          <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Trainx</span>
         </div>
         <p style={{
           fontSize: '13px',
-          color: 'rgba(255,255,255,0.4)'
+          color: 'var(--text-muted)'
         }}>
           {t.footerText}
         </p>
