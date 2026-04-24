@@ -201,11 +201,22 @@ function RestTimer({ restTime }: { restTime: string }) {
 }
 
 // Types
+// One row in the new per-set table view. `completed` is per-set so the
+// outer `completed` flag below can be derived (all sets done → exercise done).
+export interface ExerciseSet {
+  reps: number;
+  weight: number;   // pounds
+  completed: boolean;
+}
+
 interface Exercise {
   id: string;
   name: string;
   plannedSets: string;
-  actualSets: string;
+  actualSets: string; // legacy free-text — kept for closed-day snapshots
+  // New per-set list. When undefined the UI initializes it from plannedSets
+  // (e.g. "3x10-12" → three empty sets).
+  sets?: ExerciseSet[];
   newWeight: string;
   restTime: string;
   notes: string;
@@ -301,6 +312,24 @@ interface ExerciseProgress {
   date: string;
   weight: string;
   notes: string;
+}
+
+// Parse "3x10", "4x8-12", "3x30", "5x12-15" → number of sets.
+// Falls back to 3 when it can't make sense of the planned string.
+function parsePlannedSetCount(planned: string | undefined | null): number {
+  if (!planned) return 3;
+  const m = String(planned).match(/(\d+)\s*[xх×]/i);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (!Number.isNaN(n) && n > 0 && n < 20) return n;
+  }
+  return 3;
+}
+
+// Build the initial empty sets array for an exercise based on its plannedSets.
+function makeInitialSets(planned: string | undefined | null): ExerciseSet[] {
+  const count = parsePlannedSetCount(planned);
+  return Array.from({ length: count }, () => ({ reps: 0, weight: 0, completed: false }));
 }
 
 interface ProgressHistory {
@@ -716,12 +745,15 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
   onUpdate: (updates: Partial<Exercise>) => void;
   progressHistory: ExerciseProgress[];
+  // Per-set values from the most recent prior session of this same workout —
+  // shown in a "Last" column so the user can target/beat the previous lift.
+  lastSets?: ExerciseSet[];
   exerciseLibrary?: Record<string, string>;
   onImageSaved?: (name: string, imageUrl: string) => void;
   dayClosed?: boolean;
@@ -954,6 +986,145 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
           borderTop: '1px solid var(--border)',
           animation: 'slideUp 0.2s ease'
         }}>
+          {/* Per-set table — Set / Reps / lbs / Status. Auto-marks the
+              exercise completed when every set is checked. */}
+          {(() => {
+            const sets: ExerciseSet[] = ex.sets ?? makeInitialSets(ex.plannedSets);
+            const updateSet = (i: number, patch: Partial<ExerciseSet>) => {
+              const next = sets.map((s, j) => j === i ? { ...s, ...patch } : s);
+              const allDone = next.length > 0 && next.every(s => s.completed);
+              onUpdate({ sets: next, completed: allDone });
+            };
+            const addSet = () => {
+              const last = sets[sets.length - 1];
+              const next = [...sets, { reps: last?.reps || 0, weight: last?.weight || 0, completed: false }];
+              onUpdate({ sets: next });
+            };
+            const removeSet = (i: number) => {
+              if (sets.length <= 1) return;
+              const next = sets.filter((_, j) => j !== i);
+              const allDone = next.length > 0 && next.every(s => s.completed);
+              onUpdate({ sets: next, completed: allDone });
+            };
+            return (
+              <div style={{ marginTop: '10px', marginBottom: '14px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '32px 64px 1fr 1fr 40px',
+                  gap: '6px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '6px',
+                  paddingLeft: '4px',
+                }}>
+                  <span>Set</span>
+                  <span>Last</span>
+                  <span>Reps</span>
+                  <span>lbs</span>
+                  <span style={{ textAlign: 'right' }}>✓</span>
+                </div>
+                {sets.map((s, i) => {
+                  const last = lastSets?.[i];
+                  return (
+                  <div key={i} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '32px 64px 1fr 1fr 40px',
+                    gap: '6px',
+                    alignItems: 'center',
+                    marginBottom: '6px',
+                  }}>
+                    <span style={{
+                      fontSize: '13px', fontWeight: 700,
+                      color: s.completed ? 'var(--green)' : 'var(--text-secondary)',
+                      paddingLeft: '4px',
+                    }}>{i + 1}</span>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {last && (last.reps > 0 || last.weight > 0) ? `${last.reps}×${last.weight}` : '—'}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={s.reps || ''}
+                      onChange={(e) => updateSet(i, { reps: parseInt(e.target.value, 10) || 0 })}
+                      placeholder="0"
+                      style={{
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '999px',
+                        padding: '8px 14px',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        width: '100%',
+                        minWidth: 0,
+                      }}
+                    />
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={s.weight || ''}
+                      onChange={(e) => updateSet(i, { weight: parseInt(e.target.value, 10) || 0 })}
+                      placeholder="0"
+                      style={{
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '999px',
+                        padding: '8px 14px',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        width: '100%',
+                        minWidth: 0,
+                      }}
+                    />
+                    <button
+                      onClick={() => updateSet(i, { completed: !s.completed })}
+                      onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
+                      title="Right-click / long-press to remove this set"
+                      style={{
+                        width: '32px', height: '32px',
+                        border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
+                        background: s.completed ? 'var(--green)' : 'transparent',
+                        borderRadius: '999px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', justifySelf: 'end',
+                        transition: 'background 160ms ease, border 160ms ease',
+                      }}>
+                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
+                    </button>
+                  </div>
+                  );
+                })}
+                <button
+                  onClick={addSet}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    marginTop: '4px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px dashed var(--border-strong)',
+                    borderRadius: '10px',
+                    color: 'var(--text-muted)',
+                    fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  }}>
+                  <Plus size={14} />
+                  Add set
+                </button>
+              </div>
+            );
+          })()}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
             <div>
               <label style={{
@@ -1977,7 +2148,10 @@ export default function FitnessPage() {
               const prevEx = exMap.get(r.exerciseId);
               if (prevEx) {
                 prevEx.completed = r.completed;
-                if (r.actualSets !== null && r.actualSets !== undefined) prevEx.actualSets = r.actualSets as string;
+                if (r.actualSets !== null && r.actualSets !== undefined) {
+                  if (Array.isArray(r.actualSets)) prevEx.sets = r.actualSets as ExerciseSet[];
+                  else prevEx.actualSets = r.actualSets as string;
+                }
                 if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
               }
             }
@@ -2480,12 +2654,17 @@ export default function FitnessPage() {
           // it, and the outbox keeps it safe across offline periods.
           const ex = workout.exercises.find(e => e.id === exerciseId);
           if (ex) {
+            // Per-set table replaces the free-text actualSets for new edits.
+            // We pack the structured sets array into the same JSON column
+            // (actualSets) so existing diff-sync infrastructure keeps working.
+            // When the new array is present we ignore the legacy string.
+            const payload: unknown = ex.sets && ex.sets.length > 0 ? ex.sets : (ex.actualSets ?? null);
             upsertWorkoutLog({
               date: dateKey,
               exerciseId,
               workoutId,
               completed: !!ex.completed,
-              actualSets: ex.actualSets ?? null,
+              actualSets: payload as never,
               notes: ex.notes ?? null,
             }).catch(() => { /* stays in queue */ });
           }
@@ -2952,6 +3131,35 @@ export default function FitnessPage() {
   const displayExercises = viewingPastWorkout
     ? currentDayLog.workoutSnapshot!.exercises
     : currentWorkout.exercises;
+
+  // Look up the most recent prior day where this same workout was performed,
+  // so each exercise's per-set table can show a "Last" column with the
+  // previous reps×weight per set. We walk dayLogs date keys in reverse.
+  const lastSetsByExerciseId = useMemo(() => {
+    const map: Record<string, ExerciseSet[]> = {};
+    const targetWorkoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
+    if (!targetWorkoutId) return map;
+    const dates = Object.keys(dayLogs).filter(d => d < dateKey).sort().reverse();
+    const remaining = new Set(displayExercises.map(e => e.id));
+    for (const d of dates) {
+      if (remaining.size === 0) break;
+      const draft = dayLogs[d]?.workoutDraft;
+      const snap = dayLogs[d]?.workoutSnapshot;
+      const candidate = (draft && draft.workoutId === targetWorkoutId) ? draft
+        : (snap && snap.workoutId === targetWorkoutId) ? snap
+        : null;
+      if (!candidate?.exercises) continue;
+      for (const e of candidate.exercises) {
+        if (!remaining.has(e.id)) continue;
+        const sets = (e as { sets?: ExerciseSet[] }).sets;
+        if (Array.isArray(sets) && sets.length > 0) {
+          map[e.id] = sets;
+          remaining.delete(e.id);
+        }
+      }
+    }
+    return map;
+  }, [dayLogs, dateKey, viewingPastWorkout, currentDayLog, currentWorkout.id, displayExercises]);
 
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
@@ -3686,6 +3894,7 @@ export default function FitnessPage() {
                       onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
+                      lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
                       dayClosed={currentDayLog.dayClosed}

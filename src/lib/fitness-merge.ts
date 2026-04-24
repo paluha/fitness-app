@@ -132,7 +132,13 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
         continue;
       }
       prevEx.completed = r.completed;
-      if (r.actualSets !== null && r.actualSets !== undefined) prevEx.actualSets = r.actualSets;
+      if (r.actualSets !== null && r.actualSets !== undefined) {
+        // The same JSON column carries the legacy free-text string AND the new
+        // structured per-set array. Distinguish on shape so we hydrate the
+        // matching field on the client-facing exercise.
+        if (Array.isArray(r.actualSets)) prevEx.sets = r.actualSets;
+        else prevEx.actualSets = r.actualSets;
+      }
       if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
     }
     const templateName = templateById.get(workoutId)?.name;
