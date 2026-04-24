@@ -3667,7 +3667,7 @@ export default function FitnessPage() {
                   title={userSettings.language === 'ru' ? 'Отметить день отдыха' : 'Mark as rest day'}
                 >
                   <span style={{ fontSize: '14px' }}>🛌</span>
-                  {userSettings.language === 'ru' ? 'Off Day' : 'Off Day'}
+                  {userSettings.language === 'ru' ? 'День отдыха' : 'Off Day'}
                 </button>
               </div>
             )}
