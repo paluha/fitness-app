@@ -3617,6 +3617,32 @@ export default function FitnessPage() {
                     </button>
                   )}
                 </div>
+                {/* Off Day chip — sits next to the workout selector so picking
+                    "rest day" is part of the same decision as picking a T1-T7
+                    workout. Greyed slate tones so it reads as "not training". */}
+                <button
+                  className="btn-press"
+                  onClick={toggleOffDay}
+                  style={{
+                    padding: '10px 12px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    color: 'var(--text-muted)',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={userSettings.language === 'ru' ? 'Отметить день отдыха' : 'Mark as rest day'}
+                >
+                  <span style={{ fontSize: '14px' }}>🛌</span>
+                  {userSettings.language === 'ru' ? 'Отдых' : 'Rest'}
+                </button>
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
                   style={{
@@ -3645,32 +3671,6 @@ export default function FitnessPage() {
               transition: 'opacity 0.3s ease'
             }}>
 
-            {/* Off Day toggle — only shown on a non-off day, replaces the old 0/7 bar */}
-            {!currentDayLog.isOffDay && !viewingPastWorkout && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
-                <button
-                  className="btn-press"
-                  onClick={toggleOffDay}
-                  style={{
-                    padding: '8px 14px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '999px',
-                    color: 'var(--text-secondary)',
-                    fontWeight: 600,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title={userSettings.language === 'ru' ? 'Отметить день отдыха' : 'Mark as rest day'}
-                >
-                  <span style={{ fontSize: '14px' }}>🛌</span>
-                  {userSettings.language === 'ru' ? 'День отдыха' : 'Off Day'}
-                </button>
-              </div>
-            )}
 
             {/* Exercise list - hidden for Off Days */}
             {!currentDayLog.isOffDay && (
