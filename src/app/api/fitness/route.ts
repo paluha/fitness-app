@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createSnapshotForUser } from '@/lib/fitness-snapshots';
+import { getMergedDayLogs } from '@/lib/fitness-merge';
 
 // GET - Fetch fitness data
 export async function GET() {
@@ -36,9 +37,14 @@ export async function GET() {
       where: { userId }
     });
 
+    // Merge the legacy dayLogs JSON with per-row WorkoutLogEntry and DayLogEntry
+    // so any client gets a consistent snapshot of day state on the very first
+    // request, without having to wait for the client-side Dexie hydration loop.
+    const mergedDayLogs = await getMergedDayLogs(prisma, userId);
+
     return NextResponse.json({
       workouts: fitnessData?.workouts || null,
-      dayLogs: fitnessData?.dayLogs || null,
+      dayLogs: mergedDayLogs,
       progressHistory: fitnessData?.progressHistory || null,
       bodyMeasurements: fitnessData?.bodyMeasurements || null,
       favoriteMeals: fitnessData?.favoriteMeals || null,
