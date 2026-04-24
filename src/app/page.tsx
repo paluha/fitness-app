@@ -3109,10 +3109,8 @@ export default function FitnessPage() {
         </div>
       </header>
 
-      {/* Legacy top nav — hidden in favour of the bottom floating dock below.
-          Kept in the DOM so the Profile dropdown menu ref still mounts. */}
+      {/* Navigation tabs */}
       <nav style={{
-        display: 'none',
         padding: '12px 20px',
         background: 'var(--bg-secondary)',
         borderBottom: '1px solid var(--border)'
@@ -6813,52 +6811,6 @@ export default function FitnessPage() {
           </div>
         </div>
       )}
-
-      {/* Bottom floating dock (Monica-style). Four primary sections; profile
-          is folded under Trophy/analytics for now. */}
-      <div className="bottom-nav-spacer" />
-      <div className="bottom-nav-dock" role="tablist" aria-label="Main navigation">
-        <button
-          className={view === 'workout' ? 'active' : ''}
-          onClick={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); setShowProfileDropdown(false); }}
-          aria-label={t('workout')}
-          title={t('workout')}
-        >
-          <Home size={20} />
-        </button>
-        <button
-          className={view === 'nutrition' ? 'active' : ''}
-          onClick={() => { setView('nutrition'); localStorage.setItem('fitness_view', 'nutrition'); setShowProfileDropdown(false); }}
-          aria-label={t('food')}
-          title={t('food')}
-        >
-          <Apple size={20} />
-        </button>
-        <button
-          className={view === 'planner' ? 'active' : ''}
-          onClick={() => { setView('planner'); localStorage.setItem('fitness_view', 'planner'); setShowProfileDropdown(false); }}
-          aria-label="Plan"
-          title={userSettings.language === 'ru' ? 'Дела' : 'Plan'}
-        >
-          <CalendarDays size={20} />
-        </button>
-        <button
-          className={(view === 'gains' || view === 'analytics') ? 'active' : ''}
-          onClick={() => { setView('analytics'); localStorage.setItem('fitness_view', 'analytics'); setShowProfileDropdown(false); }}
-          aria-label="Stats"
-          title="Stats"
-        >
-          <BarChart3 size={20} />
-        </button>
-        <button
-          className={view === 'profile' ? 'active' : ''}
-          onClick={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); setShowProfileDropdown(false); }}
-          aria-label={t('settings')}
-          title={t('settings')}
-        >
-          <User size={20} />
-        </button>
-      </div>
     </main>
   );
 }
