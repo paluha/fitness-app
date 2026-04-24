@@ -716,7 +716,7 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLibrary, onImageSaved, dayClosed, onShowImage }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
@@ -726,8 +726,23 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
   onImageSaved?: (name: string, imageUrl: string) => void;
   dayClosed?: boolean;
   onShowImage?: (imageUrl: string, name: string) => void;
+  // Controlled expand state — when the parent passes these, only one card
+  // can be open at a time across the list.
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedLocal, setExpandedLocal] = useState(false);
+  const controlled = typeof expandedProp === 'boolean' && !!onToggleExpand;
+  const expanded = controlled ? !!expandedProp : expandedLocal;
+  const setExpanded = (next: boolean | ((prev: boolean) => boolean)) => {
+    if (controlled) {
+      // In controlled mode the parent owns state — a toggle call collapses
+      // whatever is open and opens this one. We ignore the `next` value.
+      onToggleExpand!();
+    } else {
+      setExpandedLocal(next as boolean);
+    }
+  };
   const [showHistory, setShowHistory] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
@@ -735,8 +750,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
 
   // Auto-collapse when day closes
   useEffect(() => {
-    if (dayClosed) setExpanded(false);
-  }, [dayClosed]);
+    if (dayClosed && !controlled) setExpandedLocal(false);
+  }, [dayClosed, controlled]);
 
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -927,33 +942,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
             </div>
           )}
 
-          {/* Video icon for completed */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '10px'
-          }}>
-            <div
-              onClick={() => {
-                setVideoUrlInput(ex.videoUrl || '');
-                setShowVideoModal(true);
-              }}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: ex.videoUrl ? 'var(--blue-dim)' : 'var(--bg-elevated)',
-                border: ex.videoUrl ? '1px solid rgba(0, 180, 216, 0.3)' : '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <Video size={14} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
-            </div>
-          </div>
+
 
         </div>
       )}
@@ -1066,27 +1055,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, exerciseLi
                   fontSize: '12px'
                 }}
               />
-              {/* Video icon */}
-              <div
-                onClick={() => {
-                  setVideoUrlInput(ex.videoUrl || '');
-                  setShowVideoModal(true);
-                }}
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: ex.videoUrl ? 'var(--blue-dim)' : 'var(--bg-elevated)',
-                  border: ex.videoUrl ? '1px solid rgba(0, 180, 216, 0.3)' : '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                <Video size={14} style={{ color: ex.videoUrl ? 'var(--blue)' : 'var(--text-muted)' }} />
-              </div>
               {/* Photo icon */}
               <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
               <div
@@ -1650,8 +1618,6 @@ function FitnessCalendar({
                 </span>
               ) : isOffDay ? (
                 <span style={{ fontSize: '10px' }}>😴</span>
-              ) : isUnclosedPastDay ? (
-                <span style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(239, 68, 68, 0.3)' }}>!</span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
@@ -1855,6 +1821,9 @@ export default function FitnessPage() {
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  // Accordion: only one exercise expanded at a time. Clicking the same one
+  // collapses it. Reset when the day or workout changes.
+  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [offDayHoldProgress, setOffDayHoldProgress] = useState(0);
   const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
   const serverDataLoadedRef = useRef(false);
@@ -3676,71 +3645,31 @@ export default function FitnessPage() {
               transition: 'opacity 0.3s ease'
             }}>
 
-            {/* Compact Progress bar - hidden for Off Days */}
-            {!currentDayLog.isOffDay && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '16px',
-              padding: '10px 14px',
-              background: 'var(--bg-card)',
-              borderRadius: '12px',
-              border: '1px solid var(--border)'
-            }}>
-              <span style={{
-                fontSize: '13px',
-                fontWeight: 600,
-                color: progressPercent === 100 ? 'var(--green)' : 'var(--text-secondary)',
-                whiteSpace: 'nowrap'
-              }}>
-                {viewingPastWorkout
-                  ? `${displayExercises.filter(e => e.completed).length}/${displayExercises.length}`
-                  : `${completedExercises}/${totalExercises}`
-                }
-              </span>
-              <div style={{
-                flex: 1,
-                height: '4px',
-                background: 'var(--bg-elevated)',
-                borderRadius: '2px',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  width: viewingPastWorkout
-                    ? `${(displayExercises.filter(e => e.completed).length / displayExercises.length) * 100}%`
-                    : `${progressPercent}%`,
-                  height: '100%',
-                  background: progressPercent === 100 ? 'var(--green)' : 'var(--yellow)',
-                  borderRadius: '2px',
-                  transition: 'width 0.3s ease'
-                }} />
-              </div>
-              {/* Off Day button - at end of progress bar */}
-              {!viewingPastWorkout && !currentDayLog.isOffDay && (
+            {/* Off Day toggle — only shown on a non-off day, replaces the old 0/7 bar */}
+            {!currentDayLog.isOffDay && !viewingPastWorkout && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
                 <button
                   className="btn-press"
                   onClick={toggleOffDay}
                   style={{
-                    padding: '6px 10px',
-                    background: 'var(--bg-elevated)',
+                    padding: '8px 14px',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    color: 'var(--text-muted)',
-                    fontWeight: 500,
+                    borderRadius: '999px',
+                    color: 'var(--text-secondary)',
+                    fontWeight: 600,
                     fontSize: '12px',
                     cursor: 'pointer',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    flexShrink: 0
+                    gap: '6px'
                   }}
-                  title="День отдыха"
+                  title={userSettings.language === 'ru' ? 'Отметить день отдыха' : 'Mark as rest day'}
                 >
-                  <span style={{ fontSize: '14px' }}>😴</span>
+                  <span style={{ fontSize: '14px' }}>🛌</span>
+                  {userSettings.language === 'ru' ? 'Off Day' : 'Off Day'}
                 </button>
-              )}
-            </div>
+              </div>
             )}
 
             {/* Exercise list - hidden for Off Days */}
@@ -3761,6 +3690,8 @@ export default function FitnessPage() {
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
                       dayClosed={currentDayLog.dayClosed}
                       onShowImage={(url, name) => { setImageModal({ url, name }); document.body.style.overflow = 'hidden'; }}
+                      expanded={expandedExerciseId === ex.id}
+                      onToggleExpand={() => setExpandedExerciseId(prev => prev === ex.id ? null : ex.id)}
                     />
                   );
                 })
@@ -3815,76 +3746,6 @@ export default function FitnessPage() {
 
 
             </div>{/* end closed day dimming wrapper */}
-
-            {/* Steps input — always editable, even when day is closed */}
-            <div style={{
-              marginTop: '16px',
-              padding: '12px 14px',
-              background: 'var(--bg-card)',
-              borderRadius: '12px',
-              border: '1px solid var(--border)'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <Footprints
-                  className="steps-walking"
-                  size={20}
-                  style={{
-                    color: currentDayLog.steps && currentDayLog.steps > 0
-                      ? 'var(--blue)'
-                      : 'var(--text-muted)',
-                    flexShrink: 0
-                  }}
-                />
-                <input
-                  type="number"
-                  value={currentDayLog.steps || ''}
-                  onChange={(e) => updateDayLog({ steps: e.target.value ? parseInt(e.target.value) : null })}
-                  placeholder={userSettings.language === 'ru' ? 'Добавьте шаги' : 'Add steps'}
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    color: 'var(--blue)',
-                    fontSize: '16px',
-                    fontWeight: 600
-                  }}
-                />
-                {/* Weekly steps total */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '8px 14px',
-                  background: 'var(--bg-elevated)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  minWidth: '70px'
-                }}>
-                  <span style={{
-                    fontSize: '10px',
-                    color: 'var(--text-muted)',
-                    lineHeight: 1
-                  }}>
-                    {userSettings.language === 'ru' ? 'неделя' : 'week'}
-                  </span>
-                  <span style={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    color: weeklySteps > 0 ? 'var(--blue)' : 'var(--text-muted)',
-                    lineHeight: 1.3
-                  }}>
-                    {weeklySteps.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
 
             {/* Close/Open day button */}
             {(totalExercises > 0 || currentDayLog.dayClosed || currentDayLog.isOffDay) && (
@@ -4132,6 +3993,67 @@ export default function FitnessPage() {
               })()}
             </div>
             )}
+
+            {/* Steps input — moved under the Close Day button per request.
+                Always editable, even for a closed day. */}
+            <div style={{
+              marginTop: '16px',
+              padding: '12px 14px',
+              background: 'var(--bg-card)',
+              borderRadius: '12px',
+              border: '1px solid var(--border)'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <Footprints
+                  className="steps-walking"
+                  size={20}
+                  style={{
+                    color: currentDayLog.steps && currentDayLog.steps > 0
+                      ? 'var(--blue)'
+                      : 'var(--text-muted)',
+                    flexShrink: 0
+                  }}
+                />
+                <input
+                  type="number"
+                  value={currentDayLog.steps || ''}
+                  onChange={(e) => updateDayLog({ steps: e.target.value ? parseInt(e.target.value) : null })}
+                  placeholder={userSettings.language === 'ru' ? 'Добавьте шаги' : 'Add steps'}
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: 'var(--blue)',
+                    fontSize: '16px',
+                    fontWeight: 600
+                  }}
+                />
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px 14px',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  minWidth: '70px'
+                }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1 }}>
+                    {userSettings.language === 'ru' ? 'неделя' : 'week'}
+                  </span>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: weeklySteps > 0 ? 'var(--blue)' : 'var(--text-muted)', lineHeight: 1.3 }}>
+                    {weeklySteps.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* Mini calendar */}
             <div>
