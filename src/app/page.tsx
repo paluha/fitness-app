@@ -1402,12 +1402,7 @@ function FitnessCalendar({
   }
 
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      borderRadius: '20px',
-      border: '1px solid var(--border)',
-      overflow: 'hidden'
-    }}>
+    <div className="card-soft" style={{ overflow: 'hidden' }}>
       {/* Month header */}
       <div style={{
         padding: '20px',
@@ -3385,11 +3380,8 @@ export default function FitnessPage() {
             )}
 
             {/* Week View - 7 days with T1-T7 */}
-            <div style={{
-              background: 'var(--bg-card)',
-              borderRadius: '12px',
-              border: '1px solid var(--border)',
-              padding: '10px',
+            <div className="card-soft" style={{
+              padding: '12px',
               marginBottom: '12px'
             }}>
               <div style={{
