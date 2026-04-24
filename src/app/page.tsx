@@ -1006,43 +1006,44 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
               const allDone = next.length > 0 && next.every(s => s.completed);
               onUpdate({ sets: next, completed: allDone });
             };
+            const cols = '24px 56px 1fr 1fr 28px';
             return (
-              <div style={{ marginTop: '10px', marginBottom: '14px' }}>
+              <div style={{ marginTop: '8px', marginBottom: '10px' }}>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '32px 64px 1fr 1fr 40px',
+                  gridTemplateColumns: cols,
                   gap: '6px',
-                  fontSize: '10px',
+                  fontSize: '9px',
                   fontWeight: 600,
                   color: 'var(--text-muted)',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  marginBottom: '6px',
-                  paddingLeft: '4px',
+                  letterSpacing: '0.4px',
+                  marginBottom: '4px',
+                  paddingLeft: '2px',
                 }}>
                   <span>Set</span>
                   <span>Last</span>
-                  <span>Reps</span>
-                  <span>lbs</span>
-                  <span style={{ textAlign: 'right' }}>✓</span>
+                  <span style={{ textAlign: 'center' }}>Reps</span>
+                  <span style={{ textAlign: 'center' }}>lbs</span>
+                  <span style={{ textAlign: 'center' }}>✓</span>
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
                   return (
                   <div key={i} style={{
                     display: 'grid',
-                    gridTemplateColumns: '32px 64px 1fr 1fr 40px',
+                    gridTemplateColumns: cols,
                     gap: '6px',
                     alignItems: 'center',
-                    marginBottom: '6px',
+                    marginBottom: '4px',
                   }}>
                     <span style={{
-                      fontSize: '13px', fontWeight: 700,
+                      fontSize: '12px', fontWeight: 700,
                       color: s.completed ? 'var(--green)' : 'var(--text-secondary)',
-                      paddingLeft: '4px',
+                      paddingLeft: '2px',
                     }}>{i + 1}</span>
                     <span style={{
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 600,
                       color: 'var(--text-muted)',
                       whiteSpace: 'nowrap',
@@ -1058,10 +1059,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                       style={{
                         background: 'var(--bg-elevated)',
                         border: '1px solid var(--border)',
-                        borderRadius: '999px',
-                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        padding: '5px 8px',
                         color: 'var(--text-primary)',
-                        fontSize: '14px',
+                        fontSize: '13px',
                         fontWeight: 600,
                         textAlign: 'center',
                         width: '100%',
@@ -1077,10 +1078,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                       style={{
                         background: 'var(--bg-elevated)',
                         border: '1px solid var(--border)',
-                        borderRadius: '999px',
-                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        padding: '5px 8px',
                         color: 'var(--text-primary)',
-                        fontSize: '14px',
+                        fontSize: '13px',
                         fontWeight: 600,
                         textAlign: 'center',
                         width: '100%',
@@ -1092,15 +1093,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                       onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
                       title="Right-click / long-press to remove this set"
                       style={{
-                        width: '32px', height: '32px',
+                        width: '22px', height: '22px',
                         border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
                         background: s.completed ? 'var(--green)' : 'transparent',
-                        borderRadius: '999px',
+                        borderRadius: '6px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', justifySelf: 'end',
+                        cursor: 'pointer', justifySelf: 'center',
+                        padding: 0,
                         transition: 'background 160ms ease, border 160ms ease',
                       }}>
-                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
+                      {s.completed && <Check size={12} style={{ color: '#fff' }} strokeWidth={3} />}
                     </button>
                   </div>
                   );
@@ -1109,13 +1111,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                   onClick={addSet}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    marginTop: '4px',
+                    padding: '6px 10px',
+                    marginTop: '2px',
                     background: 'var(--bg-elevated)',
                     border: '1px dashed var(--border-strong)',
-                    borderRadius: '10px',
+                    borderRadius: '8px',
                     color: 'var(--text-muted)',
-                    fontSize: '12px', fontWeight: 600,
+                    fontSize: '11px', fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                   }}>
@@ -1125,78 +1127,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
               </div>
             );
           })()}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
-            <div>
-              <label style={{
-                fontSize: '10px',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginBottom: '4px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Вес
-                {progressHistory.length > 0 && (
-                  <span style={{
-                    fontSize: '10px',
-                    color: 'var(--blue)',
-                    fontWeight: 500,
-                    textTransform: 'none',
-                    letterSpacing: 'normal'
-                  }}>
-                    (пред: {progressHistory[progressHistory.length - 1].weight})
-                  </span>
-                )}
-              </label>
-              <input
-                type="text"
-                value={ex.actualSets}
-                onChange={(e) => onUpdate({ actualSets: e.target.value })}
-                placeholder={progressHistory.length > 0 ? progressHistory[progressHistory.length - 1].weight : "0 кг"}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 10px',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontWeight: 600
-                }}
-              />
-            </div>
-            <div>
-              <label style={{
-                fontSize: '10px',
-                color: 'var(--yellow)',
-                display: 'block',
-                marginBottom: '4px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Новый вес
-              </label>
-              <input
-                type="text"
-                value={ex.newWeight || ''}
-                onChange={(e) => onUpdate({ newWeight: e.target.value })}
-                placeholder="Повысить до..."
-                style={{
-                  width: '100%',
-                  background: 'var(--yellow-dim)',
-                  border: '1px solid rgba(251, 191, 36, 0.3)',
-                  borderRadius: '8px',
-                  padding: '8px 10px',
-                  color: 'var(--yellow)',
-                  fontSize: '13px',
-                  fontWeight: 600
-                }}
-              />
-            </div>
-          </div>
-
           <div style={{ marginTop: '8px' }}>
             <label style={{
               fontSize: '10px',
