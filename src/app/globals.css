@@ -105,11 +105,16 @@ html {
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Inter via next/font (see layout.tsx). Falls back to the native stack so
+     the UI stays readable if the font var isn't wired up on a legacy route. */
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   min-height: 100vh;
   line-height: 1.5;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Inter's recommended OpenType features: slashed zero + disambiguated i/l/1. */
+  font-feature-settings: 'cv11' 1, 'ss01' 1;
 }
 
 /* Custom scrollbar */
