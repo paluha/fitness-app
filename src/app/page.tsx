@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy
+  Home, Trophy, Sun, Moon, MonitorSmartphone
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
@@ -262,6 +262,9 @@ interface UserSettings {
   timezone: string;
   name?: string;
   email?: string;
+  // Theme preference. 'auto' picks dark between 22:00–06:00 (legacy night mode),
+  // 'light'/'dark' force the theme regardless of time.
+  theme?: 'light' | 'dark' | 'auto';
 }
 
 interface NutritionRecommendation {
@@ -1845,27 +1848,6 @@ export default function FitnessPage() {
     }
   }, []);
 
-  // Night mode - apply to body to avoid hydration issues
-  useEffect(() => {
-    const checkNightMode = () => {
-      const hour = new Date().getHours();
-      const isNight = hour >= 22 || hour < 6;
-      setIsNightMode(isNight);
-
-      if (isNight) {
-        document.body.classList.add('night-mode');
-      } else {
-        document.body.classList.remove('night-mode');
-      }
-    };
-
-    checkNightMode();
-    const interval = setInterval(checkNightMode, 60000);
-    return () => {
-      clearInterval(interval);
-      document.body.classList.remove('night-mode');
-    };
-  }, []);
   const [workouts, setWorkouts] = useState<Workout[]>(DEFAULT_WORKOUTS);
   const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
@@ -1922,6 +1904,24 @@ export default function FitnessPage() {
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+  // Theme — applied via .night-mode on <body>. 'auto' tracks the clock
+  // (dark 22:00–06:00). 'light'/'dark' force the theme regardless of time.
+  const themePref: 'light' | 'dark' | 'auto' = userSettings.theme ?? 'auto';
+  useEffect(() => {
+    const apply = () => {
+      let dark: boolean;
+      if (themePref === 'dark') dark = true;
+      else if (themePref === 'light') dark = false;
+      else { const hour = new Date().getHours(); dark = hour >= 22 || hour < 6; }
+      setIsNightMode(dark);
+      document.body.classList.toggle('night-mode', dark);
+    };
+    apply();
+    if (themePref !== 'auto') return;
+    const interval = setInterval(apply, 60000);
+    return () => clearInterval(interval);
+  }, [themePref]);
   // Accordion: only one exercise expanded at a time. Clicking the same one
   // collapses it. Reset when the day or workout changes.
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
@@ -5357,6 +5357,71 @@ export default function FitnessPage() {
                     >
                       EN
                     </button>
+                  </div>
+                </div>
+
+                {/* Theme */}
+                <div style={{
+                  padding: '16px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                    {themePref === 'dark' ? (
+                      <Moon size={20} style={{ color: 'var(--purple)' }} />
+                    ) : themePref === 'light' ? (
+                      <Sun size={20} style={{ color: 'var(--yellow)' }} />
+                    ) : (
+                      <MonitorSmartphone size={20} style={{ color: 'var(--text-secondary)' }} />
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {userSettings.language === 'ru' ? 'Тема' : 'Theme'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {themePref === 'dark'
+                          ? (userSettings.language === 'ru' ? 'Тёмная' : 'Dark')
+                          : themePref === 'light'
+                          ? (userSettings.language === 'ru' ? 'Светлая' : 'Light')
+                          : (userSettings.language === 'ru' ? 'Авто (по времени)' : 'Auto (by time)')}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    {(['light', 'dark', 'auto'] as const).map(opt => {
+                      const active = themePref === opt;
+                      const Icon = opt === 'light' ? Sun : opt === 'dark' ? Moon : MonitorSmartphone;
+                      return (
+                        <button
+                          key={opt}
+                          onClick={async () => {
+                            setUserSettings(s => ({ ...s, theme: opt }));
+                            try {
+                              await fetch('/api/settings', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ theme: opt })
+                              });
+                            } catch { /* offline — local state still applies */ }
+                          }}
+                          title={opt}
+                          style={{
+                            width: '36px', height: '36px',
+                            background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            color: active ? '#000' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Icon size={16} />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

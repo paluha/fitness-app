@@ -18,7 +18,8 @@ export async function GET() {
         name: true,
         email: true,
         language: true,
-        timezone: true
+        timezone: true,
+        theme: true,
       }
     });
 
@@ -26,13 +27,15 @@ export async function GET() {
       name: user?.name || '',
       email: user?.email || '',
       language: user?.language || 'ru',
-      timezone: user?.timezone || 'Europe/Moscow'
+      timezone: user?.timezone || 'Europe/Moscow',
+      theme: user?.theme || 'auto',
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
     return NextResponse.json({
       language: 'ru',
-      timezone: 'Europe/Moscow'
+      timezone: 'Europe/Moscow',
+      theme: 'auto',
     });
   }
 }
@@ -46,14 +49,16 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, language, timezone } = await request.json();
+    const { name, language, timezone, theme } = await request.json();
+    const themeOk = theme === 'light' || theme === 'dark' || theme === 'auto';
 
     const user = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         name: name || undefined,
         language: language || undefined,
-        timezone: timezone || undefined
+        timezone: timezone || undefined,
+        theme: themeOk ? theme : undefined,
       }
     });
 
@@ -61,7 +66,8 @@ export async function PUT(request: Request) {
       success: true,
       name: user.name,
       language: user.language,
-      timezone: user.timezone
+      timezone: user.timezone,
+      theme: user.theme,
     });
   } catch (error) {
     console.error('Error updating settings:', error);

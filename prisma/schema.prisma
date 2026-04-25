@@ -28,6 +28,7 @@ model User {
   role          UserRole  @default(CLIENT)
   language      String    @default("ru") // "ru" or "en"
   timezone      String    @default("Europe/Moscow")
+  theme         String    @default("auto") // "light" | "dark" | "auto"
   accounts      Account[]
   sessions      Session[]
   fitnessData   FitnessData?

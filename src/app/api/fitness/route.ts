@@ -55,6 +55,7 @@ export async function GET() {
       settings: {
         language: user.language || 'ru',
         timezone: user.timezone || 'Europe/Moscow',
+        theme: user.theme || 'auto',
         name: user.name,
         email: user.email
       }
@@ -68,7 +69,7 @@ export async function GET() {
       bodyMeasurements: null,
       favoriteMeals: null,
       nutritionRecommendations: null,
-      settings: { language: 'ru', timezone: 'Europe/Moscow' }
+      settings: { language: 'ru', timezone: 'Europe/Moscow', theme: 'auto' }
     });
   }
 }
