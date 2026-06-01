@@ -54,7 +54,9 @@ Return JSON only:
     }
 
     // Call Gemini API
-    const model = 'gemini-2.0-flash';
+    // gemini-2.0-flash was retired by Google ("model is no longer available").
+    // gemini-2.5-flash is the current stable Flash model with vision support.
+    const model = 'gemini-2.5-flash';
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_AI_API_KEY}`,
       {
