@@ -1046,25 +1046,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                   <span>Last</span>
                   <span style={{ textAlign: 'center' }}>Reps</span>
                   <span style={{ textAlign: 'center' }}>lbs</span>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); markAllSets(); }}
-                    title={allSetsDone ? 'Снять все отметки' : 'Отметить все'}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      fontSize: '9px',
-                      fontWeight: 700,
-                      letterSpacing: '0.4px',
-                      textTransform: 'uppercase',
-                      color: allSetsDone ? 'var(--green)' : 'var(--cyan, #0ea5e9)',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {allSetsDone ? '✓✓' : 'All'}
-                  </button>
+                  <span style={{ textAlign: 'center' }}>✓</span>
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
@@ -1162,6 +1144,32 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                   }}>
                   <Plus size={14} />
                   Add set
+                </button>
+                {/* Touch-friendly mark-all — easier to hit than the tiny per-set
+                    checkmarks when finishing an exercise in one go. */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); markAllSets(); }}
+                  style={{
+                    width: '100%',
+                    minHeight: '46px',
+                    padding: '12px 14px',
+                    marginTop: '8px',
+                    background: allSetsDone ? 'var(--green-dim)' : 'var(--bg-elevated)',
+                    border: `1.5px solid ${allSetsDone ? 'var(--green)' : 'var(--border-strong)'}`,
+                    borderRadius: '12px',
+                    color: allSetsDone ? 'var(--green)' : 'var(--text-primary)',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    touchAction: 'manipulation',
+                  }}>
+                  <Check size={18} strokeWidth={3} />
+                  {allSetsDone ? 'Снять отметки' : 'Отметить все подходы'}
                 </button>
               </div>
             );
@@ -1670,12 +1678,11 @@ function FitnessCalendar({
 
           // Определяем стиль фона
           const getBackground = () => {
-            if (isSelected && isToday) return 'linear-gradient(135deg, var(--yellow) 0%, var(--green) 100%)';
-            if (isSelected) return 'var(--yellow)';
-            if (isToday) return 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)';
+            if (isSelected) return '#fff';
+            if (isToday) return 'linear-gradient(135deg, rgba(14, 165, 233, 0.25) 0%, rgba(0, 200, 83, 0.18) 100%)';
             if (hasWorkout) return 'var(--green-dim)';
             if (isOffDay) return 'rgba(100, 116, 139, 0.15)';
-            if (isUnclosedPastDay) return 'rgba(17, 20, 24, 0.04)'; // Grey dim for unclosed
+            if (isUnclosedPastDay) return 'rgba(17, 20, 24, 0.04)';
             if (hasSteps) return 'var(--blue-dim)';
             if (isFuture) return 'transparent';
             return 'transparent';
@@ -1683,9 +1690,8 @@ function FitnessCalendar({
 
           // Определяем цвет текста
           const getColor = () => {
-            if (isSelected && isToday) return '#000';
             if (isSelected) return '#000';
-            if (isToday) return 'var(--yellow)';
+            if (isToday) return 'var(--cyan, #0ea5e9)';
             if (hasWorkout) return 'var(--green)';
             if (isOffDay) return 'rgb(148, 163, 184)';
             if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.25)';
@@ -1699,19 +1705,18 @@ function FitnessCalendar({
 
           // Определяем border
           const getBorder = () => {
-            if (isToday && isSelected) return '2px solid var(--green)';
-            if (isToday) return '2px solid var(--yellow)';
-            if (isUnclosedPastDay && !isSelected) return '1px solid rgba(17, 20, 24, 0.08)';
-            if (hasWorkout && !isSelected) return '1px solid rgba(0, 200, 83, 0.3)';
-            if (isOffDay && !isSelected) return '1px solid rgba(100, 116, 139, 0.3)';
+            if (isSelected) return 'none';
+            if (isToday) return '2px solid var(--cyan, #0ea5e9)';
+            if (isUnclosedPastDay) return '1px solid rgba(17, 20, 24, 0.08)';
+            if (hasWorkout) return '1px solid rgba(0, 200, 83, 0.3)';
+            if (isOffDay) return '1px solid rgba(100, 116, 139, 0.3)';
             return '1px solid transparent';
           };
 
           // Определяем boxShadow
           const getBoxShadow = () => {
-            if (isSelected && isToday) return '0 4px 20px rgba(0, 200, 83, 0.4)';
-            if (isSelected) return '0 4px 20px var(--yellow-glow)';
-            if (isToday) return '0 2px 12px rgba(255, 193, 7, 0.3)';
+            if (isSelected) return '0 6px 22px rgba(255, 255, 255, 0.18)';
+            if (isToday) return '0 2px 12px rgba(14, 165, 233, 0.3)';
             if (hasWorkout) return '0 2px 8px var(--green-glow)';
             if (isOffDay) return '0 2px 8px rgba(100, 116, 139, 0.2)';
             if (isUnclosedPastDay) return 'none';
@@ -3739,7 +3744,7 @@ export default function FitnessPage() {
                           gap: '3px',
                           padding: '8px 2px 7px',
                           background: isSelected
-                            ? 'linear-gradient(135deg, var(--cyan, #0ea5e9), #38bdf8)'
+                            ? '#fff'
                             : isOffDay
                               ? 'rgba(100, 116, 139, 0.15)'
                               : isLightDay
@@ -3763,7 +3768,7 @@ export default function FitnessPage() {
                           opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.55 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
-                            ? '0 6px 18px rgba(14, 165, 233, 0.45)'
+                            ? '0 6px 18px rgba(255, 255, 255, 0.18)'
                             : isOffDay
                               ? '0 1px 4px rgba(100, 116, 139, 0.2)'
                               : isClosed
@@ -3774,7 +3779,7 @@ export default function FitnessPage() {
                       >
                         <span style={{
                           fontSize: '9px',
-                          color: isSelected ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)',
+                          color: isSelected ? 'rgba(0,0,0,0.55)' : 'var(--text-muted)',
                           fontWeight: 600,
                           textTransform: 'uppercase',
                           letterSpacing: '0.4px'
@@ -3784,7 +3789,7 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '14px',
                           fontWeight: 800,
-                          color: isSelected ? '#fff' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
@@ -3792,7 +3797,7 @@ export default function FitnessPage() {
                           <span style={{
                             fontSize: isOffDay ? '11px' : '9px',
                             fontWeight: 700,
-                            color: isSelected ? '#fff' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '2px'
