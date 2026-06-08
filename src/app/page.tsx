@@ -2636,25 +2636,39 @@ export default function FitnessPage() {
     return workouts[0]?.id || 't1';
   }, [completedWorkoutsInCycle, workouts]);
 
-  // Restore selected workout when date changes
+  // Restore selected workout when date changes.
+  //
+  // The `workouts` state doubles as both the "template" (what exercises
+  // exist in T1/T2/…) AND the "live working copy" for the currently
+  // visible day. Every branch below has to either restore exercises onto
+  // the workouts array from the day's saved state, OR explicitly reset to
+  // fresh templates. Otherwise navigating between dates leaks state — e.g.
+  // a closed day that just shows a `selectedWorkout` would inherit the
+  // half-checked exercises from the previously visible day.
   useEffect(() => {
-    if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
-      // If day is closed, show the completed workout (snapshot)
-      setSelectedWorkout(currentDayLog.workoutCompleted);
-    } else if (currentDayLog.workoutDraft) {
-      // Day is open but has a saved draft — restore exercise state from draft
+    // Helper: rebuild a workout's exercises from a saved snapshot/draft.
+    // Other workouts are reset to a fresh state so unrelated tabs don't
+    // carry stale `completed` flags from another day.
+    const applySnapshotToWorkouts = (snap: WorkoutSnapshot | null) => {
       setWorkouts(prev => prev.map(w =>
-        w.id === currentDayLog.workoutDraft!.workoutId
-          ? { ...w, exercises: currentDayLog.workoutDraft!.exercises }
+        snap && w.id === snap.workoutId
+          ? { ...w, exercises: snap.exercises }
           : { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })) }
       ));
+    };
+
+    if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
+      // Closed day — show the snapshot. Without this restore, navigating
+      // back into a closed day after touching another date showed empty
+      // exercises (the other date's effect had reset them all).
+      applySnapshotToWorkouts(currentDayLog.workoutSnapshot ?? null);
+      setSelectedWorkout(currentDayLog.workoutCompleted);
+    } else if (currentDayLog.workoutDraft) {
+      applySnapshotToWorkouts(currentDayLog.workoutDraft);
       setSelectedWorkout(currentDayLog.workoutDraft.workoutId);
     } else {
-      // Day is NOT closed, no draft — reset all exercise completion flags to fresh state
-      setWorkouts(prev => prev.map(w => ({
-        ...w,
-        exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' }))
-      })));
+      // Day is NOT closed, no draft — reset all exercise completion flags
+      applySnapshotToWorkouts(null);
 
       if (currentDayLog.selectedWorkout) {
         setSelectedWorkout(currentDayLog.selectedWorkout);
