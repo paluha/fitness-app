@@ -3683,7 +3683,7 @@ export default function FitnessPage() {
             {/* Week View - 7 days with T1-T7 */}
             <div className="card-soft" style={{
               padding: '12px',
-              marginBottom: '12px'
+              marginBottom: '24px'
             }}>
               <div style={{
                 display: 'grid',
@@ -3897,7 +3897,7 @@ export default function FitnessPage() {
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: `repeat(${Math.min(workouts.length + (workouts.length < MAX_WORKOUTS ? 1 : 0), 8)}, 1fr)`,
-                  gap: '6px',
+                  gap: '8px',
                   flex: 1
                 }}>
                   {workouts.map(w => {
@@ -3909,19 +3909,21 @@ export default function FitnessPage() {
                         className="tab-button btn-press"
                         onClick={() => selectWorkout(w.id)}
                         style={{
-                          padding: '10px 4px',
+                          minHeight: '52px',
+                          padding: '14px 4px',
                           background: isActive
                             ? '#000'
                             : 'var(--bg-card)',
                           border: isActive ? '1px solid #000' : '1px solid var(--border)',
-                          borderRadius: '10px',
+                          borderRadius: '12px',
                           color: isActive ? '#fff' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
-                          fontWeight: isActive ? 700 : 600,
-                          fontSize: '13px',
+                          fontWeight: isActive ? 800 : 600,
+                          fontSize: '16px',
                           boxShadow: isActive ? '0 4px 18px rgba(0,0,0,0.45)' : 'none',
                           opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
                           transform: isActive ? 'scale(1.02)' : 'scale(1)',
-                          minWidth: 0
+                          minWidth: 0,
+                          touchAction: 'manipulation'
                         }}
                       >
                         {w.name.replace('Тренировка ', 'T')}
@@ -3933,10 +3935,11 @@ export default function FitnessPage() {
                       className="btn-press"
                       onClick={addNewWorkout}
                       style={{
-                        padding: '10px 4px',
+                        minHeight: '52px',
+                        padding: '14px 4px',
                         background: 'var(--bg-elevated)',
                         border: '1px dashed var(--border-strong)',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         color: 'var(--text-muted)',
                         fontWeight: 600,
                         fontSize: '14px',
@@ -3944,40 +3947,20 @@ export default function FitnessPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        minWidth: 0
+                        minWidth: 0,
+                        touchAction: 'manipulation'
                       }}
                       title="Добавить тренировку"
                     >
-                      <Plus size={16} />
+                      <Plus size={18} />
                     </button>
                   )}
                 </div>
-                {/* Off Day chip — sits next to the workout selector so picking
-                    "rest day" is part of the same decision as picking a T1-T7
-                    workout. Greyed slate tones so it reads as "not training". */}
-                <button
-                  className="btn-press"
-                  onClick={toggleOffDay}
-                  style={{
-                    padding: '10px 12px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '10px',
-                    color: 'var(--text-muted)',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    flexShrink: 0,
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={userSettings.language === 'ru' ? 'Отметить день отдыха' : 'Mark as rest day'}
-                >
-                  <span style={{ fontSize: '14px' }}>🛌</span>
-                  {userSettings.language === 'ru' ? 'Отдых' : 'Rest'}
-                </button>
+                {/* Off Day chip removed from the main selector — any day the
+                    user leaves unclosed is treated as rest implicitly. The
+                    toggleOffDay handler stays available via the edit menu for
+                    the rare case where the user wants to mark a day as rest
+                    explicitly (e.g. to log steps without a workout). */}
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
                   style={{
@@ -4229,7 +4212,7 @@ export default function FitnessPage() {
                       <div style={{
                         textAlign: 'center',
                         marginBottom: '12px',
-                        color: (hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)',
+                        color: (hasSkippedExercises || !hasSteps) ? '#f59e0b' : '#14b8a6',
                         fontSize: '14px',
                         fontWeight: 600
                       }}
@@ -4250,13 +4233,13 @@ export default function FitnessPage() {
                         const interval = setInterval(() => {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
-                            btn.style.background = readyToClose ? 'var(--green-dim)' : 'var(--bg-card)';
+                            btn.style.background = readyToClose ? 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)' : 'var(--bg-card)';
                             return;
                           }
                           const progress = parseInt(btn.dataset.progress || '0') + 5;
                           btn.dataset.progress = progress.toString();
-                          const endColor = readyToClose ? 'var(--green-dim)' : 'var(--bg-card)';
-                          btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${endColor} ${progress}%)`;
+                          const endColor = readyToClose ? '#5eead4' : 'var(--bg-card)';
+                          btn.style.background = `linear-gradient(90deg, #0d9488 ${progress}%, ${endColor} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
                             if (canCloseDay) {
@@ -4266,7 +4249,7 @@ export default function FitnessPage() {
                                 closeDay(currentWorkout.id, true);
                               }
                             }
-                            btn.style.background = 'var(--green)';
+                            btn.style.background = '#14b8a6';
                           }
                         }, 30);
                       }}
@@ -4279,13 +4262,13 @@ export default function FitnessPage() {
                         const interval = setInterval(() => {
                           if (btn.dataset.pressing !== 'true') {
                             clearInterval(interval);
-                            btn.style.background = readyToClose ? 'var(--green-dim)' : 'var(--bg-card)';
+                            btn.style.background = readyToClose ? 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)' : 'var(--bg-card)';
                             return;
                           }
                           const progress = parseInt(btn.dataset.progress || '0') + 5;
                           btn.dataset.progress = progress.toString();
-                          const endColor = readyToClose ? 'var(--green-dim)' : 'var(--bg-card)';
-                          btn.style.background = `linear-gradient(90deg, var(--green) ${progress}%, ${endColor} ${progress}%)`;
+                          const endColor = readyToClose ? '#5eead4' : 'var(--bg-card)';
+                          btn.style.background = `linear-gradient(90deg, #0d9488 ${progress}%, ${endColor} ${progress}%)`;
                           if (progress >= 100) {
                             clearInterval(interval);
                             if (canCloseDay) {
@@ -4295,7 +4278,7 @@ export default function FitnessPage() {
                                 closeDay(currentWorkout.id, true);
                               }
                             }
-                            btn.style.background = 'var(--green)';
+                            btn.style.background = '#14b8a6';
                           }
                         }, 30);
                       }}
@@ -4305,12 +4288,16 @@ export default function FitnessPage() {
                         padding: '22px',
                         background: readyToClose
                           ? ((hasSkippedExercises || !hasSteps)
-                              ? 'linear-gradient(135deg, rgba(255,204,85,0.18), rgba(255,204,85,0.08))'
-                              : 'linear-gradient(135deg, rgba(34,197,94,0.22), rgba(34,197,94,0.10))')
+                              ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.08))'
+                              : 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)')
                           : 'var(--bg-card)',
-                        border: `2px solid ${readyToClose ? ((hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--border)'}`,
+                        border: readyToClose
+                          ? ((hasSkippedExercises || !hasSteps) ? '2px solid #f59e0b' : 'none')
+                          : '2px solid var(--border)',
                         borderRadius: '18px',
-                        color: readyToClose ? ((hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--text-primary)',
+                        color: readyToClose
+                          ? ((hasSkippedExercises || !hasSteps) ? '#f59e0b' : '#053b3a')
+                          : 'var(--text-primary)',
                         fontWeight: 800,
                         fontSize: '16px',
                         letterSpacing: '0.3px',
@@ -4321,8 +4308,8 @@ export default function FitnessPage() {
                         gap: '12px',
                         boxShadow: readyToClose
                           ? ((hasSkippedExercises || !hasSteps)
-                              ? '0 8px 30px rgba(255,204,85,0.25)'
-                              : '0 8px 30px var(--green-glow), 0 0 0 1px rgba(34,197,94,0.2) inset')
+                              ? '0 8px 30px rgba(245, 158, 11, 0.25)'
+                              : '0 10px 35px rgba(20, 184, 166, 0.45)')
                           : 'none',
                         cursor: 'pointer',
                         userSelect: 'none',
