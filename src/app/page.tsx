@@ -1678,8 +1678,8 @@ function FitnessCalendar({
 
           // Определяем стиль фона
           const getBackground = () => {
-            if (isSelected) return '#fff';
-            if (isToday) return 'linear-gradient(135deg, rgba(14, 165, 233, 0.25) 0%, rgba(0, 200, 83, 0.18) 100%)';
+            if (isSelected) return 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)';
+            if (isToday) return 'linear-gradient(135deg, rgba(187, 242, 107, 0.25) 0%, rgba(34, 197, 94, 0.18) 100%)';
             if (hasWorkout) return 'var(--green-dim)';
             if (isOffDay) return 'rgba(100, 116, 139, 0.15)';
             if (isUnclosedPastDay) return 'rgba(17, 20, 24, 0.04)';
@@ -1690,8 +1690,8 @@ function FitnessCalendar({
 
           // Определяем цвет текста
           const getColor = () => {
-            if (isSelected) return '#000';
-            if (isToday) return 'var(--cyan, #0ea5e9)';
+            if (isSelected) return '#0b3d20';
+            if (isToday) return '#22c55e';
             if (hasWorkout) return 'var(--green)';
             if (isOffDay) return 'rgb(148, 163, 184)';
             if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.25)';
@@ -3707,7 +3707,7 @@ export default function FitnessPage() {
                           gap: '3px',
                           padding: '8px 2px 7px',
                           background: isSelected
-                            ? '#fff'
+                            ? 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)'
                             : isOffDay
                               ? 'rgba(100, 116, 139, 0.15)'
                               : isLightDay
@@ -3718,7 +3718,7 @@ export default function FitnessPage() {
                           border: isSelected
                             ? 'none'
                             : isToday
-                              ? '2px solid var(--cyan, #0ea5e9)'
+                              ? '2px solid #22c55e'
                               : isOffDay
                                 ? '1px solid rgba(100, 116, 139, 0.3)'
                                 : isLightDay
@@ -3731,7 +3731,7 @@ export default function FitnessPage() {
                           opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.55 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
-                            ? '0 6px 18px rgba(255, 255, 255, 0.18)'
+                            ? '0 6px 18px rgba(34, 197, 94, 0.45)'
                             : isOffDay
                               ? '0 1px 4px rgba(100, 116, 139, 0.2)'
                               : isClosed
@@ -3742,7 +3742,7 @@ export default function FitnessPage() {
                       >
                         <span style={{
                           fontSize: '9px',
-                          color: isSelected ? 'rgba(0,0,0,0.55)' : 'var(--text-muted)',
+                          color: isSelected ? 'rgba(11, 61, 32, 0.7)' : 'var(--text-muted)',
                           fontWeight: 600,
                           textTransform: 'uppercase',
                           letterSpacing: '0.4px'
@@ -3752,7 +3752,7 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '14px',
                           fontWeight: 800,
-                          color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#0b3d20' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
@@ -3760,7 +3760,7 @@ export default function FitnessPage() {
                           <span style={{
                             fontSize: isOffDay ? '11px' : '9px',
                             fontWeight: 700,
-                            color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            color: isSelected ? '#0b3d20' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '2px'
@@ -3878,14 +3878,14 @@ export default function FitnessPage() {
                         style={{
                           padding: '10px 4px',
                           background: isActive
-                            ? 'var(--cyan, #0ea5e9)'
+                            ? '#000'
                             : 'var(--bg-card)',
-                          border: isActive ? 'none' : '1px solid var(--border)',
+                          border: isActive ? '1px solid #000' : '1px solid var(--border)',
                           borderRadius: '10px',
                           color: isActive ? '#fff' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
                           fontWeight: isActive ? 700 : 600,
                           fontSize: '13px',
-                          boxShadow: isActive ? '0 4px 20px rgba(14, 165, 233, 0.45)' : 'none',
+                          boxShadow: isActive ? '0 4px 18px rgba(0,0,0,0.45)' : 'none',
                           opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
                           transform: isActive ? 'scale(1.02)' : 'scale(1)',
                           minWidth: 0
