@@ -2638,37 +2638,59 @@ export default function FitnessPage() {
 
   // Restore selected workout when date changes.
   //
-  // The `workouts` state doubles as both the "template" (what exercises
-  // exist in T1/T2/…) AND the "live working copy" for the currently
-  // visible day. Every branch below has to either restore exercises onto
-  // the workouts array from the day's saved state, OR explicitly reset to
-  // fresh templates. Otherwise navigating between dates leaks state — e.g.
-  // a closed day that just shows a `selectedWorkout` would inherit the
-  // half-checked exercises from the previously visible day.
+  // CRITICAL: never mutate `workouts` state from this effect.
+  //
+  // `workouts` is the GLOBAL TEMPLATE (the catalogue of T1..T7 with their
+  // planned exercises). It's the same across every day. The auto-sync POST
+  // pushes whatever's in `workouts` to the server as the new template, so
+  // writing a day's snapshot/draft into `workouts` here would poison the
+  // template — every subsequent date would inherit one specific day's
+  // exercises, and other days' tabs would mysteriously empty out.
+  //
+  // Per-day exercise state (which sets were ticked, weights, notes) lives in
+  // `currentDayLog.workoutDraft` / `workoutSnapshot`. The render path
+  // (displayExercises in the JSX below) already reads from the snapshot for
+  // closed days. For open days the workouts template is the right source
+  // — completion flags survive via the draft, restored by the draft branch
+  // below.
   useEffect(() => {
-    // Helper: rebuild a workout's exercises from a saved snapshot/draft.
-    // Other workouts are reset to a fresh state so unrelated tabs don't
-    // carry stale `completed` flags from another day.
-    const applySnapshotToWorkouts = (snap: WorkoutSnapshot | null) => {
-      setWorkouts(prev => prev.map(w =>
-        snap && w.id === snap.workoutId
-          ? { ...w, exercises: snap.exercises }
-          : { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })) }
-      ));
-    };
-
     if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
-      // Closed day — show the snapshot. Without this restore, navigating
-      // back into a closed day after touching another date showed empty
-      // exercises (the other date's effect had reset them all).
-      applySnapshotToWorkouts(currentDayLog.workoutSnapshot ?? null);
+      // Closed day — render reads exercises from the snapshot directly.
+      // Don't touch `workouts`.
       setSelectedWorkout(currentDayLog.workoutCompleted);
     } else if (currentDayLog.workoutDraft) {
-      applySnapshotToWorkouts(currentDayLog.workoutDraft);
+      // Open day with a saved draft — keep template intact, push only the
+      // per-exercise progress (completed/sets/notes) back onto the selected
+      // workout's exercises so the UI shows the saved progress.
+      setWorkouts(prev => prev.map(w => {
+        if (w.id !== currentDayLog.workoutDraft!.workoutId) {
+          // Other workouts: keep template, just clear completion flags so
+          // checks from another day don't bleed in.
+          return { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })) };
+        }
+        // Selected workout: merge draft progress onto the live template
+        // exercises by id. Exercises that exist in template but not in the
+        // draft stay as fresh template entries; the draft is the source of
+        // truth for progress only.
+        const draftById = new Map(currentDayLog.workoutDraft!.exercises.map(e => [e.id, e]));
+        return {
+          ...w,
+          exercises: w.exercises.map(e => {
+            const d = draftById.get(e.id);
+            if (!d) return { ...e, completed: false, actualSets: '', feedback: '' };
+            return { ...e, completed: d.completed, actualSets: d.actualSets, sets: d.sets, notes: d.notes, feedback: d.feedback };
+          }),
+        };
+      }));
       setSelectedWorkout(currentDayLog.workoutDraft.workoutId);
     } else {
-      // Day is NOT closed, no draft — reset all exercise completion flags
-      applySnapshotToWorkouts(null);
+      // Day is NOT closed, no draft — clear any completion flags left over
+      // from the previously visible day. Do NOT replace exercises, only
+      // wipe their progress fields.
+      setWorkouts(prev => prev.map(w => ({
+        ...w,
+        exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })),
+      })));
 
       if (currentDayLog.selectedWorkout) {
         setSelectedWorkout(currentDayLog.selectedWorkout);
@@ -2676,9 +2698,6 @@ export default function FitnessPage() {
         // Picker UI only — don't write into the dayLog. Otherwise clicking
         // a past date creates a phantom log entry and the user sees a
         // workout they never picked.
-        // For TODAY use the cycle hint (next workout the user "owes"); for
-        // past untouched dates default to the very first workout so the
-        // selector starts at T1 and the user picks what they actually did.
         const fallback = dateKey === todayStr ? getNextAvailableWorkout() : (workouts[0]?.id || 't1');
         setSelectedWorkout(fallback);
       }
