@@ -1834,6 +1834,89 @@ function getDefaultWorkout(): string {
   return 't1';
 }
 
+// True when the exercise has any user-entered progress on it. Used to decide
+// whether the local copy of an exercise is "richer" than the server's copy
+// when we merge a refreshed GET on top of unsynced local edits.
+function exerciseHasProgress(ex: Exercise | undefined): boolean {
+  if (!ex) return false;
+  if (ex.completed) return true;
+  if (ex.notes && ex.notes.trim().length > 0) return true;
+  if (ex.actualSets && ex.actualSets.trim().length > 0) return true;
+  if (Array.isArray(ex.sets) && ex.sets.some(s => s.completed || (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0)) return true;
+  return false;
+}
+
+// Merge a fresh server-side dayLogs blob with the in-memory state we already
+// have, preserving unsynced workoutDraft edits on still-open days.
+//
+// The race we're protecting against: the offline-first per-row store (Dexie)
+// writes go local first and queue an outbox op. If a refresh / poll / online
+// transition fires its GET before the outbox flushed, the server's merged
+// dayLogs misses those rows, and a blind setDayLogs(server) wipes the in-UI
+// progress for several seconds until the Dexie hydration tick refills it.
+//
+// Strategy: trust server fields wholesale for CLOSED days (snapshot wins).
+// For OPEN days with a local workoutDraft, copy server fields onto the local
+// log but rebuild the draft.exercises array per-exercise: take whichever
+// version actually has user progress on it (completed flag, sets, notes).
+function mergeServerDayLogs(
+  prev: Record<string, DayLog>,
+  server: Record<string, DayLog>
+): Record<string, DayLog> {
+  const next: Record<string, DayLog> = { ...server };
+  for (const [date, local] of Object.entries(prev)) {
+    const sv = server[date];
+    if (!sv) {
+      // Server lost this day — possible if it's a brand new day still in
+      // pendingOps. Keep our local copy so the UI doesn't blink it away.
+      if (local && (local.workoutDraft || local.selectedWorkout || local.meals?.length)) {
+        next[date] = local;
+      }
+      continue;
+    }
+    // Closed days: server snapshot is authoritative. Don't second-guess it.
+    if (sv.dayClosed) {
+      next[date] = sv;
+      continue;
+    }
+    // Open day. If there's no local draft, server wins; nothing to preserve.
+    const localDraft = local.workoutDraft;
+    const serverDraft = sv.workoutDraft;
+    if (!localDraft?.exercises?.length) {
+      next[date] = sv;
+      continue;
+    }
+    // Same workoutId, merge per-exercise. Prefer local exercise if it has
+    // progress and the server's copy does not; otherwise prefer server.
+    const sameWorkout = !!serverDraft && serverDraft.workoutId === localDraft.workoutId;
+    const baseExercises = sameWorkout && serverDraft ? serverDraft.exercises : localDraft.exercises;
+    const localById = new Map(localDraft.exercises.map(e => [e.id, e]));
+    const serverById = new Map((serverDraft?.exercises ?? []).map(e => [e.id, e]));
+    const mergedExercises: Exercise[] = baseExercises.map(baseEx => {
+      const lEx = localById.get(baseEx.id);
+      const sEx = serverById.get(baseEx.id);
+      if (!lEx) return sEx ?? baseEx;
+      if (!sEx) return lEx;
+      // Both sides have this exercise. Keep whichever has progress; if both
+      // do, prefer local (the user just touched it on this device).
+      const lHas = exerciseHasProgress(lEx);
+      const sHas = exerciseHasProgress(sEx);
+      if (lHas) return lEx;
+      if (sHas) return sEx;
+      return lEx;
+    });
+    next[date] = {
+      ...sv,
+      workoutDraft: {
+        workoutId: localDraft.workoutId,
+        workoutName: localDraft.workoutName || serverDraft?.workoutName || '',
+        exercises: mergedExercises,
+      },
+    };
+  }
+  return next;
+}
+
 export default function FitnessPage() {
   const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -1940,10 +2023,91 @@ export default function FitnessPage() {
 
   const dateKey = formatDate(selectedDate);
 
+  // Hydrate dayLogs from the per-row store. This is the bridge between the
+  // new per-row data and the old UI: we merge per-row truths on top of
+  // dayLogs JSON so the UI always sees the latest state, even when the
+  // legacy JSON hasn't caught up. Defined here (above loadData) so we can
+  // also call it right after a server GET — that closes the race window
+  // where setDayLogs(serverData) would otherwise wipe an in-progress
+  // workoutDraft for the few seconds before the next interval tick.
+  const hydrateFromLocalDB = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const { getLocalDB } = await import('@/lib/local-db');
+      const db = getLocalDB();
+      const [wRows, dRows] = await Promise.all([
+        db.workoutLogs.toArray(),
+        db.dayLogs.toArray(),
+      ]);
+      if (wRows.length === 0 && dRows.length === 0) return;
+
+      setDayLogs(prev => {
+        const next: Record<string, DayLog> = { ...prev };
+        // Merge workoutLogs → reconstruct workoutDraft.exercises per date.
+        const byDate = new Map<string, typeof wRows>();
+        for (const r of wRows) {
+          const arr = byDate.get(r.date) ?? [];
+          arr.push(r);
+          byDate.set(r.date, arr);
+        }
+        for (const [date, rows] of byDate) {
+          const base: DayLog = next[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+          const workoutId = rows.find(r => r.workoutId)?.workoutId ?? base.workoutDraft?.workoutId ?? base.selectedWorkout ?? null;
+          if (!workoutId) continue;
+          const existingExercises = base.workoutDraft?.exercises ?? base.workoutSnapshot?.exercises ?? [];
+          const exMap = new Map(existingExercises.map(e => [e.id, { ...e }]));
+          for (const r of rows) {
+            const prevEx = exMap.get(r.exerciseId);
+            if (prevEx) {
+              prevEx.completed = r.completed;
+              if (r.actualSets !== null && r.actualSets !== undefined) {
+                if (Array.isArray(r.actualSets)) prevEx.sets = r.actualSets as ExerciseSet[];
+                else prevEx.actualSets = r.actualSets as string;
+              }
+              if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
+            }
+          }
+          if (!base.dayClosed) {
+            next[date] = {
+              ...base,
+              workoutDraft: {
+                workoutId,
+                workoutName: base.workoutDraft?.workoutName ?? base.workoutSnapshot?.workoutName ?? '',
+                exercises: Array.from(exMap.values()),
+              },
+            };
+          }
+        }
+        // Merge dayLog kinds (dayClosed, workoutCompleted, workoutSnapshot, steps, etc).
+        for (const r of dRows) {
+          const base: DayLog = next[r.date] ?? { date: r.date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+          const patch: Partial<DayLog> = {};
+          if (r.kind === 'dayClosed') patch.dayClosed = !!r.payload;
+          else if (r.kind === 'workoutCompleted') patch.workoutCompleted = r.payload as string | null;
+          else if (r.kind === 'workoutSnapshot') patch.workoutSnapshot = r.payload as WorkoutSnapshot | null;
+          else if (r.kind === 'isOffDay') patch.isOffDay = !!r.payload;
+          else if (r.kind === 'steps') patch.steps = r.payload as number | null;
+          else if (r.kind === 'workoutRating') patch.workoutRating = r.payload as DayLog['workoutRating'];
+          else if (r.kind === 'selectedWorkout') patch.selectedWorkout = r.payload as DayLog['selectedWorkout'];
+          else if (r.kind === 'notes' && typeof r.payload === 'string') patch.notes = r.payload;
+          else if (r.kind === 'meals' && Array.isArray(r.payload)) patch.meals = r.payload as DayLog['meals'];
+          next[r.date] = { ...base, ...patch };
+        }
+        return next;
+      });
+    } catch { /* ignore */ }
+  }, []);
+
   // Load data from server or localStorage
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Flush any queued local writes BEFORE asking the server for its
+        // merged view. Otherwise the GET may return a snapshot that's missing
+        // the most recent offline edits, and the wholesale setDayLogs below
+        // would wipe an in-progress day for a few seconds until Dexie
+        // hydration catches up.
+        try { await flushNow(); } catch { /* offline / transient — keep going */ }
         const response = await fetch('/api/fitness');
         if (response.ok) {
           const data = await response.json();
@@ -1965,7 +2129,7 @@ export default function FitnessPage() {
           } else if (data.workouts) {
             setWorkouts(data.workouts);
           }
-          if (data.dayLogs) setDayLogs(data.dayLogs);
+          if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
           if (data.plannerEvents) {
@@ -1977,6 +2141,11 @@ export default function FitnessPage() {
           serverDataLoadedRef.current = true;
           setIsLoaded(true);
           setSyncStatus('synced');
+          // Belt-and-suspenders: even after the pre-GET flush there can be
+          // rows in Dexie that hadn't queued an op yet (e.g. just-typed value
+          // not yet committed to pendingOps). Run hydrate now so the UI shows
+          // the full state instantly instead of waiting up to 5s.
+          hydrateFromLocalDB();
           return;
         }
       } catch (e) {
@@ -1987,7 +2156,7 @@ export default function FitnessPage() {
       setIsLoaded(true);
     };
     loadData();
-  }, []);
+  }, [hydrateFromLocalDB]);
 
   // Real-time sync: poll server every 5s, update ALL data if user isn't editing.
   // SAFETY: also skips when a save is in flight or there's a pending debounce —
@@ -2000,6 +2169,10 @@ export default function FitnessPage() {
       if (syncInFlightRef.current) return;   // wait for in-progress save to complete
       if (syncTimeoutRef.current) return;    // pending debounced save not flushed yet
       try {
+        // Same flush-before-GET guard as the initial load — otherwise an
+        // offline window could come back online and the poll would race the
+        // outbox flush, wiping the in-progress draft.
+        try { await flushNow(); } catch { /* keep going */ }
         const response = await fetch('/api/fitness');
         if (response.ok) {
           const data = await response.json();
@@ -2008,17 +2181,20 @@ export default function FitnessPage() {
           // check we'd still overwrite their fresh edits.
           if (userMadeChangeRef.current || syncInFlightRef.current || syncTimeoutRef.current) return;
           if (data.workouts) setWorkouts(data.workouts);
-          if (data.dayLogs) setDayLogs(data.dayLogs);
+          if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
           if (data.plannerEvents) setPlannerEventsRaw(data.plannerEvents);
           if (data.habits) setHabits(data.habits);
           if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
+          // Re-hydrate from Dexie immediately so any per-row writes that the
+          // server didn't acknowledge yet survive the merge above.
+          hydrateFromLocalDB();
         }
       } catch { /* silent */ }
     }, 5000);
     return () => clearInterval(interval);
-  }, [isLoaded]);
+  }, [isLoaded, hydrateFromLocalDB]);
 
   // Offline-first sync loop (new per-row system, running in parallel with the
   // legacy dayLogs JSON sync). Writes go local first via upsertWorkoutLog/
@@ -2037,88 +2213,16 @@ export default function FitnessPage() {
     return () => clearInterval(tick);
   }, []);
 
-  // Hydrate dayLogs from the per-row store. Runs once on mount and every 5s
-  // thereafter to catch newly-pulled diffs. This is the bridge between the
-  // new per-row data and the old UI: we merge per-row truths on top of
-  // dayLogs JSON so the UI always sees the latest state, even when the
-  // legacy JSON hasn't caught up.
+  // Periodic re-hydrate from the per-row store to catch newly-pulled diffs.
+  // The hydrate function itself is defined above (next to loadData) so both
+  // can call it without forward-reference issues.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isLoaded) return;
-    let cancelled = false;
-    const hydrate = async () => {
-      try {
-        const { getLocalDB } = await import('@/lib/local-db');
-        const db = getLocalDB();
-        const [wRows, dRows] = await Promise.all([
-          db.workoutLogs.toArray(),
-          db.dayLogs.toArray(),
-        ]);
-        if (cancelled) return;
-        if (wRows.length === 0 && dRows.length === 0) return;
-
-        setDayLogs(prev => {
-          const next: Record<string, DayLog> = { ...prev };
-          // Merge workoutLogs → reconstruct workoutDraft.exercises per date.
-          // Group by date.
-          const byDate = new Map<string, typeof wRows>();
-          for (const r of wRows) {
-            const arr = byDate.get(r.date) ?? [];
-            arr.push(r);
-            byDate.set(r.date, arr);
-          }
-          for (const [date, rows] of byDate) {
-            const base: DayLog = next[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
-            const workoutId = rows.find(r => r.workoutId)?.workoutId ?? base.workoutDraft?.workoutId ?? base.selectedWorkout ?? null;
-            if (!workoutId) continue;
-            // Build draft from known rows; only touch exercises mentioned in rows.
-            const existingExercises = base.workoutDraft?.exercises ?? base.workoutSnapshot?.exercises ?? [];
-            const exMap = new Map(existingExercises.map(e => [e.id, { ...e }]));
-            for (const r of rows) {
-              const prevEx = exMap.get(r.exerciseId);
-              if (prevEx) {
-                prevEx.completed = r.completed;
-                if (r.actualSets !== null && r.actualSets !== undefined) {
-                  if (Array.isArray(r.actualSets)) prevEx.sets = r.actualSets as ExerciseSet[];
-                  else prevEx.actualSets = r.actualSets as string;
-                }
-                if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
-              }
-            }
-            if (!base.dayClosed) {
-              next[date] = {
-                ...base,
-                workoutDraft: {
-                  workoutId,
-                  workoutName: base.workoutDraft?.workoutName ?? base.workoutSnapshot?.workoutName ?? '',
-                  exercises: Array.from(exMap.values()),
-                },
-              };
-            }
-          }
-          // Merge dayLog kinds (dayClosed, workoutCompleted, workoutSnapshot, steps, etc).
-          for (const r of dRows) {
-            const base: DayLog = next[r.date] ?? { date: r.date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
-            const patch: Partial<DayLog> = {};
-            if (r.kind === 'dayClosed') patch.dayClosed = !!r.payload;
-            else if (r.kind === 'workoutCompleted') patch.workoutCompleted = r.payload as string | null;
-            else if (r.kind === 'workoutSnapshot') patch.workoutSnapshot = r.payload as WorkoutSnapshot | null;
-            else if (r.kind === 'isOffDay') patch.isOffDay = !!r.payload;
-            else if (r.kind === 'steps') patch.steps = r.payload as number | null;
-            else if (r.kind === 'workoutRating') patch.workoutRating = r.payload as DayLog['workoutRating'];
-            else if (r.kind === 'selectedWorkout') patch.selectedWorkout = r.payload as DayLog['selectedWorkout'];
-            else if (r.kind === 'notes' && typeof r.payload === 'string') patch.notes = r.payload;
-            else if (r.kind === 'meals' && Array.isArray(r.payload)) patch.meals = r.payload as DayLog['meals'];
-            next[r.date] = { ...base, ...patch };
-          }
-          return next;
-        });
-      } catch { /* ignore */ }
-    };
-    hydrate();
-    const id = setInterval(hydrate, 5000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [isLoaded]);
+    hydrateFromLocalDB();
+    const id = setInterval(hydrateFromLocalDB, 5000);
+    return () => clearInterval(id);
+  }, [isLoaded, hydrateFromLocalDB]);
 
   // Update selectedDate and todayStr when timezone changes or on initial load
   useEffect(() => {
