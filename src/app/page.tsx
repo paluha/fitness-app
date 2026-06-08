@@ -2594,57 +2594,15 @@ export default function FitnessPage() {
     updateDayLog({ selectedWorkout: workoutId });
   };
 
-  // Auto-mark past days with no activity as rest days. Runs once after the
-  // initial load (and again when the date rolls past midnight) so the user
-  // doesn't have to come back tomorrow and explicitly mark every untouched
-  // yesterday. A day is considered "untouched" only when nothing was logged
-  // at all — no workout draft with progress, no closed snapshot, no meals,
-  // no steps. Anything that smells like activity stays as-is, so we never
-  // overwrite a real session the user just hasn't closed yet.
-  const autoRestRunRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!isLoaded || !todayStr) return;
-    // Re-run when the visible "today" rolls over (midnight crossed).
-    if (autoRestRunRef.current === todayStr) return;
-    autoRestRunRef.current = todayStr;
-
-    const candidates: string[] = [];
-    for (const [date, log] of Object.entries(dayLogs)) {
-      if (date >= todayStr) continue;       // only past
-      if (!log) continue;
-      if (log.dayClosed) continue;          // already closed (workout or rest)
-      if (log.isOffDay) continue;
-      // Real workout progress on this day → user just forgot to close,
-      // don't silently convert it to a rest day and erase the draft.
-      const draftExercises = log.workoutDraft?.exercises ?? [];
-      const hasWorkoutProgress = draftExercises.some(e =>
-        e.completed
-        || (Array.isArray(e.sets) && e.sets.some(s => s.completed || (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0))
-        || (typeof e.actualSets === 'string' && e.actualSets.trim().length > 0)
-      );
-      if (hasWorkoutProgress) continue;
-      if (log.workoutSnapshot) continue;
-      // Other activity that should keep the day "active" (not rest).
-      if (log.meals && log.meals.length > 0) continue;
-      if (log.steps && log.steps > 0) continue;
-      candidates.push(date);
-    }
-    if (candidates.length === 0) return;
-
-    setDayLogs(prev => {
-      const next = { ...prev };
-      for (const date of candidates) {
-        const base = prev[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
-        next[date] = { ...base, isOffDay: true, dayClosed: true, workoutDraft: null };
-      }
-      return next;
-    });
-    // Mirror to the per-row outbox so other devices learn about it too.
-    for (const date of candidates) {
-      upsertDayLog({ date, kind: 'isOffDay', payload: true }).catch(() => {});
-      upsertDayLog({ date, kind: 'dayClosed', payload: true }).catch(() => {});
-    }
-  }, [isLoaded, todayStr, dayLogs]);
+  // NOTE: Auto-mark-as-rest used to live here. It was too aggressive — just
+  // clicking through past dates in the picker would create empty day logs
+  // (selectWorkout / date navigation effects below both write into dayLogs),
+  // and then the next render pass would see "past day with no progress" and
+  // silently close it as a rest day. That nuked workoutDraft on touched days.
+  // Re-introducing auto-rest needs a different signal source than the live
+  // dayLogs map — e.g. an explicit "last opened" timestamp per day. Leaving
+  // the manual Off Day chip as the only way to convert a day to rest until
+  // that lands.
 
   // Get completed workouts in current cycle (last N unique workouts where N = active workout count)
   const completedWorkoutsInCycle = useMemo(() => {
@@ -2701,9 +2659,14 @@ export default function FitnessPage() {
       if (currentDayLog.selectedWorkout) {
         setSelectedWorkout(currentDayLog.selectedWorkout);
       } else if (!currentDayLog.isOffDay) {
-        const nextWorkout = getNextAvailableWorkout();
-        setSelectedWorkout(nextWorkout);
-        updateDayLog({ selectedWorkout: nextWorkout });
+        // Picker UI only — don't write into the dayLog. Otherwise clicking
+        // a past date creates a phantom log entry and the user sees a
+        // workout they never picked.
+        // For TODAY use the cycle hint (next workout the user "owes"); for
+        // past untouched dates default to the very first workout so the
+        // selector starts at T1 and the user picks what they actually did.
+        const fallback = dateKey === todayStr ? getNextAvailableWorkout() : (workouts[0]?.id || 't1');
+        setSelectedWorkout(fallback);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
