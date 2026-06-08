@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone
+  Home, Trophy, Sun, Moon, MonitorSmartphone, Lock
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
@@ -788,6 +788,18 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
     if (dayClosed && !controlled) setExpandedLocal(false);
   }, [dayClosed, controlled]);
 
+  // Auto-collapse the moment the exercise is fully done. The user just
+  // ticked the last set — keeping the expanded flyout open is just noise,
+  // and a freshly-completed card should visually compact straight away.
+  const prevCompletedRef = useRef(ex.completed);
+  useEffect(() => {
+    if (ex.completed && !prevCompletedRef.current) {
+      if (controlled && expandedProp) onToggleExpand?.();
+      else if (!controlled) setExpandedLocal(false);
+    }
+    prevCompletedRef.current = ex.completed;
+  }, [ex.completed, controlled, expandedProp, onToggleExpand]);
+
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -915,7 +927,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
               <Zap size={11} />
               {ex.plannedSets}
               {ex.notes && (
-                <span style={{ color: 'var(--yellow)', marginLeft: '4px' }}>• {ex.notes}</span>
+                <span style={{ color: 'var(--text-secondary)', marginLeft: '4px' }}>• {ex.notes}</span>
               )}
             </div>
           )}
@@ -957,7 +969,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
             {ex.newWeight && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Новый вес:</span>
-                <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>{ex.newWeight}</span>
+                <span style={{ color: 'var(--green)', fontWeight: 600 }}>{ex.newWeight}</span>
               </div>
             )}
             {ex.feedback && (
@@ -1009,7 +1021,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
               const allDone = next.length > 0 && next.every(s => s.completed);
               onUpdate({ sets: next, completed: allDone });
             };
-            const cols = '24px 56px 1fr 1fr 28px';
+            const cols = '24px 56px 1fr 1fr 36px';
+            const allSetsDone = sets.length > 0 && sets.every(s => s.completed);
+            const markAllSets = () => {
+              const next = sets.map(s => ({ ...s, completed: !allSetsDone }));
+              const allDone = next.length > 0 && next.every(s => s.completed);
+              onUpdate({ sets: next, completed: allDone });
+            };
             return (
               <div style={{ marginTop: '8px', marginBottom: '10px' }}>
                 <div style={{
@@ -1028,7 +1046,25 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                   <span>Last</span>
                   <span style={{ textAlign: 'center' }}>Reps</span>
                   <span style={{ textAlign: 'center' }}>lbs</span>
-                  <span style={{ textAlign: 'center' }}>✓</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); markAllSets(); }}
+                    title={allSetsDone ? 'Снять все отметки' : 'Отметить все'}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      letterSpacing: '0.4px',
+                      textTransform: 'uppercase',
+                      color: allSetsDone ? 'var(--green)' : 'var(--cyan, #0ea5e9)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {allSetsDone ? '✓✓' : 'All'}
+                  </button>
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
@@ -1096,16 +1132,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                       onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
                       title="Right-click / long-press to remove this set"
                       style={{
-                        width: '22px', height: '22px',
+                        width: '30px', height: '30px',
                         border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
                         background: s.completed ? 'var(--green)' : 'transparent',
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: 'pointer', justifySelf: 'center',
                         padding: 0,
                         transition: 'background 160ms ease, border 160ms ease',
                       }}>
-                      {s.completed && <Check size={12} style={{ color: '#fff' }} strokeWidth={3} />}
+                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
                     </button>
                   </div>
                   );
@@ -1707,7 +1743,7 @@ function FitnessCalendar({
             >
               <span>{d.day}</span>
               {isToday && !isSelected ? (
-                <span style={{ fontSize: '8px', color: 'var(--yellow)' }}>сегодня</span>
+                <span style={{ fontSize: '8px', color: 'var(--cyan, #0ea5e9)' }}>сегодня</span>
               ) : hasWorkout ? (
                 <span style={{
                   fontSize: '9px',
@@ -2552,6 +2588,58 @@ export default function FitnessPage() {
     setSelectedWorkout(workoutId);
     updateDayLog({ selectedWorkout: workoutId });
   };
+
+  // Auto-mark past days with no activity as rest days. Runs once after the
+  // initial load (and again when the date rolls past midnight) so the user
+  // doesn't have to come back tomorrow and explicitly mark every untouched
+  // yesterday. A day is considered "untouched" only when nothing was logged
+  // at all — no workout draft with progress, no closed snapshot, no meals,
+  // no steps. Anything that smells like activity stays as-is, so we never
+  // overwrite a real session the user just hasn't closed yet.
+  const autoRestRunRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isLoaded || !todayStr) return;
+    // Re-run when the visible "today" rolls over (midnight crossed).
+    if (autoRestRunRef.current === todayStr) return;
+    autoRestRunRef.current = todayStr;
+
+    const candidates: string[] = [];
+    for (const [date, log] of Object.entries(dayLogs)) {
+      if (date >= todayStr) continue;       // only past
+      if (!log) continue;
+      if (log.dayClosed) continue;          // already closed (workout or rest)
+      if (log.isOffDay) continue;
+      // Real workout progress on this day → user just forgot to close,
+      // don't silently convert it to a rest day and erase the draft.
+      const draftExercises = log.workoutDraft?.exercises ?? [];
+      const hasWorkoutProgress = draftExercises.some(e =>
+        e.completed
+        || (Array.isArray(e.sets) && e.sets.some(s => s.completed || (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0))
+        || (typeof e.actualSets === 'string' && e.actualSets.trim().length > 0)
+      );
+      if (hasWorkoutProgress) continue;
+      if (log.workoutSnapshot) continue;
+      // Other activity that should keep the day "active" (not rest).
+      if (log.meals && log.meals.length > 0) continue;
+      if (log.steps && log.steps > 0) continue;
+      candidates.push(date);
+    }
+    if (candidates.length === 0) return;
+
+    setDayLogs(prev => {
+      const next = { ...prev };
+      for (const date of candidates) {
+        const base = prev[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+        next[date] = { ...base, isOffDay: true, dayClosed: true, workoutDraft: null };
+      }
+      return next;
+    });
+    // Mirror to the per-row outbox so other devices learn about it too.
+    for (const date of candidates) {
+      upsertDayLog({ date, kind: 'isOffDay', payload: true }).catch(() => {});
+      upsertDayLog({ date, kind: 'dayClosed', payload: true }).catch(() => {});
+    }
+  }, [isLoaded, todayStr, dayLogs]);
 
   // Get completed workouts in current cycle (last N unique workouts where N = active workout count)
   const completedWorkoutsInCycle = useMemo(() => {
@@ -3648,10 +3736,10 @@ export default function FitnessPage() {
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
-                          gap: '2px',
-                          padding: '6px 2px',
+                          gap: '3px',
+                          padding: '8px 2px 7px',
                           background: isSelected
-                            ? 'var(--yellow)'
+                            ? 'linear-gradient(135deg, var(--cyan, #0ea5e9), #38bdf8)'
                             : isOffDay
                               ? 'rgba(100, 116, 139, 0.15)'
                               : isLightDay
@@ -3659,53 +3747,57 @@ export default function FitnessPage() {
                                 : isClosed
                                   ? 'var(--green-dim)'
                                   : 'var(--bg-elevated)',
-                          border: isToday
-                            ? '2px solid var(--yellow)'
-                            : isOffDay && !isSelected
-                              ? '1px solid rgba(100, 116, 139, 0.3)'
-                              : isLightDay && !isSelected
-                                ? '1px solid rgba(100, 116, 139, 0.2)'
-                                : isClosed && !isSelected
-                                  ? '1px solid rgba(0, 200, 83, 0.3)'
-                                  : '1px solid var(--border)',
-                          borderRadius: '8px',
+                          border: isSelected
+                            ? 'none'
+                            : isToday
+                              ? '2px solid var(--cyan, #0ea5e9)'
+                              : isOffDay
+                                ? '1px solid rgba(100, 116, 139, 0.3)'
+                                : isLightDay
+                                  ? '1px solid rgba(100, 116, 139, 0.2)'
+                                  : isClosed
+                                    ? '1px solid rgba(0, 200, 83, 0.3)'
+                                    : '1px solid var(--border)',
+                          borderRadius: '10px',
                           cursor: 'pointer',
-                          opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.5 : 1,
+                          opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.55 : 1,
+                          transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
-                            ? '0 2px 10px var(--yellow-glow)'
-                            : isOffDay && !isSelected
+                            ? '0 6px 18px rgba(14, 165, 233, 0.45)'
+                            : isOffDay
                               ? '0 1px 4px rgba(100, 116, 139, 0.2)'
-                              : isLightDay && !isSelected
-                                ? 'none'
-                                : isClosed && !isSelected
-                                  ? '0 1px 4px var(--green-glow)'
-                                  : 'none'
+                              : isClosed
+                                ? '0 1px 4px var(--green-glow)'
+                                : 'none',
+                          transition: 'transform 160ms ease, box-shadow 160ms ease'
                         }}
                       >
                         <span style={{
                           fontSize: '9px',
-                          color: isSelected ? '#000' : 'var(--text-muted)',
-                          fontWeight: 600
+                          color: isSelected ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.4px'
                         }}>
                           {dayName}
                         </span>
                         <span style={{
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          fontSize: '14px',
+                          fontWeight: 800,
+                          color: isSelected ? '#fff' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
                         {(isClosed || isRestDay || isOffDay) && (
                           <span style={{
-                            fontSize: isOffDay ? '10px' : '9px',
-                            fontWeight: 600,
-                            color: isSelected ? '#000' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
+                            fontSize: isOffDay ? '11px' : '9px',
+                            fontWeight: 700,
+                            color: isSelected ? '#fff' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '1px'
+                            gap: '2px'
                           }}>
-                            {isClosed && !isOffDay && !isLightDay && <Check size={8} strokeWidth={3} />}
+                            {isClosed && !isOffDay && !isLightDay && <Check size={9} strokeWidth={3} />}
                             {workoutLabel}
                           </span>
                         )}
@@ -3818,14 +3910,14 @@ export default function FitnessPage() {
                         style={{
                           padding: '10px 4px',
                           background: isActive
-                            ? 'var(--yellow)'
+                            ? 'var(--cyan, #0ea5e9)'
                             : 'var(--bg-card)',
                           border: isActive ? 'none' : '1px solid var(--border)',
                           borderRadius: '10px',
-                          color: isActive ? '#000' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
+                          color: isActive ? '#fff' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
                           fontWeight: isActive ? 700 : 600,
                           fontSize: '13px',
-                          boxShadow: isActive ? '0 4px 20px var(--yellow-glow)' : 'none',
+                          boxShadow: isActive ? '0 4px 20px rgba(14, 165, 233, 0.45)' : 'none',
                           opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
                           transform: isActive ? 'scale(1.02)' : 'scale(1)',
                           minWidth: 0
@@ -4209,26 +4301,37 @@ export default function FitnessPage() {
                       onTouchEnd={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
                       style={{
                         width: '100%',
-                        padding: '20px',
+                        padding: '22px',
                         background: readyToClose
-                          ? ((hasSkippedExercises || !hasSteps) ? 'rgba(255,204,85,0.15)' : 'var(--green-dim)')
+                          ? ((hasSkippedExercises || !hasSteps)
+                              ? 'linear-gradient(135deg, rgba(255,204,85,0.18), rgba(255,204,85,0.08))'
+                              : 'linear-gradient(135deg, rgba(34,197,94,0.22), rgba(34,197,94,0.10))')
                           : 'var(--bg-card)',
                         border: `2px solid ${readyToClose ? ((hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--border)'}`,
-                        borderRadius: '16px',
+                        borderRadius: '18px',
                         color: readyToClose ? ((hasSkippedExercises || !hasSteps) ? 'var(--yellow, #ffcc55)' : 'var(--green)') : 'var(--text-primary)',
-                        fontWeight: 700,
-                        fontSize: '15px',
+                        fontWeight: 800,
+                        fontSize: '16px',
+                        letterSpacing: '0.3px',
+                        textTransform: 'uppercase',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '10px',
+                        gap: '12px',
                         boxShadow: readyToClose
-                          ? ((hasSkippedExercises || !hasSteps) ? '0 4px 20px rgba(255,204,85,0.2)' : '0 4px 20px var(--green-glow)')
-                          : 'none'
+                          ? ((hasSkippedExercises || !hasSteps)
+                              ? '0 8px 30px rgba(255,204,85,0.25)'
+                              : '0 8px 30px var(--green-glow), 0 0 0 1px rgba(34,197,94,0.2) inset')
+                          : 'none',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        touchAction: 'manipulation'
                       }}
                       className={readyToClose ? 'animate-glow' : ''}
                     >
-                      {readyToClose && <Check size={20} />}
+                      {readyToClose
+                        ? <Check size={22} strokeWidth={3} />
+                        : <Lock size={18} strokeWidth={2.5} style={{ opacity: 0.5 }} />}
                       {t('closeDay')}
                     </button>
                   </>
@@ -6864,7 +6967,7 @@ export default function FitnessPage() {
                       {ex.plannedSets} • {ex.restTime}
                     </div>
                     {ex.notes && (
-                      <div style={{ fontSize: '11px', color: 'var(--yellow)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                         {ex.notes}
                       </div>
                     )}
