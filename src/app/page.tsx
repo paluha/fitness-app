@@ -3683,7 +3683,7 @@ export default function FitnessPage() {
             {/* Week View - 7 days with T1-T7 */}
             <div className="card-soft" style={{
               padding: '12px',
-              marginBottom: '24px'
+              marginBottom: '12px'
             }}>
               <div style={{
                 display: 'grid',
@@ -3897,7 +3897,7 @@ export default function FitnessPage() {
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: `repeat(${Math.min(workouts.length + (workouts.length < MAX_WORKOUTS ? 1 : 0), 8)}, 1fr)`,
-                  gap: '8px',
+                  gap: '6px',
                   flex: 1
                 }}>
                   {workouts.map(w => {
@@ -3909,20 +3909,22 @@ export default function FitnessPage() {
                         className="tab-button btn-press"
                         onClick={() => selectWorkout(w.id)}
                         style={{
-                          minHeight: '52px',
-                          padding: '14px 4px',
+                          padding: '10px',
                           background: isActive
                             ? '#000'
                             : 'var(--bg-card)',
                           border: isActive ? '1px solid #000' : '1px solid var(--border)',
-                          borderRadius: '12px',
+                          borderRadius: '10px',
                           color: isActive ? '#fff' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
                           fontWeight: isActive ? 800 : 600,
-                          fontSize: '16px',
+                          fontSize: '14px',
                           boxShadow: isActive ? '0 4px 18px rgba(0,0,0,0.45)' : 'none',
                           opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
                           transform: isActive ? 'scale(1.02)' : 'scale(1)',
                           minWidth: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           touchAction: 'manipulation'
                         }}
                       >
@@ -3935,11 +3937,10 @@ export default function FitnessPage() {
                       className="btn-press"
                       onClick={addNewWorkout}
                       style={{
-                        minHeight: '52px',
-                        padding: '14px 4px',
+                        padding: '10px',
                         background: 'var(--bg-elevated)',
                         border: '1px dashed var(--border-strong)',
-                        borderRadius: '12px',
+                        borderRadius: '10px',
                         color: 'var(--text-muted)',
                         fontWeight: 600,
                         fontSize: '14px',
@@ -4390,7 +4391,7 @@ export default function FitnessPage() {
             </div>
 
             {/* Mini calendar */}
-            <div>
+            <div style={{ marginTop: '28px' }}>
               <FitnessCalendar
                 dayLogs={dayLogs}
                 selectedDate={selectedDate}
