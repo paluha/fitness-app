@@ -57,7 +57,18 @@ export async function GET() {
         timezone: user.timezone || 'Europe/Moscow',
         theme: user.theme || 'auto',
         name: user.name,
-        email: user.email
+        email: user.email,
+        // Per-user daily nutrition goal. The page's initial load hits this
+        // route (not /api/settings), so without this field the user's saved
+        // goal would be invisible until they navigate to Profile and the
+        // GoalEditor refetches it. That's the source of the "goals reset on
+        // sign-out / sign-in" bug.
+        goal: {
+          protein: user.goalProtein ?? 200,
+          fat: user.goalFat ?? 90,
+          carbs: user.goalCarbs ?? 200,
+          calories: user.goalCalories ?? 2410,
+        },
       }
     });
   } catch (error) {
@@ -69,7 +80,12 @@ export async function GET() {
       bodyMeasurements: null,
       favoriteMeals: null,
       nutritionRecommendations: null,
-      settings: { language: 'ru', timezone: 'Europe/Moscow', theme: 'auto' }
+      settings: {
+        language: 'ru',
+        timezone: 'Europe/Moscow',
+        theme: 'auto',
+        goal: { protein: 200, fat: 90, carbs: 200, calories: 2410 },
+      }
     });
   }
 }
