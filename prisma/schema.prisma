@@ -29,6 +29,14 @@ model User {
   language      String    @default("ru") // "ru" or "en"
   timezone      String    @default("Europe/Moscow")
   theme         String    @default("auto") // "light" | "dark" | "auto"
+
+  // Per-user daily nutrition goal. Used by macro progress bars, the food
+  // recommender, and the day summary. Nulls fall back to the app-wide
+  // defaults so existing users don't break before they open Profile.
+  goalProtein   Int?
+  goalFat       Int?
+  goalCarbs     Int?
+  goalCalories  Int?
   accounts      Account[]
   sessions      Session[]
   fitnessData   FitnessData?

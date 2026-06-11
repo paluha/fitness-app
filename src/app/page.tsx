@@ -257,6 +257,13 @@ interface BodyMeasurement {
   notes?: string;
 }
 
+interface MacroGoal {
+  protein: number;
+  fat: number;
+  carbs: number;
+  calories: number;
+}
+
 interface UserSettings {
   language: 'ru' | 'en';
   timezone: string;
@@ -265,6 +272,9 @@ interface UserSettings {
   // Theme preference. 'auto' picks dark between 22:00–06:00 (legacy night mode),
   // 'light'/'dark' force the theme regardless of time.
   theme?: 'light' | 'dark' | 'auto';
+  // Per-user daily nutrition goal. The server returns either the user's saved
+  // overrides or the app-wide fallback; both shapes look the same here.
+  goal?: MacroGoal;
 }
 
 interface NutritionRecommendation {
@@ -639,7 +649,11 @@ const DEFAULT_WORKOUTS: Workout[] = [
   }
 ];
 
-const MACRO_TARGETS = {
+// App-wide fallback used when the user hasn't set their own daily goal.
+// Inside FitnessPage we shadow this with `MACRO_TARGETS` derived from
+// userSettings.goal, so every reference to MACRO_TARGETS below the
+// component boundary automatically picks up per-user values.
+const MACRO_TARGETS_FALLBACK = {
   protein: 200,
   fat: 90,
   carbs: 200,
@@ -1958,6 +1972,153 @@ function mergeServerDayLogs(
   return next;
 }
 
+// Goal editor card shown in the Profile view. Holds its own draft state so
+// the user can type freely without each keystroke debouncing through the
+// server PUT. Save flushes the draft up to the parent + /api/settings; the
+// cleanup useEffect resyncs the draft when the server-side goal changes
+// (e.g. another device updated it).
+function GoalEditor({
+  goal,
+  language,
+  onSave,
+}: {
+  goal: MacroGoal;
+  language: 'ru' | 'en';
+  onSave: (next: MacroGoal) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState<{ protein: string; fat: string; carbs: string; calories: string }>({
+    protein: String(goal.protein),
+    fat: String(goal.fat),
+    carbs: String(goal.carbs),
+    calories: String(goal.calories),
+  });
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Re-seed the draft if the upstream goal changes from elsewhere (server
+  // pull, another device). Don't clobber the user's in-progress typing —
+  // only resync when they're not actively editing (saving===false and the
+  // draft matches the previous remote value).
+  const prevGoalRef = useRef(goal);
+  useEffect(() => {
+    const prev = prevGoalRef.current;
+    if (prev.protein === goal.protein && prev.fat === goal.fat && prev.carbs === goal.carbs && prev.calories === goal.calories) return;
+    prevGoalRef.current = goal;
+    setDraft({
+      protein: String(goal.protein),
+      fat: String(goal.fat),
+      carbs: String(goal.carbs),
+      calories: String(goal.calories),
+    });
+  }, [goal]);
+
+  const t = (ru: string, en: string) => (language === 'ru' ? ru : en);
+
+  const parsed: MacroGoal = {
+    protein: Math.max(0, Math.round(Number(draft.protein) || 0)),
+    fat: Math.max(0, Math.round(Number(draft.fat) || 0)),
+    carbs: Math.max(0, Math.round(Number(draft.carbs) || 0)),
+    calories: Math.max(0, Math.round(Number(draft.calories) || 0)),
+  };
+  const dirty = parsed.protein !== goal.protein
+    || parsed.fat !== goal.fat
+    || parsed.carbs !== goal.carbs
+    || parsed.calories !== goal.calories;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(parsed);
+      setSavedAt(Date.now());
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fields: Array<{ key: 'protein' | 'fat' | 'carbs' | 'calories'; label: string; unit: string; color: string }> = [
+    { key: 'protein',  label: t('Белок', 'Protein'),    unit: t('г', 'g'),     color: 'var(--red)' },
+    { key: 'fat',      label: t('Жиры', 'Fat'),         unit: t('г', 'g'),     color: 'var(--yellow)' },
+    { key: 'carbs',    label: t('Углеводы', 'Carbs'),   unit: t('г', 'g'),     color: 'var(--blue)' },
+    { key: 'calories', label: t('Калории', 'Calories'), unit: t('ккал', 'kcal'), color: 'var(--green)' },
+  ];
+
+  return (
+    <div style={{
+      marginBottom: '20px',
+      padding: '18px',
+      background: 'var(--bg-card)',
+      borderRadius: '16px',
+      border: '1px solid var(--border)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Target size={18} style={{ color: 'var(--green)' }} />
+          <div style={{ fontSize: '14px', fontWeight: 700 }}>{t('Моя цель', 'My Goal')}</div>
+        </div>
+        {savedAt && Date.now() - savedAt < 2500 && (
+          <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>
+            ✓ {t('сохранено', 'saved')}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        {fields.map(f => (
+          <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {f.label} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({f.unit})</span>
+            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={draft[f.key]}
+              onChange={(e) => setDraft(d => ({ ...d, [f.key]: e.target.value }))}
+              style={{
+                padding: '10px 12px',
+                background: 'var(--bg-elevated)',
+                border: `1px solid var(--border)`,
+                borderRadius: '10px',
+                color: f.color,
+                fontSize: '16px',
+                fontWeight: 700,
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            />
+          </label>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={!dirty || saving}
+        style={{
+          marginTop: '14px',
+          width: '100%',
+          minHeight: '46px',
+          padding: '12px 14px',
+          background: dirty
+            ? 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)'
+            : 'var(--bg-elevated)',
+          border: dirty ? 'none' : '1px solid var(--border)',
+          borderRadius: '12px',
+          color: dirty ? '#053b3a' : 'var(--text-muted)',
+          fontSize: '14px',
+          fontWeight: 800,
+          cursor: dirty && !saving ? 'pointer' : 'default',
+          textTransform: 'uppercase',
+          letterSpacing: '0.3px',
+          touchAction: 'manipulation',
+          boxShadow: dirty ? '0 6px 22px rgba(20, 184, 166, 0.35)' : 'none',
+        }}
+      >
+        {saving ? t('Сохраняем…', 'Saving…') : t('Сохранить цель', 'Save goal')}
+      </button>
+    </div>
+  );
+}
+
 export default function FitnessPage() {
   const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -2027,6 +2188,12 @@ export default function FitnessPage() {
   const [showMeasurementModal, setShowMeasurementModal] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurement | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettings>({ language: 'ru', timezone: 'Europe/Moscow' });
+
+  // Per-user daily goal — falls back to app-wide defaults until the user
+  // saves their own in Profile. Shadowing the module-level fallback name
+  // means every existing reference to MACRO_TARGETS below picks up the
+  // user's numbers without touching every call site.
+  const MACRO_TARGETS: MacroGoal = userSettings.goal ?? MACRO_TARGETS_FALLBACK;
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Theme — applied via .night-mode on <body>. 'auto' tracks the clock
@@ -5479,6 +5646,20 @@ export default function FitnessPage() {
                 <div style={{ fontSize: '18px', fontWeight: 600 }}>{userSettings.name || 'User'}</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{userSettings.email || 'fitness@app.local'}</div>
               </div>
+
+              {/* My Goal — per-user daily macro targets */}
+              <GoalEditor
+                goal={MACRO_TARGETS}
+                language={userSettings.language}
+                onSave={async (next) => {
+                  setUserSettings(s => ({ ...s, goal: next }));
+                  await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goal: next }),
+                  });
+                }}
+              />
 
               {/* Settings */}
               <div style={{
