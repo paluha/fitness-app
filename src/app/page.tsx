@@ -3646,34 +3646,37 @@ export default function FitnessPage() {
             {t('food')}
           </button>
 
-          {/* Planner tab */}
-          <button
-            className="tab-button btn-press"
-            onClick={() => {
-              setView('planner');
-              localStorage.setItem('fitness_view', 'planner');
-              setShowProfileDropdown(false);
-            }}
-            style={{
-              flex: 1,
-              padding: '12px',
-              background: view === 'planner' ? 'var(--yellow)' : 'var(--bg-elevated)',
-              border: view === 'planner' ? 'none' : '1px solid var(--border)',
-              borderRadius: '12px',
-              color: view === 'planner' ? '#000' : 'var(--text-secondary)',
-              fontWeight: view === 'planner' ? 700 : 500,
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              boxShadow: view === 'planner' ? '0 4px 20px var(--yellow-glow)' : 'none',
-              transform: view === 'planner' ? 'scale(1.02)' : 'scale(1)'
-            }}
-          >
-            <CalendarDays size={16} />
-            {userSettings.language === 'ru' ? 'Дела' : 'Plan'}
-          </button>
+          {/* Planner tab — hidden for the friend account (Dmitri) per request.
+              Compared on email so it survives a name change. */}
+          {userSettings.email !== 'dmitriheadshot@friend.local' && (
+            <button
+              className="tab-button btn-press"
+              onClick={() => {
+                setView('planner');
+                localStorage.setItem('fitness_view', 'planner');
+                setShowProfileDropdown(false);
+              }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                background: view === 'planner' ? 'var(--yellow)' : 'var(--bg-elevated)',
+                border: view === 'planner' ? 'none' : '1px solid var(--border)',
+                borderRadius: '12px',
+                color: view === 'planner' ? '#000' : 'var(--text-secondary)',
+                fontWeight: view === 'planner' ? 700 : 500,
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: view === 'planner' ? '0 4px 20px var(--yellow-glow)' : 'none',
+                transform: view === 'planner' ? 'scale(1.02)' : 'scale(1)'
+              }}
+            >
+              <CalendarDays size={16} />
+              {userSettings.language === 'ru' ? 'Дела' : 'Plan'}
+            </button>
+          )}
 
           {/* Profile tab with dropdown */}
           <div style={{ flex: 1, position: 'relative' }} ref={profileDropdownRef}>
