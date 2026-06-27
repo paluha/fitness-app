@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, Lock
+  Home, Trophy, Sun, Moon, MonitorSmartphone, Lock, MessageCircle
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -2121,7 +2121,7 @@ function GoalEditor({
 }
 
 export default function FitnessPage() {
-  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner'>('workout');
+  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner' | 'chat'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [todayStr, setTodayStr] = useState(''); // Initialize on client to avoid hydration mismatch
   const [isNightMode, setIsNightMode] = useState(false);
@@ -3578,11 +3578,8 @@ export default function FitnessPage() {
       </header>
 
       {/* Navigation tabs */}
-      <nav style={{
-        padding: '12px 20px',
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border)'
-      }}>
+      {/* Верхняя навигация убрана — всё переехало в нижний таб-бар (как в Superpower) */}
+      <nav style={{ display: 'none' }}>
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -3822,6 +3819,7 @@ export default function FitnessPage() {
         flex: 1,
         overflow: 'auto',
         padding: '16px 20px',
+        paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))',
         maxWidth: '600px',
         margin: '0 auto',
         width: '100%'
@@ -5612,6 +5610,40 @@ export default function FitnessPage() {
           </div>
         )}
 
+        {/* Под-навигация раздела «Я»: Профиль · Прогресс · Статистика.
+            Переехала сюда из старого верхнего дропдауна. Показывается на всех
+            трёх вложенных экранах. */}
+        {(view === 'profile' || view === 'gains' || view === 'analytics') && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            {([
+              { key: 'profile',   icon: <Settings size={15} />,  label: t('settings') },
+              { key: 'gains',     icon: <Scale size={15} />,     label: t('gains') },
+              { key: 'analytics', icon: <BarChart3 size={15} />, label: t('statistics') },
+            ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((sub) => (
+              <button
+                key={sub.key}
+                className="btn-press"
+                onClick={() => { setView(sub.key); localStorage.setItem('fitness_view', sub.key); }}
+                style={{
+                  flex: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  padding: '10px',
+                  background: view === sub.key ? 'var(--yellow)' : 'var(--bg-elevated)',
+                  border: view === sub.key ? 'none' : '1px solid var(--border)',
+                  borderRadius: '12px',
+                  color: view === sub.key ? '#000' : 'var(--text-secondary)',
+                  fontWeight: view === sub.key ? 700 : 500,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                {sub.icon}
+                {sub.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* PROFILE VIEW */}
         {view === 'profile' && (
           <div className="view-content">
@@ -5883,6 +5915,13 @@ export default function FitnessPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* CHAT VIEW — AI-ассистент как полноэкранная вкладка */}
+        {view === 'chat' && (
+          <div className="view-content" style={{ height: 'calc(100vh - 200px)' }}>
+            <AssistantChat />
           </div>
         )}
       </div>
@@ -7319,8 +7358,69 @@ export default function FitnessPage() {
         </div>
       )}
 
-      {/* AI-ассистент: плавающая кнопка + чат, цепляет данные юзера */}
-      <AssistantChat />
+      {/* Нижний таб-бар (как в Superpower) — вся навигация переехала сюда */}
+      <nav style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 90,
+        background: 'var(--bg-secondary)',
+        borderTop: '1px solid var(--border)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}>
+        <div style={{
+          display: 'flex',
+          maxWidth: '600px',
+          margin: '0 auto',
+          padding: '6px 8px',
+        }}>
+          {([
+            { key: 'workout',   icon: <Dumbbell size={22} />,     label: t('workout') },
+            { key: 'nutrition', icon: <Apple size={22} />,        label: t('food') },
+            ...(userSettings.email !== 'dmitriheadshot@friend.local'
+              ? [{ key: 'planner', icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }]
+              : []),
+            { key: 'chat',      icon: <MessageCircle size={22} />, label: userSettings.language === 'ru' ? 'Чат' : 'Chat' },
+            { key: 'profile',   icon: <User size={22} />,          label: userSettings.language === 'ru' ? 'Я' : 'Me' },
+          ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
+            // «Я» подсвечивается также на вложенных экранах (статистика, прогресс)
+            const isActive = tab.key === 'profile'
+              ? (view === 'profile' || view === 'gains' || view === 'analytics')
+              : view === tab.key;
+            return (
+              <button
+                key={tab.key}
+                className="btn-press"
+                onClick={() => {
+                  setView(tab.key);
+                  localStorage.setItem('fitness_view', tab.key);
+                  setShowProfileDropdown(false);
+                }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '3px',
+                  padding: '8px 4px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: isActive ? 'var(--yellow)' : 'var(--text-secondary)',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '11px',
+                  transition: 'color 0.15s ease',
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </main>
   );
 }

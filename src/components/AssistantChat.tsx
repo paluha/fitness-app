@@ -1,29 +1,29 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { MessageCircle, Send } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string };
 
-// AI-ассистент: плавающая кнопка + выезжающая панель чата со стримингом.
+// AI-ассистент. Режим `embedded` — полноэкранная вкладка (как в Superpower),
+// рендерится внутри контентной области под нижним таб-баром.
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 export function AssistantChat() {
-  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // история подгружается при первом открытии
+  // история подгружается один раз при монтировании
   useEffect(() => {
-    if (!open || loaded) return;
+    if (loaded) return;
     setLoaded(true);
     fetch('/api/chat')
       .then((r) => (r.ok ? r.json() : { messages: [] }))
       .then((d) => setMessages(d.messages ?? []))
       .catch(() => {});
-  }, [open, loaded]);
+  }, [loaded]);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -78,106 +78,65 @@ export function AssistantChat() {
   };
 
   return (
-    <>
-      {/* плавающая кнопка */}
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="AI-ассистент"
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* шапка */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+        <MessageCircle size={20} color="var(--yellow)" /> AI-ассистент
+      </div>
+
+      {/* сообщения */}
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 8 }}>
+        {messages.length === 0 && (
+          <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', marginTop: 32, lineHeight: 1.5 }}>
+            Спроси меня про тренировки, питание, прогресс.<br />Я вижу твои данные 💪
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div
+            key={m.id ?? i}
+            style={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '88%',
+              background: m.role === 'user' ? 'var(--yellow)' : 'var(--bg-elevated)',
+              color: m.role === 'user' ? '#000' : 'var(--text-primary)',
+              border: m.role === 'user' ? 'none' : '1px solid var(--border)',
+              padding: '10px 13px', borderRadius: 14,
+              fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}
+          >
+            {m.content || (m.role === 'assistant' && busy ? '…' : '')}
+          </div>
+        ))}
+      </div>
+
+      {/* ввод */}
+      <div style={{ display: 'flex', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={onKey}
+          placeholder="Спроси что-нибудь…"
+          rows={1}
           style={{
-            position: 'fixed', right: 16, bottom: 84, zIndex: 1000,
-            width: 56, height: 56, borderRadius: '50%', border: 'none',
-            background: 'linear-gradient(135deg,#7c5cff,#5b8cff)', color: '#fff',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.35)', cursor: 'pointer',
+            flex: 1, resize: 'none', background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+            border: '1px solid var(--border)', borderRadius: 12,
+            padding: '11px 13px', fontSize: 14, outline: 'none', maxHeight: 120,
+          }}
+        />
+        <button
+          onClick={send}
+          disabled={busy || !input.trim()}
+          aria-label="отправить"
+          style={{
+            width: 46, borderRadius: 12, border: 'none', cursor: busy || !input.trim() ? 'not-allowed' : 'pointer',
+            background: busy || !input.trim() ? 'var(--bg-elevated)' : 'var(--yellow)',
+            color: busy || !input.trim() ? 'var(--text-secondary)' : '#000',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          <MessageCircle size={26} />
+          <Send size={18} />
         </button>
-      )}
-
-      {/* панель чата */}
-      {open && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1001,
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.4)',
-          }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%', maxWidth: 480, height: '85vh',
-              background: '#15171e', color: '#fff',
-              borderRadius: '16px 16px 0 0', display: 'flex', flexDirection: 'column',
-              boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
-            }}
-          >
-            {/* шапка */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
-                <MessageCircle size={18} color="#8b7bff" /> AI-ассистент
-              </div>
-              <button onClick={() => setOpen(false)} aria-label="закрыть" style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* сообщения */}
-            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {messages.length === 0 && (
-                <div style={{ color: '#8a8f9c', fontSize: 13, textAlign: 'center', marginTop: 24 }}>
-                  Спроси меня про тренировки, питание, прогресс. Я вижу твои данные 💪
-                </div>
-              )}
-              {messages.map((m, i) => (
-                <div
-                  key={m.id ?? i}
-                  style={{
-                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    background: m.role === 'user' ? 'linear-gradient(135deg,#7c5cff,#5b8cff)' : '#23262f',
-                    color: '#fff', padding: '9px 12px', borderRadius: 12,
-                    fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                  }}
-                >
-                  {m.content || (m.role === 'assistant' && busy ? '…' : '')}
-                </div>
-              ))}
-            </div>
-
-            {/* ввод */}
-            <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKey}
-                placeholder="Спроси что-нибудь…"
-                rows={1}
-                style={{
-                  flex: 1, resize: 'none', background: '#0f1116', color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10,
-                  padding: '10px 12px', fontSize: 14, outline: 'none', maxHeight: 120,
-                }}
-              />
-              <button
-                onClick={send}
-                disabled={busy || !input.trim()}
-                aria-label="отправить"
-                style={{
-                  width: 44, borderRadius: 10, border: 'none', cursor: busy || !input.trim() ? 'not-allowed' : 'pointer',
-                  background: busy || !input.trim() ? '#333' : 'linear-gradient(135deg,#7c5cff,#5b8cff)',
-                  color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Send size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
