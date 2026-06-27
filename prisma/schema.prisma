@@ -56,8 +56,25 @@ model User {
   // Food products added by user
   addedFoodProducts FoodProduct[]
 
+  // AI-чат: история сообщений с ассистентом
+  chatMessages  ChatMessage[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+// История AI-чата пользователя со своим фитнес-ассистентом.
+// Сообщения сохраняются, чтобы пользователь видел переписку при возврате
+// (как в Superpower). role: "user" | "assistant".
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // "user" | "assistant"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model TrainingProgram {

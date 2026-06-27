@@ -12,6 +12,7 @@ import {
   Home, Trophy, Sun, Moon, MonitorSmartphone, Lock
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
+import { AssistantChat } from '@/components/AssistantChat';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -7317,6 +7318,9 @@ export default function FitnessPage() {
           </div>
         </div>
       )}
+
+      {/* AI-ассистент: плавающая кнопка + чат, цепляет данные юзера */}
+      <AssistantChat />
     </main>
   );
 }
