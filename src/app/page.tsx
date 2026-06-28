@@ -7379,7 +7379,7 @@ export default function FitnessPage() {
           display: 'flex',
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border)',
-          borderRadius: '999px',
+          borderRadius: '27px',
           padding: '6px 8px',
           boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
         }}>
@@ -7423,7 +7423,7 @@ export default function FitnessPage() {
             flexShrink: 0,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             gap: '3px', padding: '0 18px',
-            borderRadius: '999px', border: 'none', cursor: 'pointer',
+            borderRadius: '27px', border: 'none', cursor: 'pointer',
             background: view === 'chat' ? '#222222' : 'var(--yellow)',
             color: view === 'chat' ? '#fff' : '#222222',
             boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
