@@ -1591,51 +1591,32 @@ function FitnessCalendar({
           </button>
         </div>
 
-        {/* Month stats */}
+        {/* Month stats — компактные нейтральные бейджи */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '12px'
+          gap: '8px'
         }}>
-          <div style={{
-            background: 'var(--green-dim)',
-            padding: '12px',
-            borderRadius: '12px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--green)' }}>
-              {monthStats.workoutDays}
+          {[
+            { value: String(monthStats.workoutDays), label: 'тренировок' },
+            { value: `${Math.round(monthStats.totalSteps / 1000)}K`, label: 'шагов' },
+            { value: String(monthStats.stepDays > 0 ? Math.round(monthStats.totalSteps / monthStats.stepDays) : 0), label: 'ср. шагов' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              padding: '8px 6px',
+              borderRadius: '10px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {s.value}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                {s.label}
+              </div>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              тренировок
-            </div>
-          </div>
-          <div style={{
-            background: 'var(--blue-dim)',
-            padding: '12px',
-            borderRadius: '12px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--blue)' }}>
-              {Math.round(monthStats.totalSteps / 1000)}K
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              шагов
-            </div>
-          </div>
-          <div style={{
-            background: 'rgba(59, 130, 246, 0.15)',
-            padding: '12px',
-            borderRadius: '12px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: 'rgb(59, 130, 246)' }}>
-              {monthStats.stepDays > 0 ? Math.round(monthStats.totalSteps / monthStats.stepDays) : 0}
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              ср. шагов
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -1796,7 +1777,13 @@ function FitnessCalendar({
                   {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                 </span>
               ) : isOffDay ? (
-                <span style={{ fontSize: '10px' }}>😴</span>
+                // День отдыха — нейтральная серая чёрточка вместо эмодзи
+                <div style={{
+                  width: '8px',
+                  height: '2px',
+                  borderRadius: '1px',
+                  background: 'rgb(148, 163, 184)'
+                }} />
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
@@ -1819,85 +1806,55 @@ function FitnessCalendar({
         justifyContent: 'center',
         flexWrap: 'wrap'
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '11px',
-          color: 'var(--text-muted)'
-        }}>
+        {/* Тренировка выполнена полностью */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
           <div style={{
-            width: '14px',
-            height: '14px',
-            borderRadius: '4px',
-            background: 'var(--green-dim)',
-            border: '1px solid rgba(0, 200, 83, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            width: '14px', height: '14px', borderRadius: '4px',
+            background: 'var(--green-dim)', border: '1px solid rgba(0, 200, 83, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
             <Check size={8} strokeWidth={3} style={{ color: 'var(--green)' }} />
           </div>
-          Закрыто
+          Тренировка
         </div>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '11px',
-          color: 'var(--text-muted)'
-        }}>
+        {/* Частично — были пропуски */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
           <div style={{
-            width: '14px',
-            height: '14px',
-            borderRadius: '4px',
-            background: 'var(--blue-dim)',
-            border: '1px solid rgba(0, 180, 216, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            width: '14px', height: '14px', borderRadius: '4px',
+            border: '1px solid rgba(0, 200, 83, 0.3)', overflow: 'hidden',
+            background: 'linear-gradient(to top, var(--green-dim) 50%, transparent 50%)'
+          }} />
+          Частично
+        </div>
+        {/* Шаги */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <div style={{
+            width: '14px', height: '14px', borderRadius: '4px',
+            background: 'var(--blue-dim)', border: '1px solid rgba(0, 180, 216, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
             <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--blue)' }} />
           </div>
           Шаги
         </div>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '11px',
-          color: 'var(--text-muted)'
-        }}>
+        {/* Отдых */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
           <div style={{
-            width: '14px',
-            height: '14px',
-            borderRadius: '4px',
-            border: '2px solid var(--yellow)',
-            background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(0, 200, 83, 0.2) 100%)'
+            width: '14px', height: '14px', borderRadius: '4px',
+            background: 'rgba(100, 116, 139, 0.15)', border: '1px solid rgba(100, 116, 139, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <div style={{ width: '7px', height: '2px', borderRadius: '1px', background: 'rgb(148, 163, 184)' }} />
+          </div>
+          Отдых
+        </div>
+        {/* Сегодня */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <div style={{
+            width: '14px', height: '14px', borderRadius: '4px',
+            border: '2px solid var(--cyan, #0ea5e9)', background: 'transparent'
           }} />
           Сегодня
-        </div>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '11px',
-          color: 'var(--text-muted)'
-        }}>
-          <div style={{
-            width: '14px',
-            height: '14px',
-            borderRadius: '4px',
-            border: '1px solid rgba(239, 68, 68, 0.5)',
-            background: 'rgba(239, 68, 68, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '9px',
-            color: 'var(--red)',
-            fontWeight: 700
-          }}>!</div>
-          Не закрыто
         </div>
       </div>
     </div>
@@ -3867,23 +3824,37 @@ export default function FitnessPage() {
                     const isToday = dateStr === todayStr;
                     const isSelected = dateStr === dateKey;
                     const isFuture = dateStr > todayStr;
-                    const isClosed = log?.dayClosed;
-                    // Days beyond active workout count are rest days
                     const isRestDay = i >= workouts.length;
                     const isOffDay = log?.isOffDay;
 
-                    // Show completed workout label (T1, T2, etc.) or dash for rest/off days
-                    const completedWorkoutId = log?.workoutCompleted;
-                    const completedWorkout = completedWorkoutId
-                      ? workouts.find(w => w.id === completedWorkoutId)
-                      : null;
-                    const isLightDay = isClosed && !completedWorkout && !isOffDay;
-                    const workoutLabel = isClosed && completedWorkout
-                      ? completedWorkout.name.replace('Тренировка ', 'T')
-                      : isOffDay ? '😴' : isLightDay ? '🚶' : isRestDay ? '—' : '';
+                    // Тот же расчёт, что и в месячном календаре: считаем по
+                    // фактически выполненным упражнениям (snapshot или draft).
+                    const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+                    const exTotal = dayExercises.length;
+                    const exDone = dayExercises.filter(e => e.completed).length;
+                    const hasWorkout = !isOffDay && exDone > 0;
+                    const fullyDone = exTotal > 0 && exDone === exTotal;
+                    const workoutPct = exTotal > 0 ? exDone / exTotal : 0;
 
-                    // Empty day = not closed and not rest day (no workout done yet)
-                    const isEmptyDay = !isClosed && !isRestDay && !isFuture;
+                    // Метка тренировки (T1/T2…) из snapshot/draft/выбранной
+                    const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
+                    const completedWorkout = wId ? workouts.find(w => w.id === wId) : null;
+                    const workoutLabel = hasWorkout && completedWorkout
+                      ? completedWorkout.name.replace('Тренировка ', 'T')
+                      : '';
+
+                    const isEmptyDay = !hasWorkout && !isRestDay && !isFuture && !isOffDay;
+
+                    // Фон: полный зелёный / частичная заливка снизу / отдых / пусто
+                    const bg = isSelected
+                      ? 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)'
+                      : isOffDay
+                        ? 'rgba(100, 116, 139, 0.15)'
+                        : hasWorkout
+                          ? (fullyDone
+                              ? 'var(--green-dim)'
+                              : `linear-gradient(to top, var(--green-dim) ${Math.round(workoutPct * 100)}%, var(--bg-elevated) ${Math.round(workoutPct * 100)}%)`)
+                          : 'var(--bg-elevated)';
 
                     return (
                       <button
@@ -3895,37 +3866,25 @@ export default function FitnessPage() {
                           alignItems: 'center',
                           gap: '3px',
                           padding: '8px 2px 7px',
-                          background: isSelected
-                            ? 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)'
-                            : isOffDay
-                              ? 'rgba(100, 116, 139, 0.15)'
-                              : isLightDay
-                                ? 'rgba(100, 116, 139, 0.1)'
-                                : isClosed
-                                  ? 'var(--green-dim)'
-                                  : 'var(--bg-elevated)',
+                          background: bg,
                           border: isSelected
                             ? 'none'
                             : isToday
-                              ? '2px solid #22c55e'
+                              ? '2px solid var(--cyan, #0ea5e9)'
                               : isOffDay
                                 ? '1px solid rgba(100, 116, 139, 0.3)'
-                                : isLightDay
-                                  ? '1px solid rgba(100, 116, 139, 0.2)'
-                                  : isClosed
-                                    ? '1px solid rgba(0, 200, 83, 0.3)'
-                                    : '1px solid var(--border)',
+                                : hasWorkout
+                                  ? '1px solid rgba(0, 200, 83, 0.3)'
+                                  : '1px solid var(--border)',
                           borderRadius: '10px',
                           cursor: 'pointer',
                           opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.55 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
                             ? '0 6px 18px rgba(34, 197, 94, 0.45)'
-                            : isOffDay
-                              ? '0 1px 4px rgba(100, 116, 139, 0.2)'
-                              : isClosed
-                                ? '0 1px 4px var(--green-glow)'
-                                : 'none',
+                            : (hasWorkout && fullyDone)
+                              ? '0 1px 4px var(--green-glow)'
+                              : 'none',
                           transition: 'transform 160ms ease, box-shadow 160ms ease'
                         }}
                       >
@@ -3941,23 +3900,23 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '14px',
                           fontWeight: 800,
-                          color: isSelected ? '#0b3d20' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#0b3d20' : isOffDay ? 'rgb(148, 163, 184)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
-                        {(isClosed || isRestDay || isOffDay) && (
+                        {/* Подпись: галочка+метка если всё, счётчик если частично, чёрточка для отдыха */}
+                        {hasWorkout ? (
                           <span style={{
-                            fontSize: isOffDay ? '11px' : '9px',
-                            fontWeight: 700,
-                            color: isSelected ? '#0b3d20' : isOffDay ? 'rgb(148, 163, 184)' : isLightDay ? 'var(--text-muted)' : isClosed ? 'var(--green)' : 'var(--text-muted)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '2px'
+                            fontSize: '9px', fontWeight: 700,
+                            color: isSelected ? '#0b3d20' : 'var(--green)',
+                            display: 'flex', alignItems: 'center', gap: '2px'
                           }}>
-                            {isClosed && !isOffDay && !isLightDay && <Check size={9} strokeWidth={3} />}
-                            {workoutLabel}
+                            {fullyDone ? <Check size={9} strokeWidth={3} /> : null}
+                            {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                           </span>
-                        )}
+                        ) : (isOffDay || isRestDay) ? (
+                          <div style={{ width: '8px', height: '2px', borderRadius: '1px', background: 'rgb(148, 163, 184)' }} />
+                        ) : null}
                       </button>
                     );
                   });
@@ -4223,61 +4182,7 @@ export default function FitnessPage() {
 
             </div>{/* end closed day dimming wrapper */}
 
-            {/* Close/Open day button */}
-            {(totalExercises > 0 || currentDayLog.isOffDay) && (
-            <div style={{ marginTop: '16px', marginBottom: '20px' }}>
-              {(() => {
-                // Функция «закрыть день» убрана. Показываем лёгкую сводку
-                // прогресса: сколько упражнений выполнено и есть ли пропуски.
-                const isOffDay = currentDayLog.isOffDay;
-                const hasSteps = currentDayLog.steps && currentDayLog.steps > 0;
-                const allExercisesDone = totalExercises > 0 && completedExercises === totalExercises;
-                const hasSkippedExercises = !isOffDay && !allExercisesDone && totalExercises > 0;
-
-                if (isOffDay) {
-                  return (
-                    <div style={{
-                      padding: '14px 18px',
-                      background: 'rgba(100, 116, 139, 0.12)',
-                      border: '1px solid rgba(100, 116, 139, 0.25)',
-                      borderRadius: '14px',
-                      display: 'flex', alignItems: 'center', gap: '10px',
-                      color: 'var(--text-muted)', fontWeight: 600, fontSize: '14px',
-                    }}>
-                      😴 {userSettings.language === 'ru' ? 'День отдыха' : 'Rest Day'}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div style={{
-                    padding: '14px 18px',
-                    background: allExercisesDone ? 'var(--green-dim)' : 'var(--bg-card)',
-                    border: allExercisesDone ? '1px solid rgba(0, 200, 83, 0.3)' : '1px solid var(--border)',
-                    borderRadius: '14px',
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                  }}>
-                    {allExercisesDone
-                      ? <Check size={20} strokeWidth={3} style={{ color: 'var(--green)', flexShrink: 0 }} />
-                      : <Dumbbell size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
-                    <div style={{ flex: 1 }}>
-                      <div style={{
-                        fontWeight: 700, fontSize: '14px',
-                        color: allExercisesDone ? 'var(--green)' : (hasSkippedExercises ? '#f59e0b' : 'var(--text-primary)'),
-                      }}>
-                        {completedExercises}/{totalExercises} {userSettings.language === 'ru' ? 'упражнений выполнено' : 'exercises done'}
-                      </div>
-                      {!hasSteps && (
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {userSettings.language === 'ru' ? 'Шаги не добавлены' : 'No steps added'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-            )}
+            {/* Сводка прогресса дня убрана по запросу. */}
 
             {/* Steps input — moved under the Close Day button per request.
                 Always editable, even for a closed day. */}
