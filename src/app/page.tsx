@@ -3393,8 +3393,7 @@ export default function FitnessPage() {
       {/* Header */}
       <header style={{
         padding: '16px 20px',
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-primary)',
         position: 'sticky',
         top: 0,
         zIndex: 50
