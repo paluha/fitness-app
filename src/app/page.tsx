@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, Lock, MessageCircle
+  Home, Trophy, Sun, Moon, MonitorSmartphone, Lock
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -3819,7 +3819,7 @@ export default function FitnessPage() {
         flex: 1,
         overflow: 'auto',
         padding: '16px 20px',
-        paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0px))',
         maxWidth: '600px',
         margin: '0 auto',
         width: '100%'
@@ -7358,22 +7358,30 @@ export default function FitnessPage() {
         </div>
       )}
 
-      {/* Нижний таб-бар (как в Superpower) — вся навигация переехала сюда */}
+      {/* Нижняя навигация: основное меню-капсула + отдельная капсула AI-чата справа */}
       <nav style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 90,
-        background: 'var(--bg-secondary)',
-        borderTop: '1px solid var(--border)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: '10px',
+        maxWidth: '600px',
+        margin: '0 auto',
+        padding: '0 12px',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
       }}>
+        {/* Капсула с основными вкладками */}
         <div style={{
+          flex: 1,
           display: 'flex',
-          maxWidth: '600px',
-          margin: '0 auto',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border)',
+          borderRadius: '999px',
           padding: '6px 8px',
+          boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
         }}>
           {([
             { key: 'workout',   icon: <Dumbbell size={22} />,     label: String(t('workout')) },
@@ -7382,8 +7390,6 @@ export default function FitnessPage() {
               ? [{ key: 'planner' as typeof view, icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }]
               : []),
             { key: 'profile', icon: <User size={22} />,           label: userSettings.language === 'ru' ? 'Я' : 'Me' },
-            // Чат — последняя вкладка в самом правом углу
-            { key: 'chat',    icon: <MessageCircle size={22} />,  label: userSettings.language === 'ru' ? 'Чат' : 'Chat' },
           ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
             // «Я» подсвечивается также на вложенных экранах (статистика, прогресс)
             const isActive = tab.key === 'profile'
@@ -7407,6 +7413,27 @@ export default function FitnessPage() {
             );
           })}
         </div>
+
+        {/* Отдельная капсула AI-чата справа */}
+        <button
+          className="btn-press"
+          onClick={() => { setView('chat'); localStorage.setItem('fitness_view', 'chat'); setShowProfileDropdown(false); }}
+          aria-label="AI-ассистент"
+          style={{
+            flexShrink: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: '3px', padding: '0 18px',
+            borderRadius: '999px', border: 'none', cursor: 'pointer',
+            background: view === 'chat' ? '#222222' : 'var(--yellow)',
+            color: view === 'chat' ? '#fff' : '#222222',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
+            transition: 'transform 0.15s ease, background 0.15s ease',
+            transform: view === 'chat' ? 'scale(1.03)' : 'scale(1)',
+          }}
+        >
+          <Sparkles size={22} />
+          <span style={{ fontSize: '11px', fontWeight: 700 }}>AI</span>
+        </button>
       </nav>
     </main>
   );

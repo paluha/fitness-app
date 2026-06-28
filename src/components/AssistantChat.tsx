@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, Send, Paperclip, X } from 'lucide-react';
+import { Sparkles, Send, Paperclip, X } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string };
 
@@ -115,7 +115,7 @@ export function AssistantChat() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* шапка */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>
-        <MessageCircle size={20} color="var(--yellow)" /> AI-ассистент
+        <Sparkles size={20} color="var(--yellow)" /> AI-ассистент
       </div>
 
       {/* сообщения */}
