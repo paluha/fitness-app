@@ -1664,14 +1664,13 @@ function FitnessCalendar({
           const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
           const exTotal = dayExercises.length;
           const exDone = dayExercises.filter(e => e.completed).length;
-          const hasAnyWorkout = !isOffDay && exDone > 0;       // были выполненные упражнения
+          const hasWorkout = exDone > 0;                        // были выполненные упражнения
           const fullyDone = exTotal > 0 && exDone === exTotal;  // все выполнены
           const workoutPct = exTotal > 0 ? exDone / exTotal : 0; // доля для частичной заливки
-          const hasWorkout = hasAnyWorkout;
-          const hasSteps = log?.steps && log.steps > 0 && !hasWorkout && !isOffDay;
+          const hasSteps = log?.steps && log.steps > 0 && !hasWorkout;
 
-          // Прошлый день без активности (нет упражнений, не отдых, не сегодня/будущее)
-          const isUnclosedPastDay = !isFuture && !isToday && !hasAnyWorkout && !isOffDay;
+          // Прошлый день без тренировки = день отдыха (автоматически).
+          const isRestDay = !isFuture && !isToday && !hasWorkout && !hasSteps;
 
           // Метка тренировки: id из snapshot/draft, иначе выбранная
           const completedWorkoutId = log?.workoutSnapshot?.workoutId
@@ -1682,7 +1681,7 @@ function FitnessCalendar({
             : null;
           const workoutLabel = completedWorkout
             ? completedWorkout.name.replace('Тренировка ', 'T')
-            : isOffDay ? '😴' : null;
+            : null;
 
           // Определяем стиль фона
           const getBackground = () => {
@@ -1695,9 +1694,8 @@ function FitnessCalendar({
               const p = Math.round(workoutPct * 100);
               return `linear-gradient(to top, var(--green-dim) ${p}%, transparent ${p}%)`;
             }
-            if (isOffDay) return 'rgba(100, 116, 139, 0.15)';
-            if (isUnclosedPastDay) return 'rgba(17, 20, 24, 0.04)';
             if (hasSteps) return 'var(--blue-dim)';
+            if (isRestDay) return 'rgba(100, 116, 139, 0.12)'; // день отдыха — нейтральный серый
             if (isFuture) return 'transparent';
             return 'transparent';
           };
@@ -1707,8 +1705,7 @@ function FitnessCalendar({
             if (isSelected) return '#0b3d20';
             if (isToday) return '#22c55e';
             if (hasWorkout) return 'var(--green)';
-            if (isOffDay) return 'rgb(148, 163, 184)';
-            if (isUnclosedPastDay) return 'rgba(239, 68, 68, 0.25)';
+            if (isRestDay) return 'rgb(148, 163, 184)';
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
           };
@@ -1721,9 +1718,8 @@ function FitnessCalendar({
           const getBorder = () => {
             if (isSelected) return 'none';
             if (isToday) return '2px solid var(--cyan, #0ea5e9)';
-            if (isUnclosedPastDay) return '1px solid rgba(17, 20, 24, 0.08)';
             if (hasWorkout) return '1px solid rgba(0, 200, 83, 0.3)';
-            if (isOffDay) return '1px solid rgba(100, 116, 139, 0.3)';
+            if (isRestDay) return '1px solid rgba(100, 116, 139, 0.25)';
             return '1px solid transparent';
           };
 
@@ -1731,9 +1727,7 @@ function FitnessCalendar({
           const getBoxShadow = () => {
             if (isSelected) return '0 6px 22px rgba(255, 255, 255, 0.18)';
             if (isToday) return '0 2px 12px rgba(14, 165, 233, 0.3)';
-            if (hasWorkout) return '0 2px 8px var(--green-glow)';
-            if (isOffDay) return '0 2px 8px rgba(100, 116, 139, 0.2)';
-            if (isUnclosedPastDay) return 'none';
+            if (hasWorkout && fullyDone) return '0 2px 8px var(--green-glow)';
             return 'none';
           };
 
@@ -1753,7 +1747,7 @@ function FitnessCalendar({
                 justifyContent: 'center',
                 gap: '1px',
                 color: getColor(),
-                fontWeight: isUnclosedPastDay ? 400 : (isToday || isSelected || hasWorkout || isOffDay ? 700 : 500),
+                fontWeight: isRestDay ? 400 : (isToday || isSelected || hasWorkout ? 700 : 500),
                 fontSize: '14px',
                 transition: 'all 0.2s ease',
                 boxShadow: getBoxShadow(),
@@ -1776,8 +1770,8 @@ function FitnessCalendar({
                   {fullyDone ? <Check size={8} strokeWidth={3} /> : null}
                   {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                 </span>
-              ) : isOffDay ? (
-                // День отдыха — нейтральная серая чёрточка вместо эмодзи
+              ) : isRestDay ? (
+                // День отдыха (нет тренировки) — нейтральная серая чёрточка
                 <div style={{
                   width: '8px',
                   height: '2px',
@@ -2193,8 +2187,6 @@ export default function FitnessPage() {
   // Accordion: only one exercise expanded at a time. Clicking the same one
   // collapses it. Reset when the day or workout changes.
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
-  const [offDayHoldProgress, setOffDayHoldProgress] = useState(0);
-  const offDayHoldRef = useRef<NodeJS.Timeout | null>(null);
   const serverDataLoadedRef = useRef(false);
   const userMadeChangeRef = useRef(false); // Only sync after user actually changes something on THIS device
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
@@ -3339,22 +3331,8 @@ export default function FitnessPage() {
   // определяется фактически выполненными упражнениями, без явного закрытия.
 
   // Mark day as off day (rest day - no workout required, but steps still needed)
-  const toggleOffDay = () => {
-    userMadeChangeRef.current = true;
-    if (currentDayLog.isOffDay) {
-      // Unmark as off day
-      updateDayLog({ isOffDay: false, dayClosed: false });
-    } else {
-      // Mark as off day - if steps are entered, also close the day
-      const hasSteps = !!(currentDayLog.steps && currentDayLog.steps > 0);
-      updateDayLog({
-        isOffDay: true,
-        dayClosed: hasSteps,
-        workoutCompleted: null,
-        workoutSnapshot: null
-      });
-    }
-  };
+  // Ручная отметка «день отдыха» убрана — день без тренировки считается
+  // днём отдыха автоматически (в календаре отрисовывается нейтрально).
 
   // Check if viewing a past day with saved workout
   const viewingPastWorkout = currentDayLog.dayClosed && currentDayLog.workoutSnapshot;
@@ -3824,15 +3802,14 @@ export default function FitnessPage() {
                     const isToday = dateStr === todayStr;
                     const isSelected = dateStr === dateKey;
                     const isFuture = dateStr > todayStr;
-                    const isRestDay = i >= workouts.length;
-                    const isOffDay = log?.isOffDay;
+                    const isStructuralRest = i >= workouts.length;
 
                     // Тот же расчёт, что и в месячном календаре: считаем по
                     // фактически выполненным упражнениям (snapshot или draft).
                     const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
                     const exTotal = dayExercises.length;
                     const exDone = dayExercises.filter(e => e.completed).length;
-                    const hasWorkout = !isOffDay && exDone > 0;
+                    const hasWorkout = exDone > 0;
                     const fullyDone = exTotal > 0 && exDone === exTotal;
                     const workoutPct = exTotal > 0 ? exDone / exTotal : 0;
 
@@ -3843,17 +3820,18 @@ export default function FitnessPage() {
                       ? completedWorkout.name.replace('Тренировка ', 'T')
                       : '';
 
-                    const isEmptyDay = !hasWorkout && !isRestDay && !isFuture && !isOffDay;
+                    // Прошлый/структурный день без тренировки = день отдыха
+                    const isRestDay = !hasWorkout && (isStructuralRest || (!isFuture && !isToday));
 
                     // Фон: полный зелёный / частичная заливка снизу / отдых / пусто
                     const bg = isSelected
                       ? 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)'
-                      : isOffDay
-                        ? 'rgba(100, 116, 139, 0.15)'
-                        : hasWorkout
-                          ? (fullyDone
-                              ? 'var(--green-dim)'
-                              : `linear-gradient(to top, var(--green-dim) ${Math.round(workoutPct * 100)}%, var(--bg-elevated) ${Math.round(workoutPct * 100)}%)`)
+                      : hasWorkout
+                        ? (fullyDone
+                            ? 'var(--green-dim)'
+                            : `linear-gradient(to top, var(--green-dim) ${Math.round(workoutPct * 100)}%, var(--bg-elevated) ${Math.round(workoutPct * 100)}%)`)
+                        : isRestDay
+                          ? 'rgba(100, 116, 139, 0.12)'
                           : 'var(--bg-elevated)';
 
                     return (
@@ -3871,14 +3849,14 @@ export default function FitnessPage() {
                             ? 'none'
                             : isToday
                               ? '2px solid var(--cyan, #0ea5e9)'
-                              : isOffDay
-                                ? '1px solid rgba(100, 116, 139, 0.3)'
-                                : hasWorkout
-                                  ? '1px solid rgba(0, 200, 83, 0.3)'
+                              : hasWorkout
+                                ? '1px solid rgba(0, 200, 83, 0.3)'
+                                : isRestDay
+                                  ? '1px solid rgba(100, 116, 139, 0.25)'
                                   : '1px solid var(--border)',
                           borderRadius: '10px',
                           cursor: 'pointer',
-                          opacity: isSelected ? 1 : isFuture ? 0.4 : (isRestDay || isEmptyDay) ? 0.55 : 1,
+                          opacity: isSelected ? 1 : isFuture ? 0.4 : isRestDay ? 0.6 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
                             ? '0 6px 18px rgba(34, 197, 94, 0.45)'
@@ -3900,7 +3878,7 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '14px',
                           fontWeight: 800,
-                          color: isSelected ? '#0b3d20' : isOffDay ? 'rgb(148, 163, 184)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#0b3d20' : isRestDay ? 'rgb(148, 163, 184)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
@@ -3914,7 +3892,7 @@ export default function FitnessPage() {
                             {fullyDone ? <Check size={9} strokeWidth={3} /> : null}
                             {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                           </span>
-                        ) : (isOffDay || isRestDay) ? (
+                        ) : isRestDay ? (
                           <div style={{ width: '8px', height: '2px', borderRadius: '1px', background: 'rgb(148, 163, 184)' }} />
                         ) : null}
                       </button>
@@ -3924,85 +3902,11 @@ export default function FitnessPage() {
               </div>
             </div>
 
-            {/* Off Day indicator */}
-            {currentDayLog.isOffDay && (
-              <div style={{
-                background: 'rgba(100, 116, 139, 0.15)',
-                border: '1px solid rgba(100, 116, 139, 0.3)',
-                borderRadius: '12px',
-                padding: '14px 16px',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '20px' }}>😴</span>
-                  <span style={{ color: 'rgb(148, 163, 184)', fontWeight: 600, fontSize: '14px' }}>
-                    {t('offDay')}
-                  </span>
-                </div>
-                <button
-                  onMouseDown={() => {
-                    setOffDayHoldProgress(0);
-                    let progress = 0;
-                    offDayHoldRef.current = setInterval(() => {
-                      progress += 5;
-                      setOffDayHoldProgress(progress);
-                      if (progress >= 100) {
-                        if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
-                        toggleOffDay();
-                        setOffDayHoldProgress(0);
-                      }
-                    }, 50);
-                  }}
-                  onMouseUp={() => {
-                    if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
-                    setOffDayHoldProgress(0);
-                  }}
-                  onMouseLeave={() => {
-                    if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
-                    setOffDayHoldProgress(0);
-                  }}
-                  onTouchStart={() => {
-                    setOffDayHoldProgress(0);
-                    let progress = 0;
-                    offDayHoldRef.current = setInterval(() => {
-                      progress += 5;
-                      setOffDayHoldProgress(progress);
-                      if (progress >= 100) {
-                        if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
-                        toggleOffDay();
-                        setOffDayHoldProgress(0);
-                      }
-                    }, 50);
-                  }}
-                  onTouchEnd={() => {
-                    if (offDayHoldRef.current) clearInterval(offDayHoldRef.current);
-                    setOffDayHoldProgress(0);
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    background: offDayHoldProgress > 0
-                      ? `linear-gradient(90deg, rgba(100, 116, 139, 0.3) ${offDayHoldProgress}%, var(--bg-elevated) ${offDayHoldProgress}%)`
-                      : 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    color: 'var(--text-muted)',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'none',
-                    userSelect: 'none'
-                  }}
-                >
-                  {offDayHoldProgress > 0 ? `${Math.round(offDayHoldProgress)}%` : t('cancelOffDay')}
-                </button>
-              </div>
-            )}
+            {/* Функция ручной отметки «день отдыха» убрана: день без тренировки
+                считается днём отдыха автоматически. */}
 
-            {/* Workout selector - compact grid, hidden when viewing history or off day */}
-            {!viewingPastWorkout && !currentDayLog.isOffDay && (
+            {/* Workout selector - compact grid, hidden when viewing history */}
+            {!viewingPastWorkout && (
               <div style={{
                 display: 'flex',
                 gap: '8px',
@@ -4072,11 +3976,8 @@ export default function FitnessPage() {
                     </button>
                   )}
                 </div>
-                {/* Off Day chip removed from the main selector — any day the
-                    user leaves unclosed is treated as rest implicitly. The
-                    toggleOffDay handler stays available via the edit menu for
-                    the rare case where the user wants to mark a day as rest
-                    explicitly (e.g. to log steps without a workout). */}
+                {/* Ручная отметка отдыха убрана — день без тренировки
+                    автоматически считается днём отдыха. */}
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
                   style={{

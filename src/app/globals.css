@@ -5,11 +5,12 @@
      Values tuned so a card on bg-primary sits 1–2 steps whiter than its
      surroundings, matching how the dark theme used progressively lighter
      greys. Hover/active state backgrounds are baked into bg-elevated. */
-  --bg-primary: #f5f6f8;
+  /* Почти белый фон, как у Superpower — тёплый off-white. */
+  --bg-primary: #fafafa;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-elevated: #f0f1f4;
-  --bg-input: #f5f6f8;
+  --bg-elevated: #f4f4f5;
+  --bg-input: #f7f7f8;
 
   /* Primary accent — keep DODO yellow as brand color but slightly deeper so
      it reads on white without losing identity. */
