@@ -60,9 +60,23 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: 'Anthropic API key not configured' }), { status: 500 });
   }
 
-  const { message } = await request.json();
-  if (!message || typeof message !== 'string' || !message.trim()) {
+  const { message, image } = await request.json();
+  // Картинка прикладывается опционально (vision). Без неё нужен текст.
+  const hasImage = typeof image === 'string' && image.startsWith('data:image/');
+  if ((!message || typeof message !== 'string' || !message.trim()) && !hasImage) {
     return new Response(JSON.stringify({ error: 'no_message' }), { status: 400 });
+  }
+  const text = (typeof message === 'string' ? message.trim() : '') || (hasImage ? 'Посмотри на это фото.' : '');
+
+  // Разбираем data-URL картинки на media_type + base64 для Claude.
+  let imgBlock: Anthropic.ImageBlockParam | null = null;
+  if (hasImage) {
+    const m = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i.exec(image);
+    if (m) {
+      const mediaType = (m[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : m[1].toLowerCase()) as
+        'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
+      imgBlock = { type: 'image', source: { type: 'base64', media_type: mediaType, data: m[2] } };
+    }
   }
 
   // --- собираем данные пользователя + историю чата ---
@@ -119,8 +133,15 @@ ${compactJson(fitness?.habits, 800)}
 🎯 РЕКОМЕНДАЦИИ ТРЕНЕРА:
 ${compactJson(user?.program?.nutritionRecommendations, 1500)}`;
 
-  // Сохраняем сообщение пользователя сразу.
-  await prisma.chatMessage.create({ data: { userId, role: 'user', content: message.trim() } });
+  // Сохраняем сообщение пользователя сразу. Картинку в историю не пишем
+  // (тяжёлая), помечаем текстом, что было фото.
+  const savedContent = hasImage ? (text + '\n📎 [фото]').trim() : text;
+  await prisma.chatMessage.create({ data: { userId, role: 'user', content: savedContent } });
+
+  // Новое сообщение: текст + (опционально) картинка для vision.
+  const lastContent: Anthropic.ContentBlockParam[] = [];
+  if (imgBlock) lastContent.push(imgBlock);
+  lastContent.push({ type: 'text', text });
 
   // Собираем messages: контекст данных + история + новое сообщение.
   // Кэшируем system; данные/история идут после, не инвалидируя кэш.
@@ -129,7 +150,7 @@ ${compactJson(user?.program?.nutritionRecommendations, 1500)}`;
     { role: 'user', content: `[Контекст моих данных на сейчас]\n${userContext}` },
     { role: 'assistant', content: 'Понял, я вижу твои данные. Чем помочь?' },
     ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    { role: 'user', content: message.trim() },
+    { role: 'user', content: lastContent },
   ];
 
   const client = new Anthropic({ apiKey });

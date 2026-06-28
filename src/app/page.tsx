@@ -7371,54 +7371,74 @@ export default function FitnessPage() {
       }}>
         <div style={{
           display: 'flex',
+          alignItems: 'flex-end',
           maxWidth: '600px',
           margin: '0 auto',
           padding: '6px 8px',
         }}>
-          {([
-            { key: 'workout',   icon: <Dumbbell size={22} />,     label: t('workout') },
-            { key: 'nutrition', icon: <Apple size={22} />,        label: t('food') },
-            ...(userSettings.email !== 'dmitriheadshot@friend.local'
-              ? [{ key: 'planner', icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }]
-              : []),
-            { key: 'chat',      icon: <MessageCircle size={22} />, label: userSettings.language === 'ru' ? 'Чат' : 'Chat' },
-            { key: 'profile',   icon: <User size={22} />,          label: userSettings.language === 'ru' ? 'Я' : 'Me' },
-          ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
-            // «Я» подсвечивается также на вложенных экранах (статистика, прогресс)
-            const isActive = tab.key === 'profile'
-              ? (view === 'profile' || view === 'gains' || view === 'analytics')
-              : view === tab.key;
+          {(() => {
+            const hasPlanner = userSettings.email !== 'dmitriheadshot@friend.local';
+            // Обычные вкладки: половина слева, половина справа от центральной кнопки чата.
+            const left: { key: typeof view; icon: React.ReactNode; label: string }[] = [
+              { key: 'workout',   icon: <Dumbbell size={22} />, label: String(t('workout')) },
+              { key: 'nutrition', icon: <Apple size={22} />,    label: String(t('food')) },
+            ];
+            const right: { key: typeof view; icon: React.ReactNode; label: string }[] = [
+              ...(hasPlanner ? [{ key: 'planner' as typeof view, icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }] : []),
+              { key: 'profile', icon: <User size={22} />, label: userSettings.language === 'ru' ? 'Я' : 'Me' },
+            ];
+            const renderTab = (tab: { key: typeof view; icon: React.ReactNode; label: string }) => {
+              const isActive = tab.key === 'profile'
+                ? (view === 'profile' || view === 'gains' || view === 'analytics')
+                : view === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  className="btn-press"
+                  onClick={() => { setView(tab.key); localStorage.setItem('fitness_view', tab.key); setShowProfileDropdown(false); }}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: '3px', padding: '8px 4px', background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: isActive ? 'var(--yellow)' : 'var(--text-secondary)',
+                    fontWeight: isActive ? 700 : 500, fontSize: '11px', transition: 'color 0.15s ease',
+                  }}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            };
+            const chatActive = view === 'chat';
             return (
-              <button
-                key={tab.key}
-                className="btn-press"
-                onClick={() => {
-                  setView(tab.key);
-                  localStorage.setItem('fitness_view', tab.key);
-                  setShowProfileDropdown(false);
-                }}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '3px',
-                  padding: '8px 4px',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: isActive ? 'var(--yellow)' : 'var(--text-secondary)',
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: '11px',
-                  transition: 'color 0.15s ease',
-                }}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
+              <>
+                {left.map(renderTab)}
+
+                {/* Центральная приподнятая кнопка чата (как в Superpower) */}
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    className="btn-press"
+                    onClick={() => { setView('chat'); localStorage.setItem('fitness_view', 'chat'); setShowProfileDropdown(false); }}
+                    aria-label="AI-чат"
+                    style={{
+                      width: 58, height: 58, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      marginTop: -28, // приподнимаем над баром
+                      background: 'var(--yellow)', color: '#000',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: chatActive
+                        ? '0 6px 22px var(--yellow-glow), 0 0 0 4px var(--bg-secondary)'
+                        : '0 6px 18px rgba(0,0,0,0.35), 0 0 0 4px var(--bg-secondary)',
+                      transform: chatActive ? 'scale(1.06)' : 'scale(1)',
+                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                    }}
+                  >
+                    <MessageCircle size={26} />
+                  </button>
+                </div>
+
+                {right.map(renderTab)}
+              </>
             );
-          })}
+          })()}
         </div>
       </nav>
     </main>
