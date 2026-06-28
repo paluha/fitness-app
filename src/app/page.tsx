@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, Lock
+  Home, Trophy, Sun, Moon, MonitorSmartphone
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1676,14 +1676,26 @@ function FitnessCalendar({
           const isSelected = d.dateStr === selectedDateStr;
           const isFuture = d.dateStr > today;
           const isOffDay = log?.isOffDay;
-          const hasWorkout = log?.dayClosed && !isOffDay;
+
+          // Считаем выполненность тренировки за день по фактическим упражнениям.
+          // Берём snapshot (если есть) либо живой draft — это работает без
+          // «закрытия дня». pct = доля выполненных упражнений (0..1).
+          const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+          const exTotal = dayExercises.length;
+          const exDone = dayExercises.filter(e => e.completed).length;
+          const hasAnyWorkout = !isOffDay && exDone > 0;       // были выполненные упражнения
+          const fullyDone = exTotal > 0 && exDone === exTotal;  // все выполнены
+          const workoutPct = exTotal > 0 ? exDone / exTotal : 0; // доля для частичной заливки
+          const hasWorkout = hasAnyWorkout;
           const hasSteps = log?.steps && log.steps > 0 && !hasWorkout && !isOffDay;
 
-          // Незакрытый прошлый день (не сегодня, не будущий, не закрыт)
-          const isUnclosedPastDay = !isFuture && !isToday && !log?.dayClosed && !isOffDay;
+          // Прошлый день без активности (нет упражнений, не отдых, не сегодня/будущее)
+          const isUnclosedPastDay = !isFuture && !isToday && !hasAnyWorkout && !isOffDay;
 
-          // Get completed workout label
-          const completedWorkoutId = log?.workoutCompleted;
+          // Метка тренировки: id из snapshot/draft, иначе выбранная
+          const completedWorkoutId = log?.workoutSnapshot?.workoutId
+            ?? log?.workoutCompleted
+            ?? log?.selectedWorkout;
           const completedWorkout = completedWorkoutId
             ? workouts.find(w => w.id === completedWorkoutId)
             : null;
@@ -1695,7 +1707,13 @@ function FitnessCalendar({
           const getBackground = () => {
             if (isSelected) return 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)';
             if (isToday) return 'linear-gradient(135deg, rgba(187, 242, 107, 0.25) 0%, rgba(34, 197, 94, 0.18) 100%)';
-            if (hasWorkout) return 'var(--green-dim)';
+            if (hasWorkout) {
+              // Все упражнения выполнены — полная зелёная заливка.
+              if (fullyDone) return 'var(--green-dim)';
+              // Были пропуски — заливаем фон зелёным снизу на % выполнения.
+              const p = Math.round(workoutPct * 100);
+              return `linear-gradient(to top, var(--green-dim) ${p}%, transparent ${p}%)`;
+            }
             if (isOffDay) return 'rgba(100, 116, 139, 0.15)';
             if (isUnclosedPastDay) return 'rgba(17, 20, 24, 0.04)';
             if (hasSteps) return 'var(--blue-dim)';
@@ -1773,8 +1791,9 @@ function FitnessCalendar({
                   alignItems: 'center',
                   gap: '1px'
                 }}>
-                  <Check size={8} strokeWidth={3} />
-                  {workoutLabel}
+                  {/* Полный день — галочка; частичный — счётчик done/total */}
+                  {fullyDone ? <Check size={8} strokeWidth={3} /> : null}
+                  {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                 </span>
               ) : isOffDay ? (
                 <span style={{ fontSize: '10px' }}>😴</span>
@@ -3359,40 +3378,8 @@ export default function FitnessPage() {
   const progressPercent = (completedExercises / totalExercises) * 100;
 
   // Close day with workout snapshot
-  const closeDay = (workoutId: string, shouldClose: boolean) => {
-    userMadeChangeRef.current = true;
-    if (shouldClose) {
-      const workout = workouts.find(w => w.id === workoutId);
-      if (workout) {
-        const snapshot: WorkoutSnapshot = {
-          workoutId: workout.id,
-          workoutName: workout.name,
-          exercises: JSON.parse(JSON.stringify(workout.exercises)) // Deep copy
-        };
-        updateDayLog({
-          dayClosed: true,
-          workoutCompleted: workoutId,
-          workoutSnapshot: snapshot,
-          workoutDraft: null
-        });
-        // Force an immediate flush so "closing the day" actually reaches the
-        // server even if the user refreshes a split second later. The mirror
-        // into the per-row store is already handled inside updateDayLog.
-        flushNow().catch(() => {});
-      }
-    } else {
-      // Reopening a closed day — preserve snapshot as draft so exercises aren't lost
-      const existingSnapshot = currentDayLog.workoutSnapshot;
-      updateDayLog({
-        dayClosed: false,
-        workoutCompleted: null,
-        workoutSnapshot: null,
-        workoutDraft: existingSnapshot || currentDayLog.workoutDraft,
-        isOffDay: false
-      });
-      flushNow().catch(() => {});
-    }
-  };
+  // Функция «закрыть/переоткрыть день» убрана — прогресс дня теперь
+  // определяется фактически выполненными упражнениями, без явного закрытия.
 
   // Mark day as off day (rest day - no workout required, but steps still needed)
   const toggleOffDay = () => {
@@ -4237,262 +4224,56 @@ export default function FitnessPage() {
             </div>{/* end closed day dimming wrapper */}
 
             {/* Close/Open day button */}
-            {(totalExercises > 0 || currentDayLog.dayClosed || currentDayLog.isOffDay) && (
+            {(totalExercises > 0 || currentDayLog.isOffDay) && (
             <div style={{ marginTop: '16px', marginBottom: '20px' }}>
               {(() => {
-                const isDayClosed = currentDayLog.dayClosed;
+                // Функция «закрыть день» убрана. Показываем лёгкую сводку
+                // прогресса: сколько упражнений выполнено и есть ли пропуски.
                 const isOffDay = currentDayLog.isOffDay;
                 const hasSteps = currentDayLog.steps && currentDayLog.steps > 0;
-                const allExercisesDone = completedExercises === totalExercises;
+                const allExercisesDone = totalExercises > 0 && completedExercises === totalExercises;
                 const hasSkippedExercises = !isOffDay && !allExercisesDone && totalExercises > 0;
-                // Allow closing always — steps are optional (user gets warned)
-                const canCloseDay = true;
-                const readyToClose = !isDayClosed;
 
-                if (isDayClosed) {
-                  // --- CLOSED DAY SUMMARY CARD ---
-                  const snapshot = currentDayLog.workoutSnapshot;
-                  const snapshotCompleted = snapshot ? snapshot.exercises.filter(e => e.completed).length : 0;
-                  const snapshotTotal = snapshot ? snapshot.exercises.length : 0;
-                  const closedSteps = currentDayLog.steps;
-                  const rating = currentDayLog.workoutRating;
-                  const ratingEmojis = ['', '😫', '😐', '😊', '💪', '🔥'];
-
+                if (isOffDay) {
                   return (
                     <div style={{
-                      background: 'var(--green-dim)',
-                      border: '2px solid rgba(0, 200, 83, 0.3)',
-                      borderRadius: '16px',
-                      overflow: 'hidden'
+                      padding: '14px 18px',
+                      background: 'rgba(100, 116, 139, 0.12)',
+                      border: '1px solid rgba(100, 116, 139, 0.25)',
+                      borderRadius: '14px',
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      color: 'var(--text-muted)', fontWeight: 600, fontSize: '14px',
                     }}>
-                      {/* Header */}
-                      <div style={{
-                        padding: '16px 18px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        borderBottom: '1px solid rgba(0, 200, 83, 0.15)'
-                      }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          background: 'var(--green)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
-                          <Check size={18} style={{ color: '#000' }} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--green)' }}>
-                            {t('dayCompleted')}
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {new Date(dateKey).toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
-                          </div>
-                        </div>
-                        {rating && rating > 0 && (
-                          <span style={{ fontSize: '24px' }}>{ratingEmojis[rating]}</span>
-                        )}
-                      </div>
-
-                      {/* Training row */}
-                      <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Dumbbell size={18} style={{ color: snapshot ? 'var(--green)' : 'var(--text-muted)', flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          {isOffDay ? (
-                            <div style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                              {userSettings.language === 'ru' ? 'День отдыха' : 'Rest Day'}
-                            </div>
-                          ) : snapshot ? (
-                            <>
-                              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {snapshot.workoutName}
-                              </div>
-                              <div style={{ fontSize: '12px', color: snapshotCompleted === snapshotTotal ? 'var(--green)' : 'var(--yellow, #ffcc55)', marginTop: '2px' }}>
-                                {snapshotCompleted}/{snapshotTotal} {userSettings.language === 'ru' ? 'упражнений' : 'exercises'}
-                                {snapshotCompleted === snapshotTotal && (
-                                  <span style={{ marginLeft: '6px' }}>✓</span>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                              {userSettings.language === 'ru' ? 'Тренировка не записана' : 'No workout recorded'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Steps row */}
-                      <div style={{ padding: '0 18px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Footprints size={18} style={{ color: closedSteps && closedSteps > 0 ? 'var(--blue)' : 'var(--text-muted)', flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          {closedSteps && closedSteps > 0 ? (
-                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--blue)' }}>
-                              {closedSteps.toLocaleString()} {userSettings.language === 'ru' ? 'шагов' : 'steps'}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: '13px', color: 'var(--yellow, #ffcc55)', fontWeight: 500 }}>
-                              {userSettings.language === 'ru' ? 'Шаги не добавлены' : 'No steps added'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Reopen button */}
-                      <button
-                        onClick={() => {
-                          if (isOffDay) {
-                            updateDayLog({ dayClosed: false });
-                          } else {
-                            closeDay(currentDayLog.workoutCompleted!, false);
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '14px',
-                          background: 'transparent',
-                          border: 'none',
-                          borderTop: '1px solid rgba(0, 200, 83, 0.15)',
-                          borderRadius: '0 0 14px 14px',
-                          color: 'var(--text-muted)',
-                          fontWeight: 600,
-                          fontSize: '13px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <Edit2 size={14} />
-                        {t('reopenDay')}
-                      </button>
+                      😴 {userSettings.language === 'ru' ? 'День отдыха' : 'Rest Day'}
                     </div>
                   );
                 }
 
-                // --- OPEN DAY: Close button ---
                 return (
-                  <>
-                    {readyToClose && (
+                  <div style={{
+                    padding: '14px 18px',
+                    background: allExercisesDone ? 'var(--green-dim)' : 'var(--bg-card)',
+                    border: allExercisesDone ? '1px solid rgba(0, 200, 83, 0.3)' : '1px solid var(--border)',
+                    borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                  }}>
+                    {allExercisesDone
+                      ? <Check size={20} strokeWidth={3} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                      : <Dumbbell size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+                    <div style={{ flex: 1 }}>
                       <div style={{
-                        textAlign: 'center',
-                        marginBottom: '12px',
-                        color: (hasSkippedExercises || !hasSteps) ? '#f59e0b' : '#14b8a6',
-                        fontSize: '14px',
-                        fontWeight: 600
-                      }}
-                      className="animate-pulse"
-                      >
-                        {hasSkippedExercises
-                          ? `⚠️ ${completedExercises}/${totalExercises} ${userSettings.language === 'ru' ? 'упражнений выполнено' : 'exercises done'}`
-                          : !hasSteps
-                            ? (userSettings.language === 'ru' ? '⚠️ Шаги не добавлены' : '⚠️ No steps added')
-                            : '✨ Всё готово! Закройте день ✨'}
+                        fontWeight: 700, fontSize: '14px',
+                        color: allExercisesDone ? 'var(--green)' : (hasSkippedExercises ? '#f59e0b' : 'var(--text-primary)'),
+                      }}>
+                        {completedExercises}/{totalExercises} {userSettings.language === 'ru' ? 'упражнений выполнено' : 'exercises done'}
                       </div>
-                    )}
-                    <button
-                      onMouseDown={(e) => {
-                        const btn = e.currentTarget;
-                        btn.dataset.pressing = 'true';
-                        btn.dataset.progress = '0';
-                        const interval = setInterval(() => {
-                          if (btn.dataset.pressing !== 'true') {
-                            clearInterval(interval);
-                            btn.style.background = readyToClose ? 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)' : 'var(--bg-card)';
-                            return;
-                          }
-                          const progress = parseInt(btn.dataset.progress || '0') + 5;
-                          btn.dataset.progress = progress.toString();
-                          const endColor = readyToClose ? '#5eead4' : 'var(--bg-card)';
-                          btn.style.background = `linear-gradient(90deg, #0d9488 ${progress}%, ${endColor} ${progress}%)`;
-                          if (progress >= 100) {
-                            clearInterval(interval);
-                            if (canCloseDay) {
-                              if (isOffDay) {
-                                updateDayLog({ dayClosed: true });
-                              } else {
-                                closeDay(currentWorkout.id, true);
-                              }
-                            }
-                            btn.style.background = '#14b8a6';
-                          }
-                        }, 30);
-                      }}
-                      onMouseUp={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
-                      onMouseLeave={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
-                      onTouchStart={(e) => {
-                        const btn = e.currentTarget;
-                        btn.dataset.pressing = 'true';
-                        btn.dataset.progress = '0';
-                        const interval = setInterval(() => {
-                          if (btn.dataset.pressing !== 'true') {
-                            clearInterval(interval);
-                            btn.style.background = readyToClose ? 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)' : 'var(--bg-card)';
-                            return;
-                          }
-                          const progress = parseInt(btn.dataset.progress || '0') + 5;
-                          btn.dataset.progress = progress.toString();
-                          const endColor = readyToClose ? '#5eead4' : 'var(--bg-card)';
-                          btn.style.background = `linear-gradient(90deg, #0d9488 ${progress}%, ${endColor} ${progress}%)`;
-                          if (progress >= 100) {
-                            clearInterval(interval);
-                            if (canCloseDay) {
-                              if (isOffDay) {
-                                updateDayLog({ dayClosed: true });
-                              } else {
-                                closeDay(currentWorkout.id, true);
-                              }
-                            }
-                            btn.style.background = '#14b8a6';
-                          }
-                        }, 30);
-                      }}
-                      onTouchEnd={(e) => { e.currentTarget.dataset.pressing = 'false'; }}
-                      style={{
-                        width: '100%',
-                        padding: '22px',
-                        background: readyToClose
-                          ? ((hasSkippedExercises || !hasSteps)
-                              ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.08))'
-                              : 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)')
-                          : 'var(--bg-card)',
-                        border: readyToClose
-                          ? ((hasSkippedExercises || !hasSteps) ? '2px solid #f59e0b' : 'none')
-                          : '2px solid var(--border)',
-                        borderRadius: '18px',
-                        color: readyToClose
-                          ? ((hasSkippedExercises || !hasSteps) ? '#f59e0b' : '#053b3a')
-                          : 'var(--text-primary)',
-                        fontWeight: 800,
-                        fontSize: '16px',
-                        letterSpacing: '0.3px',
-                        textTransform: 'uppercase',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '12px',
-                        boxShadow: readyToClose
-                          ? ((hasSkippedExercises || !hasSteps)
-                              ? '0 8px 30px rgba(245, 158, 11, 0.25)'
-                              : '0 10px 35px rgba(20, 184, 166, 0.45)')
-                          : 'none',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        touchAction: 'manipulation'
-                      }}
-                      className={readyToClose ? 'animate-glow' : ''}
-                    >
-                      {readyToClose
-                        ? <Check size={22} strokeWidth={3} />
-                        : <Lock size={18} strokeWidth={2.5} style={{ opacity: 0.5 }} />}
-                      {t('closeDay')}
-                    </button>
-                  </>
+                      {!hasSteps && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {userSettings.language === 'ru' ? 'Шаги не добавлены' : 'No steps added'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 );
               })()}
             </div>
