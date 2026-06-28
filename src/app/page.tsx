@@ -1695,7 +1695,7 @@ function FitnessCalendar({
               return `linear-gradient(to top, var(--green-dim) ${p}%, transparent ${p}%)`;
             }
             if (hasSteps) return 'var(--blue-dim)';
-            if (isRestDay) return 'rgba(100, 116, 139, 0.12)'; // день отдыха — нейтральный серый
+            if (isRestDay) return 'transparent'; // день без тренировки — незаметный
             if (isFuture) return 'transparent';
             return 'transparent';
           };
@@ -1705,7 +1705,7 @@ function FitnessCalendar({
             if (isSelected) return '#0b3d20';
             if (isToday) return '#22c55e';
             if (hasWorkout) return 'var(--green)';
-            if (isRestDay) return 'rgb(148, 163, 184)';
+            if (isRestDay) return 'rgba(139, 145, 160, 0.45)'; // бледный, почти невидимый
             if (isFuture) return 'var(--text-muted)';
             return 'var(--text-primary)';
           };
@@ -1719,7 +1719,7 @@ function FitnessCalendar({
             if (isSelected) return 'none';
             if (isToday) return '2px solid var(--cyan, #0ea5e9)';
             if (hasWorkout) return '1px solid rgba(0, 200, 83, 0.3)';
-            if (isRestDay) return '1px solid rgba(100, 116, 139, 0.25)';
+            if (isRestDay) return '1px solid transparent';
             return '1px solid transparent';
           };
 
@@ -1770,14 +1770,6 @@ function FitnessCalendar({
                   {fullyDone ? <Check size={8} strokeWidth={3} /> : null}
                   {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                 </span>
-              ) : isRestDay ? (
-                // День отдыха (нет тренировки) — нейтральная серая чёрточка
-                <div style={{
-                  width: '8px',
-                  height: '2px',
-                  borderRadius: '1px',
-                  background: 'rgb(148, 163, 184)'
-                }} />
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
@@ -3830,7 +3822,7 @@ export default function FitnessPage() {
                             ? 'var(--green-dim)'
                             : `linear-gradient(to top, var(--green-dim) ${Math.round(workoutPct * 100)}%, var(--bg-elevated) ${Math.round(workoutPct * 100)}%)`)
                         : isRestDay
-                          ? 'rgba(100, 116, 139, 0.12)'
+                          ? 'transparent'
                           : 'var(--bg-elevated)';
 
                     return (
@@ -3851,11 +3843,11 @@ export default function FitnessPage() {
                               : hasWorkout
                                 ? '1px solid rgba(0, 200, 83, 0.3)'
                                 : isRestDay
-                                  ? '1px solid rgba(100, 116, 139, 0.25)'
+                                  ? '1px solid transparent'
                                   : '1px solid var(--border)',
                           borderRadius: '10px',
                           cursor: 'pointer',
-                          opacity: isSelected ? 1 : isFuture ? 0.4 : isRestDay ? 0.6 : 1,
+                          opacity: isSelected ? 1 : isFuture ? 0.4 : isRestDay ? 0.35 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
                             ? '0 6px 18px rgba(34, 197, 94, 0.45)'
@@ -3877,11 +3869,11 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '14px',
                           fontWeight: 800,
-                          color: isSelected ? '#0b3d20' : isRestDay ? 'rgb(148, 163, 184)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#0b3d20' : isRestDay ? 'rgba(139, 145, 160, 0.45)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
-                        {/* Подпись: галочка+метка если всё, счётчик если частично, чёрточка для отдыха */}
+                        {/* Подпись: галочка+метка если всё, счётчик если частично; для отдыха ничего */}
                         {hasWorkout ? (
                           <span style={{
                             fontSize: '9px', fontWeight: 700,
@@ -3891,8 +3883,6 @@ export default function FitnessPage() {
                             {fullyDone ? <Check size={9} strokeWidth={3} /> : null}
                             {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                           </span>
-                        ) : isRestDay ? (
-                          <div style={{ width: '8px', height: '2px', borderRadius: '1px', background: 'rgb(148, 163, 184)' }} />
                         ) : null}
                       </button>
                     );
