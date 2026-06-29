@@ -48,6 +48,34 @@ function recentByDate(value: unknown, n: number): unknown {
   return value;
 }
 
+type DayEntry = { exercises?: { name?: string; completed?: boolean }[] };
+
+// Человекочитаемая история ТРЕНИРОВОК по всем дневным логам:
+// дата + название + сколько упражнений выполнено. Это надёжнее, чем заставлять
+// модель парсить сырой JSON, и даёт ей ответ на «когда я тренировался».
+function buildWorkoutHistory(dayLogs: unknown, maxLines = 60): string {
+  if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
+  const rows: { date: string; line: string }[] = [];
+  for (const [date, raw] of Object.entries(dayLogs as Record<string, unknown>)) {
+    const day = raw as { workoutSnapshot?: DayEntry & { workoutName?: string }; workoutDraft?: DayEntry & { workoutName?: string } } | null;
+    const src = day?.workoutSnapshot ?? day?.workoutDraft;
+    const ex = src?.exercises ?? [];
+    if (!Array.isArray(ex) || ex.length === 0) continue;
+    const done = ex.filter(e => e?.completed).length;
+    if (done === 0) continue; // день без выполненных упражнений = отдых, пропускаем
+    const name = (src as { workoutName?: string })?.workoutName || 'Тренировка';
+    const doneNames = ex.filter(e => e?.completed).map(e => e?.name).filter(Boolean).slice(0, 8).join(', ');
+    rows.push({ date, line: `${date}: ${name} — ${done}/${ex.length} упр.${doneNames ? ` (${doneNames})` : ''}` });
+  }
+  if (rows.length === 0) return 'Нет записанных тренировок.';
+  // новые сверху, ограничиваем число строк
+  rows.sort((a, b) => (a.date < b.date ? 1 : -1));
+  const total = rows.length;
+  const shown = rows.slice(0, maxLines).map(r => r.line);
+  const head = `Всего дней с тренировками: ${total}. Список (новые сверху):`;
+  return head + '\n' + shown.join('\n') + (total > maxLines ? `\n…и ещё ${total - maxLines} дней` : '');
+}
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -107,7 +135,9 @@ export async function POST(request: Request) {
   const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Пользователь';
 
   // Компактная сводка данных юзера для модели.
+  const todayIso = new Date().toISOString().slice(0, 10);
   const userContext = `ДАННЫЕ ПОЛЬЗОВАТЕЛЯ (${displayName})
+СЕГОДНЯ: ${todayIso} (используй для подсчётов «сколько дней назад», «на этой неделе» и т.п.)
 
 🎯 ЦЕЛИ ПО МАКРОСАМ (в день):
 - Белок: ${user?.goalProtein ?? '—'} г
@@ -115,11 +145,14 @@ export async function POST(request: Request) {
 - Углеводы: ${user?.goalCarbs ?? '—'} г
 - Калории: ${user?.goalCalories ?? '—'} ккал
 
-🏋️ ТРЕНИРОВКИ:
-${compactJson(fitness?.workouts, 2500)}
+🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал, по всем дням):
+${buildWorkoutHistory(fitness?.dayLogs, 60)}
 
-📅 ДНЕВНЫЕ ЛОГИ (последние 7 дней — еда, шаги, выполненные тренировки):
-${compactJson(recentByDate(fitness?.dayLogs, 7), 4000)}
+📋 ШАБЛОНЫ ТРЕНИРОВОК (план T1–T7):
+${compactJson(fitness?.workouts, 2000)}
+
+📅 ПОСЛЕДНИЕ ДНИ (еда, шаги, детали — последние 5 дней):
+${compactJson(recentByDate(fitness?.dayLogs, 5), 3500)}
 
 📈 ПРОГРЕСС ПО УПРАЖНЕНИЯМ:
 ${compactJson(fitness?.progressHistory, 1500)}
