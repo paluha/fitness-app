@@ -9,10 +9,11 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
+import { LabsView } from '@/components/LabsView';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -2083,7 +2084,7 @@ function GoalEditor({
 }
 
 export default function FitnessPage() {
-  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner' | 'chat'>('workout');
+  const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner' | 'chat' | 'labs'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [todayStr, setTodayStr] = useState(''); // Initialize on client to avoid hydration mismatch
   const [isNightMode, setIsNightMode] = useState(false);
@@ -5500,6 +5501,9 @@ export default function FitnessPage() {
             <AssistantChat />
           </div>
         )}
+
+        {/* LABS VIEW — анализы: загрузка, парсинг, динамика */}
+        {view === 'labs' && <LabsView />}
       </div>
 
       {/* Add/Edit Measurement Modal */}
@@ -6965,6 +6969,7 @@ export default function FitnessPage() {
             ...(userSettings.email !== 'dmitriheadshot@friend.local'
               ? [{ key: 'planner' as typeof view, icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }]
               : []),
+            { key: 'labs' as typeof view, icon: <FlaskConical size={22} />, label: userSettings.language === 'ru' ? 'Анализы' : 'Labs' },
             { key: 'profile', icon: <User size={22} />,           label: userSettings.language === 'ru' ? 'Я' : 'Me' },
           ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
             // «Я» подсвечивается также на вложенных экранах (статистика, прогресс)

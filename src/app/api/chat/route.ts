@@ -14,13 +14,14 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 
 ТВОЯ РОЛЬ:
 - Отвечай на вопросы про тренировки, питание, технику, восстановление, мотивацию.
-- Опирайся на ДАННЫЕ ПОЛЬЗОВАТЕЛЯ, которые тебе передают ниже (цели, дневные логи, замеры тела, тренировки). Говори про КОНКРЕТНОГО человека, а не вообще.
+- Опирайся на ДАННЫЕ ПОЛЬЗОВАТЕЛЯ, которые тебе передают ниже (цели, дневные логи, замеры тела, тренировки, анализы). Говори про КОНКРЕТНОГО человека, а не вообще.
+- Про АНАЛИЗЫ: можешь объяснять, что означает показатель, в норме ли он, как динамика менялась со временем, и как образ жизни/питание/тренировки могут на него влиять. Но это образовательная информация, НЕ диагноз.
 - Если данных не хватает для точного ответа — скажи об этом и спроси, либо дай общую рекомендацию с оговоркой.
 
 ПРАВИЛА:
 - Пиши на языке пользователя (по умолчанию русский).
 - Будь конкретным и практичным. Без воды.
-- Не ставь медицинских диагнозов и не заменяй врача. При тревожных симптомах — рекомендуй обратиться к специалисту.
+- Не ставь медицинских диагнозов и не назначай лечение/препараты. Для интерпретации анализов и тревожных симптомов — рекомендуй обратиться к врачу.
 - Не выдумывай данные пользователя, которых нет в контексте.
 - Форматируй ответ читабельно: короткие абзацы, списки где уместно.`;
 
@@ -76,6 +77,29 @@ function buildWorkoutHistory(dayLogs: unknown, maxLines = 60): string {
   return head + '\n' + shown.join('\n') + (total > maxLines ? `\n…и ещё ${total - maxLines} дней` : '');
 }
 
+type LabMarker = { name?: string; value?: number; unit?: string; refLow?: number | null; refHigh?: number | null; flag?: string };
+type LabRow = { panelName?: string | null; lab?: string | null; collectedAt: Date; markers: unknown };
+
+// Человекочитаемая сводка анализов: дата, панель, показатели с пометкой
+// отклонений (↓/↑). Чтобы AI мог отвечать «какой у меня холестерин»,
+// «что изменилось» и связывать с тренировками/едой.
+function buildLabSummary(labs: LabRow[]): string {
+  if (!labs || labs.length === 0) return 'Анализы не загружены.';
+  const blocks: string[] = [];
+  for (const r of labs) {
+    const date = r.collectedAt instanceof Date ? r.collectedAt.toISOString().slice(0, 10) : String(r.collectedAt).slice(0, 10);
+    const markers = Array.isArray(r.markers) ? (r.markers as LabMarker[]) : [];
+    const lines = markers.slice(0, 40).map(m => {
+      const ref = (m.refLow != null || m.refHigh != null) ? ` [реф: ${m.refLow ?? '—'}–${m.refHigh ?? '—'}]` : '';
+      const mark = m.flag === 'high' ? ' ↑' : m.flag === 'low' ? ' ↓' : '';
+      return `  • ${m.name}: ${m.value} ${m.unit || ''}${ref}${mark}`.trimEnd();
+    });
+    const title = [date, r.panelName, r.lab].filter(Boolean).join(' · ');
+    blocks.push(`${title}\n${lines.join('\n')}`);
+  }
+  return blocks.join('\n\n');
+}
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -107,8 +131,8 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- собираем данные пользователя + историю чата ---
-  const [user, fitness, history] = await Promise.all([
+  // --- собираем данные пользователя + историю чата + анализы ---
+  const [user, fitness, history, labs] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -129,6 +153,12 @@ export async function POST(request: Request) {
       orderBy: { createdAt: 'asc' },
       take: 30, // последние сообщения как контекст диалога
       select: { role: true, content: true },
+    }),
+    prisma.labResult.findMany({
+      where: { userId },
+      orderBy: { collectedAt: 'desc' },
+      take: 12, // последние результаты анализов
+      select: { panelName: true, lab: true, collectedAt: true, markers: true },
     }),
   ]);
 
@@ -164,7 +194,10 @@ ${compactJson(fitness?.bodyMeasurements, 1500)}
 ${compactJson(fitness?.habits, 800)}
 
 🎯 РЕКОМЕНДАЦИИ ТРЕНЕРА:
-${compactJson(user?.program?.nutritionRecommendations, 1500)}`;
+${compactJson(user?.program?.nutritionRecommendations, 1500)}
+
+🩸 АНАЛИЗЫ (последние результаты; ↓ ниже нормы, ↑ выше нормы):
+${buildLabSummary(labs as LabRow[])}`;
 
   // Сохраняем сообщение пользователя сразу. Картинку в историю не пишем
   // (тяжёлая), помечаем текстом, что было фото.
