@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     prisma.user.findUnique({
       where: { id: userId },
       select: {
-        firstName: true, lastName: true, name: true, language: true,
+        firstName: true, lastName: true, name: true, language: true, timezone: true,
         goalProtein: true, goalFat: true, goalCarbs: true, goalCalories: true,
         program: { select: { nutritionRecommendations: true } },
       },
@@ -196,9 +196,17 @@ export async function POST(request: Request) {
   const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Пользователь';
 
   // Компактная сводка данных юзера для модели.
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // «Сегодня» в таймзоне пользователя (как клиент сохраняет даты), не в UTC —
+  // иначе ночью модель неверно считает «вчера/сегодня».
+  const tz = user?.timezone || 'Europe/Moscow';
+  let todayIso: string;
+  try {
+    todayIso = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+  } catch {
+    todayIso = new Date().toISOString().slice(0, 10);
+  }
   const userContext = `ДАННЫЕ ПОЛЬЗОВАТЕЛЯ (${displayName})
-СЕГОДНЯ: ${todayIso} (используй для подсчётов «сколько дней назад», «на этой неделе» и т.п.)
+СЕГОДНЯ: ${todayIso} (таймзона ${tz}; используй для подсчётов «сколько дней назад», «вчера», «на этой неделе»)
 
 🎯 ЦЕЛИ ПО МАКРОСАМ (в день):
 - Белок: ${user?.goalProtein ?? '—'} г

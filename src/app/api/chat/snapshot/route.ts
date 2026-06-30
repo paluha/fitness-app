@@ -15,7 +15,7 @@ export async function GET() {
   const [user, fitness, lastLab] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { goalProtein: true, goalFat: true, goalCarbs: true, goalCalories: true },
+      select: { goalProtein: true, goalFat: true, goalCarbs: true, goalCalories: true, timezone: true },
     }),
     prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true } }),
     prisma.labResult.findFirst({
@@ -24,7 +24,15 @@ export async function GET() {
     }),
   ]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // «Сегодня» в таймзоне пользователя (как клиент сохраняет даты), а не в UTC.
+  // Иначе ночью серверный UTC-день разъезжается с локальным днём юзера.
+  const tz = user?.timezone || 'Europe/Moscow';
+  let today: string;
+  try {
+    today = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+  } catch {
+    today = new Date().toISOString().slice(0, 10);
+  }
   const dayLogs = (fitness?.dayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { completed?: boolean }[] } }>) || {};
 
   // Макросы по дням (последние 14) — чтобы карточка могла показать любой
