@@ -18,6 +18,13 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - Про АНАЛИЗЫ: можешь объяснять, что означает показатель, в норме ли он, как динамика менялась со временем, и как образ жизни/питание/тренировки могут на него влиять. Но это образовательная информация, НЕ диагноз.
 - Если данных не хватает для точного ответа — скажи об этом и спроси, либо дай общую рекомендацию с оговоркой.
 
+КАРТОЧКИ ДАННЫХ:
+Когда твой ответ опирается на конкретные данные пользователя, вставь в текст специальный плейсхолдер на отдельной строке — приложение заменит его красивой карточкой:
+- [[card:macros]] — макросы/калории за сегодня (план vs съедено). Вставляй, когда говоришь про сегодняшнее питание.
+- [[card:lastWorkout]] — последняя тренировка. Вставляй, когда обсуждаешь недавнюю тренировку.
+- [[card:labs]] — последний анализ. Вставляй, когда говоришь про анализы.
+Вставляй плейсхолдер ОДИН раз и только если он реально по теме. Не выдумывай других плейсхолдеров. Сам текст ответа всё равно пиши словами — карточка это дополнение.
+
 ПРАВИЛА:
 - Пиши на языке пользователя (по умолчанию русский).
 - Будь конкретным и практичным. Без воды.
@@ -75,6 +82,30 @@ function buildWorkoutHistory(dayLogs: unknown, maxLines = 60): string {
   const shown = rows.slice(0, maxLines).map(r => r.line);
   const head = `Всего дней с тренировками: ${total}. Список (новые сверху):`;
   return head + '\n' + shown.join('\n') + (total > maxLines ? `\n…и ещё ${total - maxLines} дней` : '');
+}
+
+type Meal = { name?: string; time?: string; calories?: number; protein?: number; fat?: number; carbs?: number };
+
+// Читаемая сводка ЕДЫ по последним дням: дата, блюда с макросами и дневные
+// итоги. Надёжнее, чем сырой JSON дня — модель не теряет еду из-за обрезки.
+function buildFoodLog(dayLogs: unknown, days = 7): string {
+  if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
+  const entries = Object.entries(dayLogs as Record<string, { meals?: unknown; steps?: number | null }>);
+  entries.sort((a, b) => (a[0] < b[0] ? 1 : -1)); // новые сверху
+  const blocks: string[] = [];
+  for (const [date, day] of entries) {
+    const meals = Array.isArray(day?.meals) ? (day.meals as Meal[]) : [];
+    if (meals.length === 0) continue;
+    let kcal = 0, p = 0, f = 0, c = 0;
+    const lines = meals.map(m => {
+      kcal += m.calories || 0; p += m.protein || 0; f += m.fat || 0; c += m.carbs || 0;
+      const t = m.time ? `${m.time} ` : '';
+      return `  • ${t}${m.name} — ${m.calories || 0} ккал (Б${m.protein || 0}/Ж${m.fat || 0}/У${m.carbs || 0})`;
+    });
+    blocks.push(`${date}: ${meals.length} приём(ов), итог ${kcal} ккал (Б${p}/Ж${f}/У${c})\n${lines.join('\n')}`);
+    if (blocks.length >= days) break;
+  }
+  return blocks.length ? blocks.join('\n\n') : 'Еда не записана за последние дни.';
 }
 
 type LabMarker = { name?: string; value?: number; unit?: string; refLow?: number | null; refHigh?: number | null; flag?: string };
@@ -181,8 +212,11 @@ ${buildWorkoutHistory(fitness?.dayLogs, 60)}
 📋 ШАБЛОНЫ ТРЕНИРОВОК (план T1–T7):
 ${compactJson(fitness?.workouts, 2000)}
 
-📅 ПОСЛЕДНИЕ ДНИ (еда, шаги, детали — последние 5 дней):
-${compactJson(recentByDate(fitness?.dayLogs, 5), 3500)}
+🍽️ ЕДА (дневник по дням, новые сверху; если сегодняшней даты нет — за сегодня еда не записана):
+${buildFoodLog(fitness?.dayLogs, 7)}
+
+📅 ДЕТАЛИ ПОСЛЕДНИХ ДНЕЙ (шаги и пр.):
+${compactJson(recentByDate(fitness?.dayLogs, 3), 2000)}
 
 📈 ПРОГРЕСС ПО УПРАЖНЕНИЯМ:
 ${compactJson(fitness?.progressHistory, 1500)}

@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, Send, Paperclip, X } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Sparkles, Send, Paperclip, X, Flame, Dumbbell, FlaskConical } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string };
+
+type Snapshot = {
+  today: string;
+  macros: { goal: { kcal: number | null; p: number | null; f: number | null; c: number | null }; eaten: { kcal: number; p: number; f: number; c: number }; meals: number };
+  lastWorkout: { date: string; name: string; done: number; total: number } | null;
+  labs: { date: string; panelName: string | null; abnormal: number; total: number } | null;
+};
 
 // AI-ассистент. Режим `embedded` — полноэкранная вкладка (как в Superpower),
 // рендерится внутри контентной области под нижним таб-баром.
@@ -14,16 +21,21 @@ export function AssistantChat() {
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [image, setImage] = useState<string | null>(null); // data-URL прикреплённого фото
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null); // данные для карточек
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // история подгружается один раз при монтировании
+  // история + снапшот данных для карточек подгружаются один раз при монтировании
   useEffect(() => {
     if (loaded) return;
     setLoaded(true);
     fetch('/api/chat')
       .then((r) => (r.ok ? r.json() : { messages: [] }))
       .then((d) => setMessages(d.messages ?? []))
+      .catch(() => {});
+    fetch('/api/chat/snapshot')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setSnapshot(d))
       .catch(() => {});
   }, [loaded]);
 
@@ -135,10 +147,12 @@ export function AssistantChat() {
               color: m.role === 'user' ? '#000' : 'var(--text-primary)',
               border: m.role === 'user' ? 'none' : '1px solid var(--border)',
               padding: '10px 13px', borderRadius: 14,
-              fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word',
             }}
           >
-            {m.content || (m.role === 'assistant' && busy ? '…' : '')}
+            {m.role === 'assistant'
+              ? renderWithCards(m.content || (busy ? '…' : ''), snapshot)
+              : <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>}
           </div>
         ))}
       </div>
@@ -210,6 +224,102 @@ export function AssistantChat() {
           <Send size={18} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// Разбиваем текст ответа на части по плейсхолдерам [[card:xxx]] и
+// рендерим их красивыми карточками, подставляя данные из snapshot.
+function renderWithCards(text: string, snap: Snapshot | null): React.ReactNode {
+  const parts = text.split(/(\[\[card:[a-zA-Z]+\]\])/g);
+  return parts.map((part, idx) => {
+    const m = /^\[\[card:([a-zA-Z]+)\]\]$/.exec(part);
+    if (m) {
+      const card = renderCard(m[1], snap);
+      // если данных нет — не показываем пустой плейсхолдер
+      return card ? <div key={idx}>{card}</div> : null;
+    }
+    if (!part) return null;
+    return <span key={idx} style={{ whiteSpace: 'pre-wrap' }}>{part}</span>;
+  });
+}
+
+function renderCard(kind: string, snap: Snapshot | null): React.ReactNode {
+  if (!snap) return null;
+  if (kind === 'macros') {
+    const { goal, eaten, meals } = snap.macros;
+    const row = (label: string, val: number, g: number | null, color: string) => {
+      const pct = g ? Math.min(100, Math.round((val / g) * 100)) : 0;
+      return (
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+            <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+            <span style={{ fontWeight: 700 }}>{val}{g ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> / {g}</span> : ''}</span>
+          </div>
+          {g ? (
+            <div style={{ height: 5, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: color }} />
+            </div>
+          ) : null}
+        </div>
+      );
+    };
+    return (
+      <CardShell icon={<Flame size={15} />} title={`Питание сегодня · ${meals} приём(ов)`}>
+        {row('Калории', eaten.kcal, goal.kcal, '#f59e0b')}
+        {row('Белок', eaten.p, goal.p, '#22c55e')}
+        {row('Жиры', eaten.f, goal.f, '#f97316')}
+        {row('Углеводы', eaten.c, goal.c, '#3b82f6')}
+      </CardShell>
+    );
+  }
+  if (kind === 'lastWorkout') {
+    const w = snap.lastWorkout;
+    if (!w) return null;
+    return (
+      <CardShell icon={<Dumbbell size={15} />} title="Последняя тренировка">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{w.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{w.date}</div>
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: w.done === w.total ? 'var(--green)' : '#f59e0b' }}>
+            {w.done}/{w.total}
+          </div>
+        </div>
+      </CardShell>
+    );
+  }
+  if (kind === 'labs') {
+    const l = snap.labs;
+    if (!l) return null;
+    return (
+      <CardShell icon={<FlaskConical size={15} />} title="Последний анализ">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{l.panelName || 'Анализ'}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.date} · {l.total} показателей</div>
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: l.abnormal > 0 ? '#ef4444' : 'var(--green)' }}>
+            {l.abnormal > 0 ? `${l.abnormal} вне нормы` : 'всё в норме'}
+          </div>
+        </div>
+      </CardShell>
+    );
+  }
+  return null;
+}
+
+function CardShell({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      margin: '8px 0', background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: 12, padding: '10px 12px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, color: 'var(--yellow)', fontSize: 12, fontWeight: 700 }}>
+        {icon}<span style={{ color: 'var(--text-secondary)' }}>{title}</span>
+      </div>
+      {children}
     </div>
   );
 }
