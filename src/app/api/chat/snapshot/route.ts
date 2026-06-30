@@ -27,16 +27,26 @@ export async function GET() {
   const today = new Date().toISOString().slice(0, 10);
   const dayLogs = (fitness?.dayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { completed?: boolean }[] } }>) || {};
 
-  // Макросы за сегодня
-  const todayMeals = Array.isArray(dayLogs[today]?.meals) ? dayLogs[today]!.meals! : [];
-  const eaten = todayMeals.reduce(
-    (a, m) => ({ kcal: a.kcal + (m.calories || 0), p: a.p + (m.protein || 0), f: a.f + (m.fat || 0), c: a.c + (m.carbs || 0) }),
-    { kcal: 0, p: 0, f: 0, c: 0 }
-  );
+  // Макросы по дням (последние 14) — чтобы карточка могла показать любой
+  // запрошенный день, а не только сегодня.
+  const dates = Object.keys(dayLogs).sort().reverse();
+  const macrosByDate: Record<string, { eaten: { kcal: number; p: number; f: number; c: number }; meals: number }> = {};
+  for (const d of dates.slice(0, 14)) {
+    const meals = Array.isArray(dayLogs[d]?.meals) ? dayLogs[d]!.meals! : [];
+    if (meals.length === 0) continue;
+    macrosByDate[d] = {
+      eaten: meals.reduce(
+        (a, m) => ({ kcal: a.kcal + (m.calories || 0), p: a.p + (m.protein || 0), f: a.f + (m.fat || 0), c: a.c + (m.carbs || 0) }),
+        { kcal: 0, p: 0, f: 0, c: 0 }
+      ),
+      meals: meals.length,
+    };
+  }
+  const emptyEaten = { eaten: { kcal: 0, p: 0, f: 0, c: 0 }, meals: 0 };
+  const todayMacros = macrosByDate[today] ?? emptyEaten;
 
   // Последняя тренировка (последний день с выполненными упражнениями)
   let lastWorkout: { date: string; name: string; done: number; total: number } | null = null;
-  const dates = Object.keys(dayLogs).sort().reverse();
   for (const d of dates) {
     const src = dayLogs[d]?.workoutSnapshot ?? dayLogs[d]?.workoutDraft;
     const ex = src?.exercises ?? [];
@@ -60,8 +70,10 @@ export async function GET() {
     today,
     macros: {
       goal: { kcal: user?.goalCalories ?? null, p: user?.goalProtein ?? null, f: user?.goalFat ?? null, c: user?.goalCarbs ?? null },
-      eaten,
-      meals: todayMeals.length,
+      // данные за сегодня (для обратной совместимости) + по дням
+      eaten: todayMacros.eaten,
+      meals: todayMacros.meals,
+      byDate: macrosByDate,
     },
     lastWorkout,
     labs,

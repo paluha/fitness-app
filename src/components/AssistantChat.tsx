@@ -5,9 +5,14 @@ import { Sparkles, Send, Paperclip, X, Flame, Dumbbell, FlaskConical } from 'luc
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string };
 
+type Eaten = { kcal: number; p: number; f: number; c: number };
 type Snapshot = {
   today: string;
-  macros: { goal: { kcal: number | null; p: number | null; f: number | null; c: number | null }; eaten: { kcal: number; p: number; f: number; c: number }; meals: number };
+  macros: {
+    goal: { kcal: number | null; p: number | null; f: number | null; c: number | null };
+    eaten: Eaten; meals: number;
+    byDate: Record<string, { eaten: Eaten; meals: number }>;
+  };
   lastWorkout: { date: string; name: string; done: number; total: number } | null;
   labs: { date: string; panelName: string | null; abnormal: number; total: number } | null;
 };
@@ -228,14 +233,14 @@ export function AssistantChat() {
   );
 }
 
-// Разбиваем текст ответа на части по плейсхолдерам [[card:xxx]] и
-// рендерим их красивыми карточками, подставляя данные из snapshot.
+// Разбиваем текст ответа на части по плейсхолдерам [[card:xxx]] или
+// [[card:macros:ГГГГ-ММ-ДД]] и рендерим карточками, подставляя данные из snapshot.
 function renderWithCards(text: string, snap: Snapshot | null): React.ReactNode {
-  const parts = text.split(/(\[\[card:[a-zA-Z]+\]\])/g);
+  const parts = text.split(/(\[\[card:[a-zA-Z]+(?::\d{4}-\d{2}-\d{2})?\]\])/g);
   return parts.map((part, idx) => {
-    const m = /^\[\[card:([a-zA-Z]+)\]\]$/.exec(part);
+    const m = /^\[\[card:([a-zA-Z]+)(?::(\d{4}-\d{2}-\d{2}))?\]\]$/.exec(part);
     if (m) {
-      const card = renderCard(m[1], snap);
+      const card = renderCard(m[1], m[2], snap);
       // если данных нет — не показываем пустой плейсхолдер
       return card ? <div key={idx}>{card}</div> : null;
     }
@@ -244,10 +249,17 @@ function renderWithCards(text: string, snap: Snapshot | null): React.ReactNode {
   });
 }
 
-function renderCard(kind: string, snap: Snapshot | null): React.ReactNode {
+function renderCard(kind: string, date: string | undefined, snap: Snapshot | null): React.ReactNode {
   if (!snap) return null;
   if (kind === 'macros') {
-    const { goal, eaten, meals } = snap.macros;
+    const { goal } = snap.macros;
+    // дата из плейсхолдера, иначе сегодня
+    const d = date || snap.today;
+    const dayData = snap.macros.byDate[d] ?? (d === snap.today ? { eaten: snap.macros.eaten, meals: snap.macros.meals } : null);
+    if (!dayData) return null; // за этот день еды нет — карточку не показываем
+    const { eaten, meals } = dayData;
+    const isToday = d === snap.today;
+    const dateLabel = isToday ? 'сегодня' : (() => { try { return new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); } catch { return d; } })();
     const row = (label: string, val: number, g: number | null, color: string) => {
       const pct = g ? Math.min(100, Math.round((val / g) * 100)) : 0;
       return (
@@ -265,7 +277,7 @@ function renderCard(kind: string, snap: Snapshot | null): React.ReactNode {
       );
     };
     return (
-      <CardShell icon={<Flame size={15} />} title={`Питание сегодня · ${meals} приём(ов)`}>
+      <CardShell icon={<Flame size={15} />} title={`Питание ${dateLabel} · ${meals} приём(ов)`}>
         {row('Калории', eaten.kcal, goal.kcal, '#f59e0b')}
         {row('Белок', eaten.p, goal.p, '#22c55e')}
         {row('Жиры', eaten.f, goal.f, '#f97316')}
