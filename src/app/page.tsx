@@ -2262,8 +2262,9 @@ export default function FitnessPage() {
         }
         for (const [date, rows] of byDate) {
           const base: DayLog = next[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
-          const workoutId = rows.find(r => r.workoutId)?.workoutId ?? base.workoutDraft?.workoutId ?? base.selectedWorkout ?? null;
-          if (!workoutId) continue;
+          // workoutId может быть неизвестен у старых записей — НЕ пропускаем
+          // день из-за этого, иначе подходы «теряются» для LAST/графика.
+          const workoutId = rows.find(r => r.workoutId)?.workoutId ?? base.workoutDraft?.workoutId ?? base.selectedWorkout ?? '';
           const existingExercises = base.workoutDraft?.exercises ?? base.workoutSnapshot?.exercises ?? [];
           const exMap = new Map(existingExercises.map(e => [e.id, { ...e }]));
           // Шаблон тренировки — чтобы восстановить упражнение, если его нет в
@@ -3394,57 +3395,57 @@ export default function FitnessPage() {
   // previous reps×weight per set. We walk dayLogs date keys in reverse.
   const lastSetsByExerciseId = useMemo(() => {
     const map: Record<string, ExerciseSet[]> = {};
-    const targetWorkoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
-    if (!targetWorkoutId) return map;
+    // Ищем LAST по exerciseId ПО ВСЕМ прошлым дням, НЕ привязываясь к
+    // workoutId (одно упражнение бывает в разных тренировках). Берём самую
+    // свежую дату, где у упражнения есть подходы с реальным весом/повторами;
+    // если у прошлой сессии пусто — идём к позапрошлой и т.д.
     const dates = Object.keys(dayLogs).filter(d => d < dateKey).sort().reverse();
     const remaining = new Set(displayExercises.map(e => e.id));
+    // helper: есть ли в подходах хоть какой-то реальный результат
+    const hasReal = (sets?: ExerciseSet[]) =>
+      Array.isArray(sets) && sets.some(s => (s.weight || 0) > 0 || (s.reps || 0) > 0);
     for (const d of dates) {
       if (remaining.size === 0) break;
-      const draft = dayLogs[d]?.workoutDraft;
-      const snap = dayLogs[d]?.workoutSnapshot;
-      const candidate = (draft && draft.workoutId === targetWorkoutId) ? draft
-        : (snap && snap.workoutId === targetWorkoutId) ? snap
-        : null;
-      if (!candidate?.exercises) continue;
-      for (const e of candidate.exercises) {
-        if (!remaining.has(e.id)) continue;
-        const sets = (e as { sets?: ExerciseSet[] }).sets;
-        if (Array.isArray(sets) && sets.length > 0) {
-          map[e.id] = sets;
-          remaining.delete(e.id);
+      // смотрим и draft, и snapshot этого дня (любая тренировка)
+      for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
+        if (!candidate?.exercises) continue;
+        for (const e of candidate.exercises) {
+          if (!remaining.has(e.id)) continue;
+          const sets = (e as { sets?: ExerciseSet[] }).sets;
+          if (hasReal(sets)) {
+            map[e.id] = sets!;
+            remaining.delete(e.id);
+          }
         }
       }
     }
     return map;
-  }, [dayLogs, dateKey, viewingPastWorkout, currentDayLog, currentWorkout.id, displayExercises]);
+  }, [dayLogs, dateKey, displayExercises]);
 
-  // Динамика рабочего веса по каждому упражнению за всё время: для каждой
-  // даты берём МАКСИМАЛЬНЫЙ вес среди подходов упражнения. Строим по всем
-  // дням текущей тренировки (старые→новые) — для мини-графика в карточке.
+  // Динамика рабочего веса по каждому упражнению С САМОГО НАЧАЛА: для каждой
+  // даты, где упражнение делалось (в ЛЮБОЙ тренировке), берём МАКСИМАЛЬНЫЙ вес
+  // среди подходов. Не привязываемся к workoutId — история строится с первого
+  // дня, когда появился вес. Один день = одна точка (макс. по draft/snapshot).
   const weightHistoryByExerciseId = useMemo(() => {
     const map: Record<string, { date: string; weight: number }[]> = {};
-    const targetWorkoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
-    if (!targetWorkoutId) return map;
     const dates = Object.keys(dayLogs).sort(); // старые сверху
     for (const d of dates) {
-      const draft = dayLogs[d]?.workoutDraft;
-      const snap = dayLogs[d]?.workoutSnapshot;
-      const candidate = (draft && draft.workoutId === targetWorkoutId) ? draft
-        : (snap && snap.workoutId === targetWorkoutId) ? snap
-        : null;
-      if (!candidate?.exercises) continue;
-      for (const e of candidate.exercises) {
-        const sets = (e as { sets?: ExerciseSet[] }).sets;
-        if (!Array.isArray(sets) || sets.length === 0) continue;
-        // макс. вес среди подходов, где реально был вес
-        const maxW = Math.max(0, ...sets.map(s => s.weight || 0));
-        if (maxW > 0) {
-          (map[e.id] ??= []).push({ date: d, weight: maxW });
+      const perDay: Record<string, number> = {}; // exerciseId → макс вес за день
+      for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
+        if (!candidate?.exercises) continue;
+        for (const e of candidate.exercises) {
+          const sets = (e as { sets?: ExerciseSet[] }).sets;
+          if (!Array.isArray(sets) || sets.length === 0) continue;
+          const maxW = Math.max(0, ...sets.map(s => s.weight || 0));
+          if (maxW > 0) perDay[e.id] = Math.max(perDay[e.id] || 0, maxW);
         }
+      }
+      for (const [exId, w] of Object.entries(perDay)) {
+        (map[exId] ??= []).push({ date: d, weight: w });
       }
     }
     return map;
-  }, [dayLogs, viewingPastWorkout, currentDayLog, currentWorkout.id]);
+  }, [dayLogs]);
 
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
