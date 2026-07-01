@@ -765,12 +765,15 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
   onUpdate: (updates: Partial<Exercise>) => void;
   progressHistory: ExerciseProgress[];
+  // Динамика рабочего веса этого упражнения по датам (макс. вес за тренировку).
+  // Строится из реальных подходов во всех днях — для мини-графика в карточке.
+  weightHistory?: { date: string; weight: number }[];
   // Per-set values from the most recent prior session of this same workout —
   // shown in a "Last" column so the user can target/beat the previous lift.
   lastSets?: ExerciseSet[];
@@ -796,6 +799,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
     }
   };
   const [showHistory, setShowHistory] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [videoUrlInput, setVideoUrlInput] = useState(ex.videoUrl || '');
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -1253,6 +1257,41 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, lastSets, 
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '2px', fontSize: '10px', cursor: 'pointer' }}>
                 <X size={12} />
               </button>
+            </div>
+          )}
+
+          {/* Динамика рабочего веса этого упражнения */}
+          {weightHistory && weightHistory.length > 0 && (
+            <div style={{ marginTop: '14px' }}>
+              <button
+                onClick={() => setShowChart(!showChart)}
+                style={{
+                  padding: '12px 16px',
+                  background: 'var(--yellow-dim)',
+                  border: '1px solid var(--yellow-glow)',
+                  borderRadius: '10px',
+                  color: 'var(--yellow)',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <TrendingUp size={16} /> Динамика веса ({weightHistory.length})
+              </button>
+              {showChart && (
+                <div style={{
+                  marginTop: '12px', padding: '14px',
+                  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
+                }}>
+                  <WeightChart
+                    data={weightHistory.map(h => h.weight)}
+                    labels={weightHistory.map(h => new Date(h.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -3379,6 +3418,34 @@ export default function FitnessPage() {
     return map;
   }, [dayLogs, dateKey, viewingPastWorkout, currentDayLog, currentWorkout.id, displayExercises]);
 
+  // Динамика рабочего веса по каждому упражнению за всё время: для каждой
+  // даты берём МАКСИМАЛЬНЫЙ вес среди подходов упражнения. Строим по всем
+  // дням текущей тренировки (старые→новые) — для мини-графика в карточке.
+  const weightHistoryByExerciseId = useMemo(() => {
+    const map: Record<string, { date: string; weight: number }[]> = {};
+    const targetWorkoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
+    if (!targetWorkoutId) return map;
+    const dates = Object.keys(dayLogs).sort(); // старые сверху
+    for (const d of dates) {
+      const draft = dayLogs[d]?.workoutDraft;
+      const snap = dayLogs[d]?.workoutSnapshot;
+      const candidate = (draft && draft.workoutId === targetWorkoutId) ? draft
+        : (snap && snap.workoutId === targetWorkoutId) ? snap
+        : null;
+      if (!candidate?.exercises) continue;
+      for (const e of candidate.exercises) {
+        const sets = (e as { sets?: ExerciseSet[] }).sets;
+        if (!Array.isArray(sets) || sets.length === 0) continue;
+        // макс. вес среди подходов, где реально был вес
+        const maxW = Math.max(0, ...sets.map(s => s.weight || 0));
+        if (maxW > 0) {
+          (map[e.id] ??= []).push({ date: d, weight: maxW });
+        }
+      }
+    }
+    return map;
+  }, [dayLogs, viewingPastWorkout, currentDayLog, currentWorkout.id]);
+
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + direction);
@@ -4040,6 +4107,7 @@ export default function FitnessPage() {
                       onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
+                      weightHistory={weightHistoryByExerciseId[ex.id]}
                       lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
