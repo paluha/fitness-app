@@ -14,6 +14,7 @@ import {
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
+import { WeightChart } from '@/components/WeightChart';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -2226,16 +2227,27 @@ export default function FitnessPage() {
           if (!workoutId) continue;
           const existingExercises = base.workoutDraft?.exercises ?? base.workoutSnapshot?.exercises ?? [];
           const exMap = new Map(existingExercises.map(e => [e.id, { ...e }]));
+          // Шаблон тренировки — чтобы восстановить упражнение, если его нет в
+          // блобе (иначе сохранённые в WorkoutLogEntry подходы «терялись» и
+          // «прошлый раз» не показывался).
+          const templateExercises = workouts.find(w => w.id === workoutId)?.exercises ?? [];
+          const templateById = new Map(templateExercises.map(e => [e.id, e]));
           for (const r of rows) {
-            const prevEx = exMap.get(r.exerciseId);
-            if (prevEx) {
-              prevEx.completed = r.completed;
-              if (r.actualSets !== null && r.actualSets !== undefined) {
-                if (Array.isArray(r.actualSets)) prevEx.sets = r.actualSets as ExerciseSet[];
-                else prevEx.actualSets = r.actualSets as string;
-              }
-              if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
+            let prevEx = exMap.get(r.exerciseId);
+            if (!prevEx) {
+              // создаём упражнение из шаблона (или минимальную заглушку)
+              const tpl = templateById.get(r.exerciseId);
+              prevEx = tpl
+                ? { ...tpl }
+                : ({ id: r.exerciseId, name: '', plannedSets: '', actualSets: '', newWeight: '', restTime: '', notes: '', feedback: '', completed: false } as Exercise);
+              exMap.set(r.exerciseId, prevEx);
             }
+            prevEx.completed = r.completed;
+            if (r.actualSets !== null && r.actualSets !== undefined) {
+              if (Array.isArray(r.actualSets)) prevEx.sets = r.actualSets as ExerciseSet[];
+              else prevEx.actualSets = r.actualSets as string;
+            }
+            if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
           }
           if (!base.dayClosed) {
             next[date] = {
@@ -3433,8 +3445,25 @@ export default function FitnessPage() {
             </div>
           </div>
 
-          {/* Night Mode Indicator */}
-          {isNightMode && <span style={{ fontSize: '18px' }}>🌙</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Night Mode Indicator */}
+            {isNightMode && <span style={{ fontSize: '18px' }}>🌙</span>}
+
+            {/* Быстрый доступ к графику прогресса веса */}
+            <button
+              onClick={() => { setView('gains'); localStorage.setItem('fitness_view', 'gains'); }}
+              aria-label={userSettings.language === 'ru' ? 'Прогресс' : 'Progress'}
+              title={userSettings.language === 'ru' ? 'Прогресс веса' : 'Weight progress'}
+              style={{
+                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <TrendingUp size={18} />
+            </button>
+          </div>
 
           {/* Date Navigator */}
           <div style={{
@@ -5013,6 +5042,30 @@ export default function FitnessPage() {
                 <Plus size={18} />
                 {t('addMeasurements')}
               </button>
+
+              {/* График веса по замерам (старые→новые) */}
+              {(() => {
+                const withWeight = bodyMeasurements
+                  .filter(m => typeof m.weight === 'number' && m.weight! > 0)
+                  .slice()
+                  .sort((a, b) => (a.date < b.date ? -1 : 1));
+                if (withWeight.length === 0) return null;
+                return (
+                  <div style={{
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: '16px', padding: '16px', marginBottom: '20px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>
+                      <TrendingUp size={16} style={{ color: 'var(--yellow)' }} />
+                      {userSettings.language === 'ru' ? 'Динамика веса' : 'Weight trend'}
+                    </div>
+                    <WeightChart
+                      data={withWeight.map(m => m.weight!)}
+                      labels={withWeight.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+                    />
+                  </div>
+                );
+              })()}
 
               {/* Measurements List */}
               {bodyMeasurements.length === 0 ? (
