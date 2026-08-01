@@ -264,10 +264,6 @@ export async function POST(request: Request) {
     );
 
     // ── Серверная страховка от невозможных/недоопределённых значений ──
-    // Модель иногда отдаёт -1 как код «не смог определить» (у творога это дало
-    // Б:-1 при 249 ккал). Просто заменить на 0 — тоже враньё (0 г белка у
-    // творога неверно). Поэтому недостающий макрос ВОССТАНАВЛИВАЕМ из калорий и
-    // двух других по формуле Atwater: ккал = Б*4 + Ж*9 + У*4.
     const rawProtein = Number(parsed.protein);
     const rawFat = Number(parsed.fat);
     const rawCarbs = Number(parsed.carbs);
@@ -280,31 +276,44 @@ export async function POST(request: Request) {
     let carbs = ok(rawCarbs) ? rawCarbs : NaN;
     let calories = ok(rawCalories) ? rawCalories : NaN;
 
-    // если РОВНО один из трёх макросов недоопределён, а калории и два других
-    // валидны — восстановим недостающий из формулы (не даём протечь 0/-1).
-    const macrosDefined = [protein, fat, carbs].filter(v => Number.isFinite(v)).length;
-    if (Number.isFinite(calories) && macrosDefined === 2) {
-      if (!Number.isFinite(protein)) protein = Math.max(0, (calories - fat * 9 - carbs * 4) / 4);
-      else if (!Number.isFinite(fat)) fat = Math.max(0, (calories - protein * 4 - carbs * 4) / 9);
-      else if (!Number.isFinite(carbs)) carbs = Math.max(0, (calories - protein * 4 - fat * 9) / 4);
+    if (isNutritionLabel) {
+      // ЭТИКЕТКА: числа взяты прямо с упаковки — это ИСТИНА, даже если не сходятся
+      // с формулой (округления, сахарные спирты, клетчатка). НИЧЕГО не пересчитываем,
+      // только заменяем недоопределённое/отрицательное на 0. Именно из-за пересчёта
+      // калории Heinz 10 ккал превращались в 4 (0*4+0*9+1*4).
+      protein = Number.isFinite(protein) ? protein : 0;
+      fat = Number.isFinite(fat) ? fat : 0;
+      carbs = Number.isFinite(carbs) ? carbs : 0;
+      calories = Number.isFinite(calories) ? calories : protein * 4 + fat * 9 + carbs * 4;
+    } else {
+      // ФОТО ЕДЫ: AI оценивает, тут пересчёт уместен. Модель иногда шлёт -1 как
+      // «не знаю» — восстанавливаем недостающий макрос из калорий и двух других.
+      const macrosDefined = [protein, fat, carbs].filter(v => Number.isFinite(v)).length;
+      if (Number.isFinite(calories) && macrosDefined === 2) {
+        if (!Number.isFinite(protein)) protein = Math.max(0, (calories - fat * 9 - carbs * 4) / 4);
+        else if (!Number.isFinite(fat)) fat = Math.max(0, (calories - protein * 4 - carbs * 4) / 9);
+        else if (!Number.isFinite(carbs)) carbs = Math.max(0, (calories - protein * 4 - fat * 9) / 4);
+      }
+      protein = Number.isFinite(protein) ? Math.max(0, protein) : 0;
+      fat = Number.isFinite(fat) ? Math.max(0, fat) : 0;
+      carbs = Number.isFinite(carbs) ? Math.max(0, carbs) : 0;
+
+      // калории из макросов, только если не заданы ИЛИ сильно расходятся —
+      // и только при осмысленных величинах (не трогаем крошечные порции <30 ккал,
+      // где округление макросов до целых даёт большую относительную ошибку).
+      const kcalFromMacros = protein * 4 + fat * 9 + carbs * 4;
+      if (!Number.isFinite(calories) || calories <= 0) {
+        calories = kcalFromMacros;
+      } else if (kcalFromMacros >= 30 && calories >= 30 &&
+                 Math.abs(calories - kcalFromMacros) / kcalFromMacros > 0.25) {
+        calories = kcalFromMacros;
+      }
     }
 
-    // всё, что осталось недоопределённым → 0 (последний рубеж).
-    protein = Number.isFinite(protein) ? Math.max(0, protein) : 0;
-    fat = Number.isFinite(fat) ? Math.max(0, fat) : 0;
-    carbs = Number.isFinite(carbs) ? Math.max(0, carbs) : 0;
-
-    // калории: из макросов, если не заданы или сильно расходятся (>25%).
-    const kcalFromMacros = protein * 4 + fat * 9 + carbs * 4;
-    if (!Number.isFinite(calories) || calories <= 0 ||
-        (kcalFromMacros > 0 && Math.abs(calories - kcalFromMacros) / kcalFromMacros > 0.25)) {
-      calories = kcalFromMacros;
-    }
-
-    protein = Math.round(protein);
-    fat = Math.round(fat);
-    carbs = Math.round(carbs);
-    calories = Math.round(calories);
+    protein = Math.max(0, Math.round(protein));
+    fat = Math.max(0, Math.round(fat));
+    carbs = Math.max(0, Math.round(carbs));
+    calories = Math.max(0, Math.round(calories));
 
     return NextResponse.json({
       success: true,
