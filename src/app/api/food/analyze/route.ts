@@ -251,23 +251,42 @@ export async function POST(request: Request) {
         `cache_read=${cacheRead} cache_write=${cacheWrite}`
     );
 
-    // Серверная страховка от невозможных значений (модель иногда возвращает
-    // отрицательный/противоречивый белок — напр. Б:-1 при 249 ккал у творога).
-    // 1) все макросы и калории не могут быть отрицательными → clamp в 0.
-    const nonNeg = (v: unknown) => Math.max(0, Number(v) || 0);
-    let protein = nonNeg(parsed.protein);
-    let fat = nonNeg(parsed.fat);
-    let carbs = nonNeg(parsed.carbs);
-    let calories = nonNeg(parsed.calories);
+    // ── Серверная страховка от невозможных/недоопределённых значений ──
+    // Модель иногда отдаёт -1 как код «не смог определить» (у творога это дало
+    // Б:-1 при 249 ккал). Просто заменить на 0 — тоже враньё (0 г белка у
+    // творога неверно). Поэтому недостающий макрос ВОССТАНАВЛИВАЕМ из калорий и
+    // двух других по формуле Atwater: ккал = Б*4 + Ж*9 + У*4.
+    const rawProtein = Number(parsed.protein);
+    const rawFat = Number(parsed.fat);
+    const rawCarbs = Number(parsed.carbs);
+    const rawCalories = Number(parsed.calories);
 
-    // 2) сходимость по Atwater: ккал ≈ Б*4 + Ж*9 + У*4.
+    // «валидное» = конечное число >= 0. -1 / NaN / отрицательное → недоопределено.
+    const ok = (v: number) => Number.isFinite(v) && v >= 0;
+    let protein = ok(rawProtein) ? rawProtein : NaN;
+    let fat = ok(rawFat) ? rawFat : NaN;
+    let carbs = ok(rawCarbs) ? rawCarbs : NaN;
+    let calories = ok(rawCalories) ? rawCalories : NaN;
+
+    // если РОВНО один из трёх макросов недоопределён, а калории и два других
+    // валидны — восстановим недостающий из формулы (не даём протечь 0/-1).
+    const macrosDefined = [protein, fat, carbs].filter(v => Number.isFinite(v)).length;
+    if (Number.isFinite(calories) && macrosDefined === 2) {
+      if (!Number.isFinite(protein)) protein = Math.max(0, (calories - fat * 9 - carbs * 4) / 4);
+      else if (!Number.isFinite(fat)) fat = Math.max(0, (calories - protein * 4 - carbs * 4) / 9);
+      else if (!Number.isFinite(carbs)) carbs = Math.max(0, (calories - protein * 4 - fat * 9) / 4);
+    }
+
+    // всё, что осталось недоопределённым → 0 (последний рубеж).
+    protein = Number.isFinite(protein) ? Math.max(0, protein) : 0;
+    fat = Number.isFinite(fat) ? Math.max(0, fat) : 0;
+    carbs = Number.isFinite(carbs) ? Math.max(0, carbs) : 0;
+
+    // калории: из макросов, если не заданы или сильно расходятся (>25%).
     const kcalFromMacros = protein * 4 + fat * 9 + carbs * 4;
-    if (kcalFromMacros > 0) {
-      // если заявленные калории сильно расходятся с макросами (>25%),
-      // доверяем макросам и пересчитываем калории из них.
-      if (calories <= 0 || Math.abs(calories - kcalFromMacros) / kcalFromMacros > 0.25) {
-        calories = kcalFromMacros;
-      }
+    if (!Number.isFinite(calories) || calories <= 0 ||
+        (kcalFromMacros > 0 && Math.abs(calories - kcalFromMacros) / kcalFromMacros > 0.25)) {
+      calories = kcalFromMacros;
     }
 
     protein = Math.round(protein);
