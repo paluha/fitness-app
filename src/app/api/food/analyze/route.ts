@@ -49,14 +49,17 @@ Return ONLY a JSON object matching the requested schema:
 - serving: serving size string from the label (e.g. "100 г", "1 порция (30 г)")`;
 
 // Output schemas — Claude validates these and guarantees parseable JSON.
+// Примечание: Anthropic structured outputs поддерживает ограниченный набор
+// JSON Schema — `minimum` не используем (может отклоняться валидатором схемы).
+// Неотрицательность и сходимость калорий гарантируются на сервере ниже.
 const FOOD_PHOTO_SCHEMA = {
   type: 'object',
   properties: {
     name: { type: 'string' },
-    calories: { type: 'number', minimum: 0 },
-    protein: { type: 'number', minimum: 0 },
-    fat: { type: 'number', minimum: 0 },
-    carbs: { type: 'number', minimum: 0 },
+    calories: { type: 'number' },
+    protein: { type: 'number' },
+    fat: { type: 'number' },
+    carbs: { type: 'number' },
     weight: { type: ['number', 'null'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     notes: { type: 'string' },
@@ -69,10 +72,10 @@ const NUTRITION_LABEL_SCHEMA = {
   type: 'object',
   properties: {
     name: { type: 'string' },
-    calories: { type: 'number', minimum: 0 },
-    protein: { type: 'number', minimum: 0 },
-    fat: { type: 'number', minimum: 0 },
-    carbs: { type: 'number', minimum: 0 },
+    calories: { type: 'number' },
+    protein: { type: 'number' },
+    fat: { type: 'number' },
+    carbs: { type: 'number' },
     serving: { type: 'string' },
   },
   required: ['name', 'calories', 'protein', 'fat', 'carbs'],
