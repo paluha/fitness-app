@@ -23,7 +23,21 @@ realistic per-serving values:
 - name: in Russian
 - confidence: "high" if scale-read or unambiguous food, "medium" if estimating
   a clearly identifiable food, "low" if unsure
-- notes: short Russian note (assumptions, what was hard to see, etc.)`;
+- notes: short Russian note (assumptions, what was hard to see, etc.)
+
+CRITICAL rules for the numbers — follow ALL of them:
+1. Every value must be ZERO OR POSITIVE. Protein, fat, carbs and calories can
+   NEVER be negative. If you are unsure of a macro, estimate a realistic
+   non-negative value, never a negative one or -1.
+2. Scale the macros to the ACTUAL portion weight. If the scale shows 220 g,
+   compute macros for 220 g, not per 100 g. Example: cottage cheese (творог 3%)
+   is ~16 g protein, ~3 g fat, ~3 g carbs, ~120 kcal per 100 g — so 220 g is
+   ~35 g protein, ~7 g fat, ~7 g carbs, ~260 kcal.
+3. The numbers MUST be internally consistent: calories ≈ protein*4 + fat*9 +
+   carbs*4 (within ~10%). Before answering, verify this. If it doesn't add up,
+   fix the macros — do NOT return contradictory values.
+4. Cottage cheese / curd / творог is a HIGH-PROTEIN food: protein is its largest
+   macro. Never output near-zero or negative protein for it.`;
 
 const NUTRITION_LABEL_SYSTEM = `You read nutrition labels from product packaging
 photos and return the values exactly as printed on the label.
@@ -39,10 +53,10 @@ const FOOD_PHOTO_SCHEMA = {
   type: 'object',
   properties: {
     name: { type: 'string' },
-    calories: { type: 'number' },
-    protein: { type: 'number' },
-    fat: { type: 'number' },
-    carbs: { type: 'number' },
+    calories: { type: 'number', minimum: 0 },
+    protein: { type: 'number', minimum: 0 },
+    fat: { type: 'number', minimum: 0 },
+    carbs: { type: 'number', minimum: 0 },
     weight: { type: ['number', 'null'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     notes: { type: 'string' },
@@ -55,10 +69,10 @@ const NUTRITION_LABEL_SCHEMA = {
   type: 'object',
   properties: {
     name: { type: 'string' },
-    calories: { type: 'number' },
-    protein: { type: 'number' },
-    fat: { type: 'number' },
-    carbs: { type: 'number' },
+    calories: { type: 'number', minimum: 0 },
+    protein: { type: 'number', minimum: 0 },
+    fat: { type: 'number', minimum: 0 },
+    carbs: { type: 'number', minimum: 0 },
     serving: { type: 'string' },
   },
   required: ['name', 'calories', 'protein', 'fat', 'carbs'],
@@ -234,15 +248,39 @@ export async function POST(request: Request) {
         `cache_read=${cacheRead} cache_write=${cacheWrite}`
     );
 
+    // Серверная страховка от невозможных значений (модель иногда возвращает
+    // отрицательный/противоречивый белок — напр. Б:-1 при 249 ккал у творога).
+    // 1) все макросы и калории не могут быть отрицательными → clamp в 0.
+    const nonNeg = (v: unknown) => Math.max(0, Number(v) || 0);
+    let protein = nonNeg(parsed.protein);
+    let fat = nonNeg(parsed.fat);
+    let carbs = nonNeg(parsed.carbs);
+    let calories = nonNeg(parsed.calories);
+
+    // 2) сходимость по Atwater: ккал ≈ Б*4 + Ж*9 + У*4.
+    const kcalFromMacros = protein * 4 + fat * 9 + carbs * 4;
+    if (kcalFromMacros > 0) {
+      // если заявленные калории сильно расходятся с макросами (>25%),
+      // доверяем макросам и пересчитываем калории из них.
+      if (calories <= 0 || Math.abs(calories - kcalFromMacros) / kcalFromMacros > 0.25) {
+        calories = kcalFromMacros;
+      }
+    }
+
+    protein = Math.round(protein);
+    fat = Math.round(fat);
+    carbs = Math.round(carbs);
+    calories = Math.round(calories);
+
     return NextResponse.json({
       success: true,
       type: isNutritionLabel ? 'nutrition_label' : 'food_photo',
       data: {
         name: (parsed.name as string) || 'Еда',
-        calories: Math.round(Number(parsed.calories) || 0),
-        protein: Math.round(Number(parsed.protein) || 0),
-        fat: Math.round(Number(parsed.fat) || 0),
-        carbs: Math.round(Number(parsed.carbs) || 0),
+        calories,
+        protein,
+        fat,
+        carbs,
         serving: parsed.serving as string | undefined,
         confidence: parsed.confidence as string | undefined,
         notes: parsed.notes as string | undefined,
