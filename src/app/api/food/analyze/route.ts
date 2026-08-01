@@ -25,19 +25,31 @@ realistic per-serving values:
   a clearly identifiable food, "low" if unsure
 - notes: short Russian note (assumptions, what was hard to see, etc.)
 
+HOW TO COMPUTE (this is the correct method — follow it exactly):
+- If the user tells you WHAT the food is (a hint like "творог 3%", "куриная
+  грудка"), TRUST it completely for identifying the product and its per-100 g
+  composition. Do NOT second-guess the product from the photo — the user knows
+  what they put on the scale. The photo/scale is ONLY for the WEIGHT.
+- Read the weight from the scale in the photo (grams). Then compute:
+  macro = (known per-100g value of that product) * weight / 100.
+  This is arithmetic, not visual guessing. Never "estimate protein by looking" —
+  once the product is known, protein follows from its table value and the weight.
+- Known reference values per 100 g (use these when the product matches):
+  * Творог 3% / cottage cheese 3%: ~16 g protein, ~3 g fat, ~3 g carbs, ~120 kcal
+  * Творог обезжиренный 0-2%: ~18 g protein, ~1 g fat, ~3 g carbs, ~90 kcal
+  * Куриная грудка (варёная): ~29 g protein, ~3 g fat, ~0 g carbs, ~165 kcal
+  Cottage cheese is a HIGH-PROTEIN food — protein is its LARGEST macro.
+
 CRITICAL rules for the numbers — follow ALL of them:
 1. Every value must be ZERO OR POSITIVE. Protein, fat, carbs and calories can
-   NEVER be negative. If you are unsure of a macro, estimate a realistic
-   non-negative value, never a negative one or -1.
-2. Scale the macros to the ACTUAL portion weight. If the scale shows 220 g,
-   compute macros for 220 g, not per 100 g. Example: cottage cheese (творог 3%)
-   is ~16 g protein, ~3 g fat, ~3 g carbs, ~120 kcal per 100 g — so 220 g is
-   ~35 g protein, ~7 g fat, ~7 g carbs, ~260 kcal.
+   NEVER be negative and never -1. If unsure of a macro, DERIVE it from the
+   product's known composition and the weight — never output a negative or a
+   placeholder. Example: творог 3% at 220 g = ~35 g protein, ~7 g fat, ~7 g
+   carbs, ~260 kcal.
+2. Scale to the ACTUAL portion weight from the scale (e.g. 220 g), not per 100 g.
 3. The numbers MUST be internally consistent: calories ≈ protein*4 + fat*9 +
-   carbs*4 (within ~10%). Before answering, verify this. If it doesn't add up,
-   fix the macros — do NOT return contradictory values.
-4. Cottage cheese / curd / творог is a HIGH-PROTEIN food: protein is its largest
-   macro. Never output near-zero or negative protein for it.`;
+   carbs*4 (within ~10%). Verify before answering. If it doesn't add up, fix the
+   macros — do NOT return contradictory values.`;
 
 const NUTRITION_LABEL_SYSTEM = `You read nutrition labels from product packaging
 photos and return the values exactly as printed on the label.
@@ -147,8 +159,8 @@ export async function POST(request: Request) {
     const userText = isNutritionLabel
       ? 'Прочитай состав с этикетки на фото и верни данные.'
       : hint
-        ? `Проанализируй еду на фото. Подсказка от пользователя: "${hint}".`
-        : 'Проанализируй еду на фото.';
+        ? `Продукт: "${hint}" — это точное название от пользователя, доверяй ему для определения продукта и его состава на 100 г. С фото возьми только ВЕС (с весов, если видны). Дальше посчитай: макрос = (табличное значение на 100 г для «${hint}») × вес / 100. Не оценивай белок «на глаз» — он выводится из состава продукта и веса.`
+        : 'Проанализируй еду на фото. Если видны весы — прочитай вес и посчитай макросы на этот вес.';
 
     const client = new Anthropic({ apiKey });
 
