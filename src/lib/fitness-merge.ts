@@ -152,5 +152,22 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
     };
   }
 
+  // ── Выкидываем тяжёлые base64-картинки из снапшотов/драфтов дней ──
+  // У пользователя dayLogs раздувались до ~10 МБ (246 вшитых base64-картинок
+  // упражнений), и ответ /api/fitness не догружался на телефоне → календарь
+  // тренировок оставался ПУСТЫМ. Картинки упражнений и так лежат в
+  // exerciseLibrary; в снапшоте дня нужен только completed/sets. Срезаем
+  // imageUrl со всех exercises, если это data:-URI (обычные URL оставляем).
+  const stripImg = (exs?: Array<Record<string, unknown>> | null) => {
+    if (!Array.isArray(exs)) return;
+    for (const e of exs) {
+      if (typeof e.imageUrl === 'string' && e.imageUrl.startsWith('data:')) delete e.imageUrl;
+    }
+  };
+  for (const day of Object.values(base)) {
+    stripImg((day.workoutDraft as any)?.exercises);
+    stripImg((day.workoutSnapshot as any)?.exercises);
+  }
+
   return base;
 }
