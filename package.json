@@ -12,6 +12,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
     "@auth/prisma-adapter": "^2.11.1",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "dexie": "^4.4.2",

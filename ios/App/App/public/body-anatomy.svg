@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800" width="400" height="800">
+  <defs>
+    <!-- Gradients for muscle definition -->
+    <linearGradient id="skinBase" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B6F5C"/>
+      <stop offset="50%" style="stop-color:#7A5F4E"/>
+      <stop offset="100%" style="stop-color:#6B5242"/>
+    </linearGradient>
+
+    <linearGradient id="muscleHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#A08070;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#6B5242;stop-opacity:0.6"/>
+    </linearGradient>
+
+    <linearGradient id="muscleShadow" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A3C32;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#3D322A;stop-opacity:0.8"/>
+    </linearGradient>
+
+    <filter id="muscleTexture" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <filter id="innerShadow">
+      <feOffset dx="0" dy="2"/>
+      <feGaussianBlur stdDeviation="3" result="offset-blur"/>
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+      <feFlood flood-color="#2A1F17" flood-opacity="0.5" result="color"/>
+      <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+      <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="800" fill="#0a0a0a"/>
+
+  <!-- Body outline with muscles -->
+  <g transform="translate(200, 50)">
+    <!-- HEAD -->
+    <ellipse cx="0" cy="35" rx="38" ry="45" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Face shadow -->
+    <ellipse cx="0" cy="40" rx="30" ry="35" fill="url(#muscleShadow)" opacity="0.3"/>
+
+    <!-- NECK -->
+    <path d="M-22 75 Q-25 95 -28 115 L28 115 Q25 95 22 75" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Sternocleidomastoid muscles -->
+    <path d="M-18 78 Q-22 95 -25 110" stroke="#5A4A3E" stroke-width="6" fill="none" opacity="0.5"/>
+    <path d="M18 78 Q22 95 25 110" stroke="#5A4A3E" stroke-width="6" fill="none" opacity="0.5"/>
+
+    <!-- TRAPEZIUS -->
+    <path d="M-28 110 Q-55 120 -75 145 L-65 160 Q-45 140 -28 130 Z" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <path d="M28 110 Q55 120 75 145 L65 160 Q45 140 28 130 Z" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+
+    <!-- SHOULDERS (Deltoids) -->
+    <ellipse cx="-78" cy="155" rx="28" ry="35" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <ellipse cx="78" cy="155" rx="28" ry="35" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Deltoid definition -->
+    <path d="M-95 140 Q-78 125 -60 145" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.6"/>
+    <path d="M95 140 Q78 125 60 145" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.6"/>
+
+    <!-- CHEST (Pectorals) -->
+    <path d="M-55 130 Q-45 150 -10 170 Q0 175 0 175 Q0 175 10 170 Q45 150 55 130 Q45 180 0 195 Q-45 180 -55 130" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Pec separation -->
+    <path d="M0 145 L0 190" stroke="#4A3C32" stroke-width="2" opacity="0.6"/>
+    <!-- Pec definition lines -->
+    <path d="M-45 145 Q-25 160 -5 170" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.4"/>
+    <path d="M45 145 Q25 160 5 170" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.4"/>
+
+    <!-- RIBCAGE/SERRATUS -->
+    <path d="M-50 185 Q-55 195 -55 210 Q-50 225 -40 235" stroke="#5A4A3E" stroke-width="3" fill="none" opacity="0.5"/>
+    <path d="M50 185 Q55 195 55 210 Q50 225 40 235" stroke="#5A4A3E" stroke-width="3" fill="none" opacity="0.5"/>
+
+    <!-- ABS (Rectus Abdominis) -->
+    <path d="M-40 195 Q-45 240 -42 290 Q-38 340 -30 370 L30 370 Q38 340 42 290 Q45 240 40 195 Q20 200 0 200 Q-20 200 -40 195" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Ab lines -->
+    <path d="M0 200 L0 365" stroke="#4A3C32" stroke-width="2" opacity="0.7"/>
+    <!-- Horizontal ab lines -->
+    <path d="M-30 220 Q0 215 30 220" stroke="#4A3C32" stroke-width="1.5" fill="none" opacity="0.5"/>
+    <path d="M-32 250 Q0 245 32 250" stroke="#4A3C32" stroke-width="1.5" fill="none" opacity="0.5"/>
+    <path d="M-33 280 Q0 275 33 280" stroke="#4A3C32" stroke-width="1.5" fill="none" opacity="0.5"/>
+    <path d="M-32 310 Q0 305 32 310" stroke="#4A3C32" stroke-width="1.5" fill="none" opacity="0.5"/>
+    <path d="M-30 340 Q0 335 30 340" stroke="#4A3C32" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+    <!-- OBLIQUES -->
+    <path d="M-55 210 Q-48 270 -42 340 Q-50 320 -55 290 Q-58 250 -55 210" fill="url(#muscleShadow)" opacity="0.4"/>
+    <path d="M55 210 Q48 270 42 340 Q50 320 55 290 Q58 250 55 210" fill="url(#muscleShadow)" opacity="0.4"/>
+
+    <!-- BICEPS -->
+    <ellipse cx="-75" cy="220" rx="20" ry="45" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <ellipse cx="75" cy="220" rx="20" ry="45" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Bicep peak -->
+    <path d="M-85 200 Q-75 190 -65 205" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M85 200 Q75 190 65 205" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.5"/>
+
+    <!-- FOREARMS -->
+    <path d="M-90 265 Q-85 320 -75 380 Q-68 380 -60 375 Q-58 320 -62 265 Q-75 260 -90 265" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <path d="M90 265 Q85 320 75 380 Q68 380 60 375 Q58 320 62 265 Q75 260 90 265" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Forearm muscles -->
+    <path d="M-82 280 Q-78 320 -72 360" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.4"/>
+    <path d="M82 280 Q78 320 72 360" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.4"/>
+
+    <!-- HANDS -->
+    <ellipse cx="-70" cy="400" rx="15" ry="22" fill="url(#skinBase)" opacity="0.9"/>
+    <ellipse cx="70" cy="400" rx="15" ry="22" fill="url(#skinBase)" opacity="0.9"/>
+
+    <!-- HIPS/PELVIS -->
+    <path d="M-42 365 Q-55 380 -60 400 Q-55 420 -45 435 L45 435 Q55 420 60 400 Q55 380 42 365" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Hip V-line -->
+    <path d="M-35 365 Q-40 400 -42 430" stroke="#4A3C32" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M35 365 Q40 400 42 430" stroke="#4A3C32" stroke-width="2" fill="none" opacity="0.5"/>
+
+    <!-- THIGHS (Quadriceps) -->
+    <path d="M-50 430 Q-60 480 -55 540 Q-50 590 -40 620 L-15 620 Q-10 580 -12 530 Q-15 480 -20 430 Q-35 425 -50 430" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <path d="M50 430 Q60 480 55 540 Q50 590 40 620 L15 620 Q10 580 12 530 Q15 480 20 430 Q35 425 50 430" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Quad muscles definition -->
+    <path d="M-45 450 Q-40 520 -35 590" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.4"/>
+    <path d="M-30 445 Q-28 515 -25 600" stroke="#5A4A3E" stroke-width="1.5" fill="none" opacity="0.3"/>
+    <path d="M45 450 Q40 520 35 590" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.4"/>
+    <path d="M30 445 Q28 515 25 600" stroke="#5A4A3E" stroke-width="1.5" fill="none" opacity="0.3"/>
+
+    <!-- KNEES -->
+    <ellipse cx="-30" cy="630" rx="18" ry="15" fill="url(#skinBase)"/>
+    <ellipse cx="30" cy="630" rx="18" ry="15" fill="url(#skinBase)"/>
+    <!-- Kneecap -->
+    <ellipse cx="-30" cy="628" rx="10" ry="8" fill="url(#muscleHighlight)" opacity="0.3"/>
+    <ellipse cx="30" cy="628" rx="10" ry="8" fill="url(#muscleHighlight)" opacity="0.3"/>
+
+    <!-- CALVES -->
+    <path d="M-45 645 Q-50 680 -45 720 Q-38 740 -28 745 L-18 745 Q-15 720 -18 680 Q-22 650 -28 645 Q-36 642 -45 645" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <path d="M45 645 Q50 680 45 720 Q38 740 28 745 L18 745 Q15 720 18 680 Q22 650 28 645 Q36 642 45 645" fill="url(#skinBase)" filter="url(#innerShadow)"/>
+    <!-- Calf muscle definition -->
+    <path d="M-38 660 Q-42 690 -35 730" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M38 660 Q42 690 35 730" stroke="#5A4A3E" stroke-width="2" fill="none" opacity="0.5"/>
+
+    <!-- FEET -->
+    <ellipse cx="-30" cy="755" rx="18" ry="8" fill="url(#skinBase)"/>
+    <ellipse cx="30" cy="755" rx="18" ry="8" fill="url(#skinBase)"/>
+  </g>
+</svg>
