@@ -5,26 +5,28 @@
      Values tuned so a card on bg-primary sits 1–2 steps whiter than its
      surroundings, matching how the dark theme used progressively lighter
      greys. Hover/active state backgrounds are baked into bg-elevated. */
-  /* Почти белый фон, как у Superpower — тёплый off-white. */
-  --bg-primary: #fafafa;
-  --bg-secondary: #ffffff;
+  /* Superpower-style — тёплый кремовый off-white фон, мягкая иерархия
+     поверхностей. Не чисто белый: чуть тёплый оттенок как у superpower.com. */
+  --bg-primary: #f6f3ee;
+  --bg-secondary: #fdfcfa;
   --bg-card: #ffffff;
-  --bg-elevated: #f4f4f5;
-  --bg-input: #f7f7f8;
+  --bg-elevated: #f1ede6;
+  --bg-input: #f4f0ea;
 
-  /* Primary accent — keep DODO yellow as brand color but slightly deeper so
-     it reads on white without losing identity. */
-  --yellow: #e6c800;
-  --yellow-dim: rgba(230, 200, 0, 0.14);
-  --yellow-glow: rgba(230, 200, 0, 0.3);
+  /* Primary accent — фирменный тёплый оранжевый Superpower. */
+  --yellow: #ff5c35;
+  --yellow-dim: rgba(255, 92, 53, 0.12);
+  --yellow-glow: rgba(255, 92, 53, 0.28);
 
-  /* Aliases */
-  --gold: #e6c800;
-  --gold-dim: rgba(230, 200, 0, 0.14);
-  --gold-glow: rgba(230, 200, 0, 0.3);
-  --lime: #e6c800;
-  --lime-dim: rgba(230, 200, 0, 0.14);
-  --lime-glow: rgba(230, 200, 0, 0.3);
+  /* Aliases (все указывают на оранжевый акцент) */
+  --gold: #ff5c35;
+  --gold-dim: rgba(255, 92, 53, 0.12);
+  --gold-glow: rgba(255, 92, 53, 0.28);
+  --lime: #ff5c35;
+  --lime-dim: rgba(255, 92, 53, 0.12);
+  --lime-glow: rgba(255, 92, 53, 0.28);
+  --accent: #ff5c35;
+  --accent-warm: #ff7a52;
 
   /* Success green — darker for readability on white */
   --green: #16a34a;
@@ -50,47 +52,56 @@
   --candle-green: #16a34a;
   --candle-red: #dc2626;
 
-  /* Text — dark on light. -primary is full black-ish for headings,
-     -secondary mid-grey for body, -muted light grey for hints. */
-  --text-primary: #111418;
-  --text-secondary: #4a4f58;
-  --text-muted: #8b91a0;
+  /* Text — тёплый графит на кремовом (не чистый чёрный, как у Superpower). */
+  --text-primary: #1a1712;
+  --text-secondary: #57534c;
+  --text-muted: #9b968d;
 
-  /* Borders — subtle dark lines on white */
-  --border: rgba(17, 20, 24, 0.08);
-  --border-strong: rgba(17, 20, 24, 0.14);
+  /* Borders — мягкие тёплые линии */
+  --border: rgba(26, 23, 18, 0.07);
+  --border-strong: rgba(26, 23, 18, 0.13);
+
+  /* Радиусы и тени — крупные мягкие карточки в стиле Superpower */
+  --radius-card: 20px;
+  --radius-lg: 28px;
+  --shadow-card: 0 1px 2px rgba(26, 23, 18, 0.04), 0 8px 24px rgba(26, 23, 18, 0.05);
 }
 
 /* Night mode - blue-tinted dark theme for easier on eyes at night */
 .night-mode {
-  --bg-primary: #050508;
-  --bg-secondary: #08080c;
-  --bg-card: #0c0c12;
-  --bg-elevated: #101018;
-  --bg-input: #14141c;
+  /* Superpower dark — глубокий ТЁПЛЫЙ чёрный (не сине-чёрный), кремовый текст. */
+  --bg-primary: #0e0c0a;
+  --bg-secondary: #141210;
+  --bg-card: #1a1613;
+  --bg-elevated: #201b17;
+  --bg-input: #221d18;
 
-  /* Warmer, dimmer accent colors */
-  --yellow: #c9a800;
-  --yellow-dim: rgba(201, 168, 0, 0.08);
-  --yellow-glow: rgba(201, 168, 0, 0.2);
+  /* Оранжевый акцент чуть приглушён для тёмного фона */
+  --yellow: #ff6a44;
+  --yellow-dim: rgba(255, 106, 68, 0.12);
+  --yellow-glow: rgba(255, 106, 68, 0.28);
+  --gold: #ff6a44; --gold-dim: rgba(255, 106, 68, 0.12); --gold-glow: rgba(255, 106, 68, 0.28);
+  --lime: #ff6a44; --lime-dim: rgba(255, 106, 68, 0.12); --lime-glow: rgba(255, 106, 68, 0.28);
+  --accent: #ff6a44; --accent-warm: #ff855f;
 
-  --green: #009940;
-  --green-dim: rgba(0, 153, 64, 0.1);
-  --green-glow: rgba(0, 153, 64, 0.2);
+  --green: #34c759;
+  --green-dim: rgba(52, 199, 89, 0.12);
+  --green-glow: rgba(52, 199, 89, 0.25);
 
-  /* Dimmer, warmer text */
-  --text-primary: #c8c8cc;
-  --text-secondary: #707078;
-  --text-muted: #404048;
+  /* Тёплый кремовый текст */
+  --text-primary: #f0ebe3;
+  --text-secondary: #a39d93;
+  --text-muted: #6b655c;
 
-  /* Subtle borders */
-  --border: rgba(255, 255, 255, 0.03);
-  --border-strong: rgba(255, 255, 255, 0.06);
+  /* Мягкие тёплые границы */
+  --border: rgba(255, 248, 240, 0.06);
+  --border-strong: rgba(255, 248, 240, 0.11);
 
-  /* Reduce blue light */
-  --blue: #3d8ad4;
-  --cyan: #00b090;
-  --red: #d44060;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.35);
+
+  --blue: #4a9eff;
+  --cyan: #2dd4bf;
+  --red: #ff5a5a;
 }
 
 * {
@@ -118,6 +129,23 @@ body {
   font-feature-settings: 'cv11' 1, 'ss01' 1;
 }
 
+/* Superpower-типографика: крупные заголовки с плотным трекингом и тонким
+   начертанием, много воздуха. Заголовки — почти чёрный графит. */
+h1, h2, h3 {
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); font-weight: 600; }
+h2 { font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 600; }
+h3 { font-size: 1.2rem; font-weight: 600; }
+/* Крупные «метрики» (цифры БЖУ/ккал) — тонкие и большие, как показатели анализов у Superpower */
+.metric-number, .big-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
@@ -137,11 +165,11 @@ body {
   background: var(--text-muted);
 }
 
-/* Input styles - DODO style */
+/* Input styles - Superpower: мягкие крупные поля */
 input, textarea, select {
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 16px;
   color: var(--text-primary);
   font-size: 16px; /* 16px prevents iOS zoom on focus */
