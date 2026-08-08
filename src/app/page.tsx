@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Activity
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -136,7 +136,7 @@ function RestTimer({ restTime }: { restTime: string }) {
               : 'var(--lime-dim)',
           border: `1px solid ${isFinished ? 'var(--lime)' : isRunning ? 'rgba(255, 107, 107, 0.3)' : 'rgba(255, 232, 4, 0.3)'}`,
           borderRadius: '10px',
-          color: isFinished ? '#000' : isRunning ? 'var(--red)' : 'var(--lime)',
+          color: isFinished ? '#fff' : isRunning ? 'var(--red)' : 'var(--lime)',
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 700,
@@ -936,20 +936,15 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               </span>
             )}
           </div>
-          {!ex.completed && (
+          {/* число подходов (plannedSets) на главной убрано по просьбе —
+              оставляем только заметку к упражнению, если есть */}
+          {!ex.completed && ex.notes && (
             <div style={{
               fontSize: '12px',
-              color: 'var(--blue)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              color: 'var(--text-secondary)',
               marginTop: '2px'
             }}>
-              <Zap size={11} />
-              {ex.plannedSets}
-              {ex.notes && (
-                <span style={{ color: 'var(--text-secondary)', marginLeft: '4px' }}>• {ex.notes}</span>
-              )}
+              {ex.notes}
             </div>
           )}
         </div>
@@ -1591,18 +1586,18 @@ function FitnessCalendar({
           <button
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
             style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: '10px',
-              padding: '10px 14px',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '12px 18px',
               cursor: 'pointer',
-              color: 'var(--text-primary)',
+              color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={24} />
           </button>
 
           <h3 style={{
@@ -1617,18 +1612,18 @@ function FitnessCalendar({
           <button
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
             style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: '10px',
-              padding: '10px 14px',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '12px 18px',
               cursor: 'pointer',
-              color: 'var(--text-primary)',
+              color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={24} />
           </button>
         </div>
 
@@ -1646,14 +1641,14 @@ function FitnessCalendar({
             <div key={i} style={{
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border)',
-              padding: '8px 6px',
-              borderRadius: '10px',
+              padding: '5px 4px',
+              borderRadius: '8px',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {s.value}
               </div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px' }}>
+              <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '0px' }}>
                 {s.label}
               </div>
             </div>
@@ -1799,17 +1794,19 @@ function FitnessCalendar({
               {isToday && !isSelected ? (
                 <span style={{ fontSize: '8px', color: 'var(--cyan, #0ea5e9)' }}>сегодня</span>
               ) : hasWorkout ? (
+                /* День с тренировкой — нежный кружок с галочкой «сделано» */
                 <span style={{
-                  fontSize: '9px',
-                  fontWeight: 700,
-                  color: isSelected ? '#000' : 'var(--green)',
+                  width: '15px',
+                  height: '15px',
+                  borderRadius: '50%',
+                  background: isSelected ? 'rgba(0,0,0,.15)' : 'var(--green-dim)',
+                  border: `1px solid ${isSelected ? 'rgba(0,0,0,.3)' : 'rgba(22,163,74,.4)'}`,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '1px'
+                  justifyContent: 'center',
+                  color: isSelected ? '#0b3d20' : 'var(--green)'
                 }}>
-                  {/* Полный день — галочка; частичный — счётчик done/total */}
-                  {fullyDone ? <Check size={8} strokeWidth={3} /> : null}
-                  {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
+                  <Check size={9} strokeWidth={3} />
                 </span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
@@ -3508,7 +3505,7 @@ export default function FitnessPage() {
                 color: 'var(--text-muted)',
                 letterSpacing: '0.5px'
               }}>
-                <span style={{ color: 'var(--green)' }}>AI</span> Fitness
+                Training &amp; Nutrition
               </div>
             </div>
           </div>
@@ -3611,7 +3608,7 @@ export default function FitnessPage() {
               background: view === 'workout' ? 'var(--yellow)' : 'var(--bg-elevated)',
               border: view === 'workout' ? 'none' : '1px solid var(--border)',
               borderRadius: '12px',
-              color: view === 'workout' ? '#000' : 'var(--text-secondary)',
+              color: view === 'workout' ? '#fff' : 'var(--text-secondary)',
               fontWeight: view === 'workout' ? 700 : 500,
               fontSize: '13px',
               display: 'flex',
@@ -3640,7 +3637,7 @@ export default function FitnessPage() {
               background: view === 'nutrition' ? 'var(--yellow)' : 'var(--bg-elevated)',
               border: view === 'nutrition' ? 'none' : '1px solid var(--border)',
               borderRadius: '12px',
-              color: view === 'nutrition' ? '#000' : 'var(--text-secondary)',
+              color: view === 'nutrition' ? '#fff' : 'var(--text-secondary)',
               fontWeight: view === 'nutrition' ? 700 : 500,
               fontSize: '13px',
               display: 'flex',
@@ -3671,7 +3668,7 @@ export default function FitnessPage() {
                 background: view === 'planner' ? 'var(--yellow)' : 'var(--bg-elevated)',
                 border: view === 'planner' ? 'none' : '1px solid var(--border)',
                 borderRadius: '12px',
-                color: view === 'planner' ? '#000' : 'var(--text-secondary)',
+                color: view === 'planner' ? '#fff' : 'var(--text-secondary)',
                 fontWeight: view === 'planner' ? 700 : 500,
                 fontSize: '13px',
                 display: 'flex',
@@ -3700,7 +3697,7 @@ export default function FitnessPage() {
                   : 'var(--bg-elevated)',
                 border: (view === 'gains' || view === 'analytics' || view === 'profile') ? 'none' : '1px solid var(--border)',
                 borderRadius: '12px',
-                color: (view === 'gains' || view === 'analytics' || view === 'profile') ? '#000' : 'var(--text-secondary)',
+                color: (view === 'gains' || view === 'analytics' || view === 'profile') ? '#fff' : 'var(--text-secondary)',
                 fontWeight: (view === 'gains' || view === 'analytics' || view === 'profile') ? 700 : 500,
                 fontSize: '13px',
                 display: 'flex',
@@ -4152,7 +4149,7 @@ export default function FitnessPage() {
                       background: 'var(--yellow)',
                       border: 'none',
                       borderRadius: '12px',
-                      color: '#000',
+                      color: '#fff',
                       fontWeight: 600,
                       fontSize: '14px',
                       cursor: 'pointer',
@@ -4187,12 +4184,11 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 gap: '12px'
               }}>
-                <Footprints
-                  className="steps-walking"
+                <Activity
                   size={20}
                   style={{
                     color: currentDayLog.steps && currentDayLog.steps > 0
-                      ? 'var(--blue)'
+                      ? 'var(--accent)'
                       : 'var(--text-muted)',
                     flexShrink: 0
                   }}
@@ -4208,9 +4204,9 @@ export default function FitnessPage() {
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
                     padding: '10px 12px',
-                    color: 'var(--blue)',
-                    fontSize: '16px',
-                    fontWeight: 600
+                    color: 'var(--text-primary)',
+                    fontSize: '15px',
+                    fontWeight: 500
                   }}
                 />
                 <div style={{
@@ -4735,7 +4731,7 @@ export default function FitnessPage() {
                     background: 'var(--yellow)',
                     border: 'none',
                     borderRadius: '12px',
-                    color: '#000',
+                    color: '#fff',
                     fontWeight: 700,
                     fontSize: '14px',
                     boxShadow: '0 4px 20px var(--yellow-glow)'
@@ -5097,7 +5093,7 @@ export default function FitnessPage() {
                   background: 'var(--yellow)',
                   border: 'none',
                   borderRadius: '12px',
-                  color: '#000',
+                  color: '#fff',
                   fontWeight: 700,
                   fontSize: '14px',
                   cursor: 'pointer',
@@ -5330,7 +5326,7 @@ export default function FitnessPage() {
                   background: view === sub.key ? 'var(--yellow)' : 'var(--bg-elevated)',
                   border: view === sub.key ? 'none' : '1px solid var(--border)',
                   borderRadius: '12px',
-                  color: view === sub.key ? '#000' : 'var(--text-secondary)',
+                  color: view === sub.key ? '#fff' : 'var(--text-secondary)',
                   fontWeight: view === sub.key ? 700 : 500,
                   fontSize: '13px',
                   cursor: 'pointer',
@@ -5373,7 +5369,7 @@ export default function FitnessPage() {
                   justifyContent: 'center',
                   fontSize: '32px',
                   fontWeight: 700,
-                  color: '#000',
+                  color: '#fff',
                   marginBottom: '12px'
                 }}>
                   {userSettings.name?.[0]?.toUpperCase() || '👤'}
@@ -5438,7 +5434,7 @@ export default function FitnessPage() {
                         background: userSettings.language === 'ru' ? 'var(--yellow)' : 'var(--bg-elevated)',
                         border: '1px solid var(--border)',
                         borderRadius: '8px',
-                        color: userSettings.language === 'ru' ? '#000' : 'var(--text-secondary)',
+                        color: userSettings.language === 'ru' ? '#fff' : 'var(--text-secondary)',
                         fontWeight: userSettings.language === 'ru' ? 700 : 500,
                         cursor: 'pointer',
                         fontSize: '13px'
@@ -5461,7 +5457,7 @@ export default function FitnessPage() {
                         background: userSettings.language === 'en' ? 'var(--yellow)' : 'var(--bg-elevated)',
                         border: '1px solid var(--border)',
                         borderRadius: '8px',
-                        color: userSettings.language === 'en' ? '#000' : 'var(--text-secondary)',
+                        color: userSettings.language === 'en' ? '#fff' : 'var(--text-secondary)',
                         fontWeight: userSettings.language === 'en' ? 700 : 500,
                         cursor: 'pointer',
                         fontSize: '13px'
@@ -5525,7 +5521,7 @@ export default function FitnessPage() {
                             background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
                             border: '1px solid var(--border)',
                             borderRadius: '8px',
-                            color: active ? '#000' : 'var(--text-secondary)',
+                            color: active ? '#fff' : 'var(--text-secondary)',
                             cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}
@@ -5884,7 +5880,7 @@ export default function FitnessPage() {
                   background: 'var(--yellow)',
                   border: 'none',
                   borderRadius: '12px',
-                  color: '#000',
+                  color: '#fff',
                   fontWeight: 700,
                   fontSize: '15px',
                   cursor: 'pointer'
@@ -5947,7 +5943,7 @@ export default function FitnessPage() {
                   background: 'var(--yellow)',
                   border: 'none',
                   borderRadius: '12px',
-                  color: '#000',
+                  color: '#fff',
                   fontSize: '15px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -6459,7 +6455,7 @@ export default function FitnessPage() {
                   background: 'var(--yellow)',
                   border: 'none',
                   borderRadius: '12px',
-                  color: '#000',
+                  color: '#fff',
                   fontWeight: 700,
                   fontSize: '15px',
                   display: 'flex',
@@ -6946,7 +6942,7 @@ export default function FitnessPage() {
                   background: 'var(--yellow)',
                   border: 'none',
                   borderRadius: '12px',
-                  color: '#000',
+                  color: '#fff',
                   fontWeight: 700,
                   fontSize: '15px',
                   display: 'flex',
@@ -6992,48 +6988,8 @@ export default function FitnessPage() {
         </div>
       )}
 
-      {/* Footer with sync status */}
-      <footer style={{
-        padding: '12px 20px',
-        borderTop: '1px solid var(--border)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '11px',
-        color: 'var(--text-muted)',
-        background: 'var(--bg-primary)'
-      }}>
-        {syncStatus === 'syncing' && (
-          <>
-            <Cloud size={12} style={{ color: 'var(--blue)', animation: 'pulse 1s ease-in-out infinite' }} />
-            <span>{t('syncing')}</span>
-          </>
-        )}
-        {syncStatus === 'synced' && (
-          <>
-            <Cloud size={12} style={{ color: 'var(--green)' }} />
-            <span>{t('synced')}</span>
-          </>
-        )}
-        {syncStatus === 'error' && (
-          <>
-            <CloudOff size={12} style={{ color: 'var(--red)' }} />
-            <span>{t('offline')}</span>
-          </>
-        )}
-        {syncStatus === 'idle' && (
-          <span style={{ opacity: 0.5 }}>AI Fitness</span>
-        )}
-        {pendingOpsCount > 0 && (
-          <span
-            title={`${pendingOpsCount} edits waiting to sync — safe, queued locally`}
-            style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: 'rgba(249,115,22,.18)', color: '#f97316', fontSize: 10, fontWeight: 700 }}
-          >
-            {pendingOpsCount} pending
-          </span>
-        )}
-      </footer>
+      {/* Футер со статусом синка скрыт по просьбе — offline/pending не показываем.
+          Синхронизация работает в фоне, статус пользователю не нужен. */}
 
       {/* Exercise image modal — rendered at root level to avoid re-render issues */}
       {imageModal && (
