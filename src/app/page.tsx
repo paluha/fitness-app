@@ -3488,14 +3488,14 @@ export default function FitnessPage() {
               position: 'relative',
               overflow: 'hidden'
             }}>
-              {/* Trainx logo - T with dynamic X */}
+              {/* Trainx logo - T with dynamic X (белый на оранжевом фоне) */}
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                 {/* T letter */}
-                <rect x="4" y="5" width="12" height="3.5" rx="1" fill="#000" />
-                <rect x="8.25" y="5" width="3.5" height="16" rx="1" fill="#000" />
+                <rect x="4" y="5" width="12" height="3.5" rx="1" fill="#fff" />
+                <rect x="8.25" y="5" width="3.5" height="16" rx="1" fill="#fff" />
                 {/* X accent */}
-                <path d="M15 13L22 20" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-                <path d="M22 13L15 20" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+                <path d="M15 13L22 20" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+                <path d="M22 13L15 20" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
             <div style={{ marginTop: '-2px' }}>
