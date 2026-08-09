@@ -13,6 +13,14 @@ cd "$CI_PRIMARY_REPOSITORY_PATH"
 npm ci --ignore-scripts
 echo "node_modules ready"
 
+# config.xml и capacitor.config.json генерирует Capacitor CLI, и оба лежат
+# в ios/.gitignore — значит в чистом клоне Xcode Cloud их нет, а Xcode-проект
+# копирует их как ресурсы. Без этого шага сборка падает на
+# «The file "config.xml" couldn't be opened because there is no such file».
+# Именно copy, а не sync: sync перезаписал бы закоммиченный Package.swift.
+npx cap copy ios
+echo "capacitor config generated"
+
 # Страховка: если cap sync запускали на Windows, локальные пути к SPM-пакетам
 # в CapApp-SPM/Package.swift пишутся через обратный слэш → Swift падает с
 # «invalid escape sequence». Нормализуем в прямые слэши.
