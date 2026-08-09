@@ -951,14 +951,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           )}
         </div>
 
-        {/* Chevron for all items */}
-        <div style={{
-          color: 'var(--text-muted)',
-          transition: 'transform 0.2s ease',
-          transform: expanded ? 'rotate(180deg)' : 'rotate(0)'
-        }}>
-          <ChevronDown size={18} />
-        </div>
       </div>
 
       {/* Expanded flyout for COMPLETED exercises */}
@@ -1039,7 +1031,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               const allDone = next.length > 0 && next.every(s => s.completed);
               onUpdate({ sets: next, completed: allDone });
             };
-            const cols = '24px 56px 1fr 1fr 36px';
+            const cols = '36px 24px 56px 1fr 1fr';
             const allSetsDone = sets.length > 0 && sets.every(s => s.completed);
             const markAllSets = () => {
               const next = sets.map(s => ({ ...s, completed: !allSetsDone }));
@@ -1060,11 +1052,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   marginBottom: '4px',
                   paddingLeft: '2px',
                 }}>
+                  <span style={{ textAlign: 'center' }}>✓</span>
                   <span>Set</span>
                   <span>Last</span>
                   <span style={{ textAlign: 'center' }}>Reps</span>
                   <span style={{ textAlign: 'center' }}>lbs</span>
-                  <span style={{ textAlign: 'center' }}>✓</span>
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
@@ -1076,6 +1068,22 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     alignItems: 'center',
                     marginBottom: '4px',
                   }}>
+                    <button
+                      onClick={() => updateSet(i, { completed: !s.completed })}
+                      onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
+                      title="Right-click / long-press to remove this set"
+                      style={{
+                        width: '30px', height: '30px',
+                        border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
+                        background: s.completed ? 'var(--green)' : 'transparent',
+                        borderRadius: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', justifySelf: 'center',
+                        padding: 0,
+                        transition: 'background 160ms ease, border 160ms ease',
+                      }}>
+                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
+                    </button>
                     <span style={{
                       fontSize: '12px', fontWeight: 700,
                       color: s.completed ? 'var(--green)' : 'var(--text-secondary)',
@@ -1127,22 +1135,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                         minWidth: 0,
                       }}
                     />
-                    <button
-                      onClick={() => updateSet(i, { completed: !s.completed })}
-                      onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
-                      title="Right-click / long-press to remove this set"
-                      style={{
-                        width: '30px', height: '30px',
-                        border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
-                        background: s.completed ? 'var(--green)' : 'transparent',
-                        borderRadius: '8px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', justifySelf: 'center',
-                        padding: 0,
-                        transition: 'background 160ms ease, border 160ms ease',
-                      }}>
-                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
-                    </button>
                   </div>
                   );
                 })}
@@ -1795,16 +1787,6 @@ function FitnessCalendar({
               <span>{d.day}</span>
               {isToday && !isSelected ? (
                 <span style={{ fontSize: '8px', color: 'var(--cyan, #0ea5e9)' }}>сегодня</span>
-              ) : hasWorkout ? (
-                /* День с тренировкой — название тренировки (T1…) тёмным шрифтом */
-                <span style={{
-                  fontSize: '8px',
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  color: isSelected ? '#0b3d20' : 'var(--text-primary)'
-                }}>
-                  {workoutLabel || `${exDone}/${exTotal}`}
-                </span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
                   width: '5px',
