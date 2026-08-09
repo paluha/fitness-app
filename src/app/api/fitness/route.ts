@@ -42,6 +42,23 @@ export async function GET() {
     // request, without having to wait for the client-side Dexie hydration loop.
     const mergedDayLogs = await getMergedDayLogs(prisma, userId);
 
+    // Облегчаем ответ: base64-картинки, вшитые в шаблоны тренировок, дублируют
+    // exerciseLibrary и раздували GET до мегабайт (медленная загрузка → «пустой»
+    // календарь на телефоне первые секунды). Срезаем imageUrl только если та же
+    // картинка гарантированно есть в библиотеке — клиент подставит её оттуда.
+    const lib = (fitnessData?.exerciseLibrary ?? {}) as Record<string, string>;
+    const workoutsOut = fitnessData?.workouts as Array<{ exercises?: Array<Record<string, unknown>> }> | null;
+    if (Array.isArray(workoutsOut)) {
+      for (const w of workoutsOut) {
+        for (const e of (w?.exercises ?? [])) {
+          const name = String(e.name ?? '').toLowerCase().trim();
+          if (typeof e.imageUrl === 'string' && e.imageUrl.startsWith('data:') && lib[name]) {
+            delete e.imageUrl;
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       workouts: fitnessData?.workouts || null,
       dayLogs: mergedDayLogs,

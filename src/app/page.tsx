@@ -1767,6 +1767,7 @@ function FitnessCalendar({
               onClick={() => onSelectDate(clickDate)}
               style={{
                 aspectRatio: '1',
+                position: 'relative',
                 background: getBackground(),
                 border: getBorder(),
                 borderRadius: '10px',
@@ -1784,6 +1785,28 @@ function FitnessCalendar({
                 opacity: isFuture ? 0.4 : 1
               }}
             >
+              {/* День с тренировкой: кружок с галочкой, серединой сидящий
+                  на нижней границе клетки */}
+              {hasWorkout && (
+                <span style={{
+                  position: 'absolute',
+                  bottom: '-8px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '15px',
+                  height: '15px',
+                  borderRadius: '50%',
+                  background: 'var(--green)',
+                  border: '2px solid var(--bg-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  zIndex: 1
+                }}>
+                  <Check size={8} strokeWidth={3.5} />
+                </span>
+              )}
               <span>{d.day}</span>
               {isToday && !isSelected ? (
                 <span style={{ fontSize: '8px', color: 'var(--cyan, #0ea5e9)' }}>сегодня</span>
@@ -2330,6 +2353,10 @@ export default function FitnessPage() {
   // Load data from server or localStorage
   useEffect(() => {
     const loadData = async () => {
+      // МГНОВЕННО показываем локальную копию (Dexie), не дожидаясь сервера.
+      // GET /api/fitness тяжёлый и на мобильной сети идёт секунды — без этого
+      // календарь и отметки тренировок выглядят «пустыми», пока грузится ответ.
+      hydrateFromLocalDB();
       try {
         // Flush any queued local writes BEFORE asking the server for its
         // merged view. Otherwise the GET may return a snapshot that's missing
@@ -2421,7 +2448,10 @@ export default function FitnessPage() {
           hydrateFromLocalDB();
         }
       } catch { /* silent */ }
-    }, 5000);
+    // Полный GET тяжёлый (мегабайты) — опрашиваем раз в минуту. Лёгкий
+    // построчный diff-синк (pullDiff в startSyncLoop) остаётся каждые 5с и
+    // приносит свежие отметки тренировок почти мгновенно.
+    }, 60000);
     return () => clearInterval(interval);
   }, [isLoaded, hydrateFromLocalDB]);
 
