@@ -16,6 +16,9 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'always',
   },
+  // Метка в User-Agent, по которой сервер отличает приложение от браузера:
+  // middleware не показывает в приложении маркетинговый лендинг.
+  appendUserAgent: 'TrainXApp',
 };
 
 export default config;

@@ -27,6 +27,12 @@ export default withAuth(
     const pathname = req.nextUrl.pathname;
     const isTrainerRoute = pathname.startsWith('/trainer');
     const isLandingRoute = pathname === '/landing';
+    // iOS-приложение (Capacitor) помечает себя в User-Agent — ему лендинг не показываем
+    const isNativeApp = (req.headers.get('user-agent') || '').includes('TrainXApp');
+
+    if (isNativeApp && isLandingRoute) {
+      return NextResponse.redirect(new URL(token ? '/' : '/login', req.url));
+    }
 
     // Detect and set language for landing page
     if (isLandingRoute) {
@@ -48,9 +54,9 @@ export default withAuth(
 
     // Root path handling
     if (pathname === '/') {
-      // Always redirect to landing for unauthenticated users
+      // Always redirect to landing for unauthenticated users (в приложении — сразу на вход)
       if (!token) {
-        return NextResponse.redirect(new URL('/landing', req.url));
+        return NextResponse.redirect(new URL(isNativeApp ? '/login' : '/landing', req.url));
       }
       // Redirect trainers to trainer dashboard
       if (token?.role === 'TRAINER') {
