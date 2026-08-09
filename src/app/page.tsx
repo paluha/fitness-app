@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Activity
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -765,7 +765,7 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
@@ -785,6 +785,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
   // can be open at a time across the list.
   expanded?: boolean;
   onToggleExpand?: () => void;
+  // ИИ-определённая группа мышц (показывается под названием упражнения)
+  muscleLabel?: string;
 }) {
   const [expandedLocal, setExpandedLocal] = useState(false);
   const controlled = typeof expandedProp === 'boolean' && !!onToggleExpand;
@@ -936,15 +938,15 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               </span>
             )}
           </div>
-          {/* число подходов (plannedSets) на главной убрано по просьбе —
-              оставляем только заметку к упражнению, если есть */}
-          {!ex.completed && ex.notes && (
+          {/* Под упражнением — группа мышц, определённая ИИ (ручные приписки
+              из notes на главной больше не показываем) */}
+          {!ex.completed && muscleLabel && (
             <div style={{
               fontSize: '12px',
               color: 'var(--text-secondary)',
               marginTop: '2px'
             }}>
-              {ex.notes}
+              {muscleLabel}
             </div>
           )}
         </div>
@@ -1794,19 +1796,14 @@ function FitnessCalendar({
               {isToday && !isSelected ? (
                 <span style={{ fontSize: '8px', color: 'var(--cyan, #0ea5e9)' }}>сегодня</span>
               ) : hasWorkout ? (
-                /* День с тренировкой — нежный кружок с галочкой «сделано» */
+                /* День с тренировкой — название тренировки (T1…) тёмным шрифтом */
                 <span style={{
-                  width: '15px',
-                  height: '15px',
-                  borderRadius: '50%',
-                  background: isSelected ? 'rgba(0,0,0,.15)' : 'var(--green-dim)',
-                  border: `1px solid ${isSelected ? 'rgba(0,0,0,.3)' : 'rgba(22,163,74,.4)'}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: isSelected ? '#0b3d20' : 'var(--green)'
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  color: isSelected ? '#0b3d20' : 'var(--text-primary)'
                 }}>
-                  <Check size={9} strokeWidth={3} />
+                  {workoutLabel || `${exDone}/${exTotal}`}
                 </span>
               ) : hasSteps && !isSelected ? (
                 <div style={{
@@ -2175,6 +2172,37 @@ export default function FitnessPage() {
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [plannerEvents, setPlannerEventsRaw] = useState<PlannerEvent[]>([]);
   const [exerciseLibrary, setExerciseLibrary] = useState<Record<string, string>>({});
+  // ИИ-группы мышц по названиям упражнений (ключ — имя в нижнем регистре).
+  // Кэш в localStorage; недостающие имена классифицируются одним batch-запросом.
+  const [muscleGroups, setMuscleGroups] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('fitness_muscle_groups') || '{}'); } catch { return {}; }
+  });
+  const muscleFetchAttempted = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const allNames = [...new Set(workouts.flatMap(w => w.exercises.map(e => e.name.trim())))].filter(Boolean);
+    const unknown = allNames.filter(n => !muscleGroups[n.toLowerCase()] && !muscleFetchAttempted.current.has(n.toLowerCase()));
+    if (unknown.length === 0) return;
+    const timer = setTimeout(async () => {
+      unknown.forEach(n => muscleFetchAttempted.current.add(n.toLowerCase()));
+      try {
+        const res = await fetch('/api/fitness/muscle-groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: unknown }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data?.groups || Object.keys(data.groups).length === 0) return;
+        setMuscleGroups(prev => {
+          const next = { ...prev, ...data.groups };
+          try { localStorage.setItem('fitness_muscle_groups', JSON.stringify(next)); } catch { /* нет места — не критично */ }
+          return next;
+        });
+      } catch { /* офлайн — попробуем при следующем изменении тренировок */ }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [workouts, muscleGroups]);
   const [imageModal, setImageModal] = useState<{ url: string; name: string } | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const plannerLoadedFromServer = useRef(false);
@@ -3512,20 +3540,6 @@ export default function FitnessPage() {
             {/* Night Mode Indicator */}
             {isNightMode && <span style={{ fontSize: '18px' }}>🌙</span>}
 
-            {/* Быстрый доступ к графику прогресса веса */}
-            <button
-              onClick={() => { setView('gains'); localStorage.setItem('fitness_view', 'gains'); }}
-              aria-label={userSettings.language === 'ru' ? 'Прогресс' : 'Progress'}
-              title={userSettings.language === 'ru' ? 'Прогресс веса' : 'Weight progress'}
-              style={{
-                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                color: 'var(--text-secondary)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <TrendingUp size={18} />
-            </button>
           </div>
 
           {/* Date Navigator */}
@@ -3824,7 +3838,7 @@ export default function FitnessPage() {
       <div style={{
         flex: 1,
         overflow: 'auto',
-        padding: '16px 20px',
+        padding: '4px 20px 16px',
         paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0px))',
         maxWidth: '600px',
         margin: '0 auto',
@@ -3966,14 +3980,12 @@ export default function FitnessPage() {
                         }}>
                           {date.getDate()}
                         </span>
-                        {/* Подпись: галочка+метка если всё, счётчик если частично; для отдыха ничего */}
+                        {/* Подпись: название тренировки (T1…) тёмным, счётчик если частично */}
                         {hasWorkout ? (
                           <span style={{
                             fontSize: '9px', fontWeight: 700,
-                            color: isSelected ? '#0b3d20' : 'var(--green)',
-                            display: 'flex', alignItems: 'center', gap: '2px'
+                            color: isSelected ? '#0b3d20' : 'var(--text-primary)'
                           }}>
-                            {fullyDone ? <Check size={9} strokeWidth={3} /> : null}
                             {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                           </span>
                         ) : null}
@@ -4111,6 +4123,7 @@ export default function FitnessPage() {
                       onShowImage={(url, name) => { setImageModal({ url, name }); document.body.style.overflow = 'hidden'; }}
                       expanded={expandedExerciseId === ex.id}
                       onToggleExpand={() => setExpandedExerciseId(prev => prev === ex.id ? null : ex.id)}
+                      muscleLabel={muscleGroups[ex.name.trim().toLowerCase()]}
                     />
                   );
                 })
@@ -4182,15 +4195,14 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 gap: '12px'
               }}>
-                <Activity
-                  size={20}
-                  style={{
-                    color: currentDayLog.steps && currentDayLog.steps > 0
-                      ? 'var(--accent)'
-                      : 'var(--text-muted)',
-                    flexShrink: 0
-                  }}
-                />
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  flexShrink: 0
+                }}>
+                  {userSettings.language === 'ru' ? 'Шаги' : 'Steps'}
+                </span>
                 <input
                   type="number"
                   value={currentDayLog.steps || ''}
@@ -4238,6 +4250,31 @@ export default function FitnessPage() {
                 timezone={userSettings.timezone}
               />
             </div>
+
+            {/* Тренд прогресса — вес по замерам, под календарём */}
+            {(() => {
+              const withWeight = bodyMeasurements
+                .filter(m => typeof m.weight === 'number' && m.weight! > 0)
+                .slice()
+                .sort((a, b) => (a.date < b.date ? -1 : 1));
+              if (withWeight.length < 2) return null;
+              return (
+                <div style={{
+                  marginTop: '12px',
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: '16px', padding: '16px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>
+                    <TrendingUp size={16} style={{ color: 'var(--yellow)' }} />
+                    {userSettings.language === 'ru' ? 'Тренд прогресса' : 'Progress trend'}
+                  </div>
+                  <WeightChart
+                    data={withWeight.map(m => m.weight!)}
+                    labels={withWeight.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+                  />
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -5375,6 +5412,30 @@ export default function FitnessPage() {
                 <div style={{ fontSize: '18px', fontWeight: 600 }}>{userSettings.name || 'User'}</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{userSettings.email || 'fitness@app.local'}</div>
               </div>
+
+              {/* Замеры и прогресс — перенесено из хедера */}
+              <button
+                onClick={() => { setView('gains'); localStorage.setItem('fitness_view', 'gains'); }}
+                style={{
+                  width: '100%',
+                  marginBottom: '24px',
+                  padding: '16px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '16px',
+                  color: 'var(--text-primary)',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Ruler size={18} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
+                {t('gains')}
+                <ChevronRight size={18} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
+              </button>
 
               {/* My Goal — per-user daily macro targets */}
               <GoalEditor
@@ -7082,7 +7143,7 @@ export default function FitnessPage() {
             gap: '3px', padding: '0 18px',
             borderRadius: '27px', border: 'none', cursor: 'pointer',
             background: view === 'chat' ? '#222222' : 'var(--yellow)',
-            color: view === 'chat' ? '#fff' : '#222222',
+            color: '#fff',
             boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
             transition: 'transform 0.15s ease, background 0.15s ease',
             transform: view === 'chat' ? 'scale(1.03)' : 'scale(1)',
