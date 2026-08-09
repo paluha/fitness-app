@@ -2,26 +2,24 @@
 #
 # Подключение (делается ОДИН раз в codemagic.io):
 #   1. codemagic.io → Add application → выбрать этот GitHub-репо (paluha/fitness-app).
-#   2. Teams → Integrations → App Store Connect → добавить API-ключ:
-#      App Store Connect → Users and Access → Integrations (Keys) → создать ключ
-#      с ролью «App Manager», скачать .p8, вписать Issuer ID + Key ID + файл.
-#      Назвать интеграцию: trainx-asc
-#   3. В App Store Connect уже создано приложение «TrainX Fitness Tracker»
-#      с bundle id club.trainx.app — впиши его Apple ID (число из URL/App
-#      Information) в APP_STORE_APPLE_ID ниже вместо REPLACE_ME.
+#   2. App Store Connect API-ключ ПЕРЕИСПОЛЬЗУЕМ от mypinpoint — интеграция
+#      mypinpoint-asc уже есть в Codemagic (один ключ работает для всех
+#      приложений аккаунта). Ничего создавать не надо.
+#   3. Приложение «TrainX Fitness Tracker» (bundle id club.trainx.app,
+#      Apple ID 6758902889) уже создано в App Store Connect.
 workflows:
   ios-testflight:
     name: iOS → TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: trainx-asc
+      app_store_connect: mypinpoint-asc
     environment:
       vars:
         BUNDLE_ID: club.trainx.app
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
-        APP_STORE_APPLE_ID: "REPLACE_ME" # Apple ID приложения в App Store Connect (число)
+        APP_STORE_APPLE_ID: "6758902889" # Apple ID приложения TrainX в App Store Connect
       node: 20.19.0
       xcode: latest
     scripts:
