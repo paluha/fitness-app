@@ -54,9 +54,10 @@ export default withAuth(
 
     // Root path handling
     if (pathname === '/') {
-      // Always redirect to landing for unauthenticated users (в приложении — сразу на вход)
+      // Незалогиненных — сразу на вход. Лендинг никому не показываем
+      // (останется доступен только по прямой ссылке /landing; позже уедет на отдельный сайт).
       if (!token) {
-        return NextResponse.redirect(new URL(isNativeApp ? '/login' : '/landing', req.url));
+        return NextResponse.redirect(new URL('/login', req.url));
       }
       // Redirect trainers to trainer dashboard
       if (token?.role === 'TRAINER') {

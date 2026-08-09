@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 function LoginForm() {
@@ -58,7 +57,7 @@ function LoginForm() {
         textAlign: 'center',
         marginBottom: '40px'
       }}>
-        <Link href="/landing" style={{ textDecoration: 'none', display: 'inline-block' }}>
+        <span style={{ textDecoration: 'none', display: 'inline-block' }}>
           <div style={{
             width: '80px',
             height: '80px',
@@ -89,7 +88,7 @@ function LoginForm() {
           }}>
             Trainx
           </h1>
-        </Link>
+        </span>
         <p style={{
           fontSize: '15px',
           color: 'var(--text-secondary)',
