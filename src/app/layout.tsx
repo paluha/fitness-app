@@ -29,6 +29,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // Страница занимает весь экран iPhone (включая чёлку); отступы — через env(safe-area-inset-*)
+  viewportFit: "cover",
   themeColor: "#f5f6f8",
 };
 

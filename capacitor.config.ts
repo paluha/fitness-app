@@ -14,7 +14,10 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: 'always',
+    // Рисуем во весь экран, включая зоны чёлки и нижней полоски — иначе
+    // WebView оставляет по краям цветные «гепы». Отступы делает сама страница
+    // через env(safe-area-inset-*).
+    contentInset: 'never',
   },
   // Метка в User-Agent, по которой сервер отличает приложение от браузера:
   // middleware не показывает в приложении маркетинговый лендинг.
