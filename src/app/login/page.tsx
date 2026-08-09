@@ -62,21 +62,21 @@ function LoginForm() {
             width: '80px',
             height: '80px',
             borderRadius: '24px',
-            background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+            background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-warm) 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 24px',
-            boxShadow: '0 20px 60px rgba(255, 204, 0, 0.3)',
+            boxShadow: '0 20px 60px var(--yellow-glow)',
             cursor: 'pointer',
             transition: 'transform 0.2s ease'
           }}>
             {/* Trainx logo */}
             <svg width="44" height="44" viewBox="0 0 26 26" fill="none" style={{ transform: 'translateY(-1px)' }}>
-              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#000" />
-              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#000" />
-              <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-              <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#fff" />
+              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#fff" />
+              <path d="M15 14L22 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+              <path d="M22 14L15 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
             </svg>
           </div>
           <h1 style={{
@@ -165,8 +165,8 @@ function LoginForm() {
                 boxSizing: 'border-box'
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = 'rgba(255, 204, 0, 0.5)';
-                e.target.style.boxShadow = '0 0 0 3px rgba(255, 204, 0, 0.1)';
+                e.target.style.borderColor = 'var(--accent)';
+                e.target.style.boxShadow = '0 0 0 3px var(--yellow-dim)';
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = 'var(--border)';
@@ -216,8 +216,8 @@ function LoginForm() {
                 boxSizing: 'border-box'
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = 'rgba(255, 204, 0, 0.5)';
-                e.target.style.boxShadow = '0 0 0 3px rgba(255, 204, 0, 0.1)';
+                e.target.style.borderColor = 'var(--accent)';
+                e.target.style.boxShadow = '0 0 0 3px var(--yellow-dim)';
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = 'var(--border)';
@@ -253,11 +253,11 @@ function LoginForm() {
             width: '100%',
             padding: '16px',
             background: isLoading || !email || !password
-              ? 'rgba(255, 204, 0, 0.3)'
-              : 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+              ? 'var(--yellow-dim)'
+              : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-warm) 100%)',
             border: 'none',
             borderRadius: '12px',
-            color: '#000',
+            color: '#fff',
             fontSize: '16px',
             fontWeight: 700,
             cursor: isLoading || !email || !password ? 'not-allowed' : 'pointer',
@@ -268,7 +268,7 @@ function LoginForm() {
             gap: '10px',
             boxShadow: isLoading || !email || !password
               ? 'none'
-              : '0 10px 40px rgba(255, 204, 0, 0.3)'
+              : '0 10px 40px var(--yellow-glow)'
           }}
         >
           {isLoading ? (
@@ -303,7 +303,7 @@ function LoadingSpinner() {
       justifyContent: 'center',
       minHeight: '100vh'
     }}>
-      <Loader2 size={40} color="#ffcc00" style={{ animation: 'spin 1s linear infinite' }} />
+      <Loader2 size={40} color="#ff5c35" style={{ animation: 'spin 1s linear infinite' }} />
     </div>
   );
 }
@@ -311,7 +311,8 @@ function LoadingSpinner() {
 export default function LoginPage() {
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100dvh',
+      overflow: 'hidden',
       background: 'var(--bg-primary)',
       display: 'flex',
       alignItems: 'center',
@@ -332,7 +333,7 @@ export default function LoginPage() {
           left: '10%',
           width: '300px',
           height: '300px',
-          background: 'radial-gradient(circle, rgba(255, 204, 0, 0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 92, 53, 0.1) 0%, transparent 70%)',
           borderRadius: '50%',
           filter: 'blur(60px)',
           animation: 'pulse 4s ease-in-out infinite'
@@ -343,7 +344,7 @@ export default function LoginPage() {
           right: '15%',
           width: '250px',
           height: '250px',
-          background: 'radial-gradient(circle, rgba(255, 204, 0, 0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 92, 53, 0.08) 0%, transparent 70%)',
           borderRadius: '50%',
           filter: 'blur(50px)',
           animation: 'pulse 5s ease-in-out infinite reverse'
