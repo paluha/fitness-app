@@ -72,5 +72,7 @@
 	<string>Доступ к фото нужен, чтобы выбрать снимок еды или этикетки для анализа.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Сохранение изображений в галерею.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
