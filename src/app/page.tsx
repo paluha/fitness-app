@@ -3556,62 +3556,63 @@ export default function FitnessPage() {
     >
       {/* Header */}
       <header style={{
-        padding: '16px 20px',
+        padding: '16px 20px 12px',
         paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))',
         background: 'var(--bg-primary)'
       }}>
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           maxWidth: '600px',
           margin: '0 auto'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
-              background: 'var(--yellow)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 20px var(--yellow-glow)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              {/* Trainx logo - T with dynamic X (белый на оранжевом фоне) */}
-              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                {/* T letter */}
-                <rect x="4" y="5" width="12" height="3.5" rx="1" fill="#fff" />
-                <rect x="8.25" y="5" width="3.5" height="16" rx="1" fill="#fff" />
-                {/* X accent */}
-                <path d="M15 13L22 20" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-                <path d="M22 13L15 20" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div style={{ marginTop: '-2px' }}>
-              <h1 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Trainx</h1>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '12px'
+          }}>
+            <div>
               <div style={{
-                fontSize: '11px',
+                fontSize: '12px',
                 color: 'var(--text-muted)',
-                letterSpacing: '0.5px'
+                letterSpacing: '0.3px'
               }}>
-                Training &amp; Nutrition
+                Welcome to TrainX{isNightMode ? ' 🌙' : ''}
+              </div>
+              <div style={{ fontSize: '20px', fontWeight: 800, lineHeight: 1.25 }}>
+                {userSettings.name || 'Атлет'}
               </div>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Night Mode Indicator */}
-            {isNightMode && <span style={{ fontSize: '18px' }}>🌙</span>}
-
+            {/* Кружок юзера — открывает раздел «Я» (из нижнего меню убран) */}
+            <button
+              onClick={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); setShowProfileDropdown(false); }}
+              aria-label={userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
+              className='btn-press'
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                border: (view === 'profile' || view === 'gains' || view === 'analytics') ? '2px solid var(--text-primary)' : 'none',
+                background: 'linear-gradient(135deg, var(--yellow), var(--orange, #ff9f43))',
+                color: '#fff',
+                fontSize: '17px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 16px var(--yellow-glow)',
+                flexShrink: 0
+              }}
+            >
+              {(userSettings.name || 'A')[0].toUpperCase()}
+            </button>
           </div>
 
           {/* Date Navigator */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '4px',
             background: 'var(--bg-elevated)',
             borderRadius: '12px',
@@ -5851,6 +5852,21 @@ export default function FitnessPage() {
 
         {/* LABS VIEW — анализы: загрузка, парсинг, динамика */}
         {view === 'labs' && <LabsView />}
+
+        {/* Лого — красивый текст TRAINX внизу страницы */}
+        <div style={{ textAlign: 'center', padding: '32px 0 4px', userSelect: 'none' }}>
+          <span style={{
+            fontSize: '30px',
+            fontWeight: 900,
+            letterSpacing: '8px',
+            paddingLeft: '8px',
+            background: 'linear-gradient(120deg, var(--accent) 0%, var(--accent-warm) 55%, #ffb46b 100%)',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+            fontStyle: 'italic'
+          }}>TRAINX</span>
+        </div>
       </div>
 
       {/* Add/Edit Measurement Modal */}
@@ -7296,7 +7312,6 @@ export default function FitnessPage() {
               ? [{ key: 'planner' as typeof view, icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }]
               : []),
             { key: 'labs' as typeof view, icon: <FlaskConical size={22} />, label: userSettings.language === 'ru' ? 'Анализы' : 'Labs' },
-            { key: 'profile', icon: <User size={22} />,           label: userSettings.language === 'ru' ? 'Я' : 'Me' },
           ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
             // «Я» подсвечивается также на вложенных экранах (статистика, прогресс)
             const isActive = tab.key === 'profile'
