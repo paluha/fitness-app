@@ -876,34 +876,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        {/* Checkbox - left side */}
-        <div
-          className="checkbox-animated status-transition"
-          onClick={(e) => {
-            e.stopPropagation();
-            // Toggle mark/unmark
-            onToggle();
-          }}
-          style={{
-            width: ex.completed ? '24px' : '32px',
-            height: ex.completed ? '24px' : '32px',
-            borderRadius: ex.completed ? '6px' : '8px',
-            border: ex.completed ? '1px solid var(--green)' : '2px solid var(--border-strong)',
-            background: ex.completed
-              ? 'var(--green-dim)'
-              : 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--green)',
-            flexShrink: 0,
-            transition: 'all 0.2s ease'
-          }}
-        >
-          {ex.completed && <Check size={14} strokeWidth={3} />}
-        </div>
-
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontWeight: 600,
@@ -953,6 +925,34 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               {muscleLabel}
             </div>
           )}
+        </div>
+
+        {/* Галочка выполнения — справа */}
+        <div
+          className="checkbox-animated status-transition"
+          onClick={(e) => {
+            e.stopPropagation();
+            // Toggle mark/unmark
+            onToggle();
+          }}
+          style={{
+            width: ex.completed ? '24px' : '32px',
+            height: ex.completed ? '24px' : '32px',
+            borderRadius: ex.completed ? '6px' : '8px',
+            border: ex.completed ? '1px solid var(--green)' : '2px solid var(--border-strong)',
+            background: ex.completed
+              ? 'var(--green-dim)'
+              : 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--green)',
+            flexShrink: 0,
+            transition: 'all 0.2s ease'
+          }}
+        >
+          {ex.completed && <Check size={14} strokeWidth={3} />}
         </div>
 
       </div>
