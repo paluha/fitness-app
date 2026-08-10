@@ -2259,6 +2259,8 @@ export default function FitnessPage() {
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
   // ИИ-план «когда и что есть» под цель пользователя (кэш на день в localStorage)
   const [aiNutritionPlan, setAiNutritionPlan] = useState<NutritionRecommendation[] | null>(null);
+  // ИИ-список рекомендуемых продуктов под цель (заменяет статичный DEFAULT_FOOD_PRODUCTS)
+  const [aiFoodProducts, setAiFoodProducts] = useState<FoodProduct[] | null>(null);
   const aiPlanFetchingRef = useRef(false);
   const [showNightMealPrompt, setShowNightMealPrompt] = useState(false);
   const [pendingMealData, setPendingMealData] = useState<Meal | null>(null);
@@ -2991,6 +2993,7 @@ export default function FitnessPage() {
       const cached = JSON.parse(localStorage.getItem('fitness_ai_food_plan') || 'null');
       if (cached && cached.date === todayStr && cached.goal === goalKey && cached.targets === targetsKey && Array.isArray(cached.items) && cached.items.length) {
         setAiNutritionPlan(cached.items);
+        if (Array.isArray(cached.products) && cached.products.length) setAiFoodProducts(cached.products);
         return;
       }
     } catch { /* битый кэш игнорируем */ }
@@ -3012,7 +3015,8 @@ export default function FitnessPage() {
         const data = await res.json();
         if (data?.success && Array.isArray(data.items) && data.items.length) {
           setAiNutritionPlan(data.items);
-          try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: todayStr, goal: goalKey, targets: targetsKey, items: data.items })); } catch { /* quota */ }
+          if (Array.isArray(data.products) && data.products.length) setAiFoodProducts(data.products);
+          try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: todayStr, goal: goalKey, targets: targetsKey, items: data.items, products: data.products || [] })); } catch { /* quota */ }
         }
       } catch { /* офлайн — покажем статичный план */ }
       finally { aiPlanFetchingRef.current = false; }
@@ -4821,27 +4825,7 @@ export default function FitnessPage() {
             }}>
               <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px' }}>{t('meals')}</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={getFoodRecommendations}
-                  className="btn-press"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '12px 14px',
-                    background: 'linear-gradient(135deg, var(--purple) 0%, var(--blue) 100%)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    color: '#fff',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)'
-                  }}
-                  title={userSettings.language === 'ru' ? 'AI подскажет что съесть' : 'AI food suggestions'}
-                >
-                  <Sparkles size={16} />
-                  AI
-                </button>
+                {/* AI-кнопка убрана — ассистент есть в нижнем меню */}
                 <button
                   onClick={() => {
                     setEditingMeal(null);
@@ -5122,11 +5106,11 @@ export default function FitnessPage() {
                 }}>
                   <Apple size={16} style={{ color: 'var(--green)' }} />
                 </div>
-                <span style={{ fontWeight: 700, fontSize: '15px' }}>Разрешённые продукты</span>
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>{aiFoodProducts ? 'Разрешённые продукты — от ИИ под цель' : 'Разрешённые продукты'}</span>
               </div>
               <div style={{ padding: '16px' }}>
                 {Object.entries(FOOD_CATEGORIES).map(([key, cat]) => {
-                  const products = DEFAULT_FOOD_PRODUCTS.filter(p => p.category === key);
+                  const products = (aiFoodProducts ?? DEFAULT_FOOD_PRODUCTS).filter(p => p.category === key);
                   if (products.length === 0) return null;
                   return (
                     <div key={key} style={{ marginBottom: '16px' }}>

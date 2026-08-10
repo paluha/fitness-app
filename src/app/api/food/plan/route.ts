@@ -33,8 +33,21 @@ const PLAN_SCHEMA = {
         additionalProperties: false,
       },
     },
+    products: {
+      type: 'array' as const,
+      description: 'Рекомендуемые (разрешённые) продукты под цель, 25-40 штук по категориям',
+      items: {
+        type: 'object' as const,
+        properties: {
+          name: { type: 'string' as const, description: 'Название продукта, кратко, по-русски' },
+          category: { type: 'string' as const, enum: ['protein', 'carbs', 'vegetables', 'dairy', 'fats', 'fruits'] },
+        },
+        required: ['name', 'category'],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ['items'],
+  required: ['items', 'products'],
   additionalProperties: false,
 };
 
@@ -69,10 +82,13 @@ export async function POST(request: Request) {
         format: { type: 'json_schema', schema: PLAN_SCHEMA },
       },
       system:
-        'Ты — тренер по питанию. Составляешь короткий план питания на день: 4-6 пунктов ' +
-        '(утро, день, до/после тренировки, вечер). Каждый пункт — когда есть и ЧТО именно, ' +
-        'с конкретными продуктами и краткой причиной под цель пользователя. ' +
-        'Обязательно предпочитай продукты из истории пользователя, если они подходят. ' +
+        'Ты — тренер по питанию. Составляешь: (1) короткий план питания на день — 4-6 пунктов ' +
+        '(утро, день, до/после тренировки, вечер), каждый пункт — когда есть и ЧТО именно, ' +
+        'с конкретными продуктами и краткой причиной под цель пользователя; ' +
+        '(2) список рекомендуемых («разрешённых») продуктов под эту цель — 25-40 штук ' +
+        'по категориям: protein (мясо/рыба/яйца), carbs (крупы/гарниры), vegetables (овощи), ' +
+        'dairy (молочное), fats (жиры/орехи), fruits (фрукты/ягоды). ' +
+        'Обязательно предпочитай продукты из истории пользователя, если они подходят под цель. ' +
         (language === 'en' ? 'Answer in English.' : 'Отвечай по-русски, кратко и по делу.'),
       messages: [
         {
@@ -91,7 +107,12 @@ export async function POST(request: Request) {
     }
 
     const textBlock = response.content.find(b => b.type === 'text');
-    const parsed = textBlock ? JSON.parse(textBlock.text) as { items: { emoji: string; title: string; description: string; color: string }[] } : { items: [] };
+    const parsed = textBlock
+      ? JSON.parse(textBlock.text) as {
+          items: { emoji: string; title: string; description: string; color: string }[];
+          products?: { name: string; category: string }[];
+        }
+      : { items: [], products: [] };
     const items = (parsed.items || []).slice(0, 6).map((it, i) => ({
       id: `ai-${i + 1}`,
       emoji: it.emoji || '🍽️',
@@ -99,11 +120,16 @@ export async function POST(request: Request) {
       description: it.description,
       color: it.color || 'yellow',
     }));
+    const CATS = new Set(['protein', 'carbs', 'vegetables', 'dairy', 'fats', 'fruits']);
+    const products = (parsed.products || [])
+      .filter(p => p?.name && CATS.has(p.category))
+      .slice(0, 50)
+      .map((p, i) => ({ id: `aip-${i + 1}`, name: p.name, category: p.category }));
 
     if (items.length === 0) {
       return NextResponse.json({ error: 'empty plan' }, { status: 502 });
     }
-    return NextResponse.json({ success: true, items });
+    return NextResponse.json({ success: true, items, products });
   } catch (error) {
     console.error('food plan error:', error);
     return NextResponse.json({ error: 'Failed to generate plan' }, { status: 500 });
