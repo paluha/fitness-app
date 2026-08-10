@@ -1719,7 +1719,7 @@ function FitnessCalendar({
 
           // Определяем стиль фона
           const getBackground = () => {
-            if (isSelected) return '#222222';
+            if (isSelected) return 'var(--yellow)';
             if (isToday) return 'linear-gradient(135deg, rgba(187, 242, 107, 0.25) 0%, rgba(34, 197, 94, 0.18) 100%)';
             if (hasWorkout) {
               // Все упражнения выполнены — полная зелёная заливка.
@@ -1759,7 +1759,7 @@ function FitnessCalendar({
 
           // Определяем boxShadow
           const getBoxShadow = () => {
-            if (isSelected) return '0 6px 18px rgba(0, 0, 0, 0.35)';
+            if (isSelected) return '0 6px 18px var(--yellow-glow)';
             if (isToday) return '0 2px 12px rgba(14, 165, 233, 0.3)';
             if (hasWorkout && fullyDone) return '0 2px 8px var(--green-glow)';
             return 'none';
@@ -1794,11 +1794,11 @@ function FitnessCalendar({
               {hasWorkout && (
                 <span style={{
                   position: 'absolute',
-                  bottom: '-8px',
+                  bottom: '-9px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  width: '15px',
-                  height: '15px',
+                  width: '19px',
+                  height: '19px',
                   borderRadius: '50%',
                   background: 'var(--green)',
                   border: '2px solid var(--bg-primary)',
@@ -1808,7 +1808,7 @@ function FitnessCalendar({
                   color: '#fff',
                   zIndex: 1
                 }}>
-                  <Check size={8} strokeWidth={3.5} />
+                  <Check size={11} strokeWidth={3.5} />
                 </span>
               )}
               <span>{d.day}</span>
@@ -3556,111 +3556,51 @@ export default function FitnessPage() {
     >
       {/* Header */}
       <header style={{
-        padding: '16px 20px 12px',
-        paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))',
+        padding: '14px 20px 10px',
+        paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))',
         background: 'var(--bg-primary)'
       }}>
         <div style={{
           maxWidth: '600px',
-          margin: '0 auto'
+          margin: '0 auto',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '10px'
         }}>
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '12px'
+            fontSize: '16px',
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}>
-            <div>
-              <div style={{
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                letterSpacing: '0.3px'
-              }}>
-                Welcome to TrainX{isNightMode ? ' 🌙' : ''}
-              </div>
-              <div style={{ fontSize: '20px', fontWeight: 800, lineHeight: 1.25 }}>
-                {userSettings.name || 'Атлет'}
-              </div>
-            </div>
-            {/* Кружок юзера — открывает раздел «Я» (из нижнего меню убран) */}
-            <button
-              onClick={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); setShowProfileDropdown(false); }}
-              aria-label={userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
-              className='btn-press'
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                border: (view === 'profile' || view === 'gains' || view === 'analytics') ? '2px solid var(--text-primary)' : 'none',
-                background: 'linear-gradient(135deg, var(--yellow), var(--orange, #ff9f43))',
-                color: '#fff',
-                fontSize: '17px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 4px 16px var(--yellow-glow)',
-                flexShrink: 0
-              }}
-            >
-              {(userSettings.name || 'A')[0].toUpperCase()}
-            </button>
+            Welcome to TrainX, {userSettings.name || 'Атлет'}{isNightMode ? ' 🌙' : ''}
           </div>
-
-          {/* Date Navigator */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '4px',
-            background: 'var(--bg-elevated)',
-            borderRadius: '12px',
-            padding: '4px',
-            border: '1px solid var(--border)'
-          }}>
-            <button
-              onClick={() => navigateDate(-1)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                padding: '8px 10px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <span
-              suppressHydrationWarning
-              style={{
-                fontWeight: 600,
-                minWidth: '90px',
-                textAlign: 'center',
-                fontSize: '13px'
-              }}
-            >
-              {todayStr ? getDateLabel(selectedDate, todayStr) : selectedDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}
-            </span>
-            <button
-              onClick={() => navigateDate(1)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                padding: '8px 10px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
+          {/* Кружок юзера — открывает раздел «Я» */}
+          <button
+            onClick={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); setShowProfileDropdown(false); }}
+            aria-label={userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
+            className='btn-press'
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '50%',
+              border: (view === 'profile' || view === 'gains' || view === 'analytics') ? '2px solid var(--text-primary)' : 'none',
+              background: 'linear-gradient(135deg, var(--yellow), var(--orange, #ff9f43))',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 3px 12px var(--yellow-glow)',
+              flexShrink: 0
+            }}
+          >
+            {(userSettings.name || 'A')[0].toUpperCase()}
+          </button>
         </div>
       </header>
 
@@ -3936,15 +3876,27 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Week View - 7 days with T1-T7 */}
+            {/* Week View - 7 days with T1-T7; стрелки по бокам листают недели */}
             <div className="card-soft" style={{
-              padding: '12px',
-              marginBottom: '12px'
+              padding: '12px 6px',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: '2px'
             }}>
+              <button
+                onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }}
+                aria-label='Прошлая неделя'
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+              >
+                <ChevronLeft size={16} />
+              </button>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: '4px'
+                gap: '4px',
+                flex: 1,
+                minWidth: 0
               }}>
                 {(() => {
                   if (!todayStr) return null;
@@ -3991,7 +3943,7 @@ export default function FitnessPage() {
 
                     // Фон: полный зелёный / частичная заливка снизу / отдых / пусто
                     const bg = isSelected
-                      ? '#222222'
+                      ? 'var(--yellow)'
                       : hasWorkout
                         ? (fullyDone
                             ? 'var(--green-dim)'
@@ -4025,7 +3977,7 @@ export default function FitnessPage() {
                           opacity: isSelected ? 1 : isFuture ? 0.4 : isRestDay ? 0.35 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
-                            ? '0 6px 18px rgba(0, 0, 0, 0.35)'
+                            ? '0 6px 18px var(--yellow-glow)'
                             : (hasWorkout && fullyDone)
                               ? '0 1px 4px var(--green-glow)'
                               : 'none',
@@ -4062,6 +4014,13 @@ export default function FitnessPage() {
                   });
                 })()}
               </div>
+              <button
+                onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }}
+                aria-label='Следующая неделя'
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
 
             {/* Функция ручной отметки «день отдыха» убрана: день без тренировки
