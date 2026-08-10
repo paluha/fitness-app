@@ -97,6 +97,7 @@ const GOAL_LABELS: Record<string, string> = {
   // Значения goalType из настроек пользователя
   lose: 'ПОХУДЕНИЕ',
   gain: 'НАБОР МАССЫ',
+  recomp: 'РЕКОМПОЗИЦИЯ (атлетическое телосложение: рост мышц + сжигание жира; калории около поддержания, белок повышенный 2+ г/кг, углеводы вокруг тренировок)',
 };
 
 // POST - Get AI food recommendations based on context

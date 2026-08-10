@@ -281,7 +281,7 @@ interface UserSettings {
   // overrides or the app-wide fallback; both shapes look the same here.
   goal?: MacroGoal;
   // Цель питания — на неё опираются ИИ-рекомендации по еде.
-  goalType?: 'lose' | 'maintain' | 'gain';
+  goalType?: 'lose' | 'maintain' | 'gain' | 'recomp';
 }
 
 interface NutritionRecommendation {
@@ -5573,11 +5573,12 @@ export default function FitnessPage() {
                 <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>
                   {userSettings.language === 'ru' ? 'Моя цель' : 'My goal'}
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {([
                     { key: 'lose' as const, ru: 'Похудение', en: 'Lose fat' },
                     { key: 'maintain' as const, ru: 'Поддержание', en: 'Maintain' },
                     { key: 'gain' as const, ru: 'Набор массы', en: 'Gain' },
+                    { key: 'recomp' as const, ru: 'Атлетика (мышцы + сушка)', en: 'Recomp' },
                   ]).map(g => {
                     const active = (userSettings.goalType ?? 'maintain') === g.key;
                     return (
@@ -5592,7 +5593,7 @@ export default function FitnessPage() {
                           });
                         }}
                         style={{
-                          flex: 1, padding: '10px 4px',
+                          padding: '10px 4px',
                           background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
                           border: '1px solid var(--border)', borderRadius: '10px',
                           color: active ? '#fff' : 'var(--text-secondary)',

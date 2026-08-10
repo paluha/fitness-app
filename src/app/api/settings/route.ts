@@ -70,7 +70,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { name, language, timezone, theme, goal, goalType } = body;
     const themeOk = theme === 'light' || theme === 'dark' || theme === 'auto';
-    const goalTypeOk = goalType === 'lose' || goalType === 'maintain' || goalType === 'gain';
+    const goalTypeOk = goalType === 'lose' || goalType === 'maintain' || goalType === 'gain' || goalType === 'recomp';
 
     // Goal: accept any subset of the four macros; clamp to non-negative
     // integers. Passing null on a field clears the override and restores
