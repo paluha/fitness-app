@@ -1719,7 +1719,7 @@ function FitnessCalendar({
 
           // Определяем стиль фона
           const getBackground = () => {
-            if (isSelected) return 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)';
+            if (isSelected) return '#222222';
             if (isToday) return 'linear-gradient(135deg, rgba(187, 242, 107, 0.25) 0%, rgba(34, 197, 94, 0.18) 100%)';
             if (hasWorkout) {
               // Все упражнения выполнены — полная зелёная заливка.
@@ -1736,7 +1736,7 @@ function FitnessCalendar({
 
           // Определяем цвет текста
           const getColor = () => {
-            if (isSelected) return '#0b3d20';
+            if (isSelected) return '#fff';
             if (isToday) return '#22c55e';
             if (hasWorkout) return 'var(--green)';
             if (isRestDay) return 'rgba(139, 145, 160, 0.45)'; // бледный, почти невидимый
@@ -1759,7 +1759,7 @@ function FitnessCalendar({
 
           // Определяем boxShadow
           const getBoxShadow = () => {
-            if (isSelected) return '0 6px 22px rgba(255, 255, 255, 0.18)';
+            if (isSelected) return '0 6px 18px rgba(0, 0, 0, 0.35)';
             if (isToday) return '0 2px 12px rgba(14, 165, 233, 0.3)';
             if (hasWorkout && fullyDone) return '0 2px 8px var(--green-glow)';
             return 'none';
@@ -3947,14 +3947,15 @@ export default function FitnessPage() {
               }}>
                 {(() => {
                   if (!todayStr) return null;
-                  // Parse todayStr to get today's date
-                  const [year, month, day] = todayStr.split('-').map(Number);
-                  const today = new Date(year, month - 1, day);
-                  // Get Monday of current week
-                  const dayOfWeek = today.getDay();
+                  // Неделя строится вокруг ВЫБРАННОГО дня, а не сегодняшнего —
+                  // стрелки в хедере листают дни и, дойдя до понедельника,
+                  // перелистывают полоску на предыдущую неделю.
+                  const [year, month, day] = dateKey.split('-').map(Number);
+                  const anchor = new Date(year, month - 1, day);
+                  const dayOfWeek = anchor.getDay();
                   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-                  const monday = new Date(today);
-                  monday.setDate(today.getDate() + mondayOffset);
+                  const monday = new Date(anchor);
+                  monday.setDate(anchor.getDate() + mondayOffset);
 
                   const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -3989,7 +3990,7 @@ export default function FitnessPage() {
 
                     // Фон: полный зелёный / частичная заливка снизу / отдых / пусто
                     const bg = isSelected
-                      ? 'linear-gradient(135deg, #bbf26b 0%, #22c55e 100%)'
+                      ? '#222222'
                       : hasWorkout
                         ? (fullyDone
                             ? 'var(--green-dim)'
@@ -4023,7 +4024,7 @@ export default function FitnessPage() {
                           opacity: isSelected ? 1 : isFuture ? 0.4 : isRestDay ? 0.35 : 1,
                           transform: isSelected ? 'translateY(-1px)' : 'none',
                           boxShadow: isSelected
-                            ? '0 6px 18px rgba(34, 197, 94, 0.45)'
+                            ? '0 6px 18px rgba(0, 0, 0, 0.35)'
                             : (hasWorkout && fullyDone)
                               ? '0 1px 4px var(--green-glow)'
                               : 'none',
@@ -4032,7 +4033,7 @@ export default function FitnessPage() {
                       >
                         <span style={{
                           fontSize: '9px',
-                          color: isSelected ? 'rgba(11, 61, 32, 0.7)' : 'var(--text-muted)',
+                          color: isSelected ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-muted)',
                           fontWeight: 600,
                           textTransform: 'uppercase',
                           letterSpacing: '0.4px'
@@ -4042,7 +4043,7 @@ export default function FitnessPage() {
                         <span style={{
                           fontSize: '14px',
                           fontWeight: 800,
-                          color: isSelected ? '#0b3d20' : isRestDay ? 'rgba(139, 145, 160, 0.45)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
+                          color: isSelected ? '#fff' : isRestDay ? 'rgba(139, 145, 160, 0.45)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
                         }}>
                           {date.getDate()}
                         </span>
@@ -4050,7 +4051,7 @@ export default function FitnessPage() {
                         {hasWorkout ? (
                           <span style={{
                             fontSize: '9px', fontWeight: 700,
-                            color: isSelected ? '#0b3d20' : 'var(--text-primary)'
+                            color: isSelected ? '#fff' : 'var(--text-primary)'
                           }}>
                             {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
                           </span>
