@@ -94,6 +94,9 @@ const GOAL_LABELS: Record<string, string> = {
   lose_weight: 'ПОХУДЕНИЕ',
   gain_mass: 'НАБОР МАССЫ',
   maintain: 'ПОДДЕРЖАНИЕ ВЕСА',
+  // Значения goalType из настроек пользователя
+  lose: 'ПОХУДЕНИЕ',
+  gain: 'НАБОР МАССЫ',
 };
 
 // POST - Get AI food recommendations based on context

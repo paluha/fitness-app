@@ -29,6 +29,7 @@ model User {
   language      String    @default("ru") // "ru" or "en"
   timezone      String    @default("Europe/Moscow")
   theme         String    @default("auto") // "light" | "dark" | "auto"
+  goalType      String    @default("maintain") // "lose" | "maintain" | "gain" — цель питания, на неё опираются ИИ-рекомендации
 
   // Per-user daily nutrition goal. Used by macro progress bars, the food
   // recommender, and the day summary. Nulls fall back to the app-wide

@@ -19,6 +19,7 @@ Return ONLY a JSON object matching the requested schema. All numbers should be
 realistic per-serving values:
 - calories: kcal
 - protein, fat, carbs: grams
+- sugar: grams — ОБЩИЙ сахар (природный + добавленный, единым числом; отдельно added sugar не выделяем). Часть carbs, всегда sugar <= carbs.
 - weight: grams (null if not visible / not applicable)
 - name: in Russian
 - confidence: "high" if scale-read or unambiguous food, "medium" if estimating
@@ -58,6 +59,7 @@ Return ONLY a JSON object matching the requested schema:
 - name: product name from the label
 - calories, protein, fat, carbs: numbers from the label (use 0 if a value is
   not readable)
+- sugar: total sugar in grams from the label (строка «в том числе сахара» / «of which sugars»); if the label splits added sugar, return the TOTAL; 0 if not printed
 - serving: serving size string from the label (e.g. "100 г", "1 порция (30 г)")`;
 
 // Output schemas — Claude validates these and guarantees parseable JSON.
@@ -72,6 +74,7 @@ const FOOD_PHOTO_SCHEMA = {
     protein: { type: 'number' },
     fat: { type: 'number' },
     carbs: { type: 'number' },
+    sugar: { type: 'number' },
     weight: { type: ['number', 'null'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     notes: { type: 'string' },
@@ -88,6 +91,7 @@ const NUTRITION_LABEL_SCHEMA = {
     protein: { type: 'number' },
     fat: { type: 'number' },
     carbs: { type: 'number' },
+    sugar: { type: 'number' },
     serving: { type: 'string' },
   },
   required: ['name', 'calories', 'protein', 'fat', 'carbs'],
@@ -315,6 +319,11 @@ export async function POST(request: Request) {
     carbs = Math.max(0, Math.round(carbs));
     calories = Math.max(0, Math.round(calories));
 
+    // Сахар — общий (природный + добавленный, одним числом). Не может
+    // превышать углеводы; недоопределённое → 0.
+    const rawSugar = Number(parsed.sugar);
+    const sugar = Math.min(carbs, Math.max(0, Number.isFinite(rawSugar) ? Math.round(rawSugar) : 0));
+
     return NextResponse.json({
       success: true,
       type: isNutritionLabel ? 'nutrition_label' : 'food_photo',
@@ -324,6 +333,7 @@ export async function POST(request: Request) {
         protein,
         fat,
         carbs,
+        sugar,
         serving: parsed.serving as string | undefined,
         confidence: parsed.confidence as string | undefined,
         notes: parsed.notes as string | undefined,

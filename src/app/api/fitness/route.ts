@@ -73,6 +73,7 @@ export async function GET() {
         language: user.language || 'ru',
         timezone: user.timezone || 'Europe/Moscow',
         theme: user.theme || 'auto',
+        goalType: user.goalType || 'maintain',
         name: user.name,
         email: user.email,
         // Per-user daily nutrition goal. The page's initial load hits this

@@ -243,6 +243,8 @@ interface Meal {
   fat: number;
   carbs: number;
   calories: number;
+  // Общий сахар в граммах (природный + добавленный, единым числом)
+  sugar?: number;
   isFavorite?: boolean;
 }
 
@@ -278,6 +280,8 @@ interface UserSettings {
   // Per-user daily nutrition goal. The server returns either the user's saved
   // overrides or the app-wide fallback; both shapes look the same here.
   goal?: MacroGoal;
+  // Цель питания — на неё опираются ИИ-рекомендации по еде.
+  goalType?: 'lose' | 'maintain' | 'gain';
 }
 
 interface NutritionRecommendation {
@@ -2141,7 +2145,7 @@ export default function FitnessPage() {
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
   const [showMealModal, setShowMealModal] = useState(false);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
-  const [mealForm, setMealForm] = useState({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+  const [mealForm, setMealForm] = useState({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
   const [showMealSuggestions, setShowMealSuggestions] = useState(false);
   const [isAnalyzingFood, setIsAnalyzingFood] = useState(false);
   const [foodAnalysisError, setFoodAnalysisError] = useState<string | null>(null);
@@ -2253,6 +2257,9 @@ export default function FitnessPage() {
   const serverDataLoadedRef = useRef(false);
   const userMadeChangeRef = useRef(false); // Only sync after user actually changes something on THIS device
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
+  // ИИ-план «когда и что есть» под цель пользователя (кэш на день в localStorage)
+  const [aiNutritionPlan, setAiNutritionPlan] = useState<NutritionRecommendation[] | null>(null);
+  const aiPlanFetchingRef = useRef(false);
   const [showNightMealPrompt, setShowNightMealPrompt] = useState(false);
   const [pendingMealData, setPendingMealData] = useState<Meal | null>(null);
 
@@ -2644,12 +2651,13 @@ export default function FitnessPage() {
   }, [dayLogs, dateKey]);
 
   const macroTotals = useMemo(() => {
-    const totals = { protein: 0, fat: 0, carbs: 0, calories: 0 };
+    const totals = { protein: 0, fat: 0, carbs: 0, calories: 0, sugar: 0 };
     for (const meal of currentDayLog.meals) {
       totals.protein += meal.protein;
       totals.fat += meal.fat;
       totals.carbs += meal.carbs;
       totals.calories += meal.calories;
+      totals.sugar += meal.sugar || 0;
     }
     return totals;
   }, [currentDayLog.meals]);
@@ -2668,10 +2676,10 @@ export default function FitnessPage() {
       return { last7Days: [], nutritionStreak: 0 };
     }
 
-    // Check if day meets macro targets (>= 80% for all macros)
-    const isDayCompleted = (dateStr: string): boolean => {
+    // Средний процент выполнения макро-цели за день (0..∞, показываем как есть)
+    const dayCompletionPct = (dateStr: string): number => {
       const log = dayLogs[dateStr];
-      if (!log?.meals || log.meals.length === 0) return false;
+      if (!log?.meals || log.meals.length === 0) return 0;
 
       const totals = { protein: 0, fat: 0, carbs: 0, calories: 0 };
       for (const meal of log.meals) {
@@ -2687,9 +2695,9 @@ export default function FitnessPage() {
       const carbsPct = totals.carbs / MACRO_TARGETS.carbs;
       const caloriesPct = totals.calories / MACRO_TARGETS.calories;
       const avgCompletion = (proteinPct + fatPct + carbsPct + caloriesPct) / 4;
-
-      return avgCompletion >= 0.7; // 70% average across all macros
+      return Math.round(avgCompletion * 100);
     };
+    const isDayCompleted = (dateStr: string): boolean => dayCompletionPct(dateStr) >= 70;
 
     // Build current week array (Monday -> Sunday)
     // Parse todayStr to get today's date
@@ -2700,7 +2708,7 @@ export default function FitnessPage() {
     const monday = new Date(today);
     monday.setDate(today.getDate() + mondayOffset);
 
-    const days: { date: string; dayName: string; completed: boolean; isToday: boolean; isFuture: boolean }[] = [];
+    const days: { date: string; dayName: string; completed: boolean; isToday: boolean; isFuture: boolean; pct: number }[] = [];
     const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
     for (let i = 0; i < 7; i++) {
@@ -2714,7 +2722,8 @@ export default function FitnessPage() {
         dayName: dayNames[i],
         completed: isFuture ? false : isDayCompleted(dateStr),
         isToday,
-        isFuture
+        isFuture,
+        pct: isFuture ? 0 : dayCompletionPct(dateStr)
       });
     }
 
@@ -2972,6 +2981,44 @@ export default function FitnessPage() {
       .slice(0, 10);
   }, [dayLogs, dateKey]);
 
+  // Генерация/загрузка ИИ-плана питания: раз в день или при смене цели/макро-целей.
+  useEffect(() => {
+    if (!isLoaded || !todayStr) return;
+    if (nutritionRecommendations) return; // рекомендации тренера важнее ИИ-плана
+    const goalKey = userSettings.goalType ?? 'maintain';
+    const targetsKey = [MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories].join('-');
+    try {
+      const cached = JSON.parse(localStorage.getItem('fitness_ai_food_plan') || 'null');
+      if (cached && cached.date === todayStr && cached.goal === goalKey && cached.targets === targetsKey && Array.isArray(cached.items) && cached.items.length) {
+        setAiNutritionPlan(cached.items);
+        return;
+      }
+    } catch { /* битый кэш игнорируем */ }
+    if (aiPlanFetchingRef.current) return;
+    aiPlanFetchingRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/food/plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            goal: goalKey,
+            language: userSettings.language,
+            targetMacros: MACRO_TARGETS,
+            foodHistory: mealHistory.map(h => h.meal.name),
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.items) && data.items.length) {
+          setAiNutritionPlan(data.items);
+          try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: todayStr, goal: goalKey, targets: targetsKey, items: data.items })); } catch { /* quota */ }
+        }
+      } catch { /* офлайн — покажем статичный план */ }
+      finally { aiPlanFetchingRef.current = false; }
+    })();
+  }, [isLoaded, todayStr, userSettings.goalType, userSettings.language, nutritionRecommendations, MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories, mealHistory]);
+
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     userMadeChangeRef.current = true;
     setWorkouts(prev => {
@@ -3047,24 +3094,25 @@ export default function FitnessPage() {
       fat: parseFloat(mealForm.fat) || 0,
       carbs: parseFloat(mealForm.carbs) || 0,
       calories: parseFloat(mealForm.calories) || 0,
+      sugar: parseFloat(mealForm.sugar) || 0,
     };
 
     if (editingMeal) {
       updateDayLog({ meals: currentDayLog.meals.map(m => m.id === editingMeal.id ? { ...newMeal, id: editingMeal.id } : m) });
       setShowMealModal(false);
       setEditingMeal(null);
-      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
     } else if (isLateNight() && !editingMeal) {
       // Late night - ask which day to log
       setPendingMealData(newMeal);
       setShowMealModal(false);
       setShowNightMealPrompt(true);
-      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
     } else {
       updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
       setShowMealModal(false);
       setEditingMeal(null);
-      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+      setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
     }
   };
 
@@ -3100,6 +3148,7 @@ export default function FitnessPage() {
       protein: meal.protein.toString(),
       fat: meal.fat.toString(),
       carbs: meal.carbs.toString(),
+      sugar: (meal.sugar ?? 0).toString(),
       calories: meal.calories.toString(),
     });
     setShowMealModal(true);
@@ -3156,6 +3205,7 @@ export default function FitnessPage() {
           fat: result.data.fat.toString(),
           carbs: result.data.carbs.toString(),
           calories: result.data.calories.toString(),
+          sugar: (result.data.sugar ?? 0).toString(),
         });
       } else {
         setFoodAnalysisError(result.error || 'Не удалось распознать');
@@ -3266,7 +3316,7 @@ export default function FitnessPage() {
             title: r.title,
             description: r.description
           })) || null,
-          goal: null // TODO: add user goal setting
+          goal: userSettings.goalType ?? 'maintain'
         })
       });
 
@@ -4441,9 +4491,12 @@ export default function FitnessPage() {
                           filter: 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 193, 7, 0.5))'
                         }}>🔥</span>
                       ) : (
+                        /* День без выполненной цели — показываем процент вместо смайлика */
                         <span style={{
-                          fontSize: '14px'
-                        }}>💩</span>
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)'
+                        }}>{day.pct}%</span>
                       )}
                     </div>
                   </div>
@@ -4506,8 +4559,8 @@ export default function FitnessPage() {
                       marginBottom: '16px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '24px' }}>
-                          {dayInfo?.completed ? '🔥' : '💩'}
+                        <span style={{ fontSize: dayInfo?.completed ? '24px' : '16px', fontWeight: 800, color: dayInfo?.completed ? undefined : 'var(--text-muted)' }}>
+                          {dayInfo?.completed ? '🔥' : ((dayInfo?.pct ?? 0) + '%')}
                         </span>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: '15px', textTransform: 'capitalize' }}>
@@ -4733,6 +4786,32 @@ export default function FitnessPage() {
               </div>
             </div>
 
+            {/* Сахар за день — общий (природный + добавленный одним числом) */}
+            {macroTotals.sugar > 0 && (
+              <div style={{
+                marginTop: '-8px',
+                marginBottom: '16px',
+                padding: '10px 14px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px'
+              }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  {userSettings.language === 'ru' ? 'Сахар за день' : 'Sugar today'}
+                </span>
+                <span style={{
+                  fontWeight: 700,
+                  color: macroTotals.sugar > 50 ? 'var(--red)' : macroTotals.sugar > 25 ? 'var(--yellow)' : 'var(--green)'
+                }}>
+                  {Math.round(macroTotals.sugar)} г
+                </span>
+              </div>
+            )}
+
             {/* Meals header */}
             <div style={{
               display: 'flex',
@@ -4766,7 +4845,7 @@ export default function FitnessPage() {
                 <button
                   onClick={() => {
                     setEditingMeal(null);
-                    setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '' });
+                    setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
                     setShowMealModal(true);
                   }}
                   className="btn-press fab"
@@ -4788,6 +4867,57 @@ export default function FitnessPage() {
                 </button>
               </div>
             </div>
+
+            {/* Частые продукты — добавление в один тап, без фото и форм */}
+            {mealHistory.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)',
+                  marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px'
+                }}>
+                  <History size={13} />
+                  {userSettings.language === 'ru' ? 'Частые продукты — добавить в один тап' : 'Frequent foods — one-tap add'}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }}>
+                  {mealHistory.slice(0, 8).map((item, idx) => (
+                    <button
+                      key={`freq-${idx}`}
+                      type="button"
+                      className="btn-press"
+                      onClick={() => {
+                        const newMeal: Meal = {
+                          id: Date.now().toString(),
+                          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                          name: item.meal.name,
+                          protein: item.meal.protein,
+                          fat: item.meal.fat,
+                          carbs: item.meal.carbs,
+                          calories: item.meal.calories,
+                          sugar: item.meal.sugar
+                        };
+                        userMadeChangeRef.current = true;
+                        updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
+                      }}
+                      style={{
+                        flexShrink: 0, padding: '8px 12px',
+                        background: 'var(--bg-card)', border: '1px solid var(--border)',
+                        borderRadius: '10px', cursor: 'pointer', textAlign: 'left', maxWidth: '150px'
+                      }}
+                    >
+                      <div style={{
+                        fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                      }}>
+                        + {item.meal.name}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {item.meal.calories} ккал · {item.meal.protein}Б
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Meals list */}
             {currentDayLog.meals.length === 0 ? (
@@ -4929,12 +5059,12 @@ export default function FitnessPage() {
                   <Timer size={16} style={{ color: 'var(--purple)' }} />
                 </div>
                 <span style={{ fontWeight: 700, fontSize: '15px' }}>
-                  {nutritionRecommendations ? 'Рекомендации тренера' : 'Когда есть'}
+                  {nutritionRecommendations ? 'Рекомендации тренера' : aiNutritionPlan ? (userSettings.language === 'ru' ? 'Когда и что есть — план от ИИ' : 'AI meal plan') : 'Когда есть'}
                 </span>
               </div>
               <div style={{ padding: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {(nutritionRecommendations || DEFAULT_NUTRITION_RECOMMENDATIONS).map(rec => (
+                  {(nutritionRecommendations || aiNutritionPlan || DEFAULT_NUTRITION_RECOMMENDATIONS).map(rec => (
                     <div key={rec.id} style={{
                       display: 'flex',
                       gap: '12px',
@@ -5448,6 +5578,48 @@ export default function FitnessPage() {
                 {t('gains')}
                 <ChevronRight size={18} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
               </button>
+
+              {/* Цель питания — похудение / поддержание / набор. На неё
+                  опираются ИИ-рекомендации «что и когда есть». */}
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: '16px', padding: '16px', marginBottom: '24px'
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>
+                  {userSettings.language === 'ru' ? 'Моя цель' : 'My goal'}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {([
+                    { key: 'lose' as const, ru: 'Похудение', en: 'Lose fat' },
+                    { key: 'maintain' as const, ru: 'Поддержание', en: 'Maintain' },
+                    { key: 'gain' as const, ru: 'Набор массы', en: 'Gain' },
+                  ]).map(g => {
+                    const active = (userSettings.goalType ?? 'maintain') === g.key;
+                    return (
+                      <button
+                        key={g.key}
+                        onClick={async () => {
+                          setUserSettings(s => ({ ...s, goalType: g.key }));
+                          await fetch('/api/settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ goalType: g.key })
+                          });
+                        }}
+                        style={{
+                          flex: 1, padding: '10px 4px',
+                          background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
+                          border: '1px solid var(--border)', borderRadius: '10px',
+                          color: active ? '#fff' : 'var(--text-secondary)',
+                          fontWeight: active ? 700 : 500, fontSize: '12px', cursor: 'pointer'
+                        }}
+                      >
+                        {userSettings.language === 'ru' ? g.ru : g.en}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* My Goal — per-user daily macro targets */}
               <GoalEditor
@@ -6095,7 +6267,8 @@ export default function FitnessPage() {
                           protein: item.meal.protein,
                           fat: item.meal.fat,
                           carbs: item.meal.carbs,
-                          calories: item.meal.calories
+                          calories: item.meal.calories,
+                          sugar: item.meal.sugar
                         };
                         updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
                         setShowMealModal(false);
@@ -6495,6 +6668,24 @@ export default function FitnessPage() {
                     placeholder="0"
                     value={mealForm.calories}
                     onChange={e => setMealForm({ ...mealForm, calories: e.target.value })}
+                    style={{ width: '100%', textAlign: 'center' }}
+                  />
+                </div>
+                <div>
+                  <label style={{
+                    fontSize: '11px',
+                    color: 'var(--purple)',
+                    marginBottom: '8px',
+                    display: 'block',
+                    fontWeight: 600
+                  }}>
+                    {userSettings.language === 'ru' ? 'Сахар' : 'Sugar'}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={mealForm.sugar}
+                    onChange={e => setMealForm({ ...mealForm, sugar: e.target.value })}
                     style={{ width: '100%', textAlign: 'center' }}
                   />
                 </div>

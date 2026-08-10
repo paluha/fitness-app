@@ -24,6 +24,7 @@ export async function GET() {
         language: true,
         timezone: true,
         theme: true,
+        goalType: true,
         goalProtein: true,
         goalFat: true,
         goalCarbs: true,
@@ -37,6 +38,7 @@ export async function GET() {
       language: user?.language || 'ru',
       timezone: user?.timezone || 'Europe/Moscow',
       theme: user?.theme || 'auto',
+      goalType: user?.goalType || 'maintain',
       goal: {
         protein: user?.goalProtein ?? FALLBACK_GOAL.protein,
         fat: user?.goalFat ?? FALLBACK_GOAL.fat,
@@ -50,6 +52,7 @@ export async function GET() {
       language: 'ru',
       timezone: 'Europe/Moscow',
       theme: 'auto',
+      goalType: 'maintain',
       goal: FALLBACK_GOAL,
     });
   }
@@ -65,8 +68,9 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { name, language, timezone, theme, goal } = body;
+    const { name, language, timezone, theme, goal, goalType } = body;
     const themeOk = theme === 'light' || theme === 'dark' || theme === 'auto';
+    const goalTypeOk = goalType === 'lose' || goalType === 'maintain' || goalType === 'gain';
 
     // Goal: accept any subset of the four macros; clamp to non-negative
     // integers. Passing null on a field clears the override and restores
@@ -95,6 +99,7 @@ export async function PUT(request: Request) {
         language: language || undefined,
         timezone: timezone || undefined,
         theme: themeOk ? theme : undefined,
+        goalType: goalTypeOk ? goalType : undefined,
         ...goalUpdate,
       }
     });
@@ -105,6 +110,7 @@ export async function PUT(request: Request) {
       language: user.language,
       timezone: user.timezone,
       theme: user.theme,
+      goalType: user.goalType,
       goal: {
         protein: user.goalProtein ?? FALLBACK_GOAL.protein,
         fat: user.goalFat ?? FALLBACK_GOAL.fat,
