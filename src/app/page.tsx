@@ -160,7 +160,7 @@ function RestTimer({ restTime }: { restTime: string }) {
           fontVariantNumeric: 'tabular-nums',
           lineHeight: 1.1,
           marginBottom: '6px',
-          color: timeLeft <= 5 ? 'var(--yellow)' : 'var(--text-primary)'
+          color: timeLeft <= 5 ? 'var(--blue)' : 'var(--text-primary)'
         }}>
           {formatTime(timeLeft)}
         </div>
@@ -179,18 +179,18 @@ function RestTimer({ restTime }: { restTime: string }) {
           gap: '6px',
           padding: '10px 14px',
           background: isFinished
-            ? 'var(--lime)'
+            ? 'var(--blue)'
             : isRunning
               ? 'var(--red-dim)'
-              : 'var(--lime-dim)',
-          border: `1px solid ${isFinished ? 'var(--lime)' : isRunning ? 'rgba(255, 107, 107, 0.3)' : 'rgba(255, 232, 4, 0.3)'}`,
+              : 'var(--blue-dim)',
+          border: `1px solid ${isFinished ? 'var(--blue)' : isRunning ? 'rgba(255, 107, 107, 0.3)' : 'rgba(37, 99, 235, 0.3)'}`,
           borderRadius: '10px',
-          color: isFinished ? '#fff' : isRunning ? 'var(--red)' : 'var(--lime)',
+          color: isFinished ? '#fff' : isRunning ? 'var(--red)' : 'var(--blue)',
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 700,
           minWidth: '100px',
-          boxShadow: isFinished ? '0 4px 20px var(--yellow-glow)' : 'none',
+          boxShadow: isFinished ? '0 4px 20px var(--blue-dim)' : 'none',
           animation: isFinished ? 'pulse 1s infinite' : 'none'
         }}
       >
@@ -242,7 +242,7 @@ function RestTimer({ restTime }: { restTime: string }) {
           <div style={{
             width: `${progress}%`,
             height: '100%',
-            background: timeLeft < 10 ? 'var(--red)' : 'var(--lime)',
+            background: timeLeft < 10 ? 'var(--red)' : 'var(--blue)',
             borderRadius: '3px',
             transition: 'width 1s linear'
           }} />
@@ -1063,7 +1063,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
         <div style={{
           padding: '0 12px 12px',
           borderTop: '1px solid var(--border)',
-          animation: 'expandOpen 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: 'expandOpen 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
           overflow: 'hidden'
         }}>
           {/* Per-set table — Set / Reps / lbs / Status. Auto-marks the
