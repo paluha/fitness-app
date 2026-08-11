@@ -2371,6 +2371,15 @@ export default function FitnessPage() {
 
       setDayLogs(prev => {
         const next: Record<string, DayLog> = { ...prev };
+        let changed = false;
+        // Присваиваем только если день реально отличается — иначе identity
+        // остаётся прежней и React не перерисовывает поддеревья зря.
+        const assign = (date: string, candidate: DayLog) => {
+          if (JSON.stringify(prev[date]) !== JSON.stringify(candidate)) {
+            next[date] = candidate;
+            changed = true;
+          }
+        };
         // Merge workoutLogs → reconstruct workoutDraft.exercises per date.
         const byDate = new Map<string, typeof wRows>();
         for (const r of wRows) {
@@ -2379,7 +2388,7 @@ export default function FitnessPage() {
           byDate.set(r.date, arr);
         }
         for (const [date, rows] of byDate) {
-          const base: DayLog = next[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+          const base: DayLog = next[date] ?? prev[date] ?? { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
           // workoutId может быть неизвестен у старых записей — НЕ пропускаем
           // день из-за этого, иначе подходы «теряются» для LAST/графика.
           const workoutId = rows.find(r => r.workoutId)?.workoutId ?? base.workoutDraft?.workoutId ?? base.selectedWorkout ?? '';
@@ -2408,19 +2417,19 @@ export default function FitnessPage() {
             if (r.notes !== null && r.notes !== undefined) prevEx.notes = r.notes;
           }
           if (!base.dayClosed) {
-            next[date] = {
+            assign(date, {
               ...base,
               workoutDraft: {
                 workoutId,
                 workoutName: base.workoutDraft?.workoutName ?? base.workoutSnapshot?.workoutName ?? '',
                 exercises: Array.from(exMap.values()),
               },
-            };
+            });
           }
         }
         // Merge dayLog kinds (dayClosed, workoutCompleted, workoutSnapshot, steps, etc).
         for (const r of dRows) {
-          const base: DayLog = next[r.date] ?? { date: r.date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+          const base: DayLog = next[r.date] ?? prev[r.date] ?? { date: r.date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
           const patch: Partial<DayLog> = {};
           if (r.kind === 'dayClosed') patch.dayClosed = !!r.payload;
           else if (r.kind === 'workoutCompleted') patch.workoutCompleted = r.payload as string | null;
@@ -2431,9 +2440,9 @@ export default function FitnessPage() {
           else if (r.kind === 'selectedWorkout') patch.selectedWorkout = r.payload as DayLog['selectedWorkout'];
           else if (r.kind === 'notes' && typeof r.payload === 'string') patch.notes = r.payload;
           else if (r.kind === 'meals' && Array.isArray(r.payload)) patch.meals = r.payload as DayLog['meals'];
-          next[r.date] = { ...base, ...patch };
+          assign(r.date, { ...base, ...patch });
         }
-        return next;
+        return changed ? next : prev;
       });
     } catch { /* ignore */ }
   }, []);
