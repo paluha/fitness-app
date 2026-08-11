@@ -682,3 +682,17 @@ button:disabled {
 .steps-walking {
   animation: walking 1.2s ease-in-out infinite;
 }
+
+/* Анимированные песочные часы (в стиле animateicons.in): пауза → переворот → пауза */
+@keyframes hourglassFlip {
+  0%, 40% { transform: rotate(0deg); }
+  50%, 90% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+.hourglass-animated {
+  animation: hourglassFlip 2.6s ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hourglass-animated { animation: none; }
+}

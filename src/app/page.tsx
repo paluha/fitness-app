@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -4493,13 +4493,16 @@ export default function FitnessPage() {
                       opacity: day.isFuture ? 0.5 : 1
                     }}>
                       {day.isToday ? (
-                        <span style={{
-                          fontSize: isTodayCloseToGoal ? '16px' : '13px',
-                          animation: isTodayCloseToGoal ? 'fireBounce 0.5s ease-in-out infinite' : 'none',
-                          filter: isTodayCloseToGoal ? 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8))' : 'none'
-                        }}>
-                          {isTodayCloseToGoal ? '🔥' : '⏳'}
-                        </span>
+                        isTodayCloseToGoal ? (
+                          <span style={{
+                            fontSize: '16px',
+                            animation: 'fireBounce 0.5s ease-in-out infinite',
+                            filter: 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8))'
+                          }}>🔥</span>
+                        ) : (
+                          /* Анимированные песочные часы (в стиле animateicons.in) */
+                          <Hourglass size={14} className="hourglass-animated" style={{ color: 'var(--text-muted)' }} />
+                        )
                       ) : day.isFuture ? (
                         <span style={{
                           fontSize: '14px',
