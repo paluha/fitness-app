@@ -696,3 +696,10 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .hourglass-animated { animation: none; }
 }
+
+/* Плавное «пружинистое» раскрытие карточки упражнения */
+@keyframes cardExpand {
+  from { opacity: 0; transform: translateY(-10px) scale(0.985); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

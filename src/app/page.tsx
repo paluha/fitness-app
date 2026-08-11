@@ -45,33 +45,67 @@ function RestTimer({ restTime }: { restTime: string }) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Play beep sound
+  // Приятный «фитнесовый» сигнал: мягкий двухнотный колокольчик (E5→A5)
+  // с обертоном и длинным затуханием, повторяется дважды.
   const playBeep = useCallback(() => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       }
       const ctx = audioContextRef.current;
-
-      // Play 3 beeps
-      [0, 200, 400].forEach((delay) => {
-        setTimeout(() => {
-          const oscillator = ctx.createOscillator();
-          const gainNode = ctx.createGain();
-          oscillator.connect(gainNode);
-          gainNode.connect(ctx.destination);
-          oscillator.frequency.value = 880; // A5 note
-          oscillator.type = 'sine';
-          gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-          oscillator.start(ctx.currentTime);
-          oscillator.stop(ctx.currentTime + 0.15);
-        }, delay);
-      });
-    } catch (e) {
+      if (ctx.state === 'suspended') ctx.resume();
+      const chime = (freq: number, at: number) => {
+        const t = ctx.currentTime + at;
+        for (const [mult, vol] of [[1, 0.22], [2, 0.07]] as const) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq * mult;
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+          osc.start(t);
+          osc.stop(t + 0.65);
+        }
+      };
+      chime(659.25, 0);      // E5
+      chime(880, 0.22);      // A5
+      chime(659.25, 0.9);
+      chime(880, 1.12);
+    } catch {
       console.log('Audio not supported');
     }
   }, []);
+
+  // Пока таймер идёт — не даём экрану погаснуть (Wake Lock, где поддерживается)
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const acquire = async () => {
+      try {
+        const wl = await (navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request('screen');
+        if (wl) { if (cancelled) wl.release(); else wakeLockRef.current = wl; }
+      } catch { /* не поддерживается — не критично */ }
+    };
+    const release = () => {
+      try { wakeLockRef.current?.release(); } catch { /* ignore */ }
+      wakeLockRef.current = null;
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && isRunning) acquire();
+    };
+    if (isRunning) {
+      acquire();
+      document.addEventListener('visibilitychange', onVisible);
+    }
+    return () => {
+      cancelled = true;
+      release();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [isRunning]);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -115,11 +149,26 @@ function RestTimer({ restTime }: { restTime: string }) {
   const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
 
   return (
-    <div style={{
+    <div style={{ marginTop: '8px' }}>
+      {/* Крупный тайминг, пока отдых идёт */}
+      {isRunning && (
+        <div style={{
+          textAlign: 'center',
+          fontSize: '42px',
+          fontWeight: 700,
+          letterSpacing: '-0.03em',
+          fontVariantNumeric: 'tabular-nums',
+          lineHeight: 1.1,
+          marginBottom: '6px',
+          color: timeLeft <= 5 ? 'var(--yellow)' : 'var(--text-primary)'
+        }}>
+          {formatTime(timeLeft)}
+        </div>
+      )}
+      <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
-      marginTop: '8px'
+      gap: '8px'
     }}>
       <button
         onClick={toggleTimer}
@@ -199,6 +248,7 @@ function RestTimer({ restTime }: { restTime: string }) {
           }} />
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -1013,7 +1063,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
         <div style={{
           padding: '0 12px 12px',
           borderTop: '1px solid var(--border)',
-          animation: 'slideUp 0.2s ease'
+          animation: 'cardExpand 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)'
         }}>
           {/* Per-set table — Set / Reps / lbs / Status. Auto-marks the
               exercise completed when every set is checked. */}
@@ -1035,7 +1085,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               const allDone = next.length > 0 && next.every(s => s.completed);
               onUpdate({ sets: next, completed: allDone });
             };
-            const cols = '36px 24px 56px 1fr 1fr';
+            const cols = '24px 56px 1fr 1fr 36px';
             const allSetsDone = sets.length > 0 && sets.every(s => s.completed);
             const markAllSets = () => {
               const next = sets.map(s => ({ ...s, completed: !allSetsDone }));
@@ -1056,11 +1106,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   marginBottom: '4px',
                   paddingLeft: '2px',
                 }}>
-                  <span style={{ textAlign: 'center' }}>✓</span>
                   <span>Set</span>
                   <span>Last</span>
                   <span style={{ textAlign: 'center' }}>Reps</span>
                   <span style={{ textAlign: 'center' }}>lbs</span>
+                  <span style={{ textAlign: 'center' }}>✓</span>
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
@@ -1072,22 +1122,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     alignItems: 'center',
                     marginBottom: '4px',
                   }}>
-                    <button
-                      onClick={() => updateSet(i, { completed: !s.completed })}
-                      onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
-                      title="Right-click / long-press to remove this set"
-                      style={{
-                        width: '30px', height: '30px',
-                        border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
-                        background: s.completed ? 'var(--green)' : 'transparent',
-                        borderRadius: '8px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', justifySelf: 'center',
-                        padding: 0,
-                        transition: 'background 160ms ease, border 160ms ease',
-                      }}>
-                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
-                    </button>
                     <span style={{
                       fontSize: '12px', fontWeight: 700,
                       color: s.completed ? 'var(--green)' : 'var(--text-secondary)',
@@ -1108,7 +1142,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       onChange={(e) => updateSet(i, { reps: parseInt(e.target.value, 10) || 0 })}
                       placeholder="0"
                       style={{
-                        background: 'var(--bg-elevated)',
+                        background: 'var(--bg-primary)',
                         border: '1px solid var(--border)',
                         borderRadius: '8px',
                         padding: '5px 8px',
@@ -1127,7 +1161,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       onChange={(e) => updateSet(i, { weight: parseInt(e.target.value, 10) || 0 })}
                       placeholder="0"
                       style={{
-                        background: 'var(--bg-elevated)',
+                        background: 'var(--bg-primary)',
                         border: '1px solid var(--border)',
                         borderRadius: '8px',
                         padding: '5px 8px',
@@ -1139,6 +1173,22 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                         minWidth: 0,
                       }}
                     />
+                    <button
+                      onClick={() => updateSet(i, { completed: !s.completed })}
+                      onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
+                      title="Right-click / long-press to remove this set"
+                      style={{
+                        width: '30px', height: '30px',
+                        border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
+                        background: s.completed ? 'var(--green)' : 'transparent',
+                        borderRadius: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', justifySelf: 'center',
+                        padding: 0,
+                        transition: 'background 160ms ease, border 160ms ease',
+                      }}>
+                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
+                    </button>
                   </div>
                   );
                 })}
@@ -1209,7 +1259,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 placeholder="Заметки..."
                 style={{
                   flex: 1,
-                  background: 'var(--bg-elevated)',
+                  background: 'var(--bg-primary)',
                   border: '1px solid var(--border)',
                   borderRadius: '8px',
                   padding: '8px 10px',
@@ -1239,17 +1289,33 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             </div>
           </div>
 
-          {/* Exercise image link */}
+          {/* Фото упражнения — миниатюра, тап открывает на весь экран */}
           {ex.imageUrl && (
-            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
-                style={{ background: 'none', border: 'none', fontSize: '11px', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, cursor: 'pointer' }}>
-                <Camera size={12} /> Фото упражнения
+            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
+                style={{
+                  padding: 0, border: '1px solid var(--border)', borderRadius: '12px',
+                  overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-primary)',
+                  width: '64px', height: '64px', flexShrink: 0, display: 'block'
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ex.imageUrl}
+                  alt={ex.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
               </button>
-              <button onClick={() => onUpdate({ imageUrl: undefined })}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '2px', fontSize: '10px', cursor: 'pointer' }}>
-                <X size={12} />
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  Фото упражнения
+                </span>
+                <button onClick={() => onUpdate({ imageUrl: undefined })}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 0, fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <X size={11} /> убрать
+                </button>
+              </div>
             </div>
           )}
 
