@@ -3879,7 +3879,8 @@ export default function FitnessPage() {
               ref={el => { if (el && !el.dataset.scrolled) { el.scrollLeft = el.scrollWidth; el.dataset.scrolled = '1'; } }}
               style={{
                 display: 'flex', gap: '6px', overflowX: 'auto',
-                marginBottom: '12px', paddingBottom: '6px'
+                marginBottom: '12px', paddingBottom: '6px',
+                scrollSnapType: 'x mandatory'
               }}>
               {(() => {
                 if (!todayStr) return null;
@@ -3911,9 +3912,10 @@ export default function FitnessPage() {
                       onClick={() => setSelectedDate(d)}
                       className='btn-press'
                       style={{
-                        flexShrink: 0,
-                        minWidth: '54px',
-                        padding: '8px 10px',
+                        flex: '0 0 calc((100% - 24px) / 5)',
+                        padding: '8px 4px',
+                        scrollSnapAlign: 'start',
+                        overflow: 'hidden',
                         background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
                         border: isSel ? 'none' : '1px solid var(--border)',
                         borderRadius: '12px',
@@ -3923,6 +3925,7 @@ export default function FitnessPage() {
                     >
                       <span style={{
                         fontSize: '10px', fontWeight: 600, textTransform: 'capitalize',
+                        whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
                         color: isSel ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
                       }}>{label}</span>
                       <span style={{
