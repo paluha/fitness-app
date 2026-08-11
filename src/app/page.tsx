@@ -2673,16 +2673,14 @@ export default function FitnessPage() {
 
   // Calculate current week nutrition status and streak
   const { last7Days, nutritionStreak } = useMemo(() => {
-    // Don't calculate until todayStr is initialized on client
     if (!todayStr) {
       return { last7Days: [], nutritionStreak: 0 };
     }
 
-    // Средний процент выполнения макро-цели за день (0..∞, показываем как есть)
+    // Средний процент выполнения макро-цели за день
     const dayCompletionPct = (dateStr: string): number => {
       const log = dayLogs[dateStr];
       if (!log?.meals || log.meals.length === 0) return 0;
-
       const totals = { protein: 0, fat: 0, carbs: 0, calories: 0 };
       for (const meal of log.meals) {
         totals.protein += meal.protein;
@@ -2690,25 +2688,24 @@ export default function FitnessPage() {
         totals.carbs += meal.carbs;
         totals.calories += meal.calories;
       }
-
-      // Day is "completed" if average macro completion >= 70%
-      const proteinPct = totals.protein / MACRO_TARGETS.protein;
-      const fatPct = totals.fat / MACRO_TARGETS.fat;
-      const carbsPct = totals.carbs / MACRO_TARGETS.carbs;
-      const caloriesPct = totals.calories / MACRO_TARGETS.calories;
-      const avgCompletion = (proteinPct + fatPct + carbsPct + caloriesPct) / 4;
-      return Math.round(avgCompletion * 100);
+      const avg = (
+        totals.protein / MACRO_TARGETS.protein +
+        totals.fat / MACRO_TARGETS.fat +
+        totals.carbs / MACRO_TARGETS.carbs +
+        totals.calories / MACRO_TARGETS.calories
+      ) / 4;
+      return Math.round(avg * 100);
     };
     const isDayCompleted = (dateStr: string): boolean => dayCompletionPct(dateStr) >= 70;
 
-    // Build current week array (Monday -> Sunday)
-    // Parse todayStr to get today's date
-    const [year, month, day] = todayStr.split('-').map(Number);
-    const today = new Date(year, month - 1, day);
-    const dayOfWeek = today.getDay();
+    // Неделя строится вокруг ВЫБРАННОГО дня — табличка с огоньками и есть
+    // календарь еды: стрелки листают недели, тап по дню открывает его еду.
+    const [ay, am, ad] = dateKey.split('-').map(Number);
+    const anchor = new Date(ay, am - 1, ad);
+    const dayOfWeek = anchor.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + mondayOffset);
+    const monday = new Date(anchor);
+    monday.setDate(anchor.getDate() + mondayOffset);
 
     const days: { date: string; dayName: string; completed: boolean; isToday: boolean; isFuture: boolean; pct: number }[] = [];
     const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -2729,21 +2726,19 @@ export default function FitnessPage() {
       });
     }
 
-    // Count streak (consecutive completed days from today/yesterday backward)
+    // Стрик — независимо от показанной недели: идём от сегодня (или вчера) назад.
     let streak = 0;
-    const todayIndex = days.findIndex(d => d.isToday);
-    // If today is complete, include it; otherwise start from yesterday
-    const startIndex = todayIndex >= 0 && days[todayIndex].completed ? todayIndex : todayIndex - 1;
-    for (let i = startIndex; i >= 0; i--) {
-      if (days[i].completed) {
-        streak++;
-      } else {
-        break;
-      }
+    const [ty, tm, td] = todayStr.split('-').map(Number);
+    const cur = new Date(ty, tm - 1, td);
+    if (!isDayCompleted(todayStr)) cur.setDate(cur.getDate() - 1);
+    while (isDayCompleted(formatDate(cur))) {
+      streak++;
+      cur.setDate(cur.getDate() - 1);
+      if (streak > 365) break;
     }
 
     return { last7Days: days, nutritionStreak: streak };
-  }, [dayLogs, todayStr]);
+  }, [dayLogs, todayStr, dateKey]);
 
   // Check if today is close to completing nutrition targets (>= 60%) — always uses today's data, not selected date
   const isTodayCloseToGoal = useMemo(() => {
@@ -3876,151 +3871,72 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Week View - 7 days with T1-T7; стрелки по бокам листают недели */}
-            <div className="card-soft" style={{
-              padding: '12px 6px',
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: '2px'
+            {/* Лента дат: крутишь и тапаешь. Сегодня слева, вправо — в прошлое.
+                Внизу чипа — метка тренировки (T1 / счётчик) или месяц. */}
+            <div style={{
+              display: 'flex', gap: '6px', overflowX: 'auto',
+              marginBottom: '12px', paddingBottom: '6px'
             }}>
-              <button
-                onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }}
-                aria-label='Прошлая неделя'
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: '4px',
-                flex: 1,
-                minWidth: 0
-              }}>
-                {(() => {
-                  if (!todayStr) return null;
-                  // Неделя строится вокруг ВЫБРАННОГО дня, а не сегодняшнего —
-                  // стрелки в хедере листают дни и, дойдя до понедельника,
-                  // перелистывают полоску на предыдущую неделю.
-                  const [year, month, day] = dateKey.split('-').map(Number);
-                  const anchor = new Date(year, month - 1, day);
-                  const dayOfWeek = anchor.getDay();
-                  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-                  const monday = new Date(anchor);
-                  monday.setDate(anchor.getDate() + mondayOffset);
-
-                  const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-
-                  return weekDays.map((dayName, i) => {
-                    const date = new Date(monday);
-                    date.setDate(monday.getDate() + i);
-                    const dateStr = formatDate(date);
-                    const log = dayLogs[dateStr];
-                    const isToday = dateStr === todayStr;
-                    const isSelected = dateStr === dateKey;
-                    const isFuture = dateStr > todayStr;
-                    const isStructuralRest = i >= workouts.length;
-
-                    // Тот же расчёт, что и в месячном календаре: считаем по
-                    // фактически выполненным упражнениям (snapshot или draft).
-                    const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
-                    const exTotal = dayExercises.length;
-                    const exDone = dayExercises.filter(e => e.completed).length;
-                    const hasWorkout = exDone > 0;
-                    const fullyDone = exTotal > 0 && exDone === exTotal;
-                    const workoutPct = exTotal > 0 ? exDone / exTotal : 0;
-
-                    // Метка тренировки (T1/T2…) из snapshot/draft/выбранной
-                    const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
-                    const completedWorkout = wId ? workouts.find(w => w.id === wId) : null;
-                    const workoutLabel = hasWorkout && completedWorkout
-                      ? completedWorkout.name.replace('Тренировка ', 'T')
-                      : '';
-
-                    // Прошлый/структурный день без тренировки = день отдыха
-                    const isRestDay = !hasWorkout && (isStructuralRest || (!isFuture && !isToday));
-
-                    // Фон: полный зелёный / частичная заливка снизу / отдых / пусто
-                    const bg = isSelected
-                      ? 'var(--yellow)'
-                      : hasWorkout
-                        ? (fullyDone
-                            ? 'var(--green-dim)'
-                            : `linear-gradient(to top, var(--green-dim) ${Math.round(workoutPct * 100)}%, var(--bg-elevated) ${Math.round(workoutPct * 100)}%)`)
-                        : isRestDay
-                          ? 'transparent'
-                          : 'var(--bg-elevated)';
-
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedDate(date)}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '3px',
-                          padding: '8px 2px 7px',
-                          background: bg,
-                          border: isSelected
-                            ? 'none'
-                            : isToday
-                              ? '2px solid var(--cyan, #0ea5e9)'
-                              : hasWorkout
-                                ? '1px solid rgba(0, 200, 83, 0.3)'
-                                : isRestDay
-                                  ? '1px solid transparent'
-                                  : '1px solid var(--border)',
-                          borderRadius: '10px',
-                          cursor: 'pointer',
-                          opacity: isSelected ? 1 : isFuture ? 0.4 : isRestDay ? 0.35 : 1,
-                          transform: isSelected ? 'translateY(-1px)' : 'none',
-                          boxShadow: isSelected
-                            ? '0 6px 18px var(--yellow-glow)'
-                            : (hasWorkout && fullyDone)
-                              ? '0 1px 4px var(--green-glow)'
-                              : 'none',
-                          transition: 'transform 160ms ease, box-shadow 160ms ease'
-                        }}
-                      >
-                        <span style={{
-                          fontSize: '9px',
-                          color: isSelected ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-muted)',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.4px'
-                        }}>
-                          {dayName}
-                        </span>
-                        <span style={{
-                          fontSize: '14px',
-                          fontWeight: 800,
-                          color: isSelected ? '#fff' : isRestDay ? 'rgba(139, 145, 160, 0.45)' : hasWorkout ? 'var(--green)' : 'var(--text-primary)'
-                        }}>
-                          {date.getDate()}
-                        </span>
-                        {/* Подпись: название тренировки (T1…) тёмным, счётчик если частично */}
-                        {hasWorkout ? (
-                          <span style={{
-                            fontSize: '9px', fontWeight: 700,
-                            color: isSelected ? '#fff' : 'var(--text-primary)'
-                          }}>
-                            {fullyDone ? workoutLabel : `${exDone}/${exTotal}`}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-              <button
-                onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }}
-                aria-label='Следующая неделя'
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-              >
-                <ChevronRight size={16} />
-              </button>
+              {(() => {
+                if (!todayStr) return null;
+                const [ty, tm, td] = todayStr.split('-').map(Number);
+                const chips = [];
+                for (let i = 0; i < 90; i++) {
+                  const d = new Date(ty, tm - 1, td);
+                  d.setDate(d.getDate() - i);
+                  const ds = formatDate(d);
+                  const isSel = ds === dateKey;
+                  const log = dayLogs[ds];
+                  const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+                  const exTotal = dayExercises.length;
+                  const exDone = dayExercises.filter(e => e.completed).length;
+                  const hasWorkout = exDone > 0;
+                  const fullyDone = exTotal > 0 && exDone === exTotal;
+                  const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
+                  const cw = hasWorkout && wId ? workouts.find(w => w.id === wId) : null;
+                  const wLabel = cw ? cw.name.replace('Тренировка ', 'T') : '';
+                  const label = i === 0
+                    ? (userSettings.language === 'ru' ? 'Сегодня' : 'Today')
+                    : i === 1
+                      ? (userSettings.language === 'ru' ? 'Вчера' : 'Yesterday')
+                      : d.toLocaleDateString('ru-RU', { weekday: 'short' });
+                  chips.push(
+                    <button
+                      key={ds}
+                      onClick={() => setSelectedDate(d)}
+                      className='btn-press'
+                      style={{
+                        flexShrink: 0,
+                        minWidth: '54px',
+                        padding: '8px 10px',
+                        background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
+                        border: isSel ? 'none' : '1px solid var(--border)',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '10px', fontWeight: 600, textTransform: 'capitalize',
+                        color: isSel ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
+                      }}>{label}</span>
+                      <span style={{
+                        fontSize: '15px', fontWeight: 800, lineHeight: 1,
+                        color: isSel ? '#fff' : 'var(--text-primary)'
+                      }}>{d.getDate()}</span>
+                      <span style={{
+                        fontSize: '9px', fontWeight: 700,
+                        color: isSel ? 'rgba(255,255,255,0.85)' : hasWorkout ? 'var(--green)' : 'var(--text-muted)'
+                      }}>
+                        {hasWorkout
+                          ? (fullyDone && wLabel ? wLabel : exDone + '/' + exTotal)
+                          : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}
+                      </span>
+                    </button>
+                  );
+                }
+                return chips;
+              })()}
             </div>
 
             {/* Функция ручной отметки «день отдыха» убрана: день без тренировки
@@ -4308,63 +4224,6 @@ export default function FitnessPage() {
         {/* NUTRITION VIEW */}
         {view === 'nutrition' && (
           <div className="view-content">
-            {/* Лента дат: крутишь и тапаешь — видишь еду того дня.
-                Сегодня слева, дальше вправо — назад в прошлое (90 дней). */}
-            <div style={{
-              display: 'flex', gap: '6px', overflowX: 'auto',
-              marginBottom: '14px', paddingBottom: '6px'
-            }}>
-              {(() => {
-                if (!todayStr) return null;
-                const [ty, tm, td] = todayStr.split('-').map(Number);
-                const chips = [];
-                for (let i = 0; i < 90; i++) {
-                  const d = new Date(ty, tm - 1, td);
-                  d.setDate(d.getDate() - i);
-                  const ds = formatDate(d);
-                  const isSel = ds === dateKey;
-                  const hasMeals = (dayLogs[ds]?.meals?.length ?? 0) > 0;
-                  const label = i === 0
-                    ? (userSettings.language === 'ru' ? 'Сегодня' : 'Today')
-                    : i === 1
-                      ? (userSettings.language === 'ru' ? 'Вчера' : 'Yesterday')
-                      : d.toLocaleDateString('ru-RU', { weekday: 'short' });
-                  chips.push(
-                    <button
-                      key={ds}
-                      onClick={() => setSelectedDate(d)}
-                      className='btn-press'
-                      style={{
-                        flexShrink: 0,
-                        minWidth: '54px',
-                        padding: '8px 10px',
-                        background: isSel ? 'var(--yellow)' : 'var(--bg-card)',
-                        border: isSel ? 'none' : '1px solid var(--border)',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
-                      }}
-                    >
-                      <span style={{
-                        fontSize: '10px', fontWeight: 600, textTransform: 'capitalize',
-                        color: isSel ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
-                      }}>{label}</span>
-                      <span style={{
-                        fontSize: '15px', fontWeight: 800, lineHeight: 1,
-                        color: isSel ? '#fff' : 'var(--text-primary)'
-                      }}>{d.getDate()}</span>
-                      <span style={{
-                        fontSize: '9px',
-                        color: isSel ? 'rgba(255,255,255,0.8)' : hasMeals ? 'var(--green)' : 'var(--text-muted)',
-                        fontWeight: 700
-                      }}>{hasMeals ? '•' : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</span>
-                    </button>
-                  );
-                }
-                return chips;
-              })()}
-            </div>
-
             {/* Daily target header */}
             <div style={{
               display: 'flex',
@@ -4423,16 +4282,27 @@ export default function FitnessPage() {
                   </span>
                 </div>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  текущая неделя
+                  {last7Days.some(d => d.isToday)
+                    ? 'текущая неделя'
+                    : last7Days.length
+                      ? `${Number(last7Days[0].date.slice(8, 10))}–${Number(last7Days[6].date.slice(8, 10))} ${(() => { const [y, m, d] = last7Days[6].date.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', ''); })()}`
+                      : ''}
                 </span>
               </div>
 
-              {/* 7 day cells */}
+              {/* 7 day cells + стрелки листания недель */}
               <div style={{
                 display: 'flex',
-                gap: '6px',
-                justifyContent: 'space-between'
+                gap: '4px',
+                alignItems: 'center'
               }}>
+                <button
+                  onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }}
+                  aria-label='Прошлая неделя'
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                >
+                  <ChevronLeft size={15} />
+                </button>
                 {last7Days.map((day) => {
                   const isSelected = day.date === dateKey;
                   return (
@@ -4527,6 +4397,13 @@ export default function FitnessPage() {
                   </div>
                   );
                 })}
+                <button
+                  onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }}
+                  aria-label='Следующая неделя'
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                >
+                  <ChevronRight size={15} />
+                </button>
               </div>
 
             </div>
