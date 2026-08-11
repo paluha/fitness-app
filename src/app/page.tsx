@@ -1063,7 +1063,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
         <div style={{
           padding: '0 12px 12px',
           borderTop: '1px solid var(--border)',
-          animation: 'cardExpand 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)'
+          animation: 'expandOpen 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflow: 'hidden'
         }}>
           {/* Per-set table — Set / Reps / lbs / Status. Auto-marks the
               exercise completed when every set is checked. */}
@@ -1110,7 +1111,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   <span>Last</span>
                   <span style={{ textAlign: 'center' }}>Reps</span>
                   <span style={{ textAlign: 'center' }}>lbs</span>
-                  <span style={{ textAlign: 'center' }}>✓</span>
+                  <span />
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
@@ -1303,38 +1304,19 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             )}
           </div>
 
-          {/* Динамика рабочего веса этого упражнения */}
-          {weightHistory && weightHistory.length > 0 && (
-            <div style={{ marginTop: '14px' }}>
-              <button
-                onClick={() => setShowChart(!showChart)}
-                style={{
-                  padding: '12px 16px',
-                  background: 'var(--yellow-dim)',
-                  border: '1px solid var(--yellow-glow)',
-                  borderRadius: '10px',
-                  color: 'var(--yellow)',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <TrendingUp size={16} /> Динамика веса ({weightHistory.length})
-              </button>
-              {showChart && (
-                <div style={{
-                  marginTop: '12px', padding: '14px',
-                  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
-                }}>
-                  <WeightChart
-                    data={weightHistory.map(h => h.weight)}
-                    labels={weightHistory.map(h => new Date(h.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
-                  />
-                </div>
-              )}
+          {/* Динамика рабочего веса — открывается иконкой справа от заметок */}
+          {weightHistory && weightHistory.length > 0 && showChart && (
+            <div style={{
+              marginTop: '14px', padding: '14px',
+              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', fontSize: '12px', fontWeight: 700, color: 'var(--yellow)' }}>
+                <TrendingUp size={14} /> Динамика веса ({weightHistory.length})
+              </div>
+              <WeightChart
+                data={weightHistory.map(h => h.weight)}
+                labels={weightHistory.map(h => new Date(h.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+              />
             </div>
           )}
 
@@ -1424,13 +1406,21 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 fontSize: '12px'
               }}
             />
-            <div style={{
-              width: '36px', height: '36px', borderRadius: '8px',
-              background: 'var(--yellow-dim)', border: '1px solid var(--yellow-glow)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-            }}>
-              <Pencil size={14} style={{ color: 'var(--yellow)' }} />
-            </div>
+            <button
+              onClick={() => setShowChart(!showChart)}
+              title='Динамика веса'
+              disabled={!weightHistory || weightHistory.length === 0}
+              style={{
+                width: '36px', height: '36px', borderRadius: '8px',
+                background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
+                border: '1px solid var(--yellow-glow)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                cursor: 'pointer',
+                opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1
+              }}
+            >
+              <TrendingUp size={15} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
+            </button>
           </div>
         </div>
       )}
@@ -4035,7 +4025,7 @@ export default function FitnessPage() {
                         scrollSnapAlign: 'center',
                         overflow: 'hidden',
                         background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
-                        border: isSel ? 'none' : isToday ? '2px solid var(--cyan, #0ea5e9)' : '1px solid var(--border)',
+                        border: isSel ? 'none' : isToday ? '2px solid var(--cyan, #0ea5e9)' : hasWorkout ? 'none' : '1px solid var(--border)',
                         borderRadius: '12px',
                         cursor: 'pointer',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
@@ -4055,7 +4045,7 @@ export default function FitnessPage() {
                         color: isSel ? 'rgba(255,255,255,0.85)' : hasWorkout ? 'var(--green)' : 'var(--text-muted)'
                       }}>
                         {hasWorkout
-                          ? (fullyDone && wLabel ? wLabel : exDone + '/' + exTotal)
+                          ? (wLabel || exDone + '/' + exTotal)
                           : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}
                       </span>
                     </button>

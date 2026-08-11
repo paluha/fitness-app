@@ -703,3 +703,9 @@ button:disabled {
   60% { opacity: 1; }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* Раскрытие карточки упражнения: реальное «выезжание» по высоте */
+@keyframes expandOpen {
+  from { max-height: 0; opacity: 0; transform: translateY(-8px); }
+  to { max-height: 1200px; opacity: 1; transform: translateY(0); }
+}
