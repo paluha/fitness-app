@@ -2956,6 +2956,16 @@ export default function FitnessPage() {
   // closed days. For open days the workouts template is the right source
   // — completion flags survive via the draft, restored by the draft branch
   // below.
+  // Стабильная подпись прогресса драфта дня: эффект ниже перезапускается,
+  // когда реально изменился прогресс (или данные дня доехали с сервера),
+  // а не когда объект просто пересоздался при очередном мердже.
+  const draftSignature = currentDayLog.workoutDraft
+    ? currentDayLog.workoutDraft.workoutId + ':' + currentDayLog.workoutDraft.exercises.map(e =>
+        e.id + (e.completed ? '1' : '0') +
+        (Array.isArray(e.sets) ? e.sets.map(st => (st.completed ? '1' : '0') + (st.reps || 0) + 'x' + (st.weight || 0)).join(',') : '')
+      ).join('|')
+    : 'none';
+
   useEffect(() => {
     if (currentDayLog.dayClosed && currentDayLog.workoutCompleted) {
       // Closed day — render reads exercises from the snapshot directly.
@@ -2969,7 +2979,7 @@ export default function FitnessPage() {
         if (w.id !== currentDayLog.workoutDraft!.workoutId) {
           // Other workouts: keep template, just clear completion flags so
           // checks from another day don't bleed in.
-          return { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })) };
+          return { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })) };
         }
         // Selected workout: merge draft progress onto the live template
         // exercises by id. Exercises that exist in template but not in the
@@ -2980,7 +2990,7 @@ export default function FitnessPage() {
           ...w,
           exercises: w.exercises.map(e => {
             const d = draftById.get(e.id);
-            if (!d) return { ...e, completed: false, actualSets: '', feedback: '' };
+            if (!d) return { ...e, completed: false, actualSets: '', feedback: '', sets: undefined };
             return { ...e, completed: d.completed, actualSets: d.actualSets, sets: d.sets, notes: d.notes, feedback: d.feedback };
           }),
         };
@@ -2992,7 +3002,7 @@ export default function FitnessPage() {
       // wipe their progress fields.
       setWorkouts(prev => prev.map(w => ({
         ...w,
-        exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '' })),
+        exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
       })));
 
       if (currentDayLog.selectedWorkout) {
@@ -3006,7 +3016,7 @@ export default function FitnessPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateKey]);
+  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout, draftSignature]);
 
   // Get unique meals from all days for autocomplete
   const uniqueMeals = useMemo(() => {
