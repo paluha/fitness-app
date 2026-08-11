@@ -1192,132 +1192,116 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   </div>
                   );
                 })}
-                <button
-                  onClick={addSet}
-                  style={{
-                    width: '100%',
-                    padding: '6px 10px',
-                    marginTop: '2px',
-                    background: 'var(--bg-elevated)',
-                    border: '1px dashed var(--border-strong)',
-                    borderRadius: '8px',
-                    color: 'var(--text-muted)',
-                    fontSize: '11px', fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  }}>
-                  <Plus size={14} />
-                  Add set
-                </button>
-                {/* Touch-friendly mark-all — easier to hit than the tiny per-set
-                    checkmarks when finishing an exercise in one go. */}
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); markAllSets(); }}
-                  style={{
-                    width: '100%',
-                    minHeight: '46px',
-                    padding: '12px 14px',
-                    marginTop: '8px',
-                    background: allSetsDone ? 'var(--green-dim)' : 'var(--bg-elevated)',
-                    border: `1.5px solid ${allSetsDone ? 'var(--green)' : 'var(--border-strong)'}`,
-                    borderRadius: '12px',
-                    color: allSetsDone ? 'var(--green)' : 'var(--text-primary)',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    touchAction: 'manipulation',
-                  }}>
-                  <Check size={18} strokeWidth={3} />
-                  {allSetsDone ? 'Снять отметки' : 'Отметить все подходы'}
-                </button>
+                {/* Add set + Отметить все — в одну строку */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    onClick={addSet}
+                    style={{
+                      flex: 1,
+                      minHeight: '44px',
+                      padding: '10px',
+                      background: 'var(--bg-primary)',
+                      border: '1px dashed var(--border-strong)',
+                      borderRadius: '12px',
+                      color: 'var(--text-muted)',
+                      fontSize: '12px', fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      touchAction: 'manipulation',
+                    }}>
+                    <Plus size={14} />
+                    Add set
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); markAllSets(); }}
+                    style={{
+                      flex: 1.4,
+                      minHeight: '44px',
+                      padding: '10px',
+                      background: allSetsDone ? 'var(--green-dim)' : 'var(--bg-elevated)',
+                      border: `1.5px solid ${allSetsDone ? 'var(--green)' : 'var(--border-strong)'}`,
+                      borderRadius: '12px',
+                      color: allSetsDone ? 'var(--green)' : 'var(--text-primary)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      touchAction: 'manipulation',
+                    }}>
+                    <Check size={16} strokeWidth={3} />
+                    {allSetsDone ? 'Снять отметки' : 'Отметить все'}
+                  </button>
+                </div>
               </div>
             );
           })()}
-          <div style={{ marginTop: '8px' }}>
-            <label style={{
-              fontSize: '10px',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginBottom: '4px'
-            }}>
-              <Timer size={11} />
-              Отдых: {ex.restTime}
-            </label>
-            <RestTimer restTime={ex.restTime} />
-            <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
-              <input
-                type="text"
-                value={ex.feedback}
-                onChange={(e) => onUpdate({ feedback: e.target.value })}
-                placeholder="Заметки..."
-                style={{
-                  flex: 1,
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 10px',
-                  color: 'var(--text-primary)',
-                  fontSize: '12px'
-                }}
-              />
-              {/* Photo icon */}
-              <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-              <div
-                onClick={() => imageInputRef.current?.click()}
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: ex.imageUrl ? 'rgba(168, 85, 247, 0.1)' : 'var(--bg-elevated)',
-                  border: ex.imageUrl ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                <Camera size={14} style={{ color: ex.imageUrl ? '#a855f7' : 'var(--text-muted)' }} />
-              </div>
+          {/* Таймер отдыха + фото — в одну строку */}
+          <div style={{ marginTop: '10px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={{
+                fontSize: '10px',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '4px'
+              }}>
+                <Timer size={11} />
+                Отдых: {ex.restTime}
+              </label>
+              <RestTimer restTime={ex.restTime} />
             </div>
-          </div>
-
-          {/* Фото упражнения — миниатюра, тап открывает на весь экран */}
-          {ex.imageUrl && (
-            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
-                onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
-                style={{
-                  padding: 0, border: '1px solid var(--border)', borderRadius: '12px',
-                  overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-primary)',
-                  width: '64px', height: '64px', flexShrink: 0, display: 'block'
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={ex.imageUrl}
-                  alt={ex.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              </button>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  Фото упражнения
-                </span>
-                <button onClick={() => onUpdate({ imageUrl: undefined })}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: 0, fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                  <X size={11} /> убрать
+            <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+            {ex.imageUrl ? (
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button
+                  onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
+                  style={{
+                    padding: 0, border: '1px solid var(--border)', borderRadius: '12px',
+                    overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-primary)',
+                    width: '56px', height: '56px', display: 'block'
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={ex.imageUrl}
+                    alt={ex.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                </button>
+                <button
+                  onClick={() => onUpdate({ imageUrl: undefined })}
+                  aria-label='Убрать фото'
+                  style={{
+                    position: 'absolute', top: '-6px', right: '-6px',
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', padding: 0, cursor: 'pointer'
+                  }}
+                >
+                  <X size={10} />
                 </button>
               </div>
-            </div>
-          )}
+            ) : (
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                aria-label='Добавить фото'
+                style={{
+                  width: '56px', height: '56px', borderRadius: '12px',
+                  background: 'var(--bg-primary)', border: '1px dashed var(--border-strong)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0
+                }}
+              >
+                <Camera size={18} style={{ color: 'var(--text-muted)' }} />
+              </button>
+            )}
+          </div>
 
           {/* Динамика рабочего веса этого упражнения */}
           {weightHistory && weightHistory.length > 0 && (
@@ -1422,6 +1406,32 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               </div>
             </div>
           )}
+
+          {/* Заметка к упражнению — самая последняя строка */}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '12px', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={ex.feedback}
+              onChange={(e) => onUpdate({ feedback: e.target.value })}
+              placeholder="Заметки..."
+              style={{
+                flex: 1,
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                color: 'var(--text-primary)',
+                fontSize: '12px'
+              }}
+            />
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '8px',
+              background: 'var(--yellow-dim)', border: '1px solid var(--yellow-glow)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <Pencil size={14} style={{ color: 'var(--yellow)' }} />
+            </div>
+          </div>
         </div>
       )}
 
