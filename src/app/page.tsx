@@ -1818,7 +1818,7 @@ function FitnessCalendar({
           const getBorder = () => {
             if (isSelected) return 'none';
             if (isToday) return '2px solid var(--cyan, #0ea5e9)';
-            if (hasWorkout) return '1px solid rgba(0, 200, 83, 0.3)';
+            if (hasWorkout) return '1px solid transparent'; // зелёные дни — без бордера
             if (isRestDay) return '1px solid transparent';
             return '1px solid transparent';
           };
