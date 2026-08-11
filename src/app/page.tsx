@@ -3000,10 +3000,14 @@ export default function FitnessPage() {
       // Day is NOT closed, no draft — clear any completion flags left over
       // from the previously visible day. Do NOT replace exercises, only
       // wipe their progress fields.
-      setWorkouts(prev => prev.map(w => ({
-        ...w,
-        exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
-      })));
+      setWorkouts(prev => {
+        const dirty = prev.some(w => w.exercises.some(e => e.completed || e.actualSets || e.feedback || e.sets));
+        if (!dirty) return prev; // чистить нечего — не пересоздаём объекты (иначе визуальный «рефреш»)
+        return prev.map(w => ({
+          ...w,
+          exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
+        }));
+      });
 
       if (currentDayLog.selectedWorkout) {
         setSelectedWorkout(currentDayLog.selectedWorkout);
@@ -3016,7 +3020,17 @@ export default function FitnessPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, currentDayLog.selectedWorkout, draftSignature]);
+  }, [dateKey, currentDayLog.dayClosed, currentDayLog.workoutCompleted, draftSignature]);
+
+  // Лёгкое восстановление ВЫБОРА тренировки при загрузке данных дня — без
+  // перезаписи каталога. setSelectedWorkout с тем же значением React
+  // проигнорирует, так что тапы по Т-кнопкам ничего не перерисовывают.
+  useEffect(() => {
+    if (!currentDayLog.dayClosed && !currentDayLog.workoutDraft && currentDayLog.selectedWorkout) {
+      setSelectedWorkout(currentDayLog.selectedWorkout);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDayLog.selectedWorkout]);
 
   // Get unique meals from all days for autocomplete
   const uniqueMeals = useMemo(() => {
