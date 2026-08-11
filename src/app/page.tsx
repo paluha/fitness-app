@@ -2152,8 +2152,19 @@ export default function FitnessPage() {
   const [showScanOptions, setShowScanOptions] = useState(false);
   const [foodHint, setFoodHint] = useState('');
   const [streakDetailDate, setStreakDetailDate] = useState<string | null>(null);
-  // Свайп по стрик-табличке еды: листает недели
+  // Свайп по стрик-табличке еды: листает недели c анимацией «перелистывания»
   const streakTouchX = useRef<number | null>(null);
+  const [streakDrag, setStreakDrag] = useState({ x: 0, transition: false, opacity: 1 });
+  // Лента дат тренировок: при заходе в раздел прокручиваем к выбранному дню (сегодня)
+  const workoutStripRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (view !== 'workout' || !todayStr) return;
+    const el = workoutStripRef.current;
+    if (!el) return;
+    const sel = el.querySelector('[data-selchip="1"]') as HTMLElement | null;
+    if (sel) sel.scrollIntoView({ inline: 'center', block: 'nearest' });
+    else el.scrollLeft = el.scrollWidth;
+  }, [view, todayStr]);
   const [showFoodAssistant, setShowFoodAssistant] = useState(false);
   const [foodRecommendations, setFoodRecommendations] = useState<{
     analysis: string;
@@ -3876,7 +3887,7 @@ export default function FitnessPage() {
             {/* Лента дат: старые слева, «Сегодня» справа; при открытии
                 прокручена к сегодняшнему дню. Внизу чипа — T1/счётчик или месяц. */}
             <div
-              ref={el => { if (el && !el.dataset.scrolled) { el.scrollLeft = el.scrollWidth; el.dataset.scrolled = '1'; } }}
+              ref={workoutStripRef}
               style={{
                 display: 'flex', gap: '6px', overflowX: 'auto',
                 marginBottom: '12px', paddingBottom: '6px',
@@ -3901,23 +3912,21 @@ export default function FitnessPage() {
                   const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
                   const cw = hasWorkout && wId ? workouts.find(w => w.id === wId) : null;
                   const wLabel = cw ? cw.name.replace('Тренировка ', 'T') : '';
-                  const label = i === 0
-                    ? (userSettings.language === 'ru' ? 'Сегодня' : 'Today')
-                    : i === 1
-                      ? (userSettings.language === 'ru' ? 'Вчера' : 'Yesterday')
-                      : d.toLocaleDateString('ru-RU', { weekday: 'short' });
+                  const label = d.toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' });
+                  const isToday = i === 0;
                   chips.push(
                     <button
                       key={ds}
+                      data-selchip={isSel ? '1' : undefined}
                       onClick={() => setSelectedDate(d)}
                       className='btn-press'
                       style={{
-                        flex: '0 0 calc((100% - 24px) / 5)',
+                        flex: '0 0 calc((100% - 36px) / 7)',
                         padding: '8px 4px',
                         scrollSnapAlign: 'start',
                         overflow: 'hidden',
                         background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
-                        border: isSel ? 'none' : '1px solid var(--border)',
+                        border: isSel ? 'none' : isToday ? '2px solid var(--cyan, #0ea5e9)' : '1px solid var(--border)',
                         borderRadius: '12px',
                         cursor: 'pointer',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
@@ -4269,16 +4278,41 @@ export default function FitnessPage() {
               border: '1px solid var(--border)',
               touchAction: 'pan-y'
             }}
-              onTouchStart={e => { streakTouchX.current = e.touches[0].clientX; }}
+              onTouchStart={e => {
+                streakTouchX.current = e.touches[0].clientX;
+                setStreakDrag({ x: 0, transition: false, opacity: 1 });
+              }}
+              onTouchMove={e => {
+                if (streakTouchX.current === null) return;
+                const dx = e.touches[0].clientX - streakTouchX.current;
+                // ряд следует за пальцем с лёгким сопротивлением и тает к краю
+                setStreakDrag({
+                  x: dx * 0.6,
+                  transition: false,
+                  opacity: Math.max(0.45, 1 - Math.abs(dx) / 320),
+                });
+              }}
               onTouchEnd={e => {
                 if (streakTouchX.current === null) return;
                 const dx = e.changedTouches[0].clientX - streakTouchX.current;
                 streakTouchX.current = null;
-                if (Math.abs(dx) < 50) return;
-                const d = new Date(selectedDate);
-                // свайп вправо — прошлая неделя, влево — следующая
-                d.setDate(d.getDate() + (dx > 0 ? -7 : 7));
-                setSelectedDate(d);
+                if (Math.abs(dx) < 50) {
+                  // не долистнул — пружиним обратно
+                  setStreakDrag({ x: 0, transition: true, opacity: 1 });
+                  return;
+                }
+                const dir = dx > 0 ? 1 : -1;
+                // страница улетает за край...
+                setStreakDrag({ x: dir * 110, transition: true, opacity: 0 });
+                setTimeout(() => {
+                  const d = new Date(selectedDate);
+                  // свайп вправо — прошлая неделя, влево — следующая
+                  d.setDate(d.getDate() + (dir > 0 ? -7 : 7));
+                  setSelectedDate(d);
+                  // ...новая заезжает с противоположной стороны
+                  setStreakDrag({ x: -dir * 110, transition: false, opacity: 0 });
+                  setTimeout(() => setStreakDrag({ x: 0, transition: true, opacity: 1 }), 20);
+                }, 170);
               }}
             >
               {/* Header with streak count */}
@@ -4311,11 +4345,14 @@ export default function FitnessPage() {
                 </span>
               </div>
 
-              {/* 7 day cells — свайп по карточке листает недели */}
+              {/* 7 day cells — свайп по карточке листает недели (эффект страницы) */}
               <div style={{
                 display: 'flex',
                 gap: '6px',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                transform: `translateX(${streakDrag.x}px)`,
+                opacity: streakDrag.opacity,
+                transition: streakDrag.transition ? 'transform 0.18s ease-out, opacity 0.18s ease-out' : 'none'
               }}>
                 {last7Days.map((day) => {
                   const isSelected = day.date === dateKey;
