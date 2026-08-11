@@ -2144,8 +2144,6 @@ export default function FitnessPage() {
   const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
   const [showMealModal, setShowMealModal] = useState(false);
-  // История питания: браузер по дням с блюдами (вчера, месяц назад — любой день)
-  const [showFoodHistory, setShowFoodHistory] = useState(false);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [mealForm, setMealForm] = useState({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
   const [showMealSuggestions, setShowMealSuggestions] = useState(false);
@@ -4310,6 +4308,63 @@ export default function FitnessPage() {
         {/* NUTRITION VIEW */}
         {view === 'nutrition' && (
           <div className="view-content">
+            {/* Лента дат: крутишь и тапаешь — видишь еду того дня.
+                Сегодня слева, дальше вправо — назад в прошлое (90 дней). */}
+            <div style={{
+              display: 'flex', gap: '6px', overflowX: 'auto',
+              marginBottom: '14px', paddingBottom: '6px'
+            }}>
+              {(() => {
+                if (!todayStr) return null;
+                const [ty, tm, td] = todayStr.split('-').map(Number);
+                const chips = [];
+                for (let i = 0; i < 90; i++) {
+                  const d = new Date(ty, tm - 1, td);
+                  d.setDate(d.getDate() - i);
+                  const ds = formatDate(d);
+                  const isSel = ds === dateKey;
+                  const hasMeals = (dayLogs[ds]?.meals?.length ?? 0) > 0;
+                  const label = i === 0
+                    ? (userSettings.language === 'ru' ? 'Сегодня' : 'Today')
+                    : i === 1
+                      ? (userSettings.language === 'ru' ? 'Вчера' : 'Yesterday')
+                      : d.toLocaleDateString('ru-RU', { weekday: 'short' });
+                  chips.push(
+                    <button
+                      key={ds}
+                      onClick={() => setSelectedDate(d)}
+                      className='btn-press'
+                      style={{
+                        flexShrink: 0,
+                        minWidth: '54px',
+                        padding: '8px 10px',
+                        background: isSel ? 'var(--yellow)' : 'var(--bg-card)',
+                        border: isSel ? 'none' : '1px solid var(--border)',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '10px', fontWeight: 600, textTransform: 'capitalize',
+                        color: isSel ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
+                      }}>{label}</span>
+                      <span style={{
+                        fontSize: '15px', fontWeight: 800, lineHeight: 1,
+                        color: isSel ? '#fff' : 'var(--text-primary)'
+                      }}>{d.getDate()}</span>
+                      <span style={{
+                        fontSize: '9px',
+                        color: isSel ? 'rgba(255,255,255,0.8)' : hasMeals ? 'var(--green)' : 'var(--text-muted)',
+                        fontWeight: 700
+                      }}>{hasMeals ? '•' : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</span>
+                    </button>
+                  );
+                }
+                return chips;
+              })()}
+            </div>
+
             {/* Daily target header */}
             <div style={{
               display: 'flex',
@@ -4429,7 +4484,7 @@ export default function FitnessPage() {
                       border: day.isToday
                         ? isTodayCloseToGoal
                           ? '1px solid rgba(255, 152, 0, 0.2)'
-                          : '2px dashed var(--border-strong)'
+                          : 'none'
                         : isSelected && !day.isToday
                           ? '1px solid rgba(17, 20, 24, 0.14)'
                           : day.isFuture
@@ -4788,23 +4843,6 @@ export default function FitnessPage() {
             }}>
               <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px' }}>{t('meals')}</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => setShowFoodHistory(true)}
-                  className='btn-press'
-                  title={userSettings.language === 'ru' ? 'История питания' : 'Food history'}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '12px 14px',
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '12px',
-                    color: 'var(--text-secondary)',
-                    fontWeight: 600, fontSize: '13px', cursor: 'pointer'
-                  }}
-                >
-                  <History size={16} />
-                  {userSettings.language === 'ru' ? 'История' : 'History'}
-                </button>
                 {/* AI-кнопка убрана — ассистент есть в нижнем меню */}
                 <button
                   onClick={() => {
@@ -6184,80 +6222,6 @@ export default function FitnessPage() {
       )}
 
       {/* Add/Edit Meal Modal */}
-      {/* Food History Modal — что я ел вчера / месяц назад */}
-      {showFoodHistory && (
-        <div className='modal-overlay' onClick={() => setShowFoodHistory(false)}>
-          <div
-            className='modal-content'
-            onClick={e => e.stopPropagation()}
-            style={{ padding: '20px', maxHeight: '85vh', overflow: 'auto' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={18} />
-                {userSettings.language === 'ru' ? 'История питания' : 'Food history'}
-              </div>
-              <button
-                onClick={() => setShowFoodHistory(false)}
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            {(() => {
-              const days = Object.values(dayLogs)
-                .filter(l => (l.meals?.length ?? 0) > 0)
-                .sort((a, b) => (a.date < b.date ? 1 : -1))
-                .slice(0, 120);
-              if (days.length === 0) {
-                return <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px 0' }}>
-                  {userSettings.language === 'ru' ? 'Пока нет записей о еде' : 'No food records yet'}
-                </div>;
-              }
-              return days.map(l => {
-                const tot = l.meals.reduce((a, m) => ({
-                  p: a.p + m.protein, f: a.f + m.fat, c: a.c + m.carbs, k: a.k + m.calories,
-                }), { p: 0, f: 0, c: 0, k: 0 });
-                const [y, mo, d] = l.date.split('-').map(Number);
-                const dObj = new Date(y, mo - 1, d);
-                const label = dObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
-                const isT = l.date === todayStr;
-                return (
-                  <button
-                    key={l.date}
-                    onClick={() => {
-                      setSelectedDate(dObj);
-                      setShowFoodHistory(false);
-                    }}
-                    style={{
-                      width: '100%', textAlign: 'left', cursor: 'pointer',
-                      background: 'var(--bg-card)', border: '1px solid var(--border)',
-                      borderRadius: '12px', padding: '12px 14px', marginBottom: '10px',
-                      color: 'var(--text-primary)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '14px', textTransform: 'capitalize' }}>
-                        {label}{isT ? (userSettings.language === 'ru' ? ' · сегодня' : ' · today') : ''}
-                      </span>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--yellow)' }}>
-                        {Math.round(tot.k)} ккал
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      {l.meals.map(m => m.name).join(' · ')}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Б {Math.round(tot.p)} · Ж {Math.round(tot.f)} · У {Math.round(tot.c)} · {l.meals.length} {userSettings.language === 'ru' ? 'приёмов' : 'meals'}
-                    </div>
-                  </button>
-                );
-              });
-            })()}
-          </div>
-        </div>
-      )}
-
       {showMealModal && (
         <div className="modal-overlay" onClick={() => setShowMealModal(false)}>
           <div
