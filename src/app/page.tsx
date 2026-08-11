@@ -2152,6 +2152,8 @@ export default function FitnessPage() {
   const [showScanOptions, setShowScanOptions] = useState(false);
   const [foodHint, setFoodHint] = useState('');
   const [streakDetailDate, setStreakDetailDate] = useState<string | null>(null);
+  // Свайп по стрик-табличке еды: листает недели
+  const streakTouchX = useRef<number | null>(null);
   const [showFoodAssistant, setShowFoodAssistant] = useState(false);
   const [foodRecommendations, setFoodRecommendations] = useState<{
     analysis: string;
@@ -3871,17 +3873,20 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Лента дат: крутишь и тапаешь. Сегодня слева, вправо — в прошлое.
-                Внизу чипа — метка тренировки (T1 / счётчик) или месяц. */}
-            <div style={{
-              display: 'flex', gap: '6px', overflowX: 'auto',
-              marginBottom: '12px', paddingBottom: '6px'
-            }}>
+            {/* Лента дат: старые слева, «Сегодня» справа; при открытии
+                прокручена к сегодняшнему дню. Внизу чипа — T1/счётчик или месяц. */}
+            <div
+              ref={el => { if (el && !el.dataset.scrolled) { el.scrollLeft = el.scrollWidth; el.dataset.scrolled = '1'; } }}
+              style={{
+                display: 'flex', gap: '6px', overflowX: 'auto',
+                marginBottom: '12px', paddingBottom: '6px'
+              }}>
               {(() => {
                 if (!todayStr) return null;
                 const [ty, tm, td] = todayStr.split('-').map(Number);
                 const chips = [];
-                for (let i = 0; i < 90; i++) {
+                // Хронологический порядок: старые даты слева, «Сегодня» — справа.
+                for (let i = 89; i >= 0; i--) {
                   const d = new Date(ty, tm - 1, td);
                   d.setDate(d.getDate() - i);
                   const ds = formatDate(d);
@@ -4258,8 +4263,21 @@ export default function FitnessPage() {
               padding: '14px 16px',
               background: 'var(--bg-card)',
               borderRadius: '12px',
-              border: '1px solid var(--border)'
-            }}>
+              border: '1px solid var(--border)',
+              touchAction: 'pan-y'
+            }}
+              onTouchStart={e => { streakTouchX.current = e.touches[0].clientX; }}
+              onTouchEnd={e => {
+                if (streakTouchX.current === null) return;
+                const dx = e.changedTouches[0].clientX - streakTouchX.current;
+                streakTouchX.current = null;
+                if (Math.abs(dx) < 50) return;
+                const d = new Date(selectedDate);
+                // свайп вправо — прошлая неделя, влево — следующая
+                d.setDate(d.getDate() + (dx > 0 ? -7 : 7));
+                setSelectedDate(d);
+              }}
+            >
               {/* Header with streak count */}
               <div style={{
                 display: 'flex',
@@ -4290,19 +4308,12 @@ export default function FitnessPage() {
                 </span>
               </div>
 
-              {/* 7 day cells + стрелки листания недель */}
+              {/* 7 day cells — свайп по карточке листает недели */}
               <div style={{
                 display: 'flex',
-                gap: '4px',
-                alignItems: 'center'
+                gap: '6px',
+                justifyContent: 'space-between'
               }}>
-                <button
-                  onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }}
-                  aria-label='Прошлая неделя'
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                >
-                  <ChevronLeft size={15} />
-                </button>
                 {last7Days.map((day) => {
                   const isSelected = day.date === dateKey;
                   return (
@@ -4397,13 +4408,6 @@ export default function FitnessPage() {
                   </div>
                   );
                 })}
-                <button
-                  onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }}
-                  aria-label='Следующая неделя'
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                >
-                  <ChevronRight size={15} />
-                </button>
               </div>
 
             </div>
