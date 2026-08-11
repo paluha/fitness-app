@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -7236,7 +7236,8 @@ export default function FitnessPage() {
           })}
         </div>
 
-        {/* Отдельная капсула AI-чата справа */}
+        {/* Отдельная капсула AI-чата справа — в одном стиле с капсулой меню,
+            внутри мозг (Brain) в лёгком оранжевом */}
         <button
           className="btn-press"
           onClick={() => { setView('chat'); localStorage.setItem('fitness_view', 'chat'); setShowProfileDropdown(false); }}
@@ -7244,17 +7245,21 @@ export default function FitnessPage() {
           style={{
             flexShrink: 0,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: '3px', padding: '0 18px',
-            borderRadius: '27px', border: 'none', cursor: 'pointer',
-            background: view === 'chat' ? '#222222' : 'var(--yellow)',
-            color: '#fff',
-            boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
-            transition: 'transform 0.15s ease, background 0.15s ease',
+            gap: '3px', padding: '6px 26px',
+            borderRadius: '27px', cursor: 'pointer',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+            transition: 'transform 0.15s ease',
             transform: view === 'chat' ? 'scale(1.03)' : 'scale(1)',
           }}
         >
-          <Sparkles size={22} />
-          <span style={{ fontSize: '11px', fontWeight: 700 }}>AI</span>
+          <Brain size={22} style={{ color: view === 'chat' ? 'var(--yellow)' : 'var(--accent-warm, #ff7a52)' }} />
+          <span style={{
+            fontSize: '11px',
+            fontWeight: view === 'chat' ? 700 : 500,
+            color: view === 'chat' ? '#222222' : '#b3b3b3'
+          }}>AI</span>
         </button>
       </nav>
     </main>
