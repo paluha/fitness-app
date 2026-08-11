@@ -1827,7 +1827,7 @@ function FitnessCalendar({
           const getBoxShadow = () => {
             if (isSelected) return '0 6px 18px var(--yellow-glow)';
             if (isToday) return '0 2px 12px rgba(14, 165, 233, 0.3)';
-            if (hasWorkout && fullyDone) return '0 2px 8px var(--green-glow)';
+            // зелёное свечение убрано — дни выглядели как «облачка»
             return 'none';
           };
 
