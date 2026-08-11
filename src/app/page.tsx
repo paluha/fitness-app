@@ -3967,7 +3967,7 @@ export default function FitnessPage() {
               style={{
                 display: 'flex', gap: '6px', overflowX: 'auto',
                 marginBottom: '12px', paddingBottom: '6px',
-                scrollSnapType: 'x mandatory'
+                scrollSnapType: 'x proximity'
               }}>
               {(() => {
                 if (!todayStr) return null;
@@ -3999,7 +3999,7 @@ export default function FitnessPage() {
                       style={{
                         flex: '0 0 calc((100% - 36px) / 7)',
                         padding: '8px 4px',
-                        scrollSnapAlign: 'start',
+                        scrollSnapAlign: 'center',
                         overflow: 'hidden',
                         background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
                         border: isSel ? 'none' : isToday ? '2px solid var(--cyan, #0ea5e9)' : '1px solid var(--border)',
