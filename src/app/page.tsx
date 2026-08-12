@@ -2224,11 +2224,23 @@ export default function FitnessPage() {
   // Тап по строке блюда: название «дочитывается», стирая правую часть на пару
   // секунд, затем всё возвращается как было.
   const [peekMealId, setPeekMealId] = useState<string | null>(null);
+  // Вторая фаза: разрешаем перенос строк только после того, как правая часть
+  // доехала (иначе название на миг прыгало в две строки).
+  const [peekWrapId, setPeekWrapId] = useState<string | null>(null);
   const peekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekWrapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const peekMeal = (id: string) => {
     if (peekTimerRef.current) clearTimeout(peekTimerRef.current);
-    setPeekMealId(prev => (prev === id ? null : id));
-    peekTimerRef.current = setTimeout(() => setPeekMealId(null), 2600);
+    if (peekWrapTimerRef.current) clearTimeout(peekWrapTimerRef.current);
+    if (peekMealId === id) {
+      setPeekMealId(null);
+      setPeekWrapId(null);
+      return;
+    }
+    setPeekMealId(id);
+    setPeekWrapId(null);
+    peekWrapTimerRef.current = setTimeout(() => setPeekWrapId(id), 370);
+    peekTimerRef.current = setTimeout(() => { setPeekMealId(null); setPeekWrapId(null); }, 2600);
   };
   // Лента дат тренировок: при заходе в раздел прокручиваем к выбранному дню (сегодня)
   const workoutStripRef = useRef<HTMLDivElement | null>(null);
@@ -5003,8 +5015,8 @@ export default function FitnessPage() {
                       <span style={{
                         fontWeight: 600, fontSize: '13px', flex: 1, minWidth: 0,
                         overflow: 'hidden', textOverflow: 'ellipsis',
-                        whiteSpace: peeking ? 'normal' : 'nowrap',
-                        wordBreak: peeking ? 'break-word' : 'normal',
+                        whiteSpace: peeking && peekWrapId === meal.id ? 'normal' : 'nowrap',
+                        wordBreak: peeking && peekWrapId === meal.id ? 'break-word' : 'normal',
                         transition: 'all 0.25s ease'
                       }}>
                         {meal.name}
