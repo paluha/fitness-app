@@ -2221,6 +2221,15 @@ export default function FitnessPage() {
   // Свайп по стрик-табличке еды: листает недели c анимацией «перелистывания»
   const streakTouchX = useRef<number | null>(null);
   const [streakDrag, setStreakDrag] = useState({ x: 0, transition: false, opacity: 1 });
+  // Тап по строке блюда: название «дочитывается», стирая правую часть на пару
+  // секунд, затем всё возвращается как было.
+  const [peekMealId, setPeekMealId] = useState<string | null>(null);
+  const peekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekMeal = (id: string) => {
+    if (peekTimerRef.current) clearTimeout(peekTimerRef.current);
+    setPeekMealId(prev => (prev === id ? null : id));
+    peekTimerRef.current = setTimeout(() => setPeekMealId(null), 2600);
+  };
   // Лента дат тренировок: при заходе в раздел прокручиваем к выбранному дню (сегодня)
   const workoutStripRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -4977,19 +4986,40 @@ export default function FitnessPage() {
                       animationDelay: `${index * 0.05}s`
                     }}
                   >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px'
-                    }}>
+                    {(() => { const peeking = peekMealId === meal.id; return (
+                    <div
+                      onClick={() => peekMeal(meal.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer'
+                      }}>
                       {/* Time */}
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '36px' }}>
                         {meal.time}
                       </span>
-                      {/* Name */}
-                      <span style={{ fontWeight: 600, fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {/* Name — при peek дочитывается на освободившееся место */}
+                      <span style={{
+                        fontWeight: 600, fontSize: '13px', flex: 1, minWidth: 0,
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        whiteSpace: peeking ? 'normal' : 'nowrap',
+                        wordBreak: peeking ? 'break-word' : 'normal',
+                        transition: 'all 0.25s ease'
+                      }}>
                         {meal.name}
                       </span>
+                      {/* Правая часть (макросы + кнопки): при peek стирается вправо */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        maxWidth: peeking ? '0px' : '360px',
+                        opacity: peeking ? 0 : 1,
+                        transform: peeking ? 'translateX(18px)' : 'translateX(0)',
+                        overflow: 'hidden',
+                        pointerEvents: peeking ? 'none' : 'auto',
+                        transition: 'max-width 0.35s ease, opacity 0.3s ease, transform 0.35s ease',
+                        flexShrink: 0
+                      }}>
                       {/* Compact macros */}
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '11px' }}>
                         <span style={{ color: 'var(--blue)', fontWeight: 600 }}>{meal.protein}</span>
@@ -5003,7 +5033,8 @@ export default function FitnessPage() {
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setDayLogs(prev => {
                               const existingLog = prev[dateKey] || currentDayLog;
                               const newMeals = existingLog.meals.map(m =>
@@ -5027,7 +5058,7 @@ export default function FitnessPage() {
                           <Heart size={14} fill={meal.isFavorite ? 'var(--red)' : 'none'} />
                         </button>
                         <button
-                          onClick={() => openEditMeal(meal)}
+                          onClick={(e) => { e.stopPropagation(); openEditMeal(meal); }}
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -5039,7 +5070,7 @@ export default function FitnessPage() {
                           <Edit2 size={14} />
                         </button>
                         <button
-                          onClick={() => deleteMeal(meal.id)}
+                          onClick={(e) => { e.stopPropagation(); deleteMeal(meal.id); }}
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -5051,7 +5082,9 @@ export default function FitnessPage() {
                           <Trash2 size={14} />
                         </button>
                       </div>
+                      </div>
                     </div>
+                    ); })()}
                   </div>
                 ))}
               </div>
