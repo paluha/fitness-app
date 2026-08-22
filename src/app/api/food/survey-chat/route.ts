@@ -70,7 +70,9 @@ export async function POST(request: Request) {
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
       model: 'claude-opus-5',
-      max_tokens: 2000,
+      // Thinking у модели входит в этот же лимит: длинный ответ пользователя →
+      // больше размышлений → при 2000 JSON обрезался и парс падал. Даём запас.
+      max_tokens: 8000,
       output_config: {
         effort: 'low',
         format: { type: 'json_schema', schema: TURN_SCHEMA },
@@ -95,11 +97,16 @@ export async function POST(request: Request) {
     if (response.stop_reason === 'refusal') {
       return NextResponse.json({ error: 'model refused' }, { status: 502 });
     }
+    if (response.stop_reason === 'max_tokens') {
+      return NextResponse.json({ error: 'truncated' }, { status: 502 });
+    }
     const textBlock = response.content.find(b => b.type === 'text');
-    const parsed = textBlock ? JSON.parse(textBlock.text) as {
+    let parsed: {
       done: boolean; message: string; options: string[];
       profile: { conditions: string[]; intolerances: string[]; mealsPerDay: number; snacking: string; trainingTime: string; dietStyle: string; dislikes: string; notes: string } | null;
-    } : null;
+    } | null = null;
+    try { parsed = textBlock ? JSON.parse(textBlock.text) as typeof parsed : null; } catch { parsed = null; }
+
     if (!parsed || typeof parsed.message !== 'string') {
       return NextResponse.json({ error: 'bad turn' }, { status: 502 });
     }
