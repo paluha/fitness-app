@@ -3325,6 +3325,7 @@ export default function FitnessPage() {
   useEffect(() => {
     if (!isLoaded || !todayStr) return;
     if (nutritionRecommendations) return; // рекомендации тренера важнее ИИ-плана
+    if (!nutritionProfile) return; // без анкеты персональный план не строим — сначала опрос
     const goalKey = userSettings.goalType ?? 'maintain';
     const profileKey = nutritionProfile?.completedAt ?? 'none';
     const targetsKey = [MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories].join('-') + ':' + profileKey;
@@ -5399,8 +5400,16 @@ export default function FitnessPage() {
                     </button>
                   </div>
                 )}
+                {/* План показываем только от тренера или по анкете; пока ИИ думает — заглушка */}
+                {!nutritionRecommendations && nutritionProfile && !aiNutritionPlan && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', padding: '6px 0' }}>
+                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    Составляю персональный план по твоей анкете…
+                  </div>
+                )}
+                {(nutritionRecommendations || (nutritionProfile && aiNutritionPlan)) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {(nutritionRecommendations || aiNutritionPlan || DEFAULT_NUTRITION_RECOMMENDATIONS).map(rec => (
+                  {(nutritionRecommendations || aiNutritionPlan || []).map(rec => (
                     <div key={rec.id} style={{
                       display: 'flex',
                       gap: '12px',
@@ -5429,10 +5438,13 @@ export default function FitnessPage() {
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             </div>
 
-            {/* Food Products List */}
+            {/* Food Products List — показываем только после опроса: список
+                логически следует из персонального плана */}
+            {nutritionProfile && (
             <div style={{
               marginTop: '24px',
               background: 'var(--bg-card)',
@@ -5462,7 +5474,7 @@ export default function FitnessPage() {
               </div>
               <div style={{ padding: '16px' }}>
                 {Object.entries(FOOD_CATEGORIES).map(([key, cat]) => {
-                  const products = (aiFoodProducts ?? DEFAULT_FOOD_PRODUCTS).filter(p => p.category === key);
+                  const products = (aiFoodProducts ?? []).filter(p => p.category === key);
                   if (products.length === 0) return null;
                   return (
                     <div key={key} style={{ marginBottom: '16px' }}>
@@ -5510,8 +5522,15 @@ export default function FitnessPage() {
                     </div>
                   );
                 })}
+                {!aiFoodProducts && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                    Подбираю продукты под твою анкету…
+                  </div>
+                )}
               </div>
             </div>
+            )}
           </div>
         )}
 
