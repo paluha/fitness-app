@@ -2549,8 +2549,34 @@ export default function FitnessPage() {
         console.error('Failed to load from server:', e);
       }
 
-      // No localStorage fallback - all data must come from server
+      // ОФЛАЙН-ФОЛБЭК: сервер недоступен — поднимаем последнюю локальную
+      // копию (пишется при каждом изменении). Программа тренировок, упражнения
+      // и их картинки работают без интернета; свежие отметки доклеит Dexie.
+      try {
+        const raw = localStorage.getItem('fitness_backup');
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (Array.isArray(b.workouts) && b.workouts.length) {
+            // подставляем картинки из сохранённой библиотеки, как при обычной загрузке
+            const lib = (b.exerciseLibrary ?? {}) as Record<string, string>;
+            for (const w of b.workouts as Workout[]) {
+              for (const ex of w.exercises) {
+                if (!ex.imageUrl) {
+                  const img = lib[ex.name.toLowerCase().trim()];
+                  if (img) ex.imageUrl = img;
+                }
+              }
+            }
+            setWorkouts(b.workouts);
+          }
+          if (b.exerciseLibrary && typeof b.exerciseLibrary === 'object') setExerciseLibrary(b.exerciseLibrary);
+          if (b.dayLogs && typeof b.dayLogs === 'object') setDayLogs(prev => mergeServerDayLogs(prev, b.dayLogs));
+          if (b.progressHistory) setProgressHistory(b.progressHistory);
+          if (Array.isArray(b.bodyMeasurements) && b.bodyMeasurements.length) setBodyMeasurements(b.bodyMeasurements);
+        }
+      } catch { /* битый бэкап — работаем с тем, что есть */ }
       setIsLoaded(true);
+      hydrateFromLocalDB();
     };
     loadData();
   }, [hydrateFromLocalDB]);
@@ -2577,6 +2603,7 @@ export default function FitnessPage() {
           // started editing while we were waiting for the response. Without this
           // check we'd still overwrite their fresh edits.
           if (userMadeChangeRef.current || syncInFlightRef.current || syncTimeoutRef.current) return;
+          serverDataLoadedRef.current = true; // после офлайн-старта связь вернулась — автосейв снова разрешён
           if (data.workouts) setWorkouts(data.workouts);
           if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
@@ -2692,7 +2719,7 @@ export default function FitnessPage() {
 
     // Save to localStorage IMMEDIATELY (offline-safe)
     try {
-      localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, ts: Date.now() }));
+      localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, exerciseLibrary: exerciseLibraryRef.current, ts: Date.now() }));
     } catch { /* quota */ }
 
     // Debounce server sync — 1.5s after last change
