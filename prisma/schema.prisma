@@ -161,6 +161,7 @@ model FitnessData {
   exerciseLibrary Json?    // Exercise image library: { "exercise name": "base64 image" }
   habits          Json?    // Daily habit tracker
   programArchive  Json?    // История программ тренировок: [{id, archivedAt, label, workouts}]
+  nutritionProfile Json?   // Анкета питания/здоровья: {conditions, intolerances, mealsPerDay, snacking, trainingTime, dietStyle, dislikes, notes, completedAt}
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

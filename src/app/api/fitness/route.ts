@@ -69,6 +69,7 @@ export async function GET() {
       exerciseLibrary: fitnessData?.exerciseLibrary || null,
       habits: fitnessData?.habits || null,
       programArchive: fitnessData?.programArchive || null,
+      nutritionProfile: fitnessData?.nutritionProfile || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -180,6 +181,10 @@ export async function POST(request: Request) {
     if (body.programArchive !== undefined && Array.isArray(body.programArchive)) {
       updateData.programArchive = body.programArchive;
     }
+    // Анкета питания/здоровья — на ней строятся ИИ-рекомендации по еде
+    if (body.nutritionProfile !== undefined && typeof body.nutritionProfile === 'object') {
+      updateData.nutritionProfile = body.nutritionProfile;
+    }
     // exerciseLibrary: merge — new images added, existing preserved
     if (body.exerciseLibrary !== undefined) {
       const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
@@ -199,7 +204,8 @@ export async function POST(request: Request) {
         plannerEvents: body.plannerEvents || [],
         exerciseLibrary: body.exerciseLibrary || {},
         habits: body.habits || [],
-        programArchive: body.programArchive || []
+        programArchive: body.programArchive || [],
+        nutritionProfile: body.nutritionProfile || null
       }
     });
 
