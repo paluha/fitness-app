@@ -68,6 +68,7 @@ export async function GET() {
       plannerEvents: fitnessData?.plannerEvents || null,
       exerciseLibrary: fitnessData?.exerciseLibrary || null,
       habits: fitnessData?.habits || null,
+      programArchive: fitnessData?.programArchive || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -175,6 +176,10 @@ export async function POST(request: Request) {
       updateData.plannerEvents = body.plannerEvents;
     }
     if (body.habits !== undefined) updateData.habits = body.habits;
+    // История программ тренировок — клиент шлёт полный массив при смене программы
+    if (body.programArchive !== undefined && Array.isArray(body.programArchive)) {
+      updateData.programArchive = body.programArchive;
+    }
     // exerciseLibrary: merge — new images added, existing preserved
     if (body.exerciseLibrary !== undefined) {
       const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
@@ -193,7 +198,8 @@ export async function POST(request: Request) {
         favoriteMeals: body.favoriteMeals || [],
         plannerEvents: body.plannerEvents || [],
         exerciseLibrary: body.exerciseLibrary || {},
-        habits: body.habits || []
+        habits: body.habits || [],
+        programArchive: body.programArchive || []
       }
     });
 

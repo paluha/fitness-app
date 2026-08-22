@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -296,6 +296,15 @@ interface Meal {
   // Общий сахар в граммах (природный + добавленный, единым числом)
   sugar?: number;
   isFavorite?: boolean;
+}
+
+// Архив программ тренировок: старая программа никуда не пропадает,
+// а уходит сюда — видно, что делал раньше и когда, можно вернуть.
+interface ArchivedProgram {
+  id: string;
+  archivedAt: string;
+  label: string;
+  workouts: Workout[];
 }
 
 interface BodyMeasurement {
@@ -2223,7 +2232,20 @@ export default function FitnessPage() {
   const [streakDrag, setStreakDrag] = useState({ x: 0, transition: false, opacity: 1 });
   // Тап по строке блюда: название «дочитывается», стирая правую часть на пару
   // секунд, затем всё возвращается как было.
-  const [peekMealId, setPeekMealId] = useState<string | null>(null);
+  // «Программа»: ИИ-генерация новой программы тренировок + архив старых
+  const [programArchive, setProgramArchive] = useState<ArchivedProgram[]>([]);
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [programWishes, setProgramWishes] = useState('');
+  const [programDays, setProgramDays] = useState(4);
+  const [programLoading, setProgramLoading] = useState(false);
+  const [programError, setProgramError] = useState<string | null>(null);
+  const [programProposal, setProgramProposal] = useState<{
+    rationale: string;
+    workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string }[] }[];
+  } | null>(null);
+  const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(null);
+
+    const [peekMealId, setPeekMealId] = useState<string | null>(null);
   // Вторая фаза: разрешаем перенос строк только после того, как правая часть
   // доехала (иначе название на миг прыгало в две строки).
   const [peekWrapId, setPeekWrapId] = useState<string | null>(null);
@@ -2487,6 +2509,7 @@ export default function FitnessPage() {
           const data = await response.json();
           if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
           if (data.habits) setHabits(data.habits);
+          if (Array.isArray(data.programArchive)) setProgramArchive(data.programArchive);
           // Apply library images to all workouts before setting state
           if (data.workouts && data.exerciseLibrary) {
             const lib = data.exerciseLibrary as Record<string, string>;
@@ -2922,6 +2945,125 @@ export default function FitnessPage() {
   };
 
   // Select workout and save to dayLog
+  // Снимок текущей программы для архива (прогресс дня вычищаем)
+  const snapshotCurrentProgram = (): ArchivedProgram => ({
+    id: Date.now().toString(),
+    archivedAt: new Date().toISOString(),
+    label: 'Программа до ' + new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
+    workouts: workouts.map(w => ({
+      ...w,
+      exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
+    })),
+  });
+
+  const saveProgramChange = async (newWorkouts: Workout[], newArchive: ArchivedProgram[]) => {
+    userMadeChangeRef.current = true;
+    setWorkouts(newWorkouts);
+    setProgramArchive(newArchive);
+    setSelectedWorkout(newWorkouts[0]?.id || 't1');
+    try {
+      await fetch('/api/fitness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workouts: newWorkouts, programArchive: newArchive }),
+      });
+    } catch { /* доедет обычным автосейвом */ }
+  };
+
+  const requestProgram = async () => {
+    setProgramLoading(true);
+    setProgramError(null);
+    setProgramProposal(null);
+    try {
+      const active = workouts.filter(w => w.exercises.length > 0);
+      // Статистика для ИИ: последние рабочие подходы по упражнениям + частота
+      const cutoffD = new Date(); cutoffD.setDate(cutoffD.getDate() - 60);
+      const cutoff = formatDate(cutoffD);
+      const latestByName = new Map<string, string>();
+      Object.keys(dayLogs).filter(d => d >= cutoff).sort().forEach(d => {
+        const log = dayLogs[d];
+        for (const src of [log.workoutDraft, log.workoutSnapshot]) {
+          src?.exercises?.forEach(e => {
+            const sets = (e as { sets?: ExerciseSet[] }).sets;
+            if (Array.isArray(sets) && sets.some(st => (st.weight || 0) > 0 || (st.reps || 0) > 0)) {
+              latestByName.set(e.name, e.name + ': ' + sets.map(st => (st.reps || 0) + 'x' + (st.weight || 0)).join(', ') + ' (' + d + ')');
+            }
+          });
+        }
+      });
+      const stats: string[] = Array.from(latestByName.values());
+      const wk8 = new Date(); wk8.setDate(wk8.getDate() - 56);
+      const wk8s = formatDate(wk8);
+      const trainedDays = Object.keys(dayLogs).filter(d => {
+        if (d < wk8s) return false;
+        const log = dayLogs[d];
+        const exs = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+        return exs.some(e => e.completed);
+      }).length;
+      stats.push('Тренировочных дней за последние 8 недель: ' + trainedDays + ' (~' + (trainedDays / 8).toFixed(1) + ' в неделю)');
+
+      const res = await fetch('/api/fitness/program', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goal: userSettings.goalType ?? 'maintain',
+          wishes: programWishes,
+          daysPerWeek: programDays,
+          currentProgram: active.map(w => ({
+            name: w.name,
+            exercises: w.exercises.map(e => ({ name: e.name, plannedSets: e.plannedSets })),
+          })),
+          stats: stats.slice(0, 60),
+        }),
+      });
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.workouts) && data.workouts.length) {
+        setProgramProposal({ rationale: data.rationale || '', workouts: data.workouts });
+      } else {
+        setProgramError('Не получилось сгенерировать программу. Попробуй ещё раз.');
+      }
+    } catch {
+      setProgramError('Сеть недоступна — попробуй ещё раз.');
+    } finally {
+      setProgramLoading(false);
+    }
+  };
+
+  const acceptProgram = async () => {
+    if (!programProposal) return;
+    const entry = snapshotCurrentProgram();
+    const newArchive = [entry, ...programArchive].slice(0, 20);
+    const newWorkouts: Workout[] = programProposal.workouts.map((w, i) => ({
+      id: 't' + (i + 1),
+      name: 'Тренировка ' + (i + 1),
+      exercises: w.exercises.map((e, j) => ({
+        id: String(j + 1),
+        name: e.name,
+        plannedSets: e.plannedSets,
+        actualSets: '',
+        restTime: e.restTime,
+        notes: e.notes,
+        newWeight: '',
+        feedback: '',
+        completed: false,
+      })),
+    }));
+    setProgramProposal(null);
+    setShowProgramModal(false);
+    await saveProgramChange(newWorkouts, newArchive);
+  };
+
+  const restoreProgram = async (entry: ArchivedProgram) => {
+    const current = snapshotCurrentProgram();
+    const newArchive = [current, ...programArchive.filter(p => p.id !== entry.id)].slice(0, 20);
+    const restored: Workout[] = entry.workouts.map(w => ({
+      ...w,
+      exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
+    }));
+    setShowProgramModal(false);
+    await saveProgramChange(restored, newArchive);
+  };
+
   const selectWorkout = (workoutId: string) => {
     setSelectedWorkout(workoutId);
     updateDayLog({ selectedWorkout: workoutId });
@@ -4169,6 +4311,24 @@ export default function FitnessPage() {
                   title="Редактировать тренировку"
                 >
                   <Settings size={18} />
+                </button>
+                <button
+                  onClick={() => { setShowProgramModal(true); setProgramDays(Math.max(2, workouts.filter(w => w.exercises.length > 0).length) || 4); }}
+                  style={{
+                    padding: '10px',
+                    background: 'var(--yellow-dim)',
+                    border: '1px solid var(--yellow-glow)',
+                    borderRadius: '10px',
+                    color: 'var(--yellow)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                  title="Программа: ИИ-предложение и история"
+                >
+                  <Sparkles size={18} />
                 </button>
               </div>
             )}
@@ -6290,6 +6450,189 @@ export default function FitnessPage() {
       )}
 
       {/* Add/Edit Meal Modal */}
+      {/* Программа: ИИ-предложение новой + история старых */}
+      {showProgramModal && (
+        <div className="modal-overlay" onClick={() => setShowProgramModal(false)}>
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{ padding: '20px', maxHeight: '88vh', overflow: 'auto' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} style={{ color: 'var(--yellow)' }} />
+                Программа
+              </div>
+              <button
+                onClick={() => setShowProgramModal(false)}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Текущая программа кратко */}
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+              Сейчас: {workouts.filter(w => w.exercises.length > 0).length} тренировок,{' '}
+              {workouts.reduce((n, w) => n + w.exercises.length, 0)} упражнений.
+              ИИ посмотрит на неё, твои рабочие веса, частоту и цель — и предложит замену.
+              Старая программа уйдёт в историю ниже, её всегда можно вернуть.
+            </div>
+
+            {!programProposal && (
+              <>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                  Пожелания (необязательно)
+                </label>
+                <textarea
+                  value={programWishes}
+                  onChange={e => setProgramWishes(e.target.value)}
+                  placeholder="Например: больше упор на плечи и спину, без становой тяги, есть гантели до 40 кг…"
+                  rows={3}
+                  style={{ width: '100%', marginBottom: '12px', fontSize: '14px' }}
+                />
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Тренировок в неделю
+                </div>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+                  {[2, 3, 4, 5, 6].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setProgramDays(n)}
+                      style={{
+                        flex: 1, padding: '10px 0',
+                        background: programDays === n ? 'var(--yellow)' : 'var(--bg-elevated)',
+                        border: '1px solid var(--border)', borderRadius: '10px',
+                        color: programDays === n ? '#fff' : 'var(--text-secondary)',
+                        fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >{n}</button>
+                  ))}
+                </div>
+                <button
+                  onClick={requestProgram}
+                  disabled={programLoading}
+                  style={{
+                    width: '100%', padding: '14px',
+                    background: 'var(--yellow)', border: 'none', borderRadius: '12px',
+                    color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    opacity: programLoading ? 0.7 : 1
+                  }}
+                >
+                  {programLoading
+                    ? (<><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Составляю программу…</>)
+                    : (<><Sparkles size={16} /> Предложить новую программу</>)}
+                </button>
+                {programError && (
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--red)' }}>{programError}</div>
+                )}
+              </>
+            )}
+
+            {/* Предложение ИИ */}
+            {programProposal && (
+              <div>
+                <div style={{
+                  padding: '12px 14px', background: 'var(--yellow-dim)',
+                  border: '1px solid var(--yellow-glow)', borderRadius: '12px',
+                  fontSize: '12px', color: 'var(--text-primary)', marginBottom: '12px', lineHeight: 1.5
+                }}>
+                  {programProposal.rationale}
+                </div>
+                {programProposal.workouts.map((w, i) => (
+                  <div key={i} style={{
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: '12px', padding: '12px 14px', marginBottom: '8px'
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>
+                      T{i + 1} — {w.focus}
+                    </div>
+                    {w.exercises.map((e, j) => (
+                      <div key={j} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '12px', padding: '3px 0' }}>
+                        <span style={{ color: 'var(--text-primary)' }}>{j + 1}. {e.name}</span>
+                        <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{e.plannedSets}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                  <button
+                    onClick={() => setProgramProposal(null)}
+                    style={{
+                      flex: 1, padding: '13px', background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)', borderRadius: '12px',
+                      color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >Отклонить</button>
+                  <button
+                    onClick={acceptProgram}
+                    style={{
+                      flex: 1.4, padding: '13px', background: 'var(--green)',
+                      border: 'none', borderRadius: '12px',
+                      color: '#fff', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >Принять программу</button>
+                </div>
+              </div>
+            )}
+
+            {/* История программ */}
+            {programArchive.length > 0 && (
+              <div style={{ marginTop: '18px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '8px' }}>
+                  История программ
+                </div>
+                {programArchive.map(p => (
+                  <div key={p.id} style={{
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: '12px', padding: '12px 14px', marginBottom: '8px'
+                  }}>
+                    <div
+                      onClick={() => setExpandedArchiveId(prev => prev === p.id ? null : p.id)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: '8px' }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '13px' }}>{p.label}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {p.workouts.filter(w => w.exercises.length > 0).length} тренировок ·{' '}
+                          {new Date(p.archivedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); restoreProgram(p); }}
+                        style={{
+                          padding: '8px 12px', background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border)', borderRadius: '10px',
+                          color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0
+                        }}
+                      >Вернуть</button>
+                    </div>
+                    {expandedArchiveId === p.id && (
+                      <div style={{ marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+                        {p.workouts.filter(w => w.exercises.length > 0).map(w => (
+                          <div key={w.id} style={{ marginBottom: '8px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '3px' }}>
+                              {w.name.replace('Тренировка ', 'T')}
+                            </div>
+                            {w.exercises.map(e => (
+                              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '11px', color: 'var(--text-secondary)', padding: '2px 0' }}>
+                                <span>{e.name}</span>
+                                <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{e.plannedSets}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showMealModal && (
         <div className="modal-overlay" onClick={() => setShowMealModal(false)}>
           <div
