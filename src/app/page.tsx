@@ -2248,11 +2248,54 @@ export default function FitnessPage() {
   // Анкета питания/здоровья + опрос-ассистент
   const [nutritionProfile, setNutritionProfile] = useState<NutritionProfile | null>(null);
   const [showNutritionSurvey, setShowNutritionSurvey] = useState(false);
-  const [surveyStep, setSurveyStep] = useState(0);
-  const [surveyDraft, setSurveyDraft] = useState<NutritionProfile>({
-    conditions: [], intolerances: [], mealsPerDay: 3, snacking: 'по ситуации',
-    trainingTime: 'по-разному', dietStyle: 'обычное', dislikes: '', notes: '', completedAt: '',
-  });
+  // Опрос — живой диалог с ИИ: он задаёт вопросы по одному, с быстрыми ответами
+  const [surveyChat, setSurveyChat] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [surveyOptions, setSurveyOptions] = useState<string[]>([]);
+  const [surveyBusy, setSurveyBusy] = useState(false);
+  const [surveyInput, setSurveyInput] = useState('');
+  const [surveyResult, setSurveyResult] = useState<NutritionProfile | null>(null);
+
+  const surveyTurn = async (nextMessages: { role: 'user' | 'assistant'; content: string }[]) => {
+    setSurveyBusy(true);
+    setSurveyOptions([]);
+    try {
+      const res = await fetch('/api/food/survey-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: nextMessages }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        setSurveyChat([...nextMessages, { role: 'assistant', content: data.message }]);
+        setSurveyOptions(Array.isArray(data.options) ? data.options : []);
+        if (data.done && data.profile) {
+          setSurveyResult({ ...data.profile, completedAt: '' });
+        }
+      } else {
+        setSurveyChat([...nextMessages, { role: 'assistant', content: 'Что-то пошло не так — попробуй ответить ещё раз.' }]);
+      }
+    } catch {
+      setSurveyChat([...nextMessages, { role: 'assistant', content: 'Сеть недоступна — попробуй ещё раз.' }]);
+    } finally {
+      setSurveyBusy(false);
+    }
+  };
+  const openSurvey = () => {
+    setSurveyChat([]);
+    setSurveyOptions([]);
+    setSurveyResult(null);
+    setSurveyInput('');
+    setShowNutritionSurvey(true);
+    surveyTurn([]);
+  };
+  const answerSurvey = (text: string) => {
+    const t = text.trim();
+    if (!t || surveyBusy || surveyResult) return;
+    setSurveyInput('');
+    const next = [...surveyChat, { role: 'user' as const, content: t }];
+    setSurveyChat(next);
+    surveyTurn(next);
+  };
 
     // «Программа»: ИИ-генерация новой программы тренировок + архив старых
   const [programArchive, setProgramArchive] = useState<ArchivedProgram[]>([]);
@@ -3021,10 +3064,10 @@ export default function FitnessPage() {
   };
 
   const saveNutritionProfile = async () => {
-    const profile: NutritionProfile = { ...surveyDraft, completedAt: new Date().toISOString() };
+    if (!surveyResult) return;
+    const profile: NutritionProfile = { ...surveyResult, completedAt: new Date().toISOString() };
     setNutritionProfile(profile);
     setShowNutritionSurvey(false);
-    setSurveyStep(0);
     // сбрасываем кэш плана — он пересоберётся под новую анкету
     try { localStorage.removeItem('fitness_ai_food_plan'); } catch { /* ignore */ }
     setAiNutritionPlan(null);
@@ -5364,7 +5407,7 @@ export default function FitnessPage() {
                 </span>
                 {!nutritionRecommendations && nutritionProfile && (
                   <button
-                    onClick={() => { setSurveyDraft({ ...nutritionProfile }); setSurveyStep(0); setShowNutritionSurvey(true); }}
+                    onClick={openSurvey}
                     style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: '4px' }}
                   >
                     Обновить опрос
@@ -5390,7 +5433,7 @@ export default function FitnessPage() {
                       инсулинорезистентности уберёт перекусы и быстрые углеводы.
                     </div>
                     <button
-                      onClick={() => { setSurveyStep(0); setShowNutritionSurvey(true); }}
+                      onClick={openSurvey}
                       style={{
                         padding: '11px 16px', background: 'var(--yellow)', border: 'none',
                         borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '13px', cursor: 'pointer'
@@ -6575,22 +6618,16 @@ export default function FitnessPage() {
       )}
 
       {/* Add/Edit Meal Modal */}
-      {/* Опрос-ассистент по питанию: анкета для персональных рекомендаций */}
-      {showNutritionSurvey && (() => {
-        const toggle = (arr: string[], v: string) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
-        const chip = (active: boolean) => ({
-          padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
-          background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
-          border: '1px solid ' + (active ? 'var(--yellow)' : 'var(--border)'),
-          color: active ? '#fff' : 'var(--text-primary)',
-          fontSize: '13px', fontWeight: active ? 700 : 500,
-        } as React.CSSProperties);
-        const steps = 6;
-        return (
+      {/* Опрос-диалог: ИИ сам ведёт интервью о питании */}
+      {showNutritionSurvey && (
         <div className="modal-overlay" onClick={() => setShowNutritionSurvey(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '20px', maxHeight: '88vh', overflow: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{ padding: '0', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Brain size={17} style={{ color: 'var(--yellow)' }} />
                 Опрос о питании
               </div>
@@ -6598,125 +6635,89 @@ export default function FitnessPage() {
                 <X size={16} />
               </button>
             </div>
-            {/* прогресс */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
-              {Array.from({ length: steps }, (_, i) => (
-                <div key={i} style={{ flex: 1, height: '3px', borderRadius: '2px', background: i <= surveyStep ? 'var(--yellow)' : 'var(--bg-elevated)' }} />
+
+            {/* Лента диалога */}
+            <div
+              ref={el => { if (el) el.scrollTop = el.scrollHeight; }}
+              style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '200px' }}
+            >
+              {surveyChat.map((m, i) => (
+                <div key={i} style={{
+                  alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                  maxWidth: '85%',
+                  padding: '10px 14px',
+                  borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  background: m.role === 'user' ? 'var(--yellow)' : 'var(--bg-elevated)',
+                  color: m.role === 'user' ? '#fff' : 'var(--text-primary)',
+                  fontSize: '14px',
+                  lineHeight: 1.45,
+                }}>
+                  {m.content}
+                </div>
               ))}
-            </div>
-
-            {surveyStep === 0 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Есть ли особенности здоровья?</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Можно выбрать несколько. Это сильнее всего влияет на рекомендации.</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Инсулинорезистентность', 'Диабет 2 типа', 'Проблемы с ЖКТ', 'Повышенный холестерин', 'Гипотиреоз'].map(c => (
-                    <button key={c} onClick={() => setSurveyDraft(d => ({ ...d, conditions: toggle(d.conditions, c) }))} style={chip(surveyDraft.conditions.includes(c))}>{c}</button>
-                  ))}
-                  <button onClick={() => setSurveyDraft(d => ({ ...d, conditions: [] }))} style={chip(surveyDraft.conditions.length === 0)}>Ничего из этого</button>
+              {surveyBusy && (
+                <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', padding: '6px 4px' }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  печатает…
                 </div>
-              </div>
-            )}
-
-            {surveyStep === 1 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Непереносимости или аллергии?</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Эти продукты ИИ исключит полностью.</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Лактоза', 'Глютен', 'Орехи', 'Яйца', 'Морепродукты'].map(c => (
-                    <button key={c} onClick={() => setSurveyDraft(d => ({ ...d, intolerances: toggle(d.intolerances, c) }))} style={chip(surveyDraft.intolerances.includes(c))}>{c}</button>
-                  ))}
-                  <button onClick={() => setSurveyDraft(d => ({ ...d, intolerances: [] }))} style={chip(surveyDraft.intolerances.length === 0)}>Нет</button>
-                </div>
-              </div>
-            )}
-
-            {surveyStep === 2 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Сколько приёмов пищи удобно?</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>И как ты относишься к перекусам. Если здоровье требует иначе — ИИ объяснит.</div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-                  {[2, 3, 4, 5].map(n => (
-                    <button key={n} onClick={() => setSurveyDraft(d => ({ ...d, mealsPerDay: n }))} style={{ ...chip(surveyDraft.mealsPerDay === n), flex: 1, textAlign: 'center' as const }}>{n}</button>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {['перекусываю часто', 'по ситуации', 'без перекусов'].map(v => (
-                    <button key={v} onClick={() => setSurveyDraft(d => ({ ...d, snacking: v }))} style={{ ...chip(surveyDraft.snacking === v), flex: 1, textAlign: 'center' as const }}>{v}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {surveyStep === 3 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Когда обычно тренируешься?</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Углеводы ИИ поставит вокруг тренировки.</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['утром', 'днём', 'вечером', 'по-разному'].map(v => (
-                    <button key={v} onClick={() => setSurveyDraft(d => ({ ...d, trainingTime: v }))} style={chip(surveyDraft.trainingTime === v)}>{v}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {surveyStep === 4 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Стиль питания</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Если есть ограничения по типу продуктов.</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['обычное', 'вегетарианство', 'веган', 'без свинины', 'без красного мяса'].map(v => (
-                    <button key={v} onClick={() => setSurveyDraft(d => ({ ...d, dietStyle: v }))} style={chip(surveyDraft.dietStyle === v)}>{v}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {surveyStep === 5 && (
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Последний шаг</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Продукты, которые не ешь или не любишь — ИИ не будет их предлагать.</div>
-                <input
-                  type="text"
-                  value={surveyDraft.dislikes}
-                  onChange={e => setSurveyDraft(d => ({ ...d, dislikes: e.target.value }))}
-                  placeholder="Например: печень, грибы, творог…"
-                  style={{ width: '100%', marginBottom: '12px', fontSize: '14px' }}
-                />
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Что-то ещё важное о питании? (необязательно)</div>
-                <textarea
-                  rows={2}
-                  value={surveyDraft.notes}
-                  onChange={e => setSurveyDraft(d => ({ ...d, notes: e.target.value }))}
-                  placeholder="Например: работаю в ночные смены, готовлю раз в 3 дня…"
-                  style={{ width: '100%', fontSize: '14px' }}
-                />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
-              {surveyStep > 0 && (
-                <button
-                  onClick={() => setSurveyStep(v => v - 1)}
-                  style={{ flex: 1, padding: '13px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}
-                >Назад</button>
               )}
-              {surveyStep < steps - 1 ? (
-                <button
-                  onClick={() => setSurveyStep(v => v + 1)}
-                  style={{ flex: 2, padding: '13px', background: 'var(--yellow)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-                >Далее</button>
-              ) : (
+              {surveyResult && !surveyBusy && (
                 <button
                   onClick={saveNutritionProfile}
-                  style={{ flex: 2, padding: '13px', background: 'var(--green)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-                >Готово — построить рекомендации</button>
+                  style={{
+                    alignSelf: 'stretch', marginTop: '6px', padding: '14px',
+                    background: 'var(--green)', border: 'none', borderRadius: '12px',
+                    color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer'
+                  }}
+                >
+                  Построить рекомендации
+                </button>
               )}
             </div>
+
+            {/* Быстрые ответы + ввод */}
+            {!surveyResult && (
+              <div style={{ padding: '12px 20px 16px', borderTop: '1px solid var(--border)' }}>
+                {surveyOptions.length > 0 && !surveyBusy && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                    {surveyOptions.map((o, i) => (
+                      <button
+                        key={i}
+                        onClick={() => answerSurvey(o)}
+                        style={{
+                          padding: '9px 13px', borderRadius: '18px',
+                          background: 'var(--yellow-dim)', border: '1px solid var(--yellow-glow)',
+                          color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                        }}
+                      >{o}</button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={surveyInput}
+                    onChange={e => setSurveyInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') answerSurvey(surveyInput); }}
+                    placeholder={surveyBusy ? 'Секунду…' : 'Или напиши свой ответ…'}
+                    disabled={surveyBusy}
+                    style={{ flex: 1, fontSize: '14px' }}
+                  />
+                  <button
+                    onClick={() => answerSurvey(surveyInput)}
+                    disabled={surveyBusy || !surveyInput.trim()}
+                    style={{
+                      padding: '0 18px', background: 'var(--yellow)', border: 'none',
+                      borderRadius: '12px', color: '#fff', fontWeight: 700, cursor: 'pointer',
+                      opacity: surveyBusy || !surveyInput.trim() ? 0.5 : 1
+                    }}
+                  >➤</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-        );
-      })()}
+      )}
 
       {/* Программа: ИИ-предложение новой + история старых */}
       {showProgramModal && (
