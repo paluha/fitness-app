@@ -2260,11 +2260,15 @@ export default function FitnessPage() {
     setSurveyBusy(true);
     setSurveyOptions([]);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 50000);
       const res = await fetch('/api/food/survey-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: nextMessages }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (data?.success) {
         surveyRetryRef.current = null;
@@ -2292,6 +2296,19 @@ export default function FitnessPage() {
     setShowNutritionSurvey(true);
     surveyTurn([]);
   };
+  // iOS замораживает вебвью в фоне и рвёт запрос — при возврате на экран
+  // автоматически повторяем недоставленный ход, пользователю ничего жать не надо.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && showNutritionSurvey && surveyRetryRef.current && !surveyBusy) {
+        surveyTurn(surveyRetryRef.current);
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNutritionSurvey, surveyBusy]);
+
   const answerSurvey = (text: string) => {
     const t = text.trim();
     if (!t || surveyBusy || surveyResult) return;
