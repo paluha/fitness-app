@@ -101,11 +101,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'truncated' }, { status: 502 });
     }
     const textBlock = response.content.find(b => b.type === 'text');
-    let parsed: {
+    interface SurveyTurn {
       done: boolean; message: string; options: string[];
       profile: { conditions: string[]; intolerances: string[]; mealsPerDay: number; snacking: string; trainingTime: string; dietStyle: string; dislikes: string; notes: string } | null;
-    } | null = null;
-    try { parsed = textBlock ? JSON.parse(textBlock.text) as typeof parsed : null; } catch { parsed = null; }
+    }
+    let parsed: SurveyTurn | null = null;
+    try { parsed = textBlock ? JSON.parse(textBlock.text) as SurveyTurn : null; } catch { parsed = null; }
 
     if (!parsed || typeof parsed.message !== 'string') {
       return NextResponse.json({ error: 'bad turn' }, { status: 502 });
