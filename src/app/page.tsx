@@ -2249,7 +2249,8 @@ export default function FitnessPage() {
   const [nutritionProfile, setNutritionProfile] = useState<NutritionProfile | null>(null);
   const [showNutritionSurvey, setShowNutritionSurvey] = useState(false);
   // Опрос — живой диалог с ИИ: он задаёт вопросы по одному, с быстрыми ответами
-  const [surveyChat, setSurveyChat] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [surveyChat, setSurveyChat] = useState<{ role: 'user' | 'assistant'; content: string; error?: boolean }[]>([]);
+  const surveyRetryRef = useRef<{ role: 'user' | 'assistant'; content: string }[] | null>(null);
   const [surveyOptions, setSurveyOptions] = useState<string[]>([]);
   const [surveyBusy, setSurveyBusy] = useState(false);
   const [surveyInput, setSurveyInput] = useState('');
@@ -2266,16 +2267,19 @@ export default function FitnessPage() {
       });
       const data = await res.json();
       if (data?.success) {
+        surveyRetryRef.current = null;
         setSurveyChat([...nextMessages, { role: 'assistant', content: data.message }]);
         setSurveyOptions(Array.isArray(data.options) ? data.options : []);
         if (data.done && data.profile) {
           setSurveyResult({ ...data.profile, completedAt: '' });
         }
       } else {
-        setSurveyChat([...nextMessages, { role: 'assistant', content: 'Что-то пошло не так — попробуй ответить ещё раз.' }]);
+        surveyRetryRef.current = nextMessages;
+        setSurveyChat([...nextMessages, { role: 'assistant', content: 'Не получилось получить ответ. Нажми «Повторить».', error: true }]);
       }
     } catch {
-      setSurveyChat([...nextMessages, { role: 'assistant', content: 'Сеть недоступна — попробуй ещё раз.' }]);
+      surveyRetryRef.current = nextMessages;
+      setSurveyChat([...nextMessages, { role: 'assistant', content: 'Не получилось связаться с сервером. Нажми «Повторить».', error: true }]);
     } finally {
       setSurveyBusy(false);
     }
@@ -2292,7 +2296,7 @@ export default function FitnessPage() {
     const t = text.trim();
     if (!t || surveyBusy || surveyResult) return;
     setSurveyInput('');
-    const next = [...surveyChat, { role: 'user' as const, content: t }];
+    const next = [...surveyChat.filter(m => !m.error).map(m => ({ role: m.role, content: m.content })), { role: 'user' as const, content: t }];
     setSurveyChat(next);
     surveyTurn(next);
   };
@@ -6678,6 +6682,16 @@ export default function FitnessPage() {
             {/* Быстрые ответы + ввод */}
             {!surveyResult && (
               <div style={{ padding: '12px 20px 16px', borderTop: '1px solid var(--border)' }}>
+                {surveyRetryRef.current && !surveyBusy && (
+                  <button
+                    onClick={() => { const p = surveyRetryRef.current!; surveyTurn(p); }}
+                    style={{
+                      width: '100%', marginBottom: '10px', padding: '11px',
+                      background: 'var(--yellow)', border: 'none', borderRadius: '10px',
+                      color: '#fff', fontWeight: 700, fontSize: '13px', cursor: 'pointer'
+                    }}
+                  >Повторить</button>
+                )}
                 {surveyOptions.length > 0 && !surveyBusy && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                     {surveyOptions.map((o, i) => (
