@@ -8,7 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 // ясна (5-8 вопросов), возвращает done=true и собранный профиль, который
 // клиент сохраняет как nutritionProfile.
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const TURN_SCHEMA = {
   type: 'object' as const,
@@ -89,9 +89,9 @@ export async function POST(request: Request) {
         'Всего 5-8 вопросов, не больше. Когда картина ясна — done=true, message = короткое тёплое резюме ' +
         '(«Понял: …») в 2-3 предложения, и заполни profile. В notes сложи всё важное своими словами. ' +
         'Первое сообщение (когда истории нет) — коротко поздоровайся одной фразой и сразу задай первый вопрос.',
-      messages: history.length
-        ? history
-        : [{ role: 'user', content: 'Начни интервью.' }],
+      // История с клиента начинается с приветствия АССИСТЕНТА, а API требует,
+      // чтобы первым было сообщение user — всегда подставляем стартовую реплику.
+      messages: [{ role: 'user' as const, content: 'Начни интервью.' }, ...history],
     });
 
     if (response.stop_reason === 'refusal') {
