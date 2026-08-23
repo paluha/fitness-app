@@ -6195,136 +6195,54 @@ export default function FitnessPage() {
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {bodyMeasurements.slice().reverse().map((m) => (
                     <div key={m.id} style={{
                       background: 'var(--bg-card)',
                       borderRadius: '12px',
-                      padding: '16px',
-                      border: '1px solid var(--border)'
+                      padding: '10px 14px',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
                     }}>
-                      <div style={{
-                        fontSize: '12px',
-                        color: 'var(--text-muted)',
-                        marginBottom: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <Calendar size={12} />
-                        {new Date(m.date).toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'flex-start' }}>
-                        {m.weight && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)' }}>{m.weight}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>кг</div>
-                          </div>
-                        )}
-                        {m.waist && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{m.waist}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('waist')}</div>
-                          </div>
-                        )}
-                        {m.chest && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{m.chest}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('chest')}</div>
-                          </div>
-                        )}
-                        {m.biceps && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--purple)' }}>{m.biceps}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('biceps')}</div>
-                          </div>
-                        )}
-                        {m.bicepsLeft && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsLeft}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('bicepsLeft')}</div>
-                          </div>
-                        )}
-                        {m.bicepsRight && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--purple)' }}>{m.bicepsRight}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('bicepsRight')}</div>
-                          </div>
-                        )}
-                        {m.thighs && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--orange)' }}>{m.thighs}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('thighs')}</div>
-                          </div>
-                        )}
-                        {m.hips && (
-                          <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--cyan)' }}>{m.hips}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('hips')}</div>
-                          </div>
-                        )}
-                      </div>
-                      {m.notes && (
-                        <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                          {m.notes}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', alignItems: 'baseline', fontSize: '13px', fontWeight: 600 }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, minWidth: '58px' }}>
+                            {new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: '2-digit' })}
+                          </span>
+                          {m.weight ? <span style={{ color: 'var(--yellow)' }}>{m.weight} кг</span> : null}
+                          {m.waist ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>талия </span>{m.waist}</span> : null}
+                          {m.chest ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>грудь </span>{m.chest}</span> : null}
+                          {m.biceps ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>бицепс </span>{m.biceps}</span> : null}
+                          {m.bicepsLeft ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>биц. Л </span>{m.bicepsLeft}</span> : null}
+                          {m.bicepsRight ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>биц. П </span>{m.bicepsRight}</span> : null}
+                          {m.thighs ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>бедро </span>{m.thighs}</span> : null}
+                          {m.hips ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>таз </span>{m.hips}</span> : null}
                         </div>
-                      )}
-                      {/* Edit/Delete buttons */}
-                      <div style={{
-                        marginTop: '12px',
-                        paddingTop: '12px',
-                        borderTop: '1px solid var(--border)',
-                        display: 'flex',
-                        gap: '8px',
-                        justifyContent: 'flex-end'
-                      }}>
-                        <button
-                          onClick={() => {
-                            setEditingMeasurement(m);
-                            setShowMeasurementModal(true);
-                          }}
-                          style={{
-                            background: 'var(--bg-elevated)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            padding: '9px',
-                            color: 'var(--text-secondary)',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm(t('deleteMeasurementConfirm') as string)) {
-                              userMadeChangeRef.current = true;
-                              setBodyMeasurements(prev => prev.filter(item => item.id !== m.id));
-                            }
-                          }}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                            borderRadius: '8px',
-                            padding: '9px',
-                            color: '#ef4444',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {m.notes && (
+                          <div style={{ marginTop: '2px', fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {m.notes}
+                          </div>
+                        )}
                       </div>
+                      <button
+                        onClick={() => { setEditingMeasurement(m); setShowMeasurementModal(true); }}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', flexShrink: 0 }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(t('deleteMeasurementConfirm') as string)) {
+                            userMadeChangeRef.current = true;
+                            setBodyMeasurements(prev => prev.filter(item => item.id !== m.id));
+                          }
+                        }}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '6px', flexShrink: 0 }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>
