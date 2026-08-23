@@ -162,6 +162,7 @@ model FitnessData {
   habits          Json?    // Daily habit tracker
   programArchive  Json?    // История программ тренировок: [{id, archivedAt, label, workouts}]
   nutritionProfile Json?   // Анкета питания/здоровья: {conditions, intolerances, mealsPerDay, snacking, trainingTime, dietStyle, dislikes, notes, completedAt}
+  recipes         Json?    // Рецепты пользователя: [{id, name, servings, ingredients[], steps[], perServing:{calories,protein,fat,carbs,sugar}, source, createdAt}]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

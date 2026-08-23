@@ -313,6 +313,18 @@ interface NutritionProfile {
   completedAt: string;
 }
 
+// Рецепт пользователя (введён вручную или распарсен ИИ с фото)
+interface Recipe {
+  id: string;
+  name: string;
+  servings: number;
+  ingredients: string[];
+  steps: string[];
+  perServing: { calories: number; protein: number; fat: number; carbs: number; sugar: number };
+  source: 'manual' | 'photo';
+  createdAt: string;
+}
+
 interface ArchivedProgram {
   id: string;
   archivedAt: string;
@@ -2318,6 +2330,15 @@ export default function FitnessPage() {
     surveyTurn(next);
   };
 
+    // Рецепты: свои и распарсенные ИИ с фото
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
+  const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [recipeParsing, setRecipeParsing] = useState(false);
+  const [recipeParseError, setRecipeParseError] = useState<string | null>(null);
+  const [recipeForm, setRecipeForm] = useState({ name: '', servings: '1', ingredients: '', steps: '', calories: '', protein: '', fat: '', carbs: '', sugar: '' });
+  const recipePhotoRef = useRef<HTMLInputElement | null>(null);
+
     // «Программа»: ИИ-генерация новой программы тренировок + архив старых
   const [programArchive, setProgramArchive] = useState<ArchivedProgram[]>([]);
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -2597,6 +2618,7 @@ export default function FitnessPage() {
           if (data.habits) setHabits(data.habits);
           if (Array.isArray(data.programArchive)) setProgramArchive(data.programArchive);
           if (data.nutritionProfile) setNutritionProfile(data.nutritionProfile);
+          if (Array.isArray(data.recipes)) setRecipes(data.recipes);
           // Apply library images to all workouts before setting state
           if (data.workouts && data.exerciseLibrary) {
             const lib = data.exerciseLibrary as Record<string, string>;
@@ -3100,6 +3122,91 @@ export default function FitnessPage() {
         body: JSON.stringify({ nutritionProfile: profile }),
       });
     } catch { /* офлайн — доедет позже, анкета уже в состоянии */ }
+  };
+
+    const saveRecipes = async (next: Recipe[]) => {
+    setRecipes(next);
+    try {
+      await fetch('/api/fitness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipes: next }),
+      });
+    } catch { /* офлайн — доедет позже */ }
+  };
+
+  const handleRecipePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setRecipeParsing(true);
+    setRecipeParseError(null);
+    try {
+      const base64 = await compressImage(file, 1400);
+      const res = await fetch('/api/food/recipe-parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.success && data.recipe) {
+        const r: Recipe = {
+          id: Date.now().toString(),
+          source: 'photo',
+          createdAt: new Date().toISOString(),
+          ...data.recipe,
+        };
+        await saveRecipes([r, ...recipes]);
+        setOpenRecipeId(r.id);
+      } else {
+        setRecipeParseError(res.status === 422
+          ? 'Не смог разобрать рецепт на этом фото — попробуй снять ровнее и ближе.'
+          : 'Не получилось обработать фото, попробуй ещё раз.');
+      }
+    } catch {
+      setRecipeParseError('Сеть недоступна — попробуй ещё раз.');
+    } finally {
+      setRecipeParsing(false);
+    }
+  };
+
+  const addManualRecipe = async () => {
+    if (!recipeForm.name.trim()) return;
+    const r: Recipe = {
+      id: Date.now().toString(),
+      name: recipeForm.name.trim(),
+      servings: Math.max(1, parseInt(recipeForm.servings, 10) || 1),
+      ingredients: recipeForm.ingredients.split('\n').map(x => x.trim()).filter(Boolean),
+      steps: recipeForm.steps.split('\n').map(x => x.trim()).filter(Boolean),
+      perServing: {
+        calories: parseFloat(recipeForm.calories) || 0,
+        protein: parseFloat(recipeForm.protein) || 0,
+        fat: parseFloat(recipeForm.fat) || 0,
+        carbs: parseFloat(recipeForm.carbs) || 0,
+        sugar: parseFloat(recipeForm.sugar) || 0,
+      },
+      source: 'manual',
+      createdAt: new Date().toISOString(),
+    };
+    await saveRecipes([r, ...recipes]);
+    setShowRecipeForm(false);
+    setRecipeForm({ name: '', servings: '1', ingredients: '', steps: '', calories: '', protein: '', fat: '', carbs: '', sugar: '' });
+  };
+
+  const eatRecipe = (r: Recipe) => {
+    userMadeChangeRef.current = true;
+    const newMeal: Meal = {
+      id: Date.now().toString(),
+      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      name: r.name,
+      protein: r.perServing.protein,
+      fat: r.perServing.fat,
+      carbs: r.perServing.carbs,
+      calories: r.perServing.calories,
+      sugar: r.perServing.sugar,
+    };
+    updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
+    setOpenRecipeId(null);
   };
 
     const requestProgram = async () => {
@@ -5595,6 +5702,89 @@ export default function FitnessPage() {
               </div>
             </div>
             )}
+
+            {/* Рецепты: свои + импорт с фото (ИИ разбирает страницу рецепта) */}
+            <div style={{
+              marginTop: '24px',
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border)',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                padding: '16px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  background: 'var(--yellow-dim)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <span style={{ fontSize: '16px' }}>📖</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '15px', flex: 1 }}>Рецепты</span>
+                <input ref={recipePhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleRecipePhoto} />
+                <button
+                  onClick={() => recipePhotoRef.current?.click()}
+                  disabled={recipeParsing}
+                  title="Сфотографировать рецепт — ИИ разберёт"
+                  style={{
+                    padding: '9px 12px', background: 'var(--yellow-dim)', border: '1px solid var(--yellow-glow)',
+                    borderRadius: '10px', color: 'var(--yellow)', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: '6px', opacity: recipeParsing ? 0.6 : 1
+                  }}
+                >
+                  {recipeParsing ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={14} />}
+                  {recipeParsing ? 'Разбираю…' : 'Скан'}
+                </button>
+                <button
+                  onClick={() => setShowRecipeForm(true)}
+                  title="Добавить рецепт вручную"
+                  style={{
+                    padding: '9px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    borderRadius: '10px', color: 'var(--text-secondary)', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center'
+                  }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+              <div style={{ padding: recipes.length ? '10px 16px 16px' : '16px' }}>
+                {recipeParseError && (
+                  <div style={{ fontSize: '12px', color: 'var(--red)', marginBottom: '10px' }}>{recipeParseError}</div>
+                )}
+                {recipes.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Пока пусто. Сфотографируй страницу купленного рецепта — ИИ вытащит
+                    ингредиенты, шаги и посчитает КБЖУ. Или добавь свой через «+».
+                  </div>
+                ) : recipes.map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => setOpenRecipeId(r.id)}
+                    style={{
+                      width: '100%', textAlign: 'left', cursor: 'pointer',
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      borderRadius: '12px', padding: '12px 14px', marginTop: '8px',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px'
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {r.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {r.perServing.calories} ккал · Б{r.perServing.protein} Ж{r.perServing.fat} У{r.perServing.carbs} · {r.ingredients.length} ингр.
+                      </div>
+                    </div>
+                    <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -6639,6 +6829,107 @@ export default function FitnessPage() {
       )}
 
       {/* Add/Edit Meal Modal */}
+      {/* Карточка рецепта */}
+      {openRecipeId && (() => {
+        const r = recipes.find(x => x.id === openRecipeId);
+        if (!r) return null;
+        return (
+        <div className="modal-overlay" onClick={() => setOpenRecipeId(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '20px', maxHeight: '88vh', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, lineHeight: 1.3 }}>{r.name}</div>
+              <button onClick={() => setOpenRecipeId(null)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+              На порцию: <b>{r.perServing.calories} ккал</b> · Б {r.perServing.protein} · Ж {r.perServing.fat} · У {r.perServing.carbs} · сахар {r.perServing.sugar} г
+              {r.servings > 1 ? ` · рецепт на ${r.servings} порц.` : ''}
+            </div>
+            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Ингредиенты</div>
+            <div style={{ marginBottom: '14px' }}>
+              {r.ingredients.map((ing, i) => (
+                <div key={i} style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '3px 0', borderBottom: '1px solid var(--border)' }}>• {ing}</div>
+              ))}
+            </div>
+            {r.steps.length > 0 && (
+              <>
+                <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Приготовление</div>
+                <div style={{ marginBottom: '16px' }}>
+                  {r.steps.map((st, i) => (
+                    <div key={i} style={{ fontSize: '13px', color: 'var(--text-secondary)', padding: '4px 0', lineHeight: 1.5 }}>
+                      <b style={{ color: 'var(--yellow)' }}>{i + 1}.</b> {st}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => { if (confirm('Удалить рецепт?')) { saveRecipes(recipes.filter(x => x.id !== r.id)); setOpenRecipeId(null); } }}
+                style={{ padding: '13px 16px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--red)', cursor: 'pointer' }}
+              >
+                <Trash2 size={16} />
+              </button>
+              <button
+                onClick={() => eatRecipe(r)}
+                style={{ flex: 1, padding: '13px', background: 'var(--yellow)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}
+              >
+                Съел — добавить в приёмы пищи
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* Ручное добавление рецепта */}
+      {showRecipeForm && (
+        <div className="modal-overlay" onClick={() => setShowRecipeForm(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '20px', maxHeight: '88vh', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontSize: '17px', fontWeight: 700 }}>Новый рецепт</div>
+              <button onClick={() => setShowRecipeForm(false)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <input type="text" placeholder="Название" value={recipeForm.name}
+              onChange={e => setRecipeForm(f => ({ ...f, name: e.target.value }))}
+              style={{ width: '100%', marginBottom: '10px' }} />
+            <textarea rows={4} placeholder={'Ингредиенты — по одному на строку:\nКуриная грудка — 400 г\nРис — 150 г'} value={recipeForm.ingredients}
+              onChange={e => setRecipeForm(f => ({ ...f, ingredients: e.target.value }))}
+              style={{ width: '100%', marginBottom: '10px', fontSize: '14px' }} />
+            <textarea rows={4} placeholder={'Шаги приготовления — по одному на строку'} value={recipeForm.steps}
+              onChange={e => setRecipeForm(f => ({ ...f, steps: e.target.value }))}
+              style={{ width: '100%', marginBottom: '10px', fontSize: '14px' }} />
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>На одну порцию:</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '10px' }}>
+              {([['calories', 'Ккал'], ['protein', 'Белок'], ['fat', 'Жиры'], ['carbs', 'Углев'], ['sugar', 'Сахар']] as const).map(([k, label]) => (
+                <div key={k}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>{label}</div>
+                  <input type="number" placeholder="0" value={recipeForm[k]}
+                    onChange={e => setRecipeForm(f => ({ ...f, [k]: e.target.value }))}
+                    style={{ width: '100%', textAlign: 'center', padding: '10px 4px' }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Порций в рецепте:</span>
+              <input type="number" value={recipeForm.servings}
+                onChange={e => setRecipeForm(f => ({ ...f, servings: e.target.value }))}
+                style={{ width: '70px', textAlign: 'center' }} />
+            </div>
+            <button
+              onClick={addManualRecipe}
+              disabled={!recipeForm.name.trim()}
+              style={{ width: '100%', padding: '14px', background: 'var(--yellow)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', opacity: recipeForm.name.trim() ? 1 : 0.5 }}
+            >
+              Сохранить рецепт
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Опрос-диалог: ИИ сам ведёт интервью о питании */}
       {showNutritionSurvey && (
         <div className="modal-overlay" onClick={() => setShowNutritionSurvey(false)}>

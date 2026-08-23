@@ -70,6 +70,7 @@ export async function GET() {
       habits: fitnessData?.habits || null,
       programArchive: fitnessData?.programArchive || null,
       nutritionProfile: fitnessData?.nutritionProfile || null,
+      recipes: fitnessData?.recipes || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -185,6 +186,10 @@ export async function POST(request: Request) {
     if (body.nutritionProfile !== undefined && typeof body.nutritionProfile === 'object') {
       updateData.nutritionProfile = body.nutritionProfile;
     }
+    // Рецепты — клиент шлёт полный массив при изменении
+    if (body.recipes !== undefined && Array.isArray(body.recipes)) {
+      updateData.recipes = body.recipes;
+    }
     // exerciseLibrary: merge — new images added, existing preserved
     if (body.exerciseLibrary !== undefined) {
       const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
@@ -205,7 +210,8 @@ export async function POST(request: Request) {
         exerciseLibrary: body.exerciseLibrary || {},
         habits: body.habits || [],
         programArchive: body.programArchive || [],
-        nutritionProfile: body.nutritionProfile || null
+        nutritionProfile: body.nutritionProfile || null,
+        recipes: body.recipes || []
       }
     });
 
