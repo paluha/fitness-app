@@ -314,6 +314,18 @@ interface NutritionProfile {
 }
 
 // Рецепт пользователя (введён вручную или распарсен ИИ с фото)
+// Показатель здоровья: давление и/или пульсоксиметр, с тегами контекста
+interface VitalEntry {
+  id: string;
+  at: string; // ISO
+  systolic?: number;
+  diastolic?: number;
+  pulse?: number;
+  spo2?: number;
+  tags: string[];
+  note?: string;
+}
+
 interface Recipe {
   id: string;
   name: string;
@@ -2330,6 +2342,11 @@ export default function FitnessPage() {
     surveyTurn(next);
   };
 
+    // Показатели здоровья: давление + пульсоксиметр
+  const [vitals, setVitals] = useState<VitalEntry[]>([]);
+  const [showVitalsModal, setShowVitalsModal] = useState(false);
+  const [vitalsForm, setVitalsForm] = useState({ systolic: '', diastolic: '', pulse: '', spo2: '', tags: [] as string[], note: '' });
+
     // Рецепты: свои и распарсенные ИИ с фото
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
@@ -2619,6 +2636,7 @@ export default function FitnessPage() {
           if (Array.isArray(data.programArchive)) setProgramArchive(data.programArchive);
           if (data.nutritionProfile) setNutritionProfile(data.nutritionProfile);
           if (Array.isArray(data.recipes)) setRecipes(data.recipes);
+          if (Array.isArray(data.vitals)) setVitals(data.vitals);
           // Apply library images to all workouts before setting state
           if (data.workouts && data.exerciseLibrary) {
             const lib = data.exerciseLibrary as Record<string, string>;
@@ -3122,6 +3140,35 @@ export default function FitnessPage() {
         body: JSON.stringify({ nutritionProfile: profile }),
       });
     } catch { /* офлайн — доедет позже, анкета уже в состоянии */ }
+  };
+
+    const saveVitals = async (next: VitalEntry[]) => {
+    setVitals(next);
+    try {
+      await fetch('/api/fitness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vitals: next }),
+      });
+    } catch { /* офлайн — доедет позже */ }
+  };
+
+  const addVitalEntry = async () => {
+    const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? Math.round(n) : undefined; };
+    const entry: VitalEntry = {
+      id: Date.now().toString(),
+      at: new Date().toISOString(),
+      systolic: num(vitalsForm.systolic),
+      diastolic: num(vitalsForm.diastolic),
+      pulse: num(vitalsForm.pulse),
+      spo2: num(vitalsForm.spo2),
+      tags: vitalsForm.tags,
+      note: vitalsForm.note.trim() || undefined,
+    };
+    if (!entry.systolic && !entry.diastolic && !entry.pulse && !entry.spo2) return;
+    await saveVitals([entry, ...vitals].slice(0, 500));
+    setShowVitalsModal(false);
+    setVitalsForm({ systolic: '', diastolic: '', pulse: '', spo2: '', tags: [], note: '' });
   };
 
     const saveRecipes = async (next: Recipe[]) => {
@@ -5918,6 +5965,66 @@ export default function FitnessPage() {
                 );
               })()}
 
+              {/* Давление и пульсоксиметр */}
+              <div style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: '16px', padding: '16px', marginBottom: '20px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <Heart size={16} style={{ color: 'var(--red)' }} />
+                  <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>
+                    {userSettings.language === 'ru' ? 'Давление и кислород' : 'BP & SpO2'}
+                  </span>
+                  <button
+                    onClick={() => setShowVitalsModal(true)}
+                    style={{
+                      padding: '8px 14px', background: 'var(--yellow)', border: 'none',
+                      borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '6px'
+                    }}
+                  >
+                    <Plus size={14} /> {userSettings.language === 'ru' ? 'Замер' : 'Add'}
+                  </button>
+                </div>
+                {vitals.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Записывай давление (с пометками: до/после тренировки, левая/правая рука,
+                    сидя/лёжа) и показания пульсоксиметра — SpO2 и пульс.
+                  </div>
+                ) : vitals.slice(0, 30).map(v => {
+                  const d = new Date(v.at);
+                  return (
+                    <div key={v.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px',
+                      padding: '10px 0', borderBottom: '1px solid var(--border)'
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          {v.systolic !== undefined && v.diastolic !== undefined && (
+                            <span style={{ color: (v.systolic >= 140 || v.diastolic >= 90) ? 'var(--red)' : (v.systolic >= 130 || v.diastolic >= 85) ? 'var(--yellow)' : 'var(--text-primary)' }}>
+                              {v.systolic}/{v.diastolic}
+                            </span>
+                          )}
+                          {v.pulse !== undefined && <span style={{ color: 'var(--blue)' }}>♥ {v.pulse}</span>}
+                          {v.spo2 !== undefined && <span style={{ color: v.spo2 < 94 ? 'var(--red)' : 'var(--green)' }}>SpO2 {v.spo2}%</span>}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                          {d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, {d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                          {v.tags.length ? ' · ' + v.tags.join(', ') : ''}
+                          {v.note ? ' · ' + v.note : ''}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => saveVitals(vitals.filter(x => x.id !== v.id))}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
               {/* Measurements List */}
               {bodyMeasurements.length === 0 ? (
                 <div style={{
@@ -6829,6 +6936,80 @@ export default function FitnessPage() {
       )}
 
       {/* Add/Edit Meal Modal */}
+      {/* Замер давления / пульсоксиметра */}
+      {showVitalsModal && (() => {
+        const TAGS = ['до тренировки', 'после тренировки', 'левая рука', 'правая рука', 'сидя', 'лёжа', 'утро', 'вечер'];
+        const toggleTag = (t: string) => setVitalsForm(f => ({ ...f, tags: f.tags.includes(t) ? f.tags.filter(x => x !== t) : [...f.tags, t] }));
+        return (
+        <div className="modal-overlay" onClick={() => setShowVitalsModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '20px', maxHeight: '88vh', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Heart size={16} style={{ color: 'var(--red)' }} />
+                Новый замер
+              </div>
+              <button onClick={() => setShowVitalsModal(false)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Давление (тонометр)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+              {([['systolic', 'Верхнее'], ['diastolic', 'Нижнее'], ['pulse', 'Пульс']] as const).map(([k, label]) => (
+                <div key={k}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>{label}</div>
+                  <input type="number" inputMode="numeric" placeholder="—" value={vitalsForm[k]}
+                    onChange={e => setVitalsForm(f => ({ ...f, [k]: e.target.value }))}
+                    style={{ width: '100%', textAlign: 'center' }} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Пульсоксиметр (на палец)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px', marginBottom: '14px' }}>
+              <div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>SpO2 %</div>
+                <input type="number" inputMode="numeric" placeholder="—" value={vitalsForm.spo2}
+                  onChange={e => setVitalsForm(f => ({ ...f, spo2: e.target.value }))}
+                  style={{ width: '100%', textAlign: 'center' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', alignSelf: 'end', paddingBottom: '12px' }}>
+                пульс с прибора можно внести в поле «Пульс» выше
+              </div>
+            </div>
+
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Когда и как мерил</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+              {TAGS.map(t => (
+                <button key={t} onClick={() => toggleTag(t)} style={{
+                  padding: '8px 11px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px',
+                  background: vitalsForm.tags.includes(t) ? 'var(--yellow)' : 'var(--bg-elevated)',
+                  border: '1px solid ' + (vitalsForm.tags.includes(t) ? 'var(--yellow)' : 'var(--border)'),
+                  color: vitalsForm.tags.includes(t) ? '#fff' : 'var(--text-primary)',
+                  fontWeight: vitalsForm.tags.includes(t) ? 700 : 500,
+                }}>{t}</button>
+              ))}
+            </div>
+            <input type="text" placeholder="Заметка (необязательно)" value={vitalsForm.note}
+              onChange={e => setVitalsForm(f => ({ ...f, note: e.target.value }))}
+              style={{ width: '100%', marginBottom: '14px' }} />
+
+            <button
+              onClick={addVitalEntry}
+              disabled={!vitalsForm.systolic && !vitalsForm.diastolic && !vitalsForm.pulse && !vitalsForm.spo2}
+              style={{
+                width: '100%', padding: '14px', background: 'var(--yellow)', border: 'none',
+                borderRadius: '12px', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                opacity: (!vitalsForm.systolic && !vitalsForm.diastolic && !vitalsForm.pulse && !vitalsForm.spo2) ? 0.5 : 1
+              }}
+            >
+              Сохранить замер
+            </button>
+          </div>
+        </div>
+        );
+      })()}
+
       {/* Карточка рецепта */}
       {openRecipeId && (() => {
         const r = recipes.find(x => x.id === openRecipeId);

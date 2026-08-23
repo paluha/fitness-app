@@ -71,6 +71,7 @@ export async function GET() {
       programArchive: fitnessData?.programArchive || null,
       nutritionProfile: fitnessData?.nutritionProfile || null,
       recipes: fitnessData?.recipes || null,
+      vitals: fitnessData?.vitals || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -190,6 +191,10 @@ export async function POST(request: Request) {
     if (body.recipes !== undefined && Array.isArray(body.recipes)) {
       updateData.recipes = body.recipes;
     }
+    // Показатели здоровья (давление, SpO2, пульс)
+    if (body.vitals !== undefined && Array.isArray(body.vitals)) {
+      updateData.vitals = body.vitals;
+    }
     // exerciseLibrary: merge — new images added, existing preserved
     if (body.exerciseLibrary !== undefined) {
       const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
@@ -211,7 +216,8 @@ export async function POST(request: Request) {
         habits: body.habits || [],
         programArchive: body.programArchive || [],
         nutritionProfile: body.nutritionProfile || null,
-        recipes: body.recipes || []
+        recipes: body.recipes || [],
+        vitals: body.vitals || []
       }
     });
 
