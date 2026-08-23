@@ -333,9 +333,12 @@ interface Recipe {
   ingredients: string[];
   steps: string[];
   perServing: { calories: number; protein: number; fat: number; carbs: number; sugar: number };
+  category?: string; // завтрак | обед | ужин | перекус | десерт | другое
   source: 'manual' | 'photo';
   createdAt: string;
 }
+
+const RECIPE_CATEGORIES = ['завтрак', 'обед', 'ужин', 'перекус', 'десерт', 'другое'] as const;
 
 interface ArchivedProgram {
   id: string;
@@ -2353,7 +2356,8 @@ export default function FitnessPage() {
   const [showRecipeForm, setShowRecipeForm] = useState(false);
   const [recipeParsing, setRecipeParsing] = useState(false);
   const [recipeParseError, setRecipeParseError] = useState<string | null>(null);
-  const [recipeForm, setRecipeForm] = useState({ name: '', servings: '1', ingredients: '', steps: '', calories: '', protein: '', fat: '', carbs: '', sugar: '' });
+  const [recipeForm, setRecipeForm] = useState({ name: '', servings: '1', ingredients: '', steps: '', calories: '', protein: '', fat: '', carbs: '', sugar: '', category: 'другое' });
+  const [recipeFilter, setRecipeFilter] = useState<string>('all');
   const recipePhotoRef = useRef<HTMLInputElement | null>(null);
 
     // «Программа»: ИИ-генерация новой программы тренировок + архив старых
@@ -3232,12 +3236,13 @@ export default function FitnessPage() {
         carbs: parseFloat(recipeForm.carbs) || 0,
         sugar: parseFloat(recipeForm.sugar) || 0,
       },
+      category: recipeForm.category,
       source: 'manual',
       createdAt: new Date().toISOString(),
     };
     await saveRecipes([r, ...recipes]);
     setShowRecipeForm(false);
-    setRecipeForm({ name: '', servings: '1', ingredients: '', steps: '', calories: '', protein: '', fat: '', carbs: '', sugar: '' });
+    setRecipeForm({ name: '', servings: '1', ingredients: '', steps: '', calories: '', protein: '', fat: '', carbs: '', sugar: '', category: 'другое' });
   };
 
   const eatRecipe = (r: Recipe) => {
@@ -5789,26 +5794,47 @@ export default function FitnessPage() {
                 </button>
                 <button
                   onClick={() => setShowRecipeForm(true)}
-                  title="Добавить рецепт вручную"
+                  title="Добавить свой рецепт"
                   style={{
                     padding: '9px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                    borderRadius: '10px', color: 'var(--text-secondary)', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center'
+                    borderRadius: '10px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: '4px'
                   }}
                 >
-                  <Plus size={14} />
+                  <Plus size={14} /> Свой
                 </button>
               </div>
               <div style={{ padding: recipes.length ? '10px 16px 16px' : '16px' }}>
                 {recipeParseError && (
                   <div style={{ fontSize: '12px', color: 'var(--red)', marginBottom: '10px' }}>{recipeParseError}</div>
                 )}
+                {/* Навигация по категориям */}
+                {recipes.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginTop: '4px' }}>
+                    {['all', ...RECIPE_CATEGORIES.filter(c => recipes.some(r => (r.category || 'другое') === c))].map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setRecipeFilter(c)}
+                        style={{
+                          flexShrink: 0, padding: '7px 12px', borderRadius: '16px', cursor: 'pointer',
+                          fontSize: '12px', fontWeight: recipeFilter === c ? 700 : 500,
+                          background: recipeFilter === c ? 'var(--yellow)' : 'var(--bg-elevated)',
+                          border: '1px solid ' + (recipeFilter === c ? 'var(--yellow)' : 'var(--border)'),
+                          color: recipeFilter === c ? '#fff' : 'var(--text-secondary)',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {c === 'all' ? 'Все' : c}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {recipes.length === 0 ? (
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    Пока пусто. Сфотографируй страницу купленного рецепта — ИИ вытащит
-                    ингредиенты, шаги и посчитает КБЖУ. Или добавь свой через «+».
+                    Пока пусто. Сфотографируй страницу купленного рецепта («Скан») — ИИ вытащит
+                    ингредиенты, шаги и посчитает КБЖУ. Или добавь свой вручную («Свой»).
                   </div>
-                ) : recipes.map(r => (
+                ) : recipes.filter(r => recipeFilter === 'all' || (r.category || 'другое') === recipeFilter).map(r => (
                   <button
                     key={r.id}
                     onClick={() => setOpenRecipeId(r.id)}
@@ -5824,7 +5850,7 @@ export default function FitnessPage() {
                         {r.name}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {r.perServing.calories} ккал · Б{r.perServing.protein} Ж{r.perServing.fat} У{r.perServing.carbs} · {r.ingredients.length} ингр.
+                        {r.category && r.category !== 'другое' ? r.category + ' · ' : ''}{r.perServing.calories} ккал · Б{r.perServing.protein} Ж{r.perServing.fat} У{r.perServing.carbs} · {r.ingredients.length} ингр.
                       </div>
                     </div>
                     <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -7027,6 +7053,19 @@ export default function FitnessPage() {
               На порцию: <b>{r.perServing.calories} ккал</b> · Б {r.perServing.protein} · Ж {r.perServing.fat} · У {r.perServing.carbs} · сахар {r.perServing.sugar} г
               {r.servings > 1 ? ` · рецепт на ${r.servings} порц.` : ''}
             </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+              {RECIPE_CATEGORIES.map(c => (
+                <button key={c}
+                  onClick={() => saveRecipes(recipes.map(x => x.id === r.id ? { ...x, category: c } : x))}
+                  style={{
+                    padding: '6px 10px', borderRadius: '14px', cursor: 'pointer', fontSize: '11px',
+                    background: (r.category || 'другое') === c ? 'var(--yellow)' : 'var(--bg-elevated)',
+                    border: '1px solid ' + ((r.category || 'другое') === c ? 'var(--yellow)' : 'var(--border)'),
+                    color: (r.category || 'другое') === c ? '#fff' : 'var(--text-muted)',
+                    fontWeight: (r.category || 'другое') === c ? 700 : 500,
+                  }}>{c}</button>
+              ))}
+            </div>
             <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Ингредиенты</div>
             <div style={{ marginBottom: '14px' }}>
               {r.ingredients.map((ing, i) => (
@@ -7077,6 +7116,17 @@ export default function FitnessPage() {
             <input type="text" placeholder="Название" value={recipeForm.name}
               onChange={e => setRecipeForm(f => ({ ...f, name: e.target.value }))}
               style={{ width: '100%', marginBottom: '10px' }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+              {RECIPE_CATEGORIES.map(c => (
+                <button key={c} onClick={() => setRecipeForm(f => ({ ...f, category: c }))} style={{
+                  padding: '7px 11px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px',
+                  background: recipeForm.category === c ? 'var(--yellow)' : 'var(--bg-elevated)',
+                  border: '1px solid ' + (recipeForm.category === c ? 'var(--yellow)' : 'var(--border)'),
+                  color: recipeForm.category === c ? '#fff' : 'var(--text-primary)',
+                  fontWeight: recipeForm.category === c ? 700 : 500,
+                }}>{c}</button>
+              ))}
+            </div>
             <textarea rows={4} placeholder={'Ингредиенты — по одному на строку:\nКуриная грудка — 400 г\nРис — 150 г'} value={recipeForm.ingredients}
               onChange={e => setRecipeForm(f => ({ ...f, ingredients: e.target.value }))}
               style={{ width: '100%', marginBottom: '10px', fontSize: '14px' }} />

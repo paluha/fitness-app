@@ -22,6 +22,7 @@ const RECIPE_SCHEMA = {
       type: 'array' as const,
       items: { type: 'string' as const, description: 'Шаг приготовления, кратко' },
     },
+    category: { type: 'string' as const, enum: ['завтрак', 'обед', 'ужин', 'перекус', 'десерт', 'другое'], description: 'Категория блюда' },
     perServing: {
       type: 'object' as const,
       description: 'КБЖУ на ОДНУ порцию: с этикетки/текста если указано, иначе посчитай по ингредиентам',
@@ -36,7 +37,7 @@ const RECIPE_SCHEMA = {
       additionalProperties: false,
     },
   },
-  required: ['name', 'servings', 'ingredients', 'steps', 'perServing'],
+  required: ['name', 'servings', 'ingredients', 'steps', 'category', 'perServing'],
   additionalProperties: false,
 };
 
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
       success: true,
       recipe: {
         name: parsed.name.slice(0, 120),
+        category: ['завтрак', 'обед', 'ужин', 'перекус', 'десерт', 'другое'].includes((parsed as unknown as { category?: string }).category || '') ? (parsed as unknown as { category?: string }).category : 'другое',
         servings: Math.min(20, Math.max(1, Math.round(parsed.servings || 1))),
         ingredients: parsed.ingredients.slice(0, 40).map(i => String(i).slice(0, 160)),
         steps: (parsed.steps || []).slice(0, 25).map(st => String(st).slice(0, 400)),
