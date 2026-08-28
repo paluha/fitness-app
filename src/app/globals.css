@@ -709,3 +709,17 @@ button:disabled {
   from { max-height: 0; opacity: 0; transform: translateY(-8px); }
   to { max-height: 1200px; opacity: 1; transform: translateY(0); }
 }
+
+/* Намёк на свайп недель в еде: ряд дней качается вправо-влево, пока юзер не свайпнул */
+@keyframes swipeNudge {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(14px); }
+  35% { transform: translateX(-14px); }
+  50% { transform: translateX(0); }
+}
+.swipe-nudge {
+  animation: swipeNudge 2.4s ease-in-out 0.8s 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-nudge { animation: none; }
+}

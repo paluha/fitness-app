@@ -2274,6 +2274,11 @@ export default function FitnessPage() {
   // Свайп по стрик-табличке еды: листает недели c анимацией «перелистывания»
   const streakTouchX = useRef<number | null>(null);
   const [streakDrag, setStreakDrag] = useState({ x: 0, transition: false, opacity: 1 });
+  // Подсказка «свайпни — листай недели»: до первого свайпа показываем намёк и качаем ряд
+  const [swipeHintSeen, setSwipeHintSeen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try { return localStorage.getItem('food_swipe_hint_seen') === '1'; } catch { return true; }
+  });
   // Тап по строке блюда: название «дочитывается», стирая правую часть на пару
   // секунд, затем всё возвращается как было.
   // Анкета питания/здоровья + опрос-ассистент
@@ -4907,6 +4912,7 @@ export default function FitnessPage() {
                   return;
                 }
                 const dir = dx > 0 ? 1 : -1;
+                if (!swipeHintSeen) { setSwipeHintSeen(true); try { localStorage.setItem('food_swipe_hint_seen', '1'); } catch { /* ignore */ } }
                 // страница улетает за край...
                 setStreakDrag({ x: dir * 110, transition: true, opacity: 0 });
                 setTimeout(() => {
@@ -4941,17 +4947,21 @@ export default function FitnessPage() {
                     {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
                   </span>
                 </div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <ChevronLeft size={12} />
                   {last7Days.some(d => d.isToday)
                     ? 'текущая неделя'
                     : last7Days.length
                       ? `${Number(last7Days[0].date.slice(8, 10))}–${Number(last7Days[6].date.slice(8, 10))} ${(() => { const [y, m, d] = last7Days[6].date.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', ''); })()}`
                       : ''}
+                  <ChevronRight size={12} />
                 </span>
               </div>
 
               {/* 7 day cells — свайп по карточке листает недели (эффект страницы) */}
-              <div style={{
+              <div
+                className={!swipeHintSeen && streakDrag.x === 0 ? 'swipe-nudge' : undefined}
+                style={{
                 display: 'flex',
                 gap: '6px',
                 justifyContent: 'space-between',
@@ -5054,6 +5064,11 @@ export default function FitnessPage() {
                   );
                 })}
               </div>
+              {!swipeHintSeen && (
+                <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <ChevronLeft size={11} /> свайпни — листай недели <ChevronRight size={11} />
+                </div>
+              )}
 
             </div>
 
