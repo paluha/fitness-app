@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { signOut } from 'next-auth/react';
 import {
   Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check,
@@ -2271,14 +2271,15 @@ export default function FitnessPage() {
   const [showScanOptions, setShowScanOptions] = useState(false);
   const [foodHint, setFoodHint] = useState('');
   const [streakDetailDate, setStreakDetailDate] = useState<string | null>(null);
-  // Свайп по стрик-табличке еды: листает недели c анимацией «перелистывания»
-  const streakTouchX = useRef<number | null>(null);
-  const [streakDrag, setStreakDrag] = useState({ x: 0, transition: false, opacity: 1 });
-  // Подсказка «свайпни — листай недели»: до первого свайпа показываем намёк и качаем ряд
-  const [swipeHintSeen, setSwipeHintSeen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    try { return localStorage.getItem('food_swipe_hint_seen') === '1'; } catch { return true; }
-  });
+  // Недели в еде — нативная горизонтальная прокрутка со снапом по неделе:
+  // соседние недели выглядывают по краям, так видно, что ряд листается.
+  const streakScrollRef = useRef<HTMLDivElement | null>(null);
+  const streakScrollInitRef = useRef(false);
+  const streakSettleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [streakActiveIdx, setStreakActiveIdx] = useState(-1);
+  const STREAK_PEEK = 22; // сколько px соседней недели видно с каждого края
+  const STREAK_GAP = 8;
+  const streakStep = (el: HTMLDivElement) => (el.clientWidth - STREAK_PEEK * 2) + STREAK_GAP;
   // Тап по строке блюда: название «дочитывается», стирая правую часть на пару
   // секунд, затем всё возвращается как было.
   // Анкета питания/здоровья + опрос-ассистент
@@ -2972,9 +2973,9 @@ export default function FitnessPage() {
   }), [macroTotals]);
 
   // Calculate current week nutrition status and streak
-  const { last7Days, nutritionStreak } = useMemo(() => {
+  const { last7Days, streakWeeks, selectedWeekIdx, nutritionStreak } = useMemo(() => {
     if (!todayStr) {
-      return { last7Days: [], nutritionStreak: 0 };
+      return { last7Days: [], streakWeeks: [], selectedWeekIdx: 0, nutritionStreak: 0 };
     }
 
     // Средний процент выполнения макро-цели за день
@@ -2998,33 +2999,51 @@ export default function FitnessPage() {
     };
     const isDayCompleted = (dateStr: string): boolean => dayCompletionPct(dateStr) >= 70;
 
-    // Неделя строится вокруг ВЫБРАННОГО дня — табличка с огоньками и есть
-    // календарь еды: стрелки листают недели, тап по дню открывает его еду.
-    const [ay, am, ad] = dateKey.split('-').map(Number);
-    const anchor = new Date(ay, am - 1, ad);
-    const dayOfWeek = anchor.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(anchor);
-    monday.setDate(anchor.getDate() + mondayOffset);
-
-    const days: { date: string; dayName: string; completed: boolean; isToday: boolean; isFuture: boolean; pct: number }[] = [];
+    // Табличка с огоньками и есть календарь еды: недели листаются прокруткой,
+    // тап по дню открывает его еду. Строим список недель от 26 недель назад
+    // (или раньше, если выбран более старый день) до текущей недели.
+    type StreakDay = { date: string; dayName: string; completed: boolean; isToday: boolean; isFuture: boolean; pct: number };
     const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      const dateStr = formatDate(date);
-      const isToday = dateStr === todayStr;
-      const isFuture = dateStr > todayStr;
-      days.push({
-        date: dateStr,
-        dayName: dayNames[i],
-        completed: isFuture ? false : isDayCompleted(dateStr),
-        isToday,
-        isFuture,
-        pct: isFuture ? 0 : dayCompletionPct(dateStr)
-      });
+    const mondayOf = (dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const a = new Date(y, m - 1, d);
+      const dow = a.getDay();
+      a.setDate(a.getDate() + (dow === 0 ? -6 : 1 - dow));
+      return a;
+    };
+    const buildWeek = (monday: Date): StreakDay[] => {
+      const out: StreakDay[] = [];
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        const dateStr = formatDate(date);
+        const isToday = dateStr === todayStr;
+        const isFuture = dateStr > todayStr;
+        out.push({
+          date: dateStr,
+          dayName: dayNames[i],
+          completed: isFuture ? false : isDayCompleted(dateStr),
+          isToday,
+          isFuture,
+          pct: isFuture ? 0 : dayCompletionPct(dateStr)
+        });
+      }
+      return out;
+    };
+    const curMonday = mondayOf(todayStr);
+    const selMonday = mondayOf(dateKey);
+    const selMondayStr = formatDate(selMonday);
+    const first = new Date(curMonday);
+    first.setDate(first.getDate() - 7 * 26);
+    if (selMonday < first) first.setTime(selMonday.getTime());
+    const last = selMonday > curMonday ? selMonday : curMonday;
+    const weeks: { monday: string; days: StreakDay[] }[] = [];
+    for (const m = new Date(first); m <= last; m.setDate(m.getDate() + 7)) {
+      weeks.push({ monday: formatDate(m), days: buildWeek(new Date(m)) });
+      if (weeks.length > 300) break;
     }
+    const selIdx = Math.max(0, weeks.findIndex(w => w.monday === selMondayStr));
+    const days = weeks[selIdx].days;
 
     // Стрик — независимо от показанной недели: идём от сегодня (или вчера) назад.
     let streak = 0;
@@ -3037,8 +3056,45 @@ export default function FitnessPage() {
       if (streak > 365) break;
     }
 
-    return { last7Days: days, nutritionStreak: streak };
+    return { last7Days: days, streakWeeks: weeks, selectedWeekIdx: selIdx, nutritionStreak: streak };
   }, [dayLogs, todayStr, dateKey]);
+
+  // Какая неделя сейчас «в кадре»: пока крутят — та, что под пальцем, иначе выбранная
+  const streakShownIdx = streakActiveIdx >= 0 && streakActiveIdx < streakWeeks.length ? streakActiveIdx : selectedWeekIdx;
+
+  // При открытии еды/смене выбранной недели ставим скроллер на нужную неделю
+  // (первый раз — мгновенно, дальше — плавно).
+  useLayoutEffect(() => {
+    if (view !== 'nutrition') { streakScrollInitRef.current = false; return; }
+    const el = streakScrollRef.current;
+    if (!el || !streakWeeks.length) return;
+    const target = selectedWeekIdx * streakStep(el);
+    setStreakActiveIdx(selectedWeekIdx);
+    if (Math.abs(el.scrollLeft - target) < 4) { streakScrollInitRef.current = true; return; }
+    el.scrollTo({ left: target, behavior: streakScrollInitRef.current ? 'smooth' : 'auto' });
+    streakScrollInitRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedWeekIdx, streakWeeks.length]);
+
+  const handleStreakScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const idx = Math.max(0, Math.min(streakWeeks.length - 1, Math.round(el.scrollLeft / streakStep(el))));
+    setStreakActiveIdx(prev => (prev === idx ? prev : idx));
+    if (streakSettleTimer.current) clearTimeout(streakSettleTimer.current);
+    streakSettleTimer.current = setTimeout(() => {
+      if (idx === selectedWeekIdx) return;
+      // Долистали до другой недели — выбранный день сдвигаем на столько же недель
+      // (тот же день недели), но не дальше сегодня.
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + 7 * (idx - selectedWeekIdx));
+      if (formatDate(d) > todayStr) {
+        const [ty, tm, td] = todayStr.split('-').map(Number);
+        setSelectedDate(new Date(ty, tm - 1, td));
+      } else {
+        setSelectedDate(d);
+      }
+    }, 160);
+  };
 
   // Check if today is close to completing nutrition targets (>= 60%) — always uses today's data, not selected date
   const isTodayCloseToGoal = useMemo(() => {
@@ -4876,7 +4932,7 @@ export default function FitnessPage() {
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} {t('kcal')}</span>
             </div>
 
-            {/* Nutrition Streak - 7 day visual */}
+            {/* Nutrition Streak - недели листаются прокруткой */}
             <div style={{
               display: 'flex',
               flexDirection: 'column',
@@ -4886,46 +4942,8 @@ export default function FitnessPage() {
               background: 'var(--bg-card)',
               borderRadius: '12px',
               border: '1px solid var(--border)',
-              touchAction: 'pan-y'
-            }}
-              onTouchStart={e => {
-                streakTouchX.current = e.touches[0].clientX;
-                setStreakDrag({ x: 0, transition: false, opacity: 1 });
-              }}
-              onTouchMove={e => {
-                if (streakTouchX.current === null) return;
-                const dx = e.touches[0].clientX - streakTouchX.current;
-                // ряд следует за пальцем с лёгким сопротивлением и тает к краю
-                setStreakDrag({
-                  x: dx * 0.6,
-                  transition: false,
-                  opacity: Math.max(0.45, 1 - Math.abs(dx) / 320),
-                });
-              }}
-              onTouchEnd={e => {
-                if (streakTouchX.current === null) return;
-                const dx = e.changedTouches[0].clientX - streakTouchX.current;
-                streakTouchX.current = null;
-                if (Math.abs(dx) < 50) {
-                  // не долистнул — пружиним обратно
-                  setStreakDrag({ x: 0, transition: true, opacity: 1 });
-                  return;
-                }
-                const dir = dx > 0 ? 1 : -1;
-                if (!swipeHintSeen) { setSwipeHintSeen(true); try { localStorage.setItem('food_swipe_hint_seen', '1'); } catch { /* ignore */ } }
-                // страница улетает за край...
-                setStreakDrag({ x: dir * 110, transition: true, opacity: 0 });
-                setTimeout(() => {
-                  const d = new Date(selectedDate);
-                  // свайп вправо — прошлая неделя, влево — следующая
-                  d.setDate(d.getDate() + (dir > 0 ? -7 : 7));
-                  setSelectedDate(d);
-                  // ...новая заезжает с противоположной стороны
-                  setStreakDrag({ x: -dir * 110, transition: false, opacity: 0 });
-                  setTimeout(() => setStreakDrag({ x: 0, transition: true, opacity: 1 }), 20);
-                }, 170);
-              }}
-            >
+              overflow: 'hidden'
+            }}>
               {/* Header with streak count */}
               <div style={{
                 display: 'flex',
@@ -4947,29 +4965,50 @@ export default function FitnessPage() {
                     {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
                   </span>
                 </div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <ChevronLeft size={12} />
-                  {last7Days.some(d => d.isToday)
-                    ? 'текущая неделя'
-                    : last7Days.length
-                      ? `${Number(last7Days[0].date.slice(8, 10))}–${Number(last7Days[6].date.slice(8, 10))} ${(() => { const [y, m, d] = last7Days[6].date.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', ''); })()}`
-                      : ''}
-                  <ChevronRight size={12} />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {(() => {
+                    const w = streakWeeks[streakShownIdx];
+                    if (!w) return '';
+                    if (w.days.some(d => d.isToday)) return 'текущая неделя';
+                    const [y, m, d] = w.days[6].date.split('-').map(Number);
+                    return `${Number(w.days[0].date.slice(8, 10))}–${Number(w.days[6].date.slice(8, 10))} ${new Date(y, m - 1, d).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}`;
+                  })()}
                 </span>
               </div>
 
-              {/* 7 day cells — свайп по карточке листает недели (эффект страницы) */}
+              {/* Недели: горизонтальная прокрутка со снапом, соседние недели
+                  выглядывают по краям и приглушены */}
               <div
-                className={!swipeHintSeen && streakDrag.x === 0 ? 'swipe-nudge' : undefined}
+                ref={streakScrollRef}
+                onScroll={handleStreakScroll}
+                className="no-scrollbar"
                 style={{
-                display: 'flex',
-                gap: '6px',
-                justifyContent: 'space-between',
-                transform: `translateX(${streakDrag.x}px)`,
-                opacity: streakDrag.opacity,
-                transition: streakDrag.transition ? 'transform 0.18s ease-out, opacity 0.18s ease-out' : 'none'
-              }}>
-                {last7Days.map((day) => {
+                  display: 'flex',
+                  gap: `${STREAK_GAP}px`,
+                  overflowX: 'auto',
+                  scrollSnapType: 'x mandatory',
+                  scrollPadding: `0 ${STREAK_PEEK}px`,
+                  margin: '0 -16px',
+                  WebkitOverflowScrolling: 'touch',
+                  overscrollBehaviorX: 'contain'
+                }}
+              >
+                {streakWeeks.map((week, wi) => (
+                  <div
+                    key={week.monday}
+                    style={{
+                      flex: `0 0 calc(100% - ${STREAK_PEEK * 2}px)`,
+                      marginLeft: wi === 0 ? `${STREAK_PEEK}px` : 0,
+                      marginRight: wi === streakWeeks.length - 1 ? `${STREAK_PEEK}px` : 0,
+                      scrollSnapAlign: 'center',
+                      display: 'flex',
+                      gap: '6px',
+                      justifyContent: 'space-between',
+                      opacity: wi === streakShownIdx ? 1 : 0.35,
+                      transition: 'opacity 0.2s ease'
+                    }}
+                  >
+                {week.days.map((day) => {
                   const isSelected = day.date === dateKey;
                   return (
                   <div
@@ -5063,12 +5102,9 @@ export default function FitnessPage() {
                   </div>
                   );
                 })}
+                  </div>
+                ))}
               </div>
-              {!swipeHintSeen && (
-                <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                  <ChevronLeft size={11} /> свайпни — листай недели <ChevronRight size={11} />
-                </div>
-              )}
 
             </div>
 
