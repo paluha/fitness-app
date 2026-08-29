@@ -2813,6 +2813,48 @@ export default function FitnessPage() {
     }
   }, [userSettings.timezone, isLoaded]);
 
+  // «Сегодня» устаревает, если приложение висело в фоне до следующего дня или
+  // прошла полночь: без обновления «Сегодня» в ленте дат и выбранный день
+  // остаются вчерашними, и тренировка/еда пишутся на вчерашнюю дату.
+  // Проверяем при возврате в приложение и раз в минуту.
+  const selectedDateRef = useRef(selectedDate);
+  selectedDateRef.current = selectedDate;
+  const todayStrRef = useRef(todayStr);
+  todayStrRef.current = todayStr;
+  const lastInteractionRef = useRef(0);
+  useEffect(() => {
+    const refreshToday = () => {
+      const prev = todayStrRef.current;
+      if (!prev) return;
+      const nowInTz = getTodayInTimezone(userSettings.timezone);
+      const nowKey = formatDate(nowInTz);
+      if (nowKey === prev) return;
+      // Тренировка «через полночь»: пока пользователь активен (последние 20 минут),
+      // не перекидываем его на новый день посреди сессии — сдвинем, когда затихнет.
+      if (Date.now() - lastInteractionRef.current < 20 * 60 * 1000) return;
+      setTodayStr(nowKey);
+      if (formatDate(selectedDateRef.current) === prev) {
+        setSelectedDate(nowInTz);
+      }
+    };
+    const onVis = () => { if (document.visibilityState === 'visible') refreshToday(); };
+    const onInteract = () => { lastInteractionRef.current = Date.now(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', refreshToday);
+    window.addEventListener('pageshow', refreshToday);
+    document.addEventListener('touchstart', onInteract, { passive: true, capture: true });
+    document.addEventListener('mousedown', onInteract, { capture: true });
+    const id = setInterval(refreshToday, 60 * 1000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', refreshToday);
+      window.removeEventListener('pageshow', refreshToday);
+      document.removeEventListener('touchstart', onInteract, { capture: true });
+      document.removeEventListener('mousedown', onInteract, { capture: true });
+      clearInterval(id);
+    };
+  }, [userSettings.timezone]);
+
   // Sync to server with debounce
   const exerciseLibraryRef = useRef(exerciseLibrary);
   exerciseLibraryRef.current = exerciseLibrary;
