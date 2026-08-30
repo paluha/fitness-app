@@ -323,12 +323,15 @@ interface VitalEntry {
   pulse?: number;
   spo2?: number;
   fatPct?: number;      // % жира (анализатор состава тела)
+  symptom?: string;     // симптом (головная боль, жидкий стул…) — фиксируется тапом, время автоматом
   customName?: string;  // произвольный показатель/процедура
   customValue?: number;
   customUnit?: string;
   tags: string[];
   note?: string;
 }
+
+const SYMPTOM_PRESETS = ['Головная боль', 'Жидкий стул', 'Запор', 'Тошнота', 'Изжога', 'Боль в животе', 'Головокружение', 'Слабость', 'Плохой сон', 'Судороги'];
 
 interface Recipe {
   id: string;
@@ -2358,7 +2361,7 @@ export default function FitnessPage() {
     // Показатели здоровья: давление + пульсоксиметр
   const [vitals, setVitals] = useState<VitalEntry[]>([]);
   // '' = форма скрыта; иначе тип устройства/процедуры
-  const [vitalsKind, setVitalsKind] = useState<'' | 'bp' | 'oxi' | 'body' | 'custom'>('');
+  const [vitalsKind, setVitalsKind] = useState<'' | 'bp' | 'oxi' | 'body' | 'sym' | 'custom'>('');
   const [vitalsForm, setVitalsForm] = useState({ systolic: '', diastolic: '', pulse: '', spo2: '', fatPct: '', customName: '', customValue: '', customUnit: '', tags: [] as string[], note: '' });
 
     // Рецепты: свои и распарсенные ИИ с фото
@@ -3285,6 +3288,21 @@ export default function FitnessPage() {
     await saveVitals([entry, ...vitals].slice(0, 500));
     setVitalsKind('');
     setVitalsForm({ systolic: '', diastolic: '', pulse: '', spo2: '', fatPct: '', customName: '', customValue: '', customUnit: '', tags: [], note: '' });
+  };
+
+  // Симптом фиксируется одним тапом — дата и время ставятся автоматически
+  const addSymptomEntry = async (name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    const entry: VitalEntry = {
+      id: Date.now().toString(),
+      at: new Date().toISOString(),
+      symptom: clean.slice(0, 60),
+      tags: [],
+    };
+    await saveVitals([entry, ...vitals].slice(0, 500));
+    setVitalsKind('');
+    setVitalsForm(f => ({ ...f, customName: '' }));
   };
 
     const saveRecipes = async (next: Recipe[]) => {
@@ -6129,7 +6147,7 @@ export default function FitnessPage() {
 
                 {/* Выбор прибора/процедуры — форма раскрывается прямо тут */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: vitalsKind ? '12px' : '4px' }}>
-                  {([['bp', 'Тонометр'], ['oxi', 'Пульсоксиметр'], ['body', 'Состав тела'], ['custom', 'Другое']] as const).map(([k, label]) => (
+                  {([['bp', 'Тонометр'], ['oxi', 'Пульсоксиметр'], ['body', 'Состав тела'], ['sym', 'Симптом'], ['custom', 'Другое']] as const).map(([k, label]) => (
                     <button key={k}
                       onClick={() => setVitalsKind(prev => prev === k ? '' : k)}
                       style={{
@@ -6198,6 +6216,36 @@ export default function FitnessPage() {
                         </div>
                       </div>
                     )}
+                    {vitalsKind === 'sym' && (
+                      <div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                          Тап по симптому — записывается сразу, дата и время ставятся автоматически
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                          {SYMPTOM_PRESETS.map(sym => (
+                            <button key={sym}
+                              onClick={() => addSymptomEntry(sym)}
+                              style={{
+                                padding: '8px 12px', borderRadius: '14px', cursor: 'pointer', fontSize: '12px',
+                                background: 'var(--bg-primary)', border: '1px solid var(--border)',
+                                color: 'var(--text-primary)', fontWeight: 500,
+                              }}>{sym}</button>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input type="text" placeholder="Свой симптом…" value={vitalsForm.customName}
+                            onChange={e => setVitalsForm(f => ({ ...f, customName: e.target.value }))}
+                            style={{ flex: 1, background: 'var(--bg-primary)', fontSize: '13px' }} />
+                          <button
+                            onClick={() => addSymptomEntry(vitalsForm.customName)}
+                            style={{ padding: '0 18px', background: 'var(--yellow)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            <Check size={16} strokeWidth={3} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {vitalsKind !== 'sym' && (<>
                     {/* Теги контекста */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
                       {['до тренировки', 'после тренировки', 'левая рука', 'правая рука', 'сидя', 'лёжа', 'утро', 'вечер'].map(t2 => (
@@ -6223,13 +6271,14 @@ export default function FitnessPage() {
                         <Check size={16} strokeWidth={3} />
                       </button>
                     </div>
+                    </>)}
                   </div>
                 )}
 
                 {vitals.length === 0 && !vitalsKind ? (
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    Выбери прибор или процедуру — давление, кислород, состав тела или свой
-                    показатель — и вбей значения. Записи появятся списком ниже.
+                    Выбери прибор или симптом. Давление, кислород, состав тела — вбей значения;
+                    симптом (головная боль, жидкий стул…) просто тапни — дата и время встанут сами.
                   </div>
                 ) : vitals.slice(0, 30).map(v => {
                   const d = new Date(v.at);
@@ -6248,6 +6297,7 @@ export default function FitnessPage() {
                           {v.pulse !== undefined && <span style={{ color: 'var(--blue)' }}>♥ {v.pulse}</span>}
                           {v.spo2 !== undefined && <span style={{ color: v.spo2 < 94 ? 'var(--red)' : 'var(--green)' }}>SpO2 {v.spo2}%</span>}
                           {v.fatPct !== undefined && <span style={{ color: 'var(--purple)' }}>жир {v.fatPct}%</span>}
+                          {v.symptom && <span style={{ color: 'var(--orange)' }}>{v.symptom}</span>}
                           {v.customValue !== undefined && (
                             <span style={{ color: 'var(--text-primary)' }}>{v.customName || 'показатель'}: {v.customValue}{v.customUnit ? ' ' + v.customUnit : ''}</span>
                           )}
