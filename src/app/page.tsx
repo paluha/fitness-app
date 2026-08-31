@@ -2359,6 +2359,27 @@ export default function FitnessPage() {
   };
 
     // Показатели здоровья: давление + пульсоксиметр
+  // «О себе» для ИИ: год рождения, рост, пол — хранится в User (/api/settings)
+  const [aboutMe, setAboutMe] = useState<{ birthYear: string; heightCm: string; sex: string }>({ birthYear: '', heightCm: '', sex: '' });
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d) return;
+        setAboutMe({
+          birthYear: d.birthYear ? String(d.birthYear) : '',
+          heightCm: d.heightCm ? String(d.heightCm) : '',
+          sex: d.sex || '',
+        });
+      })
+      .catch(() => { /* офлайн */ });
+  }, []);
+  const saveAboutMe = async (patch: Record<string, unknown>) => {
+    try {
+      await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    } catch { /* офлайн */ }
+  };
+
   const [vitals, setVitals] = useState<VitalEntry[]>([]);
   // '' = форма скрыта; иначе тип устройства/процедуры
   const [vitalsKind, setVitalsKind] = useState<'' | 'bp' | 'oxi' | 'body' | 'sym' | 'custom'>('');
@@ -6789,6 +6810,60 @@ export default function FitnessPage() {
                   </select>
                 </div>
 
+                {/* О себе — параметры для ИИ (возраст, рост, пол) */}
+                <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
+                    {userSettings.language === 'ru' ? 'О себе' : 'About you'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    {userSettings.language === 'ru'
+                      ? 'ИИ использует это в рекомендациях. Вес берётся из замеров.'
+                      : 'Used by AI recommendations. Weight comes from measurements.'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '96px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        {userSettings.language === 'ru' ? 'Год рождения' : 'Birth year'}
+                      </div>
+                      <input type="number" inputMode="numeric" placeholder="1990" value={aboutMe.birthYear}
+                        onChange={e => setAboutMe(a => ({ ...a, birthYear: e.target.value }))}
+                        onBlur={() => { const n = parseInt(aboutMe.birthYear, 10); saveAboutMe({ birthYear: Number.isFinite(n) ? n : null }); }}
+                        style={{ width: '100%', textAlign: 'center' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: '84px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        {userSettings.language === 'ru' ? 'Рост, см' : 'Height, cm'}
+                      </div>
+                      <input type="number" inputMode="numeric" placeholder="180" value={aboutMe.heightCm}
+                        onChange={e => setAboutMe(a => ({ ...a, heightCm: e.target.value }))}
+                        onBlur={() => { const n = parseInt(aboutMe.heightCm, 10); saveAboutMe({ heightCm: Number.isFinite(n) ? n : null }); }}
+                        style={{ width: '100%', textAlign: 'center' }} />
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        {userSettings.language === 'ru' ? 'Пол' : 'Sex'}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {([['m', 'М'], ['f', 'Ж']] as const).map(([v, label]) => (
+                          <button key={v}
+                            onClick={() => {
+                              const next = aboutMe.sex === v ? '' : v;
+                              setAboutMe(a => ({ ...a, sex: next }));
+                              saveAboutMe({ sex: next || null });
+                            }}
+                            style={{
+                              width: '46px', height: '46px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px',
+                              background: aboutMe.sex === v ? 'var(--yellow)' : 'var(--bg-elevated)',
+                              border: '1px solid ' + (aboutMe.sex === v ? 'var(--yellow)' : 'var(--border)'),
+                              color: aboutMe.sex === v ? '#fff' : 'var(--text-secondary)',
+                              fontWeight: aboutMe.sex === v ? 700 : 500,
+                            }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Logout */}
                 <button
                   onClick={() => {
@@ -6822,7 +6897,7 @@ export default function FitnessPage() {
         {/* CHAT VIEW — AI-ассистент как полноэкранная вкладка */}
         {view === 'chat' && (
           <div className="view-content" style={{ height: 'calc(100vh - 200px)' }}>
-            <AssistantChat />
+            <AssistantChat muscleGroups={muscleGroups} />
           </div>
         )}
 

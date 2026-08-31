@@ -34,7 +34,7 @@ export async function GET() {
   } catch {
     today = new Date().toISOString().slice(0, 10);
   }
-  const dayLogs = (mergedDayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { completed?: boolean }[] } }>) || {};
+  const dayLogs = (mergedDayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { name?: string; completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { name?: string; completed?: boolean }[] } }>) || {};
 
   // Макросы по дням (последние 14) — чтобы карточка могла показать любой
   // запрошенный день, а не только сегодня.
@@ -54,14 +54,27 @@ export async function GET() {
   const emptyEaten = { eaten: { kcal: 0, p: 0, f: 0, c: 0 }, meals: 0 };
   const todayMacros = macrosByDate[today] ?? emptyEaten;
 
-  // Последняя тренировка (последний день с выполненными упражнениями)
-  let lastWorkout: { date: string; name: string; done: number; total: number } | null = null;
+  // Последние тренировки (дни с выполненными упражнениями, новые сверху).
+  // Имена выполненных упражнений нужны фронту, чтобы показать «на что была»
+  // тренировка (группы мышц маппятся на клиенте).
+  const recentWorkouts: { date: string; name: string; done: number; total: number; exercises: string[] }[] = [];
   for (const d of dates) {
     const src = dayLogs[d]?.workoutSnapshot ?? dayLogs[d]?.workoutDraft;
     const ex = src?.exercises ?? [];
-    const done = Array.isArray(ex) ? ex.filter(e => e?.completed).length : 0;
-    if (done > 0) { lastWorkout = { date: d, name: src?.workoutName || 'Тренировка', done, total: ex.length }; break; }
+    const doneEx = Array.isArray(ex) ? ex.filter(e => e?.completed) : [];
+    if (doneEx.length === 0) continue;
+    recentWorkouts.push({
+      date: d,
+      name: src?.workoutName || 'Тренировка',
+      done: doneEx.length,
+      total: ex.length,
+      exercises: doneEx.map(e => e?.name || '').filter(Boolean).slice(0, 10),
+    });
+    if (recentWorkouts.length >= 5) break;
   }
+  const lastWorkout = recentWorkouts.length
+    ? { date: recentWorkouts[0].date, name: recentWorkouts[0].name, done: recentWorkouts[0].done, total: recentWorkouts[0].total }
+    : null;
 
   // Последний анализ — отклонения
   let labs: { date: string; panelName: string | null; abnormal: number; total: number } | null = null;
@@ -85,6 +98,7 @@ export async function GET() {
       byDate: macrosByDate,
     },
     lastWorkout,
+    recentWorkouts,
     labs,
   });
 }

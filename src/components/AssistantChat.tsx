@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, X, Flame, Dumbbell, FlaskConical } from 'lucide-react';
+import { Send, Paperclip, X } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -14,6 +14,7 @@ type Snapshot = {
     byDate: Record<string, { eaten: Eaten; meals: number }>;
   };
   lastWorkout: { date: string; name: string; done: number; total: number } | null;
+  recentWorkouts?: { date: string; name: string; done: number; total: number; exercises: string[] }[];
   labs: { date: string; panelName: string | null; abnormal: number; total: number } | null;
 };
 
@@ -34,7 +35,7 @@ function fmtWhen(iso?: string): string | null {
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 // Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
 // белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat() {
+export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, string> } = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -152,7 +153,7 @@ export function AssistantChat() {
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
         {messages.length === 0 && (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', marginTop: 32, lineHeight: 1.5 }}>
-            Спроси меня про тренировки, питание, прогресс.<br />Я вижу твои данные 💪
+            Спроси меня про тренировки, питание, прогресс.<br />Я вижу твои данные.
           </div>
         )}
         {messages.map((m, i) => {
@@ -186,7 +187,7 @@ export function AssistantChat() {
                 fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word',
               }}
             >
-              {renderWithCards(m.content || (busy ? '…' : ''), snapshot)}
+              {renderWithCards(m.content || (busy ? '…' : ''), snapshot, muscleGroups)}
             </div>
           );
         })}
@@ -266,12 +267,12 @@ export function AssistantChat() {
 
 // Разбиваем текст ответа на части по плейсхолдерам [[card:xxx]] или
 // [[card:macros:ГГГГ-ММ-ДД]] и рендерим карточками, подставляя данные из snapshot.
-function renderWithCards(text: string, snap: Snapshot | null): React.ReactNode {
+function renderWithCards(text: string, snap: Snapshot | null, mg?: Record<string, string>): React.ReactNode {
   const parts = text.split(/(\[\[card:[a-zA-Z]+(?::\d{4}-\d{2}-\d{2})?\]\])/g);
   return parts.map((part, idx) => {
     const m = /^\[\[card:([a-zA-Z]+)(?::(\d{4}-\d{2}-\d{2}))?\]\]$/.exec(part);
     if (m) {
-      const card = renderCard(m[1], m[2], snap);
+      const card = renderCard(m[1], m[2], snap, mg);
       // если данных нет — не показываем пустой плейсхолдер
       return card ? <div key={idx}>{card}</div> : null;
     }
@@ -289,7 +290,7 @@ function Pill({ text, color, bg }: { text: string; color: string; bg: string }) 
   );
 }
 
-function renderCard(kind: string, date: string | undefined, snap: Snapshot | null): React.ReactNode {
+function renderCard(kind: string, date: string | undefined, snap: Snapshot | null, mg?: Record<string, string>): React.ReactNode {
   if (!snap) return null;
   if (kind === 'macros') {
     const { goal } = snap.macros;
@@ -320,7 +321,7 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
       );
     };
     return (
-      <CardShell icon={<Flame size={15} />} accent="#f59e0b" title={`Питание · ${dateLabel}`}
+      <CardShell title={`Питание · ${dateLabel}`}
         right={<span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{meals} {mealsWord}</span>}>
         {row('Калории', eaten.kcal, goal.kcal, '#f59e0b')}
         {row('Белок', eaten.p, goal.p, '#22c55e')}
@@ -330,14 +331,45 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
     );
   }
   if (kind === 'lastWorkout') {
-    const w = snap.lastWorkout;
-    if (!w) return null;
-    const full = w.done === w.total;
+    // Список последних тренировок: дата, короткое имя (Т1–Т7), на что была
+    // (группы мышц выполненных упражнений), сколько упражнений сделано.
+    const list = snap.recentWorkouts && snap.recentWorkouts.length
+      ? snap.recentWorkouts
+      : snap.lastWorkout ? [{ ...snap.lastWorkout, exercises: [] as string[] }] : [];
+    if (!list.length) return null;
+    const shortName = (n: string) => n.replace('Тренировка ', 'Т');
+    const fmtD = (ds: string) => {
+      try {
+        const [y, mo, dd] = ds.split('-').map(Number);
+        return new Date(y, mo - 1, dd).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+      } catch { return ds; }
+    };
+    const focus = (exs: string[]) => {
+      if (!mg || !exs.length) return '';
+      const groups: string[] = [];
+      for (const n of exs) {
+        const g = mg[n.trim().toLowerCase()];
+        if (g && !groups.includes(g)) groups.push(g);
+      }
+      return groups.slice(0, 3).join(', ');
+    };
     return (
-      <CardShell icon={<Dumbbell size={15} />} accent="var(--blue)" title="Последняя тренировка"
-        right={<Pill text={`${w.done}/${w.total}`} color={full ? 'var(--green)' : '#b45309'} bg={full ? 'var(--green-dim)' : 'rgba(245, 158, 11, 0.15)'} />}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>{w.name}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{w.date}</div>
+      <CardShell title="Тренировки"
+        right={<span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>последние {list.length}</span>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {list.map((w) => (
+            <div key={w.date} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 52, flexShrink: 0 }}>{fmtD(w.date)}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{shortName(w.name)}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {focus(w.exercises)}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: w.done === w.total ? 'var(--green)' : '#b45309', flexShrink: 0 }}>
+                {w.done}/{w.total}
+              </span>
+            </div>
+          ))}
+        </div>
       </CardShell>
     );
   }
@@ -345,7 +377,7 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
     const l = snap.labs;
     if (!l) return null;
     return (
-      <CardShell icon={<FlaskConical size={15} />} accent="var(--purple)" title="Последний анализ"
+      <CardShell title="Последний анализ"
         right={<Pill text={l.abnormal > 0 ? `${l.abnormal} вне нормы` : 'всё в норме'}
           color={l.abnormal > 0 ? 'var(--red)' : 'var(--green)'}
           bg={l.abnormal > 0 ? 'var(--red-dim)' : 'var(--green-dim)'} />}>
@@ -357,10 +389,10 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
   return null;
 }
 
-// Карточка «подтянутых данных»: мягкий тёплый фон, иконка в белом чипе с
-// акцентным цветом, заголовок и бейдж справа — как поверхности Superpower.
-function CardShell({ icon, title, accent, right, children }: {
-  icon: React.ReactNode; title: string; accent: string; right?: React.ReactNode; children: React.ReactNode;
+// Карточка «подтянутых данных»: мягкий тёплый фон, заголовок и бейдж справа.
+// Без иконок и эмодзи — только чистота и полезность.
+function CardShell({ title, right, children }: {
+  title: string; right?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
     <div style={{
@@ -368,13 +400,6 @@ function CardShell({ icon, title, accent, right, children }: {
       borderRadius: 16, padding: '12px 14px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 9, background: 'var(--bg-card)', color: accent,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          boxShadow: '0 1px 2px rgba(26, 23, 18, 0.06)',
-        }}>
-          {icon}
-        </div>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>{title}</span>
         {right}
       </div>

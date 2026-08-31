@@ -32,7 +32,8 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - Будь конкретным и практичным. Без воды.
 - Не ставь медицинских диагнозов и не назначай лечение/препараты. Для интерпретации анализов и тревожных симптомов — рекомендуй обратиться к врачу.
 - Не выдумывай данные пользователя, которых нет в контексте.
-- Форматируй ответ читабельно: короткие абзацы, списки где уместно.`;
+- Форматируй ответ читабельно: короткие абзацы, списки где уместно.
+- НИКАКИХ эмодзи и смайликов в ответах. Чистый текст.`;
 
 // Безопасно сериализуем JSON-поле, обрезая по размеру, чтобы не раздувать
 // контекст (и счёт за токены). Берём последние записи, если это объект по датам.
@@ -193,6 +194,7 @@ export async function POST(request: Request) {
       where: { id: userId },
       select: {
         firstName: true, lastName: true, name: true, language: true, timezone: true,
+        birthYear: true, heightCm: true, sex: true,
         goalProtein: true, goalFat: true, goalCarbs: true, goalCalories: true,
         program: { select: { nutritionRecommendations: true } },
       },
@@ -233,8 +235,21 @@ export async function POST(request: Request) {
   } catch {
     todayIso = new Date().toISOString().slice(0, 10);
   }
+  // «О себе» + текущий вес из последнего замера — без этого модель не знает
+  // возраст/рост/пол и не может считать нормы.
+  const age = user?.birthYear ? Math.max(0, new Date().getFullYear() - user.birthYear) : null;
+  const bms = Array.isArray(fitness?.bodyMeasurements) ? (fitness?.bodyMeasurements as { date?: string; weight?: number }[]) : [];
+  const lastWeighIn = [...bms].reverse().find(b => b && typeof b.weight === 'number' && b.weight > 0);
+
   const userContext = `ДАННЫЕ ПОЛЬЗОВАТЕЛЯ (${displayName})
 СЕГОДНЯ: ${todayIso} (таймзона ${tz}; используй для подсчётов «сколько дней назад», «вчера», «на этой неделе»)
+
+О ПОЛЬЗОВАТЕЛЕ:
+- Возраст: ${age ? `${age} лет (год рождения ${user?.birthYear})` : 'не указан'}
+- Рост: ${user?.heightCm ? `${user.heightCm} см` : 'не указан'}
+- Пол: ${user?.sex === 'm' ? 'мужской' : user?.sex === 'f' ? 'женский' : 'не указан'}
+- Текущий вес: ${lastWeighIn ? `${lastWeighIn.weight} (последний замер ${lastWeighIn.date || ''})` : 'нет замеров веса'}
+(Если возраст/рост/пол не указаны и это важно для ответа — скажи, что их можно заполнить в Настройках, раздел «О себе».)
 
 🎯 ЦЕЛИ ПО МАКРОСАМ (в день):
 - Белок: ${user?.goalProtein ?? '—'} г

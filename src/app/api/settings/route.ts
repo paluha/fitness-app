@@ -25,6 +25,9 @@ export async function GET() {
         timezone: true,
         theme: true,
         goalType: true,
+        birthYear: true,
+        heightCm: true,
+        sex: true,
         goalProtein: true,
         goalFat: true,
         goalCarbs: true,
@@ -39,6 +42,9 @@ export async function GET() {
       timezone: user?.timezone || 'Europe/Moscow',
       theme: user?.theme || 'auto',
       goalType: user?.goalType || 'maintain',
+      birthYear: user?.birthYear ?? null,
+      heightCm: user?.heightCm ?? null,
+      sex: user?.sex ?? null,
       goal: {
         protein: user?.goalProtein ?? FALLBACK_GOAL.protein,
         fat: user?.goalFat ?? FALLBACK_GOAL.fat,
@@ -69,6 +75,12 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
     const { name, language, timezone, theme, goal, goalType } = body;
+    // «О себе»: числа в разумных пределах; null очищает поле; мусор — пропускаем
+    const intIn = (v: unknown, min: number, max: number): number | null | undefined =>
+      v === null ? null : (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? Math.round(v) : undefined);
+    const birthYearUpd = 'birthYear' in body ? intIn(body.birthYear, 1920, 2020) : undefined;
+    const heightUpd = 'heightCm' in body ? intIn(body.heightCm, 100, 250) : undefined;
+    const sexUpd = 'sex' in body ? (body.sex === 'm' || body.sex === 'f' ? body.sex : body.sex === null ? null : undefined) : undefined;
     const themeOk = theme === 'light' || theme === 'dark' || theme === 'auto';
     const goalTypeOk = goalType === 'lose' || goalType === 'maintain' || goalType === 'gain' || goalType === 'recomp';
 
@@ -100,6 +112,9 @@ export async function PUT(request: Request) {
         timezone: timezone || undefined,
         theme: themeOk ? theme : undefined,
         goalType: goalTypeOk ? goalType : undefined,
+        birthYear: birthYearUpd,
+        heightCm: heightUpd,
+        sex: sexUpd,
         ...goalUpdate,
       }
     });

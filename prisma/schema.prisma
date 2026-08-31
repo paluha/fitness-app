@@ -28,6 +28,9 @@ model User {
   role          UserRole  @default(CLIENT)
   language      String    @default("ru") // "ru" or "en"
   timezone      String    @default("Europe/Moscow")
+  birthYear     Int?      // «О себе» для ИИ: год рождения (возраст)
+  heightCm      Int?      // рост, см
+  sex           String?   // "m" | "f"
   theme         String    @default("auto") // "light" | "dark" | "auto"
   goalType      String    @default("maintain") // "lose" | "maintain" | "gain" — цель питания, на неё опираются ИИ-рекомендации
 
