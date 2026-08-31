@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, Send, Paperclip, X, Flame, Dumbbell, FlaskConical } from 'lucide-react';
 
-type Msg = { id?: string; role: 'user' | 'assistant'; content: string };
+type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
 type Eaten = { kcal: number; p: number; f: number; c: number };
 type Snapshot = {
@@ -17,9 +17,22 @@ type Snapshot = {
   labs: { date: string; panelName: string | null; abnormal: number; total: number } | null;
 };
 
+// Время сообщения для подписи под капсулой: сегодня — «14:32», раньше — «28 авг, 14:32».
+function fmtWhen(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return time;
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '') + ', ' + time;
+}
+
 // AI-ассистент. Режим `embedded` — полноэкранная вкладка (как в Superpower),
 // рендерится внутри контентной области под нижним таб-баром.
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
+// Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
+// белая капсула с временем снизу; подтянутые данные — оформленные карточки.
 export function AssistantChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -87,7 +100,7 @@ export function AssistantChat() {
     setBusy(true);
     setMessages((m) => [
       ...m,
-      { role: 'user', content: (text || '') + (img ? '\n📎 [фото]' : '') },
+      { role: 'user', content: (text || '') + (img ? '\n📎 [фото]' : ''), createdAt: new Date().toISOString() },
       { role: 'assistant', content: '' },
     ]);
 
@@ -128,38 +141,48 @@ export function AssistantChat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  const canSend = !busy && (!!input.trim() || !!image);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    // Белый «лист» чата на весь экран вкладки
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: 18, boxShadow: 'var(--shadow-card)', padding: '12px 14px',
+    }}>
       {/* шапка */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>
         <Sparkles size={20} color="var(--yellow)" /> AI-ассистент
       </div>
 
       {/* сообщения */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 8 }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
         {messages.length === 0 && (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', marginTop: 32, lineHeight: 1.5 }}>
             Спроси меня про тренировки, питание, прогресс.<br />Я вижу твои данные 💪
           </div>
         )}
-        {messages.map((m, i) => (
-          m.role === 'user' ? (
-            /* Ответ пользователя — капсула с белым фоном */
-            <div
-              key={m.id ?? i}
-              style={{
-                alignSelf: 'flex-end',
-                maxWidth: '88%',
-                background: 'var(--bg-card)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-strong)',
-                padding: '10px 13px', borderRadius: '14px 14px 4px 14px',
-                fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word',
-              }}
-            >
-              <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
-            </div>
-          ) : (
+        {messages.map((m, i) => {
+          if (m.role === 'user') {
+            const when = fmtWhen(m.createdAt);
+            return (
+              /* Ответ пользователя — белая капсула, снизу время отправки */
+              <div key={m.id ?? i} style={{ alignSelf: 'flex-end', maxWidth: '88%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                <div style={{
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-strong)',
+                  boxShadow: '0 1px 2px rgba(26, 23, 18, 0.05)',
+                  padding: '10px 13px', borderRadius: '14px 14px 4px 14px',
+                  fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word',
+                }}>
+                  <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
+                </div>
+                {when && <span style={{ fontSize: 10, color: 'var(--text-muted)', paddingRight: 4 }}>{when}</span>}
+              </div>
+            );
+          }
+          return (
             /* Текст ИИ — без капсулы, обычный текст; капсулы остаются только
                у подтягиваемых данных (карточки питания/тренировки/анализов) */
             <div
@@ -172,8 +195,8 @@ export function AssistantChat() {
             >
               {renderWithCards(m.content || (busy ? '…' : ''), snapshot)}
             </div>
-          )
-        ))}
+          );
+        })}
       </div>
 
       {/* превью прикреплённого фото */}
@@ -228,15 +251,16 @@ export function AssistantChat() {
             padding: '11px 13px', fontSize: 14, outline: 'none', maxHeight: 120,
           }}
         />
+        {/* отправить — графитовая, не оранжевая */}
         <button
           onClick={send}
-          disabled={busy || (!input.trim() && !image)}
+          disabled={!canSend}
           aria-label="отправить"
           style={{
             width: 46, height: 46, borderRadius: 12, border: 'none', flexShrink: 0,
-            cursor: busy || (!input.trim() && !image) ? 'not-allowed' : 'pointer',
-            background: busy || (!input.trim() && !image) ? 'var(--bg-elevated)' : 'var(--yellow)',
-            color: busy || (!input.trim() && !image) ? 'var(--text-secondary)' : '#000',
+            cursor: canSend ? 'pointer' : 'not-allowed',
+            background: canSend ? 'var(--text-primary)' : 'var(--bg-elevated)',
+            color: canSend ? 'var(--bg-primary)' : 'var(--text-secondary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -263,6 +287,15 @@ function renderWithCards(text: string, snap: Snapshot | null): React.ReactNode {
   });
 }
 
+// Цветной пилюль-бейдж в правом углу карточки
+function Pill({ text, color, bg }: { text: string; color: string; bg: string }) {
+  return (
+    <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, color, background: bg, whiteSpace: 'nowrap', flexShrink: 0 }}>
+      {text}
+    </span>
+  );
+}
+
 function renderCard(kind: string, date: string | undefined, snap: Snapshot | null): React.ReactNode {
   if (!snap) return null;
   if (kind === 'macros') {
@@ -273,25 +306,29 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
     if (!dayData) return null; // за этот день еды нет — карточку не показываем
     const { eaten, meals } = dayData;
     const isToday = d === snap.today;
-    const dateLabel = isToday ? 'сегодня' : (() => { try { return new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); } catch { return d; } })();
+    const dateLabel = isToday ? 'сегодня' : (() => { try { return new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', ''); } catch { return d; } })();
+    const mealsWord = meals === 1 ? 'приём' : meals >= 2 && meals <= 4 ? 'приёма' : 'приёмов';
     const row = (label: string, val: number, g: number | null, color: string) => {
       const pct = g ? Math.min(100, Math.round((val / g) * 100)) : 0;
       return (
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
             <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-            <span style={{ fontWeight: 700 }}>{val}{g ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> / {g}</span> : ''}</span>
+            <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+              {val}{g ? <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> / {g}</span> : ''}
+            </span>
           </div>
           {g ? (
-            <div style={{ height: 5, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: color }} />
+            <div style={{ height: 6, borderRadius: 3, background: 'rgba(26, 23, 18, 0.07)', overflow: 'hidden' }}>
+              <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: color, transition: 'width 0.4s ease' }} />
             </div>
           ) : null}
         </div>
       );
     };
     return (
-      <CardShell icon={<Flame size={15} />} title={`Питание ${dateLabel} · ${meals} приём(ов)`}>
+      <CardShell icon={<Flame size={15} />} accent="#f59e0b" title={`Питание · ${dateLabel}`}
+        right={<span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{meals} {mealsWord}</span>}>
         {row('Калории', eaten.kcal, goal.kcal, '#f59e0b')}
         {row('Белок', eaten.p, goal.p, '#22c55e')}
         {row('Жиры', eaten.f, goal.f, '#f97316')}
@@ -302,17 +339,12 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
   if (kind === 'lastWorkout') {
     const w = snap.lastWorkout;
     if (!w) return null;
+    const full = w.done === w.total;
     return (
-      <CardShell icon={<Dumbbell size={15} />} title="Последняя тренировка">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>{w.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{w.date}</div>
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: w.done === w.total ? 'var(--green)' : '#f59e0b' }}>
-            {w.done}/{w.total}
-          </div>
-        </div>
+      <CardShell icon={<Dumbbell size={15} />} accent="var(--blue)" title="Последняя тренировка"
+        right={<Pill text={`${w.done}/${w.total}`} color={full ? 'var(--green)' : '#b45309'} bg={full ? 'var(--green-dim)' : 'rgba(245, 158, 11, 0.15)'} />}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{w.name}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{w.date}</div>
       </CardShell>
     );
   }
@@ -320,30 +352,38 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
     const l = snap.labs;
     if (!l) return null;
     return (
-      <CardShell icon={<FlaskConical size={15} />} title="Последний анализ">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>{l.panelName || 'Анализ'}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.date} · {l.total} показателей</div>
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 13, color: l.abnormal > 0 ? '#ef4444' : 'var(--green)' }}>
-            {l.abnormal > 0 ? `${l.abnormal} вне нормы` : 'всё в норме'}
-          </div>
-        </div>
+      <CardShell icon={<FlaskConical size={15} />} accent="var(--purple)" title="Последний анализ"
+        right={<Pill text={l.abnormal > 0 ? `${l.abnormal} вне нормы` : 'всё в норме'}
+          color={l.abnormal > 0 ? 'var(--red)' : 'var(--green)'}
+          bg={l.abnormal > 0 ? 'var(--red-dim)' : 'var(--green-dim)'} />}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{l.panelName || 'Анализ'}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{l.date} · {l.total} показателей</div>
       </CardShell>
     );
   }
   return null;
 }
 
-function CardShell({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+// Карточка «подтянутых данных»: мягкий тёплый фон, иконка в белом чипе с
+// акцентным цветом, заголовок и бейдж справа — как поверхности Superpower.
+function CardShell({ icon, title, accent, right, children }: {
+  icon: React.ReactNode; title: string; accent: string; right?: React.ReactNode; children: React.ReactNode;
+}) {
   return (
     <div style={{
-      margin: '8px 0', background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '10px 12px',
+      margin: '10px 0', background: 'var(--bg-elevated)',
+      borderRadius: 16, padding: '12px 14px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, color: 'var(--yellow)', fontSize: 12, fontWeight: 700 }}>
-        {icon}<span style={{ color: 'var(--text-secondary)' }}>{title}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 9, background: 'var(--bg-card)', color: accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          boxShadow: '0 1px 2px rgba(26, 23, 18, 0.06)',
+        }}>
+          {icon}
+        </div>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>{title}</span>
+        {right}
       </div>
       {children}
     </div>
