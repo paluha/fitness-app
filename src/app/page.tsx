@@ -2816,6 +2816,31 @@ export default function FitnessPage() {
     }
   }, [userSettings.timezone, isLoaded]);
 
+  // Автообновление WebView: iOS держит приложение в фоне днями и страницу не
+  // перезагружает — свежие деплои не доезжают до пользователя. При возврате
+  // после ≥5 минут в фоне сверяем сборку с сервером; вышла новая — reload.
+  // Данные не теряются: состояние уже улетело beacon-ом при уходе в фон,
+  // черновики лежат в Dexie/outbox.
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      if (!hiddenAt || Date.now() - hiddenAt < 5 * 60 * 1000) return;
+      hiddenAt = 0;
+      fetch('/api/version', { cache: 'no-store' })
+        .then(r => r.json())
+        .then((v: { sha?: string }) => {
+          const mine = process.env.NEXT_PUBLIC_BUILD_SHA;
+          if (v?.sha && mine && v.sha !== 'dev' && mine !== 'dev' && v.sha !== mine) {
+            window.location.reload();
+          }
+        })
+        .catch(() => { /* офлайн — проверим в следующий раз */ });
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
   // «Сегодня» устаревает, если приложение висело в фоне до следующего дня или
   // прошла полночь: без обновления «Сегодня» в ленте дат и выбранный день
   // остаются вчерашними, и тренировка/еда пишутся на вчерашнюю дату.
