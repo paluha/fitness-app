@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { trackError, trackLatency } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
+import { trainxSystem } from '@/lib/trainx-ai';
 
 // Allow up to 30s for AI recommendations
 export const maxDuration = 30;
@@ -186,13 +187,7 @@ export async function POST(request: Request) {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1200,
-      system: [
-        {
-          type: 'text',
-          text: RECOMMEND_SYSTEM,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
+      system: trainxSystem(RECOMMEND_SYSTEM),
       output_config: {
         format: {
           type: 'json_schema',

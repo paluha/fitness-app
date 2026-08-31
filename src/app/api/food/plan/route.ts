@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
+import { trainxSystem } from '@/lib/trainx-ai';
 
 // Персональный план «когда и что есть» на день — генерируется ИИ под цель
 // пользователя (похудение/поддержание/набор), его макро-цели и его же
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
         effort: 'low',
         format: { type: 'json_schema', schema: PLAN_SCHEMA },
       },
-      system:
+      system: trainxSystem(
         'Ты — нутрициолог и тренер по питанию. Составляешь персональный план с учётом здоровья. ' +
         'МЕДИЦИНСКИЕ ПРАВИЛА (применяй только если состояние указано в анкете): ' +
         'инсулинорезистентность/преддиабет — БЕЗ перекусов, 3 плотных приёма, низкий гликемический индекс, ' +
@@ -106,7 +107,8 @@ export async function POST(request: Request) {
         'по категориям: protein (мясо/рыба/яйца), carbs (крупы/гарниры), vegetables (овощи), ' +
         'dairy (молочное), fats (жиры/орехи), fruits (фрукты/ягоды). ' +
         'Обязательно предпочитай продукты из истории пользователя, если они подходят под цель. ' +
-        (language === 'en' ? 'Answer in English.' : 'Отвечай по-русски, кратко и по делу.'),
+        (language === 'en' ? 'Answer in English.' : 'Отвечай по-русски, кратко и по делу.')
+      ),
       messages: [
         {
           role: 'user',

@@ -7295,18 +7295,33 @@ export default function FitnessPage() {
               style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '200px' }}
             >
               {surveyChat.map((m, i) => (
-                <div key={i} style={{
-                  alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '85%',
-                  padding: '10px 14px',
-                  borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                  background: m.role === 'user' ? 'var(--yellow)' : 'var(--bg-elevated)',
-                  color: m.role === 'user' ? '#fff' : 'var(--text-primary)',
-                  fontSize: '14px',
-                  lineHeight: 1.45,
-                }}>
-                  {m.content}
-                </div>
+                m.role === 'user' ? (
+                  /* Ответ пользователя — капсула с белым фоном */
+                  <div key={i} style={{
+                    alignSelf: 'flex-end',
+                    maxWidth: '85%',
+                    padding: '10px 14px',
+                    borderRadius: '14px 14px 4px 14px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-strong)',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    lineHeight: 1.45,
+                  }}>
+                    {m.content}
+                  </div>
+                ) : (
+                  /* Текст ИИ — без капсулы, обычный текст на фоне (капсулы
+                     остаются только у данных: варианты ответов и т.п.) */
+                  <div key={i} style={{
+                    alignSelf: 'stretch',
+                    color: m.error ? 'var(--red)' : 'var(--text-primary)',
+                    fontSize: '14px',
+                    lineHeight: 1.55,
+                  }}>
+                    {m.content}
+                  </div>
+                )
               ))}
               {surveyBusy && (
                 <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', padding: '6px 4px' }}>
