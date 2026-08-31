@@ -713,3 +713,17 @@ button:disabled {
 /* Горизонтальные ленты без полосы прокрутки (недели в еде) */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Чат ИИ: индикатор «печатает» — три пульсирующие точки, пока идёт обработка */
+.chat-typing { display: inline-flex; gap: 4px; align-items: center; padding: 6px 0; }
+.chat-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-muted);
+  animation: chatDot 1.2s ease-in-out infinite;
+}
+.chat-dot:nth-child(2) { animation-delay: 0.15s; }
+.chat-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chatDot {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}

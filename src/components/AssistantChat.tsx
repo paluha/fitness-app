@@ -187,7 +187,16 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
                 fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word',
               }}
             >
-              {renderWithCards(m.content || (busy ? '…' : ''), snapshot, muscleGroups)}
+              {m.content
+                ? renderWithCards(m.content, snapshot, muscleGroups)
+                : busy && i === messages.length - 1
+                  ? (
+                    /* ИИ обрабатывает запрос — три пульсирующие точки */
+                    <span className="chat-typing" aria-label="ИИ печатает">
+                      <span className="chat-dot" /><span className="chat-dot" /><span className="chat-dot" />
+                    </span>
+                  )
+                  : null}
             </div>
           );
         })}
