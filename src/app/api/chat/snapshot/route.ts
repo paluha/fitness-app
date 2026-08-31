@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getMergedDayLogs } from '@/lib/fitness-merge';
 
 // Лёгкий снапшот данных юзера для красивых карточек в чате.
 // Возвращает готовые числа: цели/факт по макросам за сегодня, последнюю
@@ -12,12 +13,12 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = session.user.id;
 
-  const [user, fitness, lastLab] = await Promise.all([
+  const [user, mergedDayLogs, lastLab] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { goalProtein: true, goalFat: true, goalCarbs: true, goalCalories: true, timezone: true },
     }),
-    prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true } }),
+    getMergedDayLogs(prisma, userId),
     prisma.labResult.findFirst({
       where: { userId }, orderBy: { collectedAt: 'desc' },
       select: { panelName: true, collectedAt: true, markers: true },
@@ -33,7 +34,7 @@ export async function GET() {
   } catch {
     today = new Date().toISOString().slice(0, 10);
   }
-  const dayLogs = (fitness?.dayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { completed?: boolean }[] } }>) || {};
+  const dayLogs = (mergedDayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { completed?: boolean }[] } }>) || {};
 
   // Макросы по дням (последние 14) — чтобы карточка могла показать любой
   // запрошенный день, а не только сегодня.

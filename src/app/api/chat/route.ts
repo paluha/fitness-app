@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { trackError } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
 import { trainxSystem } from '@/lib/trainx-ai';
+import { getMergedDayLogs } from '@/lib/fitness-merge';
 
 // AI-чат с фитнес-ассистентом, который "цепляет" данные пользователя.
 // Паттерн как у /api/food/recommend: стабильный system-промпт кэшируется,
@@ -57,14 +58,29 @@ function recentByDate(value: unknown, n: number): unknown {
   return value;
 }
 
-type DayEntry = { exercises?: { name?: string; completed?: boolean }[] };
+type ExSet = { weight?: number | string; reps?: number | string; completed?: boolean };
+type DayExercise = { name?: string; completed?: boolean; sets?: ExSet[]; actualSets?: string };
+type DayEntry = { exercises?: DayExercise[] };
 
-// Человекочитаемая история ТРЕНИРОВОК по всем дневным логам:
-// дата + название + сколько упражнений выполнено. Это надёжнее, чем заставлять
-// модель парсить сырой JSON, и даёт ей ответ на «когда я тренировался».
-function buildWorkoutHistory(dayLogs: unknown, maxLines = 60): string {
+// Рабочие подходы упражнения строкой «вес×повторы»: 60×10, 60×8, 65×6.
+// Берём структурные sets (колонка весов в UI); фолбэк — легаси-текст actualSets.
+function exerciseSets(e: DayExercise): string {
+  if (Array.isArray(e.sets) && e.sets.length) {
+    const parts = e.sets
+      .filter(s => s && (s.completed || s.reps || s.weight))
+      .map(s => `${s.weight ?? '?'}×${s.reps ?? '?'}`);
+    if (parts.length) return parts.join(', ');
+  }
+  if (typeof e.actualSets === 'string' && e.actualSets.trim()) return e.actualSets.trim();
+  return '';
+}
+
+// Человекочитаемая история ТРЕНИРОВОК по всем дневным логам. Последние дни —
+// подробно, с рабочими весами и повторами по каждому подходу (иначе модель
+// уверена, что пользователь весов не вводит); старые дни — одной строкой.
+function buildWorkoutHistory(dayLogs: unknown, maxLines = 60, detailedDays = 15): string {
   if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
-  const rows: { date: string; line: string }[] = [];
+  const rows: { date: string; line: string; details: string[] }[] = [];
   for (const [date, raw] of Object.entries(dayLogs as Record<string, unknown>)) {
     const day = raw as { workoutSnapshot?: DayEntry & { workoutName?: string }; workoutDraft?: DayEntry & { workoutName?: string } } | null;
     const src = day?.workoutSnapshot ?? day?.workoutDraft;
@@ -73,15 +89,23 @@ function buildWorkoutHistory(dayLogs: unknown, maxLines = 60): string {
     const done = ex.filter(e => e?.completed).length;
     if (done === 0) continue; // день без выполненных упражнений = отдых, пропускаем
     const name = (src as { workoutName?: string })?.workoutName || 'Тренировка';
-    const doneNames = ex.filter(e => e?.completed).map(e => e?.name).filter(Boolean).slice(0, 8).join(', ');
-    rows.push({ date, line: `${date}: ${name} — ${done}/${ex.length} упр.${doneNames ? ` (${doneNames})` : ''}` });
+    const details = ex
+      .filter(e => e?.completed)
+      .slice(0, 12)
+      .map(e => {
+        const sets = exerciseSets(e);
+        return `  • ${e.name || 'упражнение'}${sets ? `: ${sets}` : ''}`;
+      });
+    rows.push({ date, line: `${date}: ${name} — ${done}/${ex.length} упр.`, details });
   }
   if (rows.length === 0) return 'Нет записанных тренировок.';
-  // новые сверху, ограничиваем число строк
+  // новые сверху; свежие дни разворачиваем с подходами, старые — одной строкой
   rows.sort((a, b) => (a.date < b.date ? 1 : -1));
   const total = rows.length;
-  const shown = rows.slice(0, maxLines).map(r => r.line);
-  const head = `Всего дней с тренировками: ${total}. Список (новые сверху):`;
+  const shown = rows.slice(0, maxLines).map((r, i) =>
+    i < detailedDays && r.details.length ? r.line + '\n' + r.details.join('\n') : r.line
+  );
+  const head = `Всего дней с тренировками: ${total}. Список (новые сверху; у свежих дней указаны подходы «вес×повторы»):`;
   return head + '\n' + shown.join('\n') + (total > maxLines ? `\n…и ещё ${total - maxLines} дней` : '');
 }
 
@@ -164,7 +188,7 @@ export async function POST(request: Request) {
   }
 
   // --- собираем данные пользователя + историю чата + анализы ---
-  const [user, fitness, history, labs] = await Promise.all([
+  const [user, fitness, history, labs, mergedDayLogs] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -192,6 +216,9 @@ export async function POST(request: Request) {
       take: 12, // последние результаты анализов
       select: { panelName: true, lab: true, collectedAt: true, markers: true },
     }),
+    // Точные dayLogs: блоб + построчные записи (веса из колонки в UI живут
+    // в WorkoutLogEntry и до блоба доезжают позже — без merge их не видно).
+    getMergedDayLogs(prisma, userId),
   ]);
 
   const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Пользователь';
@@ -215,17 +242,17 @@ export async function POST(request: Request) {
 - Углеводы: ${user?.goalCarbs ?? '—'} г
 - Калории: ${user?.goalCalories ?? '—'} ккал
 
-🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал, по всем дням):
-${buildWorkoutHistory(fitness?.dayLogs, 60)}
+🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал; у свежих дней — рабочие подходы «вес×повторы», веса пользователь вводит в колонке весов):
+${buildWorkoutHistory(mergedDayLogs, 60)}
 
 📋 ШАБЛОНЫ ТРЕНИРОВОК (план T1–T7):
 ${compactJson(fitness?.workouts, 2000)}
 
 🍽️ ЕДА (дневник по дням, новые сверху; если сегодняшней даты нет — за сегодня еда не записана):
-${buildFoodLog(fitness?.dayLogs, 7)}
+${buildFoodLog(mergedDayLogs, 7)}
 
 📅 ДЕТАЛИ ПОСЛЕДНИХ ДНЕЙ (шаги и пр.):
-${compactJson(recentByDate(fitness?.dayLogs, 3), 2000)}
+${compactJson(recentByDate(mergedDayLogs, 3), 2000)}
 
 📈 ПРОГРЕСС ПО УПРАЖНЕНИЯМ:
 ${compactJson(fitness?.progressHistory, 1500)}
