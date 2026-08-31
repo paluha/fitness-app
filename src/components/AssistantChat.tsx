@@ -277,7 +277,7 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
 // **текст** из ответа модели рендерим жирным — лёгкая inline-разметка
 // без markdown-библиотек, чтобы звёздочки не торчали в чате.
 function renderBold(text: string, keyBase: string | number): React.ReactNode {
-  const segs = text.split(/**([^*]+)**/g);
+  const segs = text.split(/\*\*([^*]+)\*\*/g);
   if (segs.length === 1) return text;
   return segs.map((seg, j) => (j % 2 === 1 ? <strong key={`${keyBase}-${j}`}>{seg}</strong> : seg));
 }
