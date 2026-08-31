@@ -2788,7 +2788,22 @@ export default function FitnessPage() {
           // check we'd still overwrite their fresh edits.
           if (userMadeChangeRef.current || syncInFlightRef.current || syncTimeoutRef.current) return;
           serverDataLoadedRef.current = true; // после офлайн-старта связь вернулась — автосейв снова разрешён
-          if (data.workouts) setWorkouts(data.workouts);
+          if (data.workouts) {
+            // Подставляем фото из библиотеки, как при первичной загрузке.
+            // GET срезает вшитые картинки, и без этой подстановки поллинг
+            // затирал тренировки «голыми» шаблонами — только что добавленное
+            // фото «исчезало» с экрана через минуту (в базе оставаясь целым).
+            const pollLib = (data.exerciseLibrary ?? {}) as Record<string, string>;
+            for (const w of data.workouts as Workout[]) {
+              for (const ex of w.exercises) {
+                if (!ex.imageUrl) {
+                  const libImg = findLibImage(pollLib, ex.name);
+                  if (libImg) ex.imageUrl = libImg;
+                }
+              }
+            }
+            setWorkouts(data.workouts);
+          }
           if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
