@@ -2816,6 +2816,17 @@ export default function FitnessPage() {
     }
   }, [userSettings.timezone, isLoaded]);
 
+  // Вкладка ИИ — страница целиком белая: чат без капсулы лежит прямо на ней
+  useEffect(() => {
+    const bg = view === 'chat' ? 'var(--bg-card)' : '';
+    document.documentElement.style.background = bg;
+    document.body.style.background = bg;
+    return () => {
+      document.documentElement.style.background = '';
+      document.body.style.background = '';
+    };
+  }, [view]);
+
   // Автообновление WebView: iOS держит приложение в фоне днями и страницу не
   // перезагружает — свежие деплои не доезжают до пользователя. При возврате
   // после ≥5 минут в фоне сверяем сборку с сервером; вышла новая — reload.

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, Send, Paperclip, X, Flame, Dumbbell, FlaskConical } from 'lucide-react';
+import { Send, Paperclip, X, Flame, Dumbbell, FlaskConical } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -23,7 +23,8 @@ function fmtWhen(iso?: string): string | null {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
   const now = new Date();
-  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  // am/pm-формат: «2:32 pm»
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
   if (d.toDateString() === now.toDateString()) return time;
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '') + ', ' + time;
 }
@@ -144,17 +145,9 @@ export function AssistantChat() {
   const canSend = !busy && (!!input.trim() || !!image);
 
   return (
-    // Белый «лист» чата на весь экран вкладки
-    <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0,
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: 18, boxShadow: 'var(--shadow-card)', padding: '12px 14px',
-    }}>
-      {/* шапка */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>
-        <Sparkles size={20} color="var(--yellow)" /> AI-ассистент
-      </div>
-
+    // Чат лежит прямо на белой странице (фон страницы красит page.tsx,
+    // когда открыта вкладка ИИ) — без собственной капсулы и без шапки.
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* сообщения */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
         {messages.length === 0 && (
