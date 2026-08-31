@@ -143,22 +143,36 @@ export function AssistantChat() {
           </div>
         )}
         {messages.map((m, i) => (
-          <div
-            key={m.id ?? i}
-            style={{
-              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '88%',
-              background: m.role === 'user' ? 'var(--yellow)' : 'var(--bg-elevated)',
-              color: m.role === 'user' ? '#000' : 'var(--text-primary)',
-              border: m.role === 'user' ? 'none' : '1px solid var(--border)',
-              padding: '10px 13px', borderRadius: 14,
-              fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word',
-            }}
-          >
-            {m.role === 'assistant'
-              ? renderWithCards(m.content || (busy ? '…' : ''), snapshot)
-              : <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>}
-          </div>
+          m.role === 'user' ? (
+            /* Ответ пользователя — капсула с белым фоном */
+            <div
+              key={m.id ?? i}
+              style={{
+                alignSelf: 'flex-end',
+                maxWidth: '88%',
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-strong)',
+                padding: '10px 13px', borderRadius: '14px 14px 4px 14px',
+                fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word',
+              }}
+            >
+              <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
+            </div>
+          ) : (
+            /* Текст ИИ — без капсулы, обычный текст; капсулы остаются только
+               у подтягиваемых данных (карточки питания/тренировки/анализов) */
+            <div
+              key={m.id ?? i}
+              style={{
+                alignSelf: 'stretch',
+                color: 'var(--text-primary)',
+                fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word',
+              }}
+            >
+              {renderWithCards(m.content || (busy ? '…' : ''), snapshot)}
+            </div>
+          )
         ))}
       </div>
 

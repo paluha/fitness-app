@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { trackError } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
+import { trainxSystem } from '@/lib/trainx-ai';
 
 // AI-чат с фитнес-ассистентом, который "цепляет" данные пользователя.
 // Паттерн как у /api/food/recommend: стабильный system-промпт кэшируется,
@@ -271,7 +272,7 @@ ${buildLabSummary(labs as LabRow[])}`;
         const llmStream = client.messages.stream({
           model: 'claude-sonnet-4-6',
           max_tokens: 1500,
-          system: [{ type: 'text', text: CHAT_SYSTEM, cache_control: { type: 'ephemeral' } }],
+          system: trainxSystem(CHAT_SYSTEM),
           messages,
         });
 
