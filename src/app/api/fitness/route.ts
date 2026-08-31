@@ -47,12 +47,23 @@ export async function GET() {
     // календарь на телефоне первые секунды). Срезаем imageUrl только если та же
     // картинка гарантированно есть в библиотеке — клиент подставит её оттуда.
     const lib = (fitnessData?.exerciseLibrary ?? {}) as Record<string, string>;
+    // То же фаззи-правило, что на клиенте (findLibImage): точное имя или самый
+    // длинный ключ, совпадающий по началу — иначе переименованные ИИ-программой
+    // упражнения не срезаются и блоб снова раздувается.
+    const hasLibImage = (rawName: string): boolean => {
+      const name = rawName.toLowerCase().trim();
+      if (lib[name]) return true;
+      for (const key of Object.keys(lib)) {
+        if (key.length < 8) continue;
+        if (name.startsWith(key) || key.startsWith(name)) return true;
+      }
+      return false;
+    };
     const workoutsOut = fitnessData?.workouts as Array<{ exercises?: Array<Record<string, unknown>> }> | null;
     if (Array.isArray(workoutsOut)) {
       for (const w of workoutsOut) {
         for (const e of (w?.exercises ?? [])) {
-          const name = String(e.name ?? '').toLowerCase().trim();
-          if (typeof e.imageUrl === 'string' && e.imageUrl.startsWith('data:') && lib[name]) {
+          if (typeof e.imageUrl === 'string' && e.imageUrl.startsWith('data:') && hasLibImage(String(e.name ?? ''))) {
             delete e.imageUrl;
           }
         }

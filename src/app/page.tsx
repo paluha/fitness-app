@@ -2043,6 +2043,24 @@ function exerciseHasProgress(ex: Exercise | undefined): boolean {
 // For OPEN days with a local workoutDraft, copy server fields onto the local
 // log but rebuild the draft.exercises array per-exercise: take whichever
 // version actually has user progress on it (completed flag, sets, notes).
+// Фото упражнения из библиотеки. Сначала точное имя; если ИИ-программа
+// переименовала упражнение («пуловер в блоке стоя» vs «пуловер в блоке») —
+// берём самый длинный ключ, совпадающий с названием по началу строки.
+function findLibImage(lib: Record<string, string>, rawName: string): string | undefined {
+  const name = rawName.toLowerCase().trim();
+  if (lib[name]) return lib[name];
+  let best: string | undefined;
+  let bestLen = 0;
+  for (const key of Object.keys(lib)) {
+    if (key.length < 8) continue; // короткий ключ — риск ложного совпадения
+    if ((name.startsWith(key) || key.startsWith(name)) && key.length > bestLen) {
+      best = lib[key];
+      bestLen = key.length;
+    }
+  }
+  return best;
+}
+
 function mergeServerDayLogs(
   prev: Record<string, DayLog>,
   server: Record<string, DayLog>
@@ -2683,7 +2701,7 @@ export default function FitnessPage() {
             for (const workout of data.workouts) {
               for (const ex of workout.exercises) {
                 if (!ex.imageUrl) {
-                  const libImg = lib[ex.name.toLowerCase().trim()];
+                  const libImg = findLibImage(lib, ex.name);
                   if (libImg) { ex.imageUrl = libImg; changed = true; }
                 }
               }
@@ -2728,7 +2746,7 @@ export default function FitnessPage() {
             for (const w of b.workouts as Workout[]) {
               for (const ex of w.exercises) {
                 if (!ex.imageUrl) {
-                  const img = lib[ex.name.toLowerCase().trim()];
+                  const img = findLibImage(lib, ex.name);
                   if (img) ex.imageUrl = img;
                 }
               }
