@@ -274,6 +274,14 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
   );
 }
 
+// **текст** из ответа модели рендерим жирным — лёгкая inline-разметка
+// без markdown-библиотек, чтобы звёздочки не торчали в чате.
+function renderBold(text: string, keyBase: string | number): React.ReactNode {
+  const segs = text.split(/**([^*]+)**/g);
+  if (segs.length === 1) return text;
+  return segs.map((seg, j) => (j % 2 === 1 ? <strong key={`${keyBase}-${j}`}>{seg}</strong> : seg));
+}
+
 // Разбиваем текст ответа на части по плейсхолдерам [[card:xxx]] или
 // [[card:macros:ГГГГ-ММ-ДД]] и рендерим карточками, подставляя данные из snapshot.
 function renderWithCards(text: string, snap: Snapshot | null, mg?: Record<string, string>): React.ReactNode {
@@ -286,7 +294,7 @@ function renderWithCards(text: string, snap: Snapshot | null, mg?: Record<string
       return card ? <div key={idx}>{card}</div> : null;
     }
     if (!part) return null;
-    return <span key={idx} style={{ whiteSpace: 'pre-wrap' }}>{part}</span>;
+    return <span key={idx} style={{ whiteSpace: 'pre-wrap' }}>{renderBold(part, idx)}</span>;
   });
 }
 
