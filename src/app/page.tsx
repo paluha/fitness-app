@@ -4717,7 +4717,10 @@ export default function FitnessPage() {
                   const exDone = dayExercises.filter(e => e.completed).length;
                   const hasWorkout = exDone > 0;
                   const fullyDone = exTotal > 0 && exDone === exTotal;
-                  const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
+                  // workoutDraft — главный носитель: снапшота нет, пока день не
+                  // закрыт, а selectedWorkout пишется не каждый день. Без драфта
+                  // чип показывал «5/7» вместо «T1».
+                  const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutDraft?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
                   const cw = hasWorkout && wId ? workouts.find(w => w.id === wId) : null;
                   const wLabel = cw ? cw.name.replace('Тренировка ', 'T') : '';
                   const label = d.toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' });
