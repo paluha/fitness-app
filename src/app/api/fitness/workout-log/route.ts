@@ -66,9 +66,22 @@ export async function PATCH(request: Request) {
 
       const existing = await prisma.workoutLogEntry.findUnique({
         where: { userId_date_exerciseId: { userId, date, exerciseId } },
-        select: { clientUpdatedAt: true },
+        select: { clientUpdatedAt: true, actualSets: true },
       });
       if (existing && existing.clientUpdatedAt >= incomingAt) { skipped++; continue; }
+
+      // Защита от затирания нулями: клиент со «свежей» пустой копией дня
+      // (офлайн-старт со старым бэкапом) может прислать completed=true с
+      // подходами 0×0 поверх реальных весов. Повторная отметка выполненности
+      // не должна стирать сохранённые подходы — нули игнорируем, флаг применяем.
+      const setWeight = (v: unknown) => (v && typeof v === 'object' ? ((v as { weight?: number }).weight || 0) : 0);
+      const setReps = (v: unknown) => (v && typeof v === 'object' ? ((v as { reps?: number }).reps || 0) : 0);
+      const isAllZero = (v: unknown) => Array.isArray(v) && v.length > 0 && v.every(x => setWeight(x) === 0 && setReps(x) === 0);
+      const hasReal = (v: unknown) => Array.isArray(v) && v.some(x => setWeight(x) > 0 || setReps(x) > 0);
+      let actualSetsIn = it.actualSets;
+      if (it.completed && isAllZero(actualSetsIn) && hasReal(existing?.actualSets)) {
+        actualSetsIn = undefined;
+      }
 
       await prisma.workoutLogEntry.upsert({
         where: { userId_date_exerciseId: { userId, date, exerciseId } },
@@ -86,7 +99,7 @@ export async function PATCH(request: Request) {
         update: {
           workoutId: (it.workoutId as string) ?? undefined,
           completed: it.completed !== undefined ? !!it.completed : undefined,
-          actualSets: it.actualSets !== undefined ? (it.actualSets as never) : undefined,
+          actualSets: actualSetsIn !== undefined ? (actualSetsIn as never) : undefined,
           notes: it.notes !== undefined ? (it.notes as string) : undefined,
           clientId: (it.clientId as string) ?? undefined,
           clientUpdatedAt: incomingAt,
