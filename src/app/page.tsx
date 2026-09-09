@@ -1249,48 +1249,65 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   </div>
                   );
                 })}
-                {/* Add set + Отметить все — в одну строку */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                {/* Add set / Отметить все / динамика — одна строка, выровненная
+                    по колонкам таблицы: Add set заканчивается у левого края Reps,
+                    «Отметить все» начинается от левого края lbs, динамика —
+                    справа в колонке галочек. Высота 30px — как у полей. */}
+                <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '6px', marginTop: '8px', alignItems: 'center' }}>
                   <button
                     onClick={addSet}
                     style={{
-                      flex: 1,
-                      minHeight: '44px',
-                      padding: '10px',
+                      gridColumn: '1 / 3',
+                      height: '30px',
+                      padding: '0 4px',
                       background: 'var(--bg-primary)',
                       border: '1px dashed var(--border-strong)',
-                      borderRadius: '12px',
+                      borderRadius: '8px',
                       color: 'var(--text-muted)',
-                      fontSize: '12px', fontWeight: 600,
+                      fontSize: '11px', fontWeight: 600,
                       cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                      whiteSpace: 'nowrap',
                       touchAction: 'manipulation',
                     }}>
-                    <Plus size={14} />
+                    <Plus size={13} />
                     Add set
                   </button>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); markAllSets(); }}
                     style={{
-                      flex: 1.4,
-                      minHeight: '44px',
-                      padding: '10px',
+                      gridColumn: '4 / 5',
+                      height: '30px',
+                      padding: '0 2px',
                       background: allSetsDone ? 'var(--green-dim)' : 'var(--bg-elevated)',
                       border: `1.5px solid ${allSetsDone ? 'var(--green)' : 'var(--border-strong)'}`,
-                      borderRadius: '12px',
+                      borderRadius: '8px',
                       color: allSetsDone ? 'var(--green)' : 'var(--text-primary)',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                      whiteSpace: 'nowrap',
                       touchAction: 'manipulation',
                     }}>
-                    <Check size={16} strokeWidth={3} />
+                    <Check size={13} strokeWidth={3} />
                     {allSetsDone ? 'Снять отметки' : 'Отметить все'}
+                  </button>
+                  <button
+                    onClick={() => setShowChart(!showChart)}
+                    title='Динамика веса'
+                    disabled={!weightHistory || weightHistory.length === 0}
+                    style={{
+                      width: '30px', height: '30px', borderRadius: '8px', justifySelf: 'center',
+                      background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
+                      border: '1px solid var(--yellow-glow)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', padding: 0,
+                      opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1
+                    }}
+                  >
+                    <TrendingUp size={14} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
                   </button>
                 </div>
               </div>
@@ -1445,15 +1462,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             </div>
           )}
 
-          {/* Заметка к упражнению — самая последняя строка */}
-          <div style={{ display: 'flex', gap: '6px', marginTop: '12px', alignItems: 'center' }}>
+          {/* Заметка к упражнению — самая последняя строка (динамика веса
+              переехала в строку Add set / Отметить все) */}
+          <div style={{ marginTop: '12px' }}>
             <input
               type="text"
               value={ex.feedback}
               onChange={(e) => onUpdate({ feedback: e.target.value })}
               placeholder="Заметки..."
               style={{
-                flex: 1,
+                width: '100%',
                 background: 'var(--bg-primary)',
                 border: '1px solid var(--border)',
                 borderRadius: '8px',
@@ -1462,21 +1480,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 fontSize: '12px'
               }}
             />
-            <button
-              onClick={() => setShowChart(!showChart)}
-              title='Динамика веса'
-              disabled={!weightHistory || weightHistory.length === 0}
-              style={{
-                width: '36px', height: '36px', borderRadius: '8px',
-                background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
-                border: '1px solid var(--yellow-glow)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                cursor: 'pointer',
-                opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1
-              }}
-            >
-              <TrendingUp size={15} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
-            </button>
           </div>
         </div>
       )}
@@ -4763,7 +4766,8 @@ export default function FitnessPage() {
                 display: 'flex',
                 gap: '8px',
                 marginBottom: '16px',
-                alignItems: 'center'
+                // stretch — иконки настроек/программы ровно той же высоты, что чипы Т1–Т7
+                alignItems: 'stretch'
               }}>
                 <div style={{
                   display: 'grid',
@@ -4833,7 +4837,7 @@ export default function FitnessPage() {
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
                   style={{
-                    padding: '10px',
+                    padding: '0 11px',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
                     borderRadius: '10px',
@@ -4851,7 +4855,7 @@ export default function FitnessPage() {
                 <button
                   onClick={() => { setShowProgramModal(true); setProgramDays(Math.max(2, workouts.filter(w => w.exercises.length > 0).length) || 4); }}
                   style={{
-                    padding: '10px',
+                    padding: '0 11px',
                     background: 'var(--yellow-dim)',
                     border: '1px solid var(--yellow-glow)',
                     borderRadius: '10px',
