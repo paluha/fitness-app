@@ -1254,12 +1254,31 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     «Отметить все» начинается от левого края lbs, динамика —
                     справа в колонке галочек. Высота 30px — как у полей. */}
                 <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '6px', marginTop: '8px', alignItems: 'center' }}>
+                  {/* Динамика веса — слева */}
+                  <button
+                    onClick={() => setShowChart(!showChart)}
+                    title='Динамика веса'
+                    disabled={!weightHistory || weightHistory.length === 0}
+                    style={{
+                      gridColumn: '1 / 3',
+                      justifySelf: 'start',
+                      width: '30px', height: '30px', borderRadius: '8px',
+                      background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
+                      border: '1px solid var(--yellow-glow)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', padding: 0,
+                      opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1
+                    }}
+                  >
+                    <TrendingUp size={14} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
+                  </button>
+                  {/* Add set — ровно в колонке Reps */}
                   <button
                     onClick={addSet}
                     style={{
-                      gridColumn: '1 / 3',
+                      gridColumn: '3 / 4',
                       height: '30px',
-                      padding: '0 4px',
+                      padding: '0 2px',
                       background: 'var(--bg-primary)',
                       border: '1px dashed var(--border-strong)',
                       borderRadius: '8px',
@@ -1273,11 +1292,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     <Plus size={13} />
                     Add set
                   </button>
+                  {/* Отметить все — от левого края lbs до правого края таблицы */}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); markAllSets(); }}
                     style={{
-                      gridColumn: '4 / 5',
+                      gridColumn: '4 / 6',
                       height: '30px',
                       padding: '0 2px',
                       background: allSetsDone ? 'var(--green-dim)' : 'var(--bg-elevated)',
@@ -1293,21 +1313,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     }}>
                     <Check size={13} strokeWidth={3} />
                     {allSetsDone ? 'Снять отметки' : 'Отметить все'}
-                  </button>
-                  <button
-                    onClick={() => setShowChart(!showChart)}
-                    title='Динамика веса'
-                    disabled={!weightHistory || weightHistory.length === 0}
-                    style={{
-                      width: '30px', height: '30px', borderRadius: '8px', justifySelf: 'center',
-                      background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
-                      border: '1px solid var(--yellow-glow)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', padding: 0,
-                      opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1
-                    }}
-                  >
-                    <TrendingUp size={14} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
                   </button>
                 </div>
               </div>
