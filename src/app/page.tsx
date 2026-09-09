@@ -1256,15 +1256,14 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     «Отметить все» начинается от левого края lbs, динамика —
                     справа в колонке галочек. Высота 30px — как у полей. */}
                 <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '6px', marginTop: '8px', alignItems: 'center' }}>
-                  {/* Динамика веса — слева */}
+                  {/* Динамика веса — во всю ширину колонок Set + Last (история относится к ним) */}
                   <button
                     onClick={() => setShowChart(!showChart)}
                     title='Динамика веса'
                     disabled={!weightHistory || weightHistory.length === 0}
                     style={{
                       gridColumn: '1 / 3',
-                      justifySelf: 'start',
-                      width: '30px', height: '30px', borderRadius: '8px',
+                      height: '30px', borderRadius: '8px', width: '100%',
                       background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
                       border: '1px solid var(--yellow-glow)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1274,11 +1273,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   >
                     <TrendingUp size={14} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
                   </button>
-                  {/* Add set — ровно в колонке Reps */}
+                  {/* Add set — под колонкой lbs */}
                   <button
                     onClick={addSet}
                     style={{
-                      gridColumn: '3 / 4',
+                      gridColumn: '4 / 5',
                       height: '30px',
                       padding: '0 2px',
                       background: 'var(--bg-primary)',
@@ -1294,27 +1293,23 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     <Plus size={13} />
                     Add set
                   </button>
-                  {/* Отметить все — от левого края lbs до правого края таблицы */}
+                  {/* Отметить все — квадратная галочка как у сетов, в их колонке */}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); markAllSets(); }}
+                    title={allSetsDone ? 'Снять отметки' : 'Отметить все'}
                     style={{
-                      gridColumn: '4 / 6',
-                      height: '30px',
-                      padding: '0 2px',
-                      background: allSetsDone ? 'var(--green-dim)' : 'var(--bg-elevated)',
-                      border: `1.5px solid ${allSetsDone ? 'var(--green)' : 'var(--border-strong)'}`,
+                      width: '30px', height: '30px',
+                      border: allSetsDone ? 'none' : '1.5px solid var(--border-strong)',
+                      background: allSetsDone ? 'var(--green)' : 'var(--green-dim)',
                       borderRadius: '8px',
-                      color: allSetsDone ? 'var(--green)' : 'var(--text-primary)',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                      whiteSpace: 'nowrap',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', justifySelf: 'center',
+                      padding: 0,
+                      transition: 'background 160ms ease, border 160ms ease',
                       touchAction: 'manipulation',
                     }}>
-                    <Check size={13} strokeWidth={3} />
-                    {allSetsDone ? 'Снять отметки' : 'Отметить все'}
+                    <Check size={16} style={{ color: allSetsDone ? '#fff' : 'var(--green)' }} strokeWidth={3} />
                   </button>
                 </div>
               </div>
