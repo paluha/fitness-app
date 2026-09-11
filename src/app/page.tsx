@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { signOut } from 'next-auth/react';
 import {
-  Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check,
+  Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check, CheckCheck,
   Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
@@ -1273,11 +1273,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   >
                     <TrendingUp size={14} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
                   </button>
-                  {/* Add set — под колонкой lbs */}
+                  {/* Add set — под колонкой Reps */}
                   <button
                     onClick={addSet}
                     style={{
-                      gridColumn: '4 / 5',
+                      gridColumn: '3 / 4',
                       height: '30px',
                       padding: '0 2px',
                       background: 'var(--bg-primary)',
@@ -1293,23 +1293,29 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     <Plus size={13} />
                     Add set
                   </button>
-                  {/* Отметить все — квадратная галочка как у сетов, в их колонке */}
+                  {/* Отметить все подходы этого упражнения — нейтральный вид
+                      (зелёный в таблице значит «выполнено»), двойная галочка
+                      + подпись, чтобы действие читалось без догадок */}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); markAllSets(); }}
-                    title={allSetsDone ? 'Снять отметки' : 'Отметить все'}
+                    title={allSetsDone ? 'Снять отметки со всех подходов' : 'Отметить все подходы'}
                     style={{
-                      width: '30px', height: '30px',
-                      border: allSetsDone ? 'none' : '1.5px solid var(--border-strong)',
-                      background: allSetsDone ? 'var(--green)' : 'var(--green-dim)',
+                      gridColumn: '4 / 6',
+                      height: '30px',
+                      padding: '0 4px',
+                      border: '1.5px solid var(--border-strong)',
+                      background: 'var(--bg-elevated)',
+                      color: 'var(--text-primary)',
                       borderRadius: '8px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', justifySelf: 'center',
-                      padding: 0,
-                      transition: 'background 160ms ease, border 160ms ease',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                      fontSize: '11px', fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                       touchAction: 'manipulation',
                     }}>
-                    <Check size={16} style={{ color: allSetsDone ? '#fff' : 'var(--green)' }} strokeWidth={3} />
+                    <CheckCheck size={14} strokeWidth={2.5} />
+                    {allSetsDone ? 'Снять все' : 'Отметить все'}
                   </button>
                 </div>
               </div>
