@@ -4302,23 +4302,37 @@ export default function FitnessPage() {
     const dates = Object.keys(dayLogs).filter(d => d < dateKey).sort().reverse();
     const hasReal = (sets?: ExerciseSet[]) =>
       Array.isArray(sets) && sets.some(st => (st.weight || 0) > 0 || (st.reps || 0) > 0);
+    // Упражнения без истории по имени добираем по id внутри ТОЙ ЖЕ тренировки:
+    // часть старых дней сохранена без названий (пустое name), и поиск по имени
+    // для них не срабатывал — «прошлый раз» выглядел пустым, хотя веса есть.
+    const idsNeedingFallback = new Set(displayExercises.map(e => e.id));
     for (const d of dates) {
-      if (remaining.size === 0) break;
+      if (remaining.size === 0 && idsNeedingFallback.size === 0) break;
       for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
         if (!candidate?.exercises) continue;
+        const sameWorkout = candidate.workoutId === selectedWorkout;
         for (const e of candidate.exercises) {
-          const k = norm(e.name || '');
-          if (!k || !remaining.has(k)) continue;
           const sets = (e as { sets?: ExerciseSet[] }).sets;
-          if (hasReal(sets)) {
-            for (const id of idsByName.get(k)!) map[id] = sets!;
+          if (!hasReal(sets)) continue;
+          const k = norm(e.name || '');
+          if (k && remaining.has(k)) {
+            for (const id of idsByName.get(k)!) {
+              map[id] = sets!;
+              idsNeedingFallback.delete(id);
+            }
             remaining.delete(k);
+            continue;
+          }
+          // Фолбэк по позиции — только для безымянных записей той же тренировки
+          if (!k && sameWorkout && idsNeedingFallback.has(e.id) && !map[e.id]) {
+            map[e.id] = sets!;
+            idsNeedingFallback.delete(e.id);
           }
         }
       }
     }
     return map;
-  }, [dayLogs, dateKey, displayExercises]);
+  }, [dayLogs, dateKey, displayExercises, selectedWorkout]);
 
   // Динамика рабочего веса по каждому упражнению С САМОГО НАЧАЛА: для каждой
   // даты, где упражнение делалось (в ЛЮБОЙ тренировке), берём МАКСИМАЛЬНЫЙ вес
