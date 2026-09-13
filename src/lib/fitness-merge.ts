@@ -40,7 +40,7 @@ type LegacyDayLog = {
 
 export async function getMergedDayLogs(prisma: any, userId: string): Promise<Record<string, LegacyDayLog>> {
   const [fd, workoutRows, dayRows] = await Promise.all([
-    prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true, workouts: true } }),
+    prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true, workouts: true, programArchive: true } }),
     prisma.workoutLogEntry.findMany({ where: { userId, deletedAt: null } }),
     prisma.dayLogEntry.findMany({ where: { userId, deletedAt: null } }),
   ]);
@@ -53,6 +53,17 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
   const workoutsTemplate = (fd?.workouts ?? []) as Array<{ id: string; name: string; exercises: Array<Record<string, unknown>> }>;
   const templateById = new Map<string, typeof workoutsTemplate[number]>();
   for (const w of workoutsTemplate) if (w && w.id) templateById.set(w.id, w);
+
+  // С какой даты действует ТЕКУЩАЯ программа. id упражнений (1..7)
+  // переиспользуются между программами, поэтому подставлять сегодняшние
+  // названия в день, тренированный по прошлой программе, нельзя: вес жима
+  // становился «весом отведений гантелей» в истории «прошлый раз».
+  const archive = (fd?.programArchive ?? []) as Array<{ archivedAt?: string }>;
+  let currentProgramSince = '';
+  for (const a of archive) {
+    const at = typeof a?.archivedAt === 'string' ? a.archivedAt.slice(0, 10) : '';
+    if (at > currentProgramSince) currentProgramSince = at;
+  }
 
   const base: Record<string, LegacyDayLog> = {};
   const legacy = (fd?.dayLogs ?? {}) as Record<string, LegacyDayLog>;
@@ -108,10 +119,12 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
     // Prefer existing draft exercises, fall back to snapshot, then to the
     // workout template by id. The template always has up-to-date metadata
     // (name, plannedSets, restTime) even if the day never had a draft saved.
+    // Шаблон подставляем только дням текущей программы (или когда архива нет).
+    const templateAllowed = !currentProgramSince || date >= currentProgramSince;
     const existingExercises = (
       day.workoutDraft?.exercises
       ?? (day.workoutSnapshot as any)?.exercises
-      ?? (templateById.get(workoutId)?.exercises as Array<Record<string, unknown>> | undefined)
+      ?? (templateAllowed ? (templateById.get(workoutId)?.exercises as Array<Record<string, unknown>> | undefined) : undefined)
       ?? []
     ) as Array<Record<string, unknown>>;
     const exMap = new Map<string, Record<string, unknown>>();

@@ -2751,7 +2751,9 @@ export default function FitnessPage() {
         const raw = localStorage.getItem('fitness_backup');
         if (raw) {
           const b = JSON.parse(raw);
-          if (Array.isArray(b.workouts) && b.workouts.length) {
+          // Офлайн-старт: шаблоны берём из бэкапа, только если сервер ещё
+          // ни разу не отвечал в этой сессии (иначе перетрём свежую программу).
+          if (Array.isArray(b.workouts) && b.workouts.length && !serverDataLoadedRef.current) {
             // подставляем картинки из сохранённой библиотеки, как при обычной загрузке
             const lib = (b.exerciseLibrary ?? {}) as Record<string, string>;
             for (const w of b.workouts as Workout[]) {
@@ -3086,7 +3088,10 @@ export default function FitnessPage() {
             if (backupDraft?.exercises?.some((e: Exercise) => e.completed || e.actualSets) &&
                 !serverDraft?.exercises?.some((e: Exercise) => e.completed || e.actualSets)) {
               setDayLogs(prev => ({ ...prev, [today]: backupToday }));
-              if (parsed.workouts) setWorkouts(parsed.workouts);
+              // Программу из бэкапа НЕ восстанавливаем: сервер — источник
+              // истины для шаблонов. Иначе старая (доИИшная) программа
+              // воскресала на телефоне, и веса дня писались под чужими
+              // названиями упражнений («100 кг отведения гантелей»).
             }
           }
         }
