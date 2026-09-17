@@ -4286,47 +4286,59 @@ export default function FitnessPage() {
   // previous reps×weight per set. We walk dayLogs date keys in reverse.
   const lastSetsByExerciseId = useMemo(() => {
     const map: Record<string, ExerciseSet[]> = {};
-    // Ищем LAST по НАЗВАНИЮ упражнения (не по id!): внутренние id 1..N
-    // переиспользуются между программами, и после смены программы (например,
-    // сгенерированной ИИ) история ЧУЖОГО упражнения подтягивалась в новое.
-    // Название — стабильный идентификатор упражнения между программами.
     const norm = (n: string) => n.toLowerCase().trim();
-    const idsByName = new Map<string, string[]>();
-    for (const e of displayExercises) {
-      const k = norm(e.name);
-      if (!k) continue;
-      if (!idsByName.has(k)) idsByName.set(k, []);
-      idsByName.get(k)!.push(e.id);
-    }
-    const remaining = new Set(idsByName.keys());
-    const dates = Object.keys(dayLogs).filter(d => d < dateKey).sort().reverse();
     const hasReal = (sets?: ExerciseSet[]) =>
       Array.isArray(sets) && sets.some(st => (st.weight || 0) > 0 || (st.reps || 0) > 0);
-    // Упражнения без истории по имени добираем по id внутри ТОЙ ЖЕ тренировки:
-    // часть старых дней сохранена без названий (пустое name), и поиск по имени
-    // для них не срабатывал — «прошлый раз» выглядел пустым, хотя веса есть.
-    const idsNeedingFallback = new Set(displayExercises.map(e => e.id));
+
+    const dates = Object.keys(dayLogs).filter(d => d < dateKey).sort().reverse();
+    const needed = new Set(displayExercises.map(e => e.id));
+
+    // ШАГ 1 — ГЛАВНЫЙ: последний раз, когда пользователь делал ЭТУ ЖЕ
+    // тренировку (ту же ячейку T1–T7). Нажал T2 — видишь свою прошлую T2,
+    // подход к подходу, по позиции упражнения. Именно этого ждёт пользователь:
+    // ячейка для него и есть «тренировка», даже если состав в ней менялся.
     for (const d of dates) {
-      if (remaining.size === 0 && idsNeedingFallback.size === 0) break;
+      if (needed.size === 0) break;
       for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
-        if (!candidate?.exercises) continue;
-        const sameWorkout = candidate.workoutId === selectedWorkout;
+        if (!candidate?.exercises || candidate.workoutId !== selectedWorkout) continue;
+        // День считается «той самой прошлой тренировкой», только если в нём
+        // реально есть введённые веса — пустые заходы пропускаем.
+        if (!candidate.exercises.some(e => hasReal((e as { sets?: ExerciseSet[] }).sets))) continue;
         for (const e of candidate.exercises) {
           const sets = (e as { sets?: ExerciseSet[] }).sets;
-          if (!hasReal(sets)) continue;
-          const k = norm(e.name || '');
-          if (k && remaining.has(k)) {
-            for (const id of idsByName.get(k)!) {
-              map[id] = sets!;
-              idsNeedingFallback.delete(id);
-            }
+          if (!hasReal(sets) || !needed.has(e.id) || map[e.id]) continue;
+          map[e.id] = sets!;
+          needed.delete(e.id);
+        }
+        break; // берём только ОДИН (ближайший) день этой тренировки
+      }
+      if (Object.keys(map).length > 0) break;
+    }
+
+    // ШАГ 2 — добор по НАЗВАНИЮ для позиций, которых не было в прошлой
+    // тренировке (например упражнение добавлено позже): ищем то же движение
+    // в любых других днях, чтобы не терять историю при перестановках.
+    if (needed.size > 0) {
+      const idsByName = new Map<string, string[]>();
+      for (const e of displayExercises) {
+        if (!needed.has(e.id)) continue;
+        const k = norm(e.name);
+        if (!k) continue;
+        if (!idsByName.has(k)) idsByName.set(k, []);
+        idsByName.get(k)!.push(e.id);
+      }
+      const remaining = new Set(idsByName.keys());
+      for (const d of dates) {
+        if (remaining.size === 0) break;
+        for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
+          if (!candidate?.exercises) continue;
+          for (const e of candidate.exercises) {
+            const k = norm(e.name || '');
+            if (!k || !remaining.has(k)) continue;
+            const sets = (e as { sets?: ExerciseSet[] }).sets;
+            if (!hasReal(sets)) continue;
+            for (const id of idsByName.get(k)!) { map[id] = sets!; needed.delete(id); }
             remaining.delete(k);
-            continue;
-          }
-          // Фолбэк по позиции — только для безымянных записей той же тренировки
-          if (!k && sameWorkout && idsNeedingFallback.has(e.id) && !map[e.id]) {
-            map[e.id] = sets!;
-            idsNeedingFallback.delete(e.id);
           }
         }
       }
