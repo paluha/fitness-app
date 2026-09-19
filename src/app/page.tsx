@@ -6776,20 +6776,6 @@ export default function FitnessPage() {
         {/* LABS VIEW — анализы: загрузка, парсинг, динамика */}
         {view === 'labs' && <LabsView />}
 
-        {/* Лого — красивый текст TRAINX внизу страницы */}
-        <div style={{ textAlign: 'center', padding: '32px 0 4px', userSelect: 'none' }}>
-          <span style={{
-            fontSize: '30px',
-            fontWeight: 900,
-            letterSpacing: '8px',
-            paddingLeft: '8px',
-            background: 'linear-gradient(120deg, var(--accent) 0%, var(--accent-warm) 55%, #ffb46b 100%)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            color: 'transparent',
-            fontStyle: 'italic'
-          }}>TRAINX</span>
-        </div>
       </div>
 
       {/* Add/Edit Measurement Modal */}
@@ -8638,43 +8624,28 @@ export default function FitnessPage() {
       )}
 
       {/* Нижняя навигация: основное меню-капсула + отдельная капсула AI-чата справа */}
+      {/* Нижнее меню по макету: четыре равные вкладки в одной панели.
+          ИИ раньше жила ОТДЕЛЬНОЙ кнопкой вне flex-контейнера и забирала
+          всю свободную ширину — 205px против 50px у соседей. */}
       <nav className="tx-tabbar">
-        <div style={{ flex: 1, display: 'flex' }}>
-          {([
-            { key: 'workout',   icon: <Dumbbell size={22} />,     label: String(t('workout')) },
-            { key: 'nutrition', icon: <Apple size={22} />,        label: String(t('food')) },
-            ...(userSettings.email !== 'dmitriheadshot@friend.local'
-              ? [{ key: 'planner' as typeof view, icon: <CalendarDays size={22} />, label: userSettings.language === 'ru' ? 'Дела' : 'Plan' }]
-              : []),
-            { key: 'labs' as typeof view, icon: <FlaskConical size={22} />, label: userSettings.language === 'ru' ? 'Анализы' : 'Labs' },
-          ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
-            // «Я» подсвечивается также на вложенных экранах (статистика, прогресс)
-            const isActive = tab.key === 'profile'
-              ? (view === 'profile' || view === 'gains' || view === 'analytics')
-              : view === tab.key;
-            return (
-              <button
-                key={tab.key}
-                className={['btn-press', 'tx-tab', isActive ? 'is-active' : ''].filter(Boolean).join(' ')}
-                onClick={() => { setView(tab.key); localStorage.setItem('fitness_view', tab.key); setShowProfileDropdown(false); }}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ИИ — такая же вкладка панели, как остальные (по макету).
-            Раньше висела отдельной круглой капсулой поверх меню. */}
-        <button
-          className={['btn-press', 'tx-tab', view === 'chat' ? 'is-active' : ''].filter(Boolean).join(' ')}
-          onClick={() => { setView('chat'); localStorage.setItem('fitness_view', 'chat'); setShowProfileDropdown(false); }}
-          aria-label="AI-ассистент"
-        >
-          <Brain size={21} />
-          <span>ИИ</span>
-        </button>
+        {([
+          { key: 'workout' as typeof view,   icon: <Home size={21} />,          label: userSettings.language === 'ru' ? 'Главная' : 'Home' },
+          { key: 'planner' as typeof view,   icon: <CalendarDays size={21} />,  label: userSettings.language === 'ru' ? 'Планер' : 'Plan' },
+          { key: 'chat' as typeof view,      icon: <Brain size={21} />,         label: userSettings.language === 'ru' ? 'ИИ' : 'AI' },
+          { key: 'labs' as typeof view,      icon: <FlaskConical size={21} />,  label: userSettings.language === 'ru' ? 'Анализы' : 'Labs' },
+        ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
+          const isActive = view === tab.key;
+          return (
+            <button
+              key={tab.key}
+              className={['btn-press', 'tx-tab', isActive ? 'is-active' : ''].filter(Boolean).join(' ')}
+              onClick={() => { setView(tab.key); localStorage.setItem('fitness_view', tab.key); setShowProfileDropdown(false); }}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </main>
   );

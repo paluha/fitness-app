@@ -20,7 +20,8 @@ export function WeightChart({ data, labels }: { data: number[]; labels: string[]
     );
   }
 
-  const width = 320, height = 150;
+  // Геометрия и акцент — по макету design/trainx-workout-dev.html.
+  const width = 310, height = 168;
   const padding = { top: 22, right: 18, bottom: 30, left: 42 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -36,9 +37,9 @@ export function WeightChart({ data, labels }: { data: number[]; labels: string[]
   }));
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
 
-  const change = data[data.length - 1] - data[0];
-  const isDecreasing = change < 0;
-  const stroke = isDecreasing ? '#22c55e' : '#f59e0b';
+  // В макете линия всегда фирменная оранжевая — направление читается
+  // по самой кривой и подписи дельты над графиком.
+  const stroke = '#ff5c35';
 
   const gridLines = [0, 0.5, 1].map(ratio => ({
     y: padding.top + chartHeight * (1 - ratio),
@@ -59,12 +60,12 @@ export function WeightChart({ data, labels }: { data: number[]; labels: string[]
         ))}
         <defs>
           <linearGradient id="wgt" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={stroke} stopOpacity="0.28" />
-            <stop offset="100%" stopColor={stroke} stopOpacity="0.04" />
+            <stop offset="0%" stopColor={stroke} stopOpacity="0.17" />
+            <stop offset="100%" stopColor={stroke} stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d={`${pathD} L ${points[points.length - 1].x},${padding.top + chartHeight} L ${points[0].x},${padding.top + chartHeight} Z`} fill="url(#wgt)" />
-        <path d={pathD} fill="none" stroke={stroke} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={pathD} fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((p, i) => (
           <g key={i}>
             <circle cx={p.x} cy={p.y} r="4" fill="var(--bg-card)" stroke={stroke} strokeWidth="2" />
@@ -85,12 +86,6 @@ export function WeightChart({ data, labels }: { data: number[]; labels: string[]
           </>
         )}
       </svg>
-      <div style={{ textAlign: 'center', marginTop: 6, fontSize: 13, fontWeight: 700, color: stroke }}>
-        {change === 0 ? 'без изменений' : `${change > 0 ? '+' : ''}${change.toFixed(1)} кг`}
-        <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
-          за период
-        </span>
-      </div>
     </div>
   );
 }
