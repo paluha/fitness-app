@@ -963,3 +963,63 @@ button:disabled {
 /* Фото упражнения — компактная кнопка в шапке карточки. */
 .tx-photo { width: 42px; height: 42px; flex: 0 0 42px; border: 1px solid #e5ded4; border-radius: 8px; overflow: hidden; background: #f8f5ef; cursor: zoom-in; padding: 0; display: flex; align-items: center; justify-content: center; color: #a69b8b; }
 .tx-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ==========================================================================
+   Сверка с макетом по вычисленным стилям: правим найденные расхождения.
+   ========================================================================== */
+
+/* Экран тренировки набирается без глобального сжатия букв (в body задано
+   letter-spacing:-0.01em, в макете его нет) — иначе «плывут» все подписи. */
+.view-content, .tx-tabbar, .tx-ex, .tx-card { letter-spacing: normal; }
+
+/* Кикер и подпись программы в макете НЕ капсом: там уже прописные в тексте,
+   а uppercase ломал строчные вроде «Моя программа». */
+.tx-kicker, .tx-utility { text-transform: none; }
+
+/* Заголовок — 26px, как в эталоне (было 27). */
+.tx-titleline h2 { font-size: 26px; }
+
+/* Кнопки тренировок: в макете 6 колонок по ~47px и высота 37. */
+.tx-wtab { padding: 9px 0; }
+
+/* Ряд действий: Тренд слева, «+ Подход» справа, обе — по содержимому,
+   высота 44 как в эталоне. Раньше они растягивались по колонкам таблицы. */
+.tx-grid.tx-actions { grid-template-columns: auto 1fr auto; gap: 6px; }
+.tx-trend { grid-column: 1; justify-self: start; width: auto; height: 44px; }
+.tx-addset { grid-column: 3; justify-self: end; width: auto; height: 44px; }
+.tx-markall { grid-column: 1 / -1; }
+
+/* Счётчик подходов — тёмный, как в макете. */
+.tx-excount { color: var(--text-primary); font-size: 10px; }
+.tx-excount.is-done { color: #34814d; }
+
+/* Шапка таблицы: цвет и левый отступ первой колонки по эталону. */
+.tx-head { color: #92887a; padding-left: 2px; }
+
+/* Галочка подхода — полужирная, как в макете. */
+.tx-check { font-weight: 600; }
+
+/* Заметка к упражнению: мельче, светлее и на белом фоне, как в эталоне. */
+.tx-ex .ex-note input,
+.tx-ex input[placeholder*="амет"] {
+  font-size: 10px; color: var(--text-muted);
+  background: #fdfcfa; border: 1px solid #eee8df; border-radius: 7px;
+  padding: 9px 10px;
+}
+
+/* Вкладки нижнего меню — равной ширины (в приложении их 5 против 4). */
+.tx-tabbar > div { flex: 1; display: flex; }
+
+/* Базовый кегль экрана — 14px, как в макете (.app). Браузерные 16px делали
+   все вложенные rem/em-размеры крупнее эталона. */
+.view-content { font-size: 14px; }
+/* Ширина кнопок T зависит от их числа: в приложении их до 7 против 6 в
+   макете, поэтому фиксируем не ширину, а высоту и кегль. */
+.tx-wtab { padding: 8px 0; min-height: 37px; }
+.tx-iconbtn { min-height: 37px; padding: 0 7px; }
+.tx-iconbtn svg { width: 16px; height: 16px; }
+
+/* Приветствие: в макете обычное начертание и чуть более тёплый цвет. */
+.tx-welcome { font-weight: 400; color: #302a22; }
+/* Счётчик подходов в шапке карточки — кегль как в эталоне. */
+.tx-excount { font-size: 10px; line-height: 1.2; }

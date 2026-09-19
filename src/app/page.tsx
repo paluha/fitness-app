@@ -1201,9 +1201,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 <button
                   onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
                   style={{
-                    padding: 0, border: '1px solid var(--border)', borderRadius: '12px',
+                    padding: 0, border: '1px solid #e5ded4', borderRadius: '8px',
                     overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-primary)',
-                    width: '56px', height: '56px', display: 'block'
+                    width: '42px', height: '42px', display: 'block'
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1232,7 +1232,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 onClick={() => imageInputRef.current?.click()}
                 aria-label='Добавить фото'
                 style={{
-                  width: '56px', height: '56px', borderRadius: '12px',
+                  width: '42px', height: '42px', borderRadius: '8px',
                   background: 'var(--bg-primary)', border: '1px dashed var(--border-strong)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', flexShrink: 0
@@ -2178,10 +2178,18 @@ export default function FitnessPage() {
     if (!el) return;
     // Неделя заканчивается выбранным днём, как в макете: центрирование
     // уводило вправо будущие даты, и видимая неделя выглядела чужой.
-    const sel = el.querySelector('[data-selchip="1"]') as HTMLElement | null;
-    if (sel) el.scrollLeft = Math.max(0, sel.offsetLeft + sel.offsetWidth - el.clientWidth);
-    else el.scrollLeft = el.scrollWidth;
-  }, [view, todayStr]);
+    // Прокручиваем в rAF: на первом проходе чипы ещё не отрисованы, и
+    // scrollLeft молча падал в 0 — лента показывала чужую неделю.
+    const apply = () => {
+      const sel = el.querySelector('[data-selchip="1"]') as HTMLElement | null;
+      if (sel) el.scrollLeft = Math.max(0, sel.offsetLeft + sel.offsetWidth - el.clientWidth);
+      else el.scrollLeft = el.scrollWidth;
+    };
+    apply();
+    const raf = requestAnimationFrame(apply);
+    const t = setTimeout(apply, 120);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+  }, [view, todayStr, selectedDate]);
   const [showFoodAssistant, setShowFoodAssistant] = useState(false);
   const [foodRecommendations, setFoodRecommendations] = useState<{
     analysis: string;
@@ -4621,36 +4629,14 @@ export default function FitnessPage() {
                     автоматически считается днём отдыха. */}
                 <button
                   onClick={() => openWorkoutEditor(selectedWorkout)}
-                  style={{
-                    padding: '0 11px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '10px',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}
+                  className="tx-iconbtn"
                   title="Редактировать тренировку"
                 >
                   <Settings size={18} />
                 </button>
                 <button
                   onClick={() => { setShowProgramModal(true); setProgramDays(Math.max(2, workouts.filter(w => w.exercises.length > 0).length) || 4); }}
-                  style={{
-                    padding: '0 11px',
-                    background: 'var(--yellow-dim)',
-                    border: '1px solid var(--yellow-glow)',
-                    borderRadius: '10px',
-                    color: 'var(--yellow)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}
+                  className="tx-iconbtn is-ai"
                   title="Программа: ИИ-предложение и история"
                 >
                   <Sparkles size={18} />
