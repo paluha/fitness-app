@@ -1704,6 +1704,14 @@ function FitnessCalendar({
 // один: выполнено / в процессе / запланировано / нет записи.
 type DayStatus = 'done' | 'active' | 'planned' | 'none';
 
+// Подписи статусов дня — один словарь для ленты, календаря и подписи дня.
+const DAY_STATUS_TEXT: Record<DayStatus, string> = {
+  done: 'Выполнено',
+  active: 'В процессе',
+  planned: 'Запланировано',
+  none: 'Нет записи',
+};
+
 function getDayStatus(
   log: DayLog | undefined,
   dateStr: string,
@@ -4485,7 +4493,24 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Заголовок тренировки по макету: кикер, крупное название, календарь */}
+            {/* Переключатель разделов по макету: сегментированная капсула.
+                Ведёт в те же вкладки, что и нижнее меню. */}
+            <div className="tx-modeswitch">
+              <button
+                className="tx-mode is-active"
+                onClick={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
+              >
+                {userSettings.language === 'ru' ? 'Тренировки' : 'Workouts'}
+              </button>
+              <button
+                className="tx-mode"
+                onClick={() => { setView('nutrition'); localStorage.setItem('fitness_view', 'nutrition'); }}
+              >
+                {userSettings.language === 'ru' ? 'Питание' : 'Nutrition'} <span>↗</span>
+              </button>
+            </div>
+            
+                        {/* Заголовок тренировки по макету: кикер, крупное название, календарь */}
             {!viewingPastWorkout && (
               <div>
                 <div className="tx-kicker">
@@ -4633,6 +4658,14 @@ export default function FitnessPage() {
                 >
                   <Sparkles size={18} />
                 </button>
+              </div>
+              {/* Подпись выбранного дня: дата, статус и тренировка — по макету. */}
+              <div className="tx-daylabel">
+                {selectedDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                {' · '}
+                {DAY_STATUS_TEXT[getDayStatus(currentDayLog, dateKey, todayStr).status]}
+                {' · '}
+                {(currentWorkout?.name || '').replace('Тренировка ', 'T')}
               </div>
               </>
             )}
