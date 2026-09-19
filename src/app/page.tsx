@@ -1330,21 +1330,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
 
           {/* Заметка к упражнению — самая последняя строка (динамика веса
               переехала в строку Add set / Отметить все) */}
-          <div style={{ marginTop: '12px' }}>
+          {/* Заметка к упражнению — оформление в .tx-note (по макету) */}
+          <div className="tx-note" style={{ marginTop: '8px' }}>
             <input
               type="text"
               value={ex.feedback}
               onChange={(e) => onUpdate({ feedback: e.target.value })}
-              placeholder="Заметки..."
-              style={{
-                width: '100%',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 10px',
-                color: 'var(--text-primary)',
-                fontSize: '12px'
-              }}
+              placeholder="Заметка к упражнению…"
             />
           </div>
         </div>

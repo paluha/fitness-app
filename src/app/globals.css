@@ -1023,3 +1023,8 @@ button:disabled {
 .tx-welcome { font-weight: 400; color: #302a22; }
 /* Счётчик подходов в шапке карточки — кегль как в эталоне. */
 .tx-excount { font-size: 10px; line-height: 1.2; }
+
+/* Кнопки шапки: кегль иконок и внутренние отступы по эталону. */
+.tx-profile, .tx-calbtn { font-size: 13px; }
+.tx-calbtn svg { width: 20px; height: 20px; }
+.tx-iconbtn { padding: 0 8px; }
