@@ -770,7 +770,8 @@ button:disabled {
 /* Лента дат: без плашек, кружок на выбранном дне */
 .tx-strip { display: flex; gap: 4px; margin-bottom: 9px; padding: 0; overflow-x: auto; }
 .tx-day {
-  flex: 1 0 calc((100% - 24px) / 7); min-width: 0;
+  /* Ровно 7 дней в видимой части, остальные — прокруткой в историю. */
+  flex: 0 0 calc((100% - 24px) / 7); min-width: 0;
   padding: 3px 0 4px; gap: 3px;
   background: none; border: 0; border-radius: 12px;
   display: flex; flex-direction: column; align-items: center; cursor: pointer;
@@ -893,3 +894,72 @@ button:disabled {
 .tx-dot.d-active { background: var(--yellow); }
 .tx-dot.d-planned { background: #b9ae9c; }
 .tx-dot.d-none { background: transparent; box-shadow: inset 0 0 0 1px #d8cfc2; }
+
+/* Свёрнутая карточка: итог по подходам под названием (по макету) */
+.tx-collapsed { display: block; font-size: 10px; font-weight: 500; color: #8c8274; margin-top: 5px; line-height: 1.45; letter-spacing: 0; }
+.tx-collapsed.is-complete { color: #34814d; }
+
+/* Нижнее меню по макету: плоская панель, активная вкладка оранжевая
+   с полоской-индикатором сверху. Раньше была плавающая капсула с тенью. */
+.tx-tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+  display: flex; gap: 0;
+  max-width: 600px; margin: 0 auto;
+  background: #fdfcfa; border-top: 1px solid #e4ddd2;
+  padding: 8px 10px 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.tx-tab {
+  flex: 1; min-height: 47px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 5px 0;
+  background: transparent; border: 0; cursor: pointer;
+  font-size: 9px; font-weight: 500; color: #a19789; position: relative;
+  font-family: inherit;
+}
+.tx-tab.is-active { color: #bd5939; font-weight: 650; }
+.tx-tab.is-active:before {
+  content: ''; position: absolute; top: -8px;
+  width: 24px; height: 2px; border-radius: 2px; background: var(--yellow);
+}
+.tx-tab svg { width: 21px; height: 21px; }
+
+/* Месячный календарь и «Мой прогресс» — карточки как в макете */
+.tx-card { border-radius: 16px; padding: 15px; background: #fff; border: 1px solid #e8e1d7; margin-top: 20px; }
+.tx-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.tx-eyebrow { display: block; font-size: 7px; letter-spacing: .8px; color: #af9c87; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; }
+.tx-card-head h4 { font-size: 17px; letter-spacing: -.5px; margin: 0; font-weight: 700; }
+.tx-badge { font-size: 8px; background: #f4f0ea; border-radius: 6px; padding: 5px 7px; color: #918474; white-space: nowrap; }
+.tx-montharrows { display: flex; gap: 4px; }
+.tx-montharrows button { background: #f6f3ee; border: 0; border-radius: 7px; width: 27px; height: 27px; font-size: 16px; color: #817769; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.tx-monthstats { display: flex; gap: 12px; border-bottom: 1px solid #eee8df; padding: 2px 0 12px; margin-bottom: 10px; font-size: 10px; color: #9b8b79; }
+.tx-monthstats b { font-size: 17px; color: #514737; display: block; font-weight: 700; }
+.tx-monthgrid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 3px; }
+.tx-monthdow { font-size: 8px; color: var(--text-muted); text-align: center; padding: 5px 0; text-transform: uppercase; }
+.tx-monthday {
+  height: 42px; min-width: 0; border: 0; background: transparent; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 11px; color: #71685b; position: relative; cursor: pointer; font-family: inherit;
+}
+.tx-monthday small { font-size: 8px; line-height: 1.1; min-height: 9px; display: inline-flex; align-items: center; gap: 3px; }
+.tx-monthday.has-rec { background: #f5f2ed; color: #51493f; }
+.tx-monthday.is-sel { background: #302b25; color: #fff; }
+.tx-monthday.is-sel small { color: #e8e0d5; }
+.tx-monthday.is-today { color: var(--text-secondary); font-weight: 700; }
+.tx-daydetail { margin-top: 13px; padding: 12px; border: 1px solid #ebe3d8; border-radius: 9px; background: #fcfaf7; font-size: 11px; color: #6f6353; }
+.tx-daydetail b { display: block; color: #443a2d; margin-bottom: 5px; }
+.tx-daydetail small { font-size: 10px; color: #9b8b79; }
+
+/* Сегмент показателей в «Моём прогрессе» */
+.tx-modes { display: flex; gap: 3px; background: #f4f0ea; border-radius: 8px; padding: 3px; margin: 12px 0; }
+.tx-modes button { flex: 1; border: 0; background: transparent; border-radius: 6px; color: #9b8e7d; font-size: 10px; font-weight: 500; padding: 7px 3px; cursor: pointer; font-family: inherit; }
+.tx-modes button.is-active { background: #fff; color: #62594c; box-shadow: 0 1px 3px rgba(48,42,34,.035); }
+.tx-empty { font-size: 10px; color: var(--text-muted); margin: 7px 0 0; }
+
+/* Тренд и «+ Подход» — текстовые кнопки без рамок, как в макете. */
+.tx-trend { background: transparent; border: 0; color: #857969; justify-content: flex-start; padding: 0 2px; }
+.tx-addset { background: transparent; border: 0; color: #857969; justify-content: flex-end; padding: 0 2px; }
+.tx-trend:disabled { opacity: .35; }
+/* Фото упражнения — компактная кнопка в шапке карточки. */
+.tx-photo { width: 42px; height: 42px; flex: 0 0 42px; border: 1px solid #e5ded4; border-radius: 8px; overflow: hidden; background: #f8f5ef; cursor: zoom-in; padding: 0; display: flex; align-items: center; justify-content: center; color: #a69b8b; }
+.tx-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }

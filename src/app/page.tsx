@@ -202,107 +202,30 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
 
   const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
 
+  // Вид по макету: одна бежевая полоса вместо синей кнопки Play.
+  // Идёт отдых — оранжевая с обратным отсчётом, закончился — зелёная.
   return (
-    <div style={{ marginTop: '8px' }}>
-      {/* Крупный тайминг, пока отдых идёт */}
-      {isRunning && (
-        <div style={{
-          textAlign: 'center',
-          fontSize: '42px',
-          fontWeight: 700,
-          letterSpacing: '-0.03em',
-          fontVariantNumeric: 'tabular-nums',
-          lineHeight: 1.1,
-          marginBottom: '6px',
-          color: timeLeft <= 5 ? 'var(--blue)' : 'var(--text-primary)'
-        }}>
-          {formatTime(timeLeft)}
-        </div>
-      )}
-      <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px'
-    }}>
-      <button
-        onClick={toggleTimer}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '6px',
-          padding: '10px 14px',
-          background: isFinished
-            ? 'var(--blue)'
-            : isRunning
-              ? 'var(--red-dim)'
-              : 'var(--blue-dim)',
-          border: `1px solid ${isFinished ? 'var(--blue)' : isRunning ? 'rgba(255, 107, 107, 0.3)' : 'rgba(37, 99, 235, 0.3)'}`,
-          borderRadius: '10px',
-          color: isFinished ? '#fff' : isRunning ? 'var(--red)' : 'var(--blue)',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 700,
-          minWidth: '100px',
-          boxShadow: isFinished ? '0 4px 20px var(--blue-dim)' : 'none',
-          animation: isFinished ? 'pulse 1s infinite' : 'none'
-        }}
-      >
-        {isFinished ? (
-          <>
-            <RotateCcw size={16} />
-            СТАРТ!
-          </>
-        ) : isRunning ? (
-          <>
-            <Pause size={16} />
-            {formatTime(timeLeft)}
-          </>
-        ) : (
-          <>
-            <Play size={16} />
-            {timeLeft === totalSeconds ? restTime : formatTime(timeLeft)}
-          </>
+    <div className={['exercise-rest', 'tx-rest', isRunning ? 'is-running' : '', isFinished ? 'is-done' : ''].filter(Boolean).join(' ')}>
+      <span className="rest-state" role="status">
+        {isFinished
+          ? 'Отдых закончен — можно начинать подход'
+          : isRunning
+            ? `Отдых · ${formatTime(timeLeft)}`
+            : `Отдых после подхода · ${formatTime(totalSeconds)}`}
+      </span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+        {isRunning && (
+          <span aria-hidden style={{ width: '46px', height: '3px', borderRadius: '2px', background: 'rgba(182,83,52,0.22)', overflow: 'hidden', display: 'inline-block' }}>
+            <span style={{ display: 'block', width: `${progress}%`, height: '100%', background: '#b65334', transition: 'width 1s linear' }} />
+          </span>
         )}
-      </button>
-
-      {(isRunning || timeLeft < totalSeconds) && !isFinished && (
-        <button
-          onClick={resetTimer}
-          style={{
-            padding: '10px',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: '10px',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          <RotateCcw size={16} />
+        <button type="button" onClick={toggleTimer}>
+          {isFinished ? 'Заново' : isRunning ? 'Пауза' : 'Старт'}
         </button>
-      )}
-
-      {isRunning && (
-        <div style={{
-          flex: 1,
-          height: '6px',
-          background: 'var(--bg-elevated)',
-          borderRadius: '3px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${progress}%`,
-            height: '100%',
-            background: timeLeft < 10 ? 'var(--red)' : 'var(--blue)',
-            borderRadius: '3px',
-            transition: 'width 1s linear'
-          }} />
-        </div>
-      )}
-      </div>
+        {(isRunning || timeLeft < totalSeconds) && (
+          <button type="button" onClick={resetTimer} aria-label="Сбросить отдых">Сброс</button>
+        )}
+      </span>
     </div>
   );
 }
@@ -974,6 +897,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
   // отмеченных подхода должны перезапускать отдых заново.
   const [restStart, setRestStart] = useState(0);
   const [restStop, setRestStop] = useState(0);
+  // Сводка по подходам: счётчик «2/3» в шапке и строка результата,
+  // которую макет показывает у свёрнутой карточки.
+  const summarySets: ExerciseSet[] = ex.sets ?? makeInitialSets(ex.plannedSets);
+  const setsTotal = summarySets.length;
+  const setsDone = summarySets.filter(st => st.completed).length;
+  const bestSet = summarySets
+    .filter(st => st.completed && (st.reps > 0 || st.weight > 0))
+    .reduce<ExerciseSet | null>((best, st) => (
+      !best || st.weight > best.weight || (st.weight === best.weight && st.reps > best.reps) ? st : best
+    ), null);
   const [showHistory, setShowHistory] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -1036,83 +969,30 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
         style={{ cursor: 'pointer' }}
         onClick={() => setExpanded(!expanded)}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="tx-exname" style={{
-            color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{
-              color: 'var(--text-muted)',
-              fontSize: '12px'
-            }}>
-              {idx + 1}.
+        {/* Название + группа мышц (раскрытая) либо итог по подходам
+            (свёрнутая) — как в макете. Порядкового номера нет. */}
+        <div className="tx-exname" style={{ color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+          {ex.name}
+          {expanded && muscleLabel && <span className="muscle">{muscleLabel}</span>}
+          {!expanded && (
+            <span className={['tx-collapsed', setsTotal > 0 && setsDone === setsTotal ? 'is-complete' : ''].filter(Boolean).join(' ')}>
+              {setsDone}/{setsTotal} подхода{bestSet ? ` · ${bestSet.weight} lb × ${bestSet.reps}` : ' · ещё не начато'}
             </span>
-            <span style={{
-              overflow: expanded ? 'visible' : 'hidden',
-              textOverflow: expanded ? 'initial' : 'ellipsis',
-              whiteSpace: expanded ? 'normal' : 'nowrap',
-              wordBreak: expanded ? 'break-word' : 'normal'
-            }}>
-              {ex.name}
-            </span>
-            {/* Show weight badge if completed with weight */}
-            {ex.completed && ex.actualSets && (
-              <span style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                background: 'var(--bg-elevated)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                marginLeft: 'auto',
-                flexShrink: 0
-              }}>
-                {ex.actualSets}
-              </span>
-            )}
-          </div>
-          {/* Под упражнением — группа мышц, определённая ИИ (ручные приписки
-              из notes на главной больше не показываем) */}
-          {!ex.completed && muscleLabel && (
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--text-secondary)',
-              marginTop: '2px'
-            }}>
-              {muscleLabel}
-            </div>
           )}
         </div>
 
-        {/* Галочка выполнения — справа */}
+        {/* Счётчик подходов */}
+        <span className={['tx-excount', setsTotal > 0 && setsDone === setsTotal ? 'is-done' : ''].filter(Boolean).join(' ')}>
+          {setsDone}/{setsTotal}
+        </span>
+
+        {/* Круглая галочка выполнения — справа */}
         <div
-          className="checkbox-animated status-transition"
-          onClick={(e) => {
-            e.stopPropagation();
-            // Toggle mark/unmark
-            onToggle();
-          }}
-          style={{
-            width: ex.completed ? '24px' : '32px',
-            height: ex.completed ? '24px' : '32px',
-            borderRadius: ex.completed ? '6px' : '8px',
-            border: ex.completed ? '1px solid var(--green)' : '2px solid var(--border-strong)',
-            background: ex.completed
-              ? 'var(--green-dim)'
-              : 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--green)',
-            flexShrink: 0,
-            transition: 'all 0.2s ease'
-          }}
+          className={['checkbox-animated', 'status-transition', 'tx-excheck', ex.completed ? 'is-on' : ''].filter(Boolean).join(' ')}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
         >
           {ex.completed && <Check size={14} strokeWidth={3} />}
         </div>
-
       </div>
 
       {/* Expanded flyout for COMPLETED exercises */}
@@ -1213,6 +1093,26 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             const currentIdx = sets.findIndex(s => !s.completed);
             return (
               <div style={{ marginTop: '8px', marginBottom: '10px' }}>
+                <div className="tx-restset">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Timer size={11} />
+                Отдых между подходами
+                </span>
+                <span className="tx-stepper">
+                <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.max(15, parseRestTime(ex.restTime) - 15)) }); }}
+                aria-label="Уменьшить время отдыха"
+                >−</button>
+                <b>{formatTime(parseRestTime(ex.restTime))}</b>
+                <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.min(600, parseRestTime(ex.restTime) + 15)) }); }}
+                aria-label="Увеличить время отдыха"
+                >+</button>
+                </span>
+                </div>
+                <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
                 <div className="tx-grid tx-head">
                   <span>№</span>
                   <span>{lastLabel ?? 'Last'}</span>
@@ -1294,26 +1194,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               {/* Отдых по макету: подпись слева, степпер −/+ справа.
                   Значение живёт в ex.restTime («1:45») и уходит в тот же
                   черновик дня, что и подходы. */}
-              <div className="tx-restset">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Timer size={11} />
-                  Отдых между подходами
-                </span>
-                <span className="tx-stepper">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.max(15, parseRestTime(ex.restTime) - 15)) }); }}
-                    aria-label="Уменьшить время отдыха"
-                  >−</button>
-                  <b>{formatTime(parseRestTime(ex.restTime))}</b>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.min(600, parseRestTime(ex.restTime) + 15)) }); }}
-                    aria-label="Увеличить время отдыха"
-                  >+</button>
-                </span>
-              </div>
-              <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
             </div>
             <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
             {ex.imageUrl ? (
@@ -1736,64 +1616,23 @@ function FitnessCalendar({
           </button>
         </div>
 
-        {/* Month stats — компактные нейтральные бейджи */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '8px'
-        }}>
-          {[
-            { value: String(monthStats.workoutDays), label: 'тренировок' },
-            { value: `${Math.round(monthStats.totalSteps / 1000)}K`, label: 'шагов' },
-            { value: String(monthStats.stepDays > 0 ? Math.round(monthStats.totalSteps / monthStats.stepDays) : 0), label: 'ср. шагов' },
-          ].map((s, i) => (
-            <div key={i} style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              padding: '5px 4px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {s.value}
-              </div>
-              <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '0px' }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
+        {/* Статистика месяца — плоская строка, как в макете */}
+        <div className="tx-monthstats">
+          <span><b>{monthStats.workoutDays}</b>тренировок</span>
+          <span><b>{Math.round(monthStats.totalSteps / 1000)}K</b>шагов</span>
+          <span><b>{monthStats.stepDays > 0 ? Math.round(monthStats.totalSteps / monthStats.stepDays) : 0}</b>ср. шагов</span>
         </div>
       </div>
 
-      {/* Weekday headers */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        padding: '12px 16px 8px',
-        borderBottom: '1px solid var(--border)'
-      }}>
-        {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day, i) => (
-          <div
-            key={day}
-            style={{
-              textAlign: 'center',
-              fontSize: '12px',
-              color: i >= 5 ? 'var(--red)' : 'var(--text-muted)',
-              fontWeight: 600
-            }}
-          >
-            {day}
-          </div>
+      {/* Дни недели */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '4px 16px 2px' }}>
+        {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
+          <div key={day} className="tx-monthdow">{day}</div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '4px',
-        padding: '12px 16px 16px'
-      }}>
+      {/* Сетка месяца */}
+      <div className="tx-monthgrid" style={{ padding: '4px 16px 16px' }}>
         {monthDays.map((d, i) => {
           if (!d) return <div key={`empty-${i}`} />;
 
@@ -1825,178 +1664,44 @@ function FitnessCalendar({
             ? completedWorkout.name.replace('Тренировка ', 'T')
             : null;
 
-          // Определяем стиль фона
-          const getBackground = () => {
-            if (isSelected) return 'var(--yellow)';
-            if (isToday) return 'linear-gradient(135deg, rgba(187, 242, 107, 0.25) 0%, rgba(34, 197, 94, 0.18) 100%)';
-            if (hasWorkout) {
-              // Все упражнения выполнены — полная зелёная заливка.
-              if (fullyDone) return 'var(--green-dim)';
-              // Были пропуски — заливаем фон зелёным снизу на % выполнения.
-              const p = Math.round(workoutPct * 100);
-              return `linear-gradient(to top, var(--green-dim) ${Math.max(0, p - 10)}%, transparent ${Math.min(100, p + 10)}%)`;
-            }
-            if (hasSteps) return 'var(--blue-dim)';
-            if (isRestDay) return 'transparent'; // день без тренировки — незаметный
-            if (isFuture) return 'transparent';
-            return 'transparent';
-          };
-
-          // Определяем цвет текста
-          const getColor = () => {
-            if (isSelected) return '#fff';
-            if (isToday) return '#22c55e';
-            if (hasWorkout) return 'var(--green)';
-            if (isRestDay) return 'rgba(139, 145, 160, 0.45)'; // бледный, почти невидимый
-            if (isFuture) return 'var(--text-muted)';
-            return 'var(--text-primary)';
-          };
-
           // Parse date correctly to avoid timezone issues
           const [year, month, dayNum] = d.dateStr.split('-').map(Number);
           const clickDate = new Date(year, month - 1, dayNum);
-
-          // Определяем border
-          const getBorder = () => {
-            if (isSelected) return 'none';
-            if (isToday) return '2px solid var(--cyan, #0ea5e9)';
-            // «В процессе» — пунктир по зелёному, как в ленте дат.
-            if (hasWorkout) return fullyDone ? '1px solid transparent' : '1px dashed var(--green)';
-            // «Запланировано» — тренировка выбрана, но ещё не начата.
-            if (isPlanned) return '1px dashed var(--border-strong)';
-            if (isRestDay) return '1px solid transparent';
-            return '1px solid transparent';
-          };
-
-          // Определяем boxShadow
-          const getBoxShadow = () => {
-            if (isSelected) return '0 6px 18px var(--yellow-glow)';
-            if (isToday) return '0 2px 12px rgba(14, 165, 233, 0.3)';
-            // зелёное свечение убрано — дни выглядели как «облачка»
-            return 'none';
-          };
 
           return (
             <button
               key={d.day}
               onClick={() => onSelectDate(clickDate)}
-              style={{
-                aspectRatio: '1',
-                position: 'relative',
-                background: getBackground(),
-                border: getBorder(),
-                borderRadius: '10px',
-                cursor: isFuture ? 'default' : 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '1px',
-                color: getColor(),
-                fontWeight: isRestDay ? 400 : (isToday || isSelected || hasWorkout ? 700 : 500),
-                fontSize: '14px',
-                transition: 'all 0.2s ease',
-                boxShadow: getBoxShadow(),
-                opacity: isFuture ? 0.4 : 1
-              }}
+              // Оформление по макету: день с записью — мягкая заливка,
+              // выбранный — тёмная клетка, под числом метка тренировки.
+              className={[
+                'tx-monthday',
+                isSelected ? 'is-sel' : '',
+                !isSelected && isToday ? 'is-today' : '',
+                !isSelected && (hasWorkout || isPlanned || hasSteps) ? 'has-rec' : '',
+              ].filter(Boolean).join(' ')}
+              style={{ cursor: isFuture ? 'default' : 'pointer', opacity: isFuture && !isPlanned ? 0.45 : 1 }}
             >
-              {/* День с тренировкой: кружок с галочкой, серединой сидящий
-                  на нижней границе клетки */}
-              {hasWorkout && (
-                <span style={{
-                  position: 'absolute',
-                  bottom: '-9px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '19px',
-                  height: '19px',
-                  borderRadius: '50%',
-                  background: 'var(--green)',
-                  border: '2px solid var(--bg-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  zIndex: 1
-                }}>
-                  <Check size={11} strokeWidth={3.5} />
-                </span>
-              )}
               <span>{d.day}</span>
-              {isToday && !isSelected ? (
-                <span style={{ fontSize: '8px', color: 'var(--cyan, #0ea5e9)' }}>сегодня</span>
-              ) : hasSteps && !isSelected ? (
-                <div style={{
-                  width: '5px',
-                  height: '5px',
-                  borderRadius: '50%',
-                  background: 'var(--blue)'
-                }} />
-              ) : null}
+              <small>
+                {(hasWorkout || isPlanned) && (
+                  <i className={['tx-dot', fullyDone ? 'd-done' : hasWorkout ? 'd-active' : 'd-planned'].join(' ')} />
+                )}
+                {hasWorkout || isPlanned
+                  ? (workoutLabel || (exTotal > 0 ? exDone + '/' + exTotal : ''))
+                  : hasSteps ? 'шаги' : '—'}
+              </small>
             </button>
           );
         })}
       </div>
 
-      {/* Legend */}
-      <div style={{
-        padding: '12px 16px 16px',
-        borderTop: '1px solid var(--border)',
-        display: 'flex',
-        gap: '12px',
-        justifyContent: 'center',
-        flexWrap: 'wrap'
-      }}>
-        {/* Тренировка выполнена полностью */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div style={{
-            width: '14px', height: '14px', borderRadius: '4px',
-            background: 'var(--green-dim)', border: '1px solid rgba(0, 200, 83, 0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Check size={8} strokeWidth={3} style={{ color: 'var(--green)' }} />
-          </div>
-          Тренировка
-        </div>
-        {/* Частично — были пропуски */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div style={{
-            width: '14px', height: '14px', borderRadius: '4px',
-            border: '1px solid rgba(0, 200, 83, 0.3)', overflow: 'hidden',
-            background: 'linear-gradient(to top, var(--green-dim) 50%, transparent 50%)'
-          }} />
-          Частично
-        </div>
-        {/* Шаги */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div style={{
-            width: '14px', height: '14px', borderRadius: '4px',
-            background: 'var(--blue-dim)', border: '1px solid rgba(0, 180, 216, 0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--blue)' }} />
-          </div>
-          Шаги
-        </div>
-        {/* Отдых */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div style={{
-            width: '14px', height: '14px', borderRadius: '4px',
-            background: 'rgba(100, 116, 139, 0.15)', border: '1px solid rgba(100, 116, 139, 0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <div style={{ width: '7px', height: '2px', borderRadius: '1px', background: 'rgb(148, 163, 184)' }} />
-          </div>
-          Отдых
-        </div>
-        {/* Сегодня */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div style={{
-            width: '14px', height: '14px', borderRadius: '4px',
-            border: '2px solid var(--cyan, #0ea5e9)', background: 'transparent'
-          }} />
-          Сегодня
-        </div>
+      {/* Легенда: один словарь статусов с верхней лентой дат */}
+      <div className="tx-legend" style={{ padding: '12px 16px 16px', borderTop: '1px solid var(--border)', justifyContent: 'center', margin: 0 }}>
+        <span><i className="tx-dot d-done" />Выполнено</span>
+        <span><i className="tx-dot d-active" />В процессе</span>
+        <span><i className="tx-dot d-planned" />Запланировано</span>
+        <span><i className="tx-dot d-none" />Нет записи</span>
       </div>
     </div>
   );
@@ -2042,7 +1747,12 @@ function exerciseHasProgress(ex: Exercise | undefined): boolean {
   if (!ex) return false;
   if (ex.completed) return true;
   if (ex.notes && ex.notes.trim().length > 0) return true;
-  if (ex.actualSets && ex.actualSets.trim().length > 0) return true;
+  // actualSets — легаси-строка, но в неё же упаковывается массив подходов
+  // (см. upsertWorkoutLog), поэтому с сервера может прийти массив. Без этой
+  // проверки .trim() падал и ронял весь экран тренировки.
+  if (Array.isArray(ex.actualSets)) {
+    if ((ex.actualSets as ExerciseSet[]).some(s => s?.completed || (s?.reps ?? 0) > 0 || (s?.weight ?? 0) > 0)) return true;
+  } else if (typeof ex.actualSets === 'string' && ex.actualSets.trim().length > 0) return true;
   if (Array.isArray(ex.sets) && ex.sets.some(s => s.completed || (s.reps ?? 0) > 0 || (s.weight ?? 0) > 0)) return true;
   return false;
 }
@@ -2468,8 +2178,10 @@ export default function FitnessPage() {
     if (view !== 'workout' || !todayStr) return;
     const el = workoutStripRef.current;
     if (!el) return;
+    // Неделя заканчивается выбранным днём, как в макете: центрирование
+    // уводило вправо будущие даты, и видимая неделя выглядела чужой.
     const sel = el.querySelector('[data-selchip="1"]') as HTMLElement | null;
-    if (sel) sel.scrollIntoView({ inline: 'center', block: 'nearest' });
+    if (sel) el.scrollLeft = Math.max(0, sel.offsetLeft + sel.offsetWidth - el.clientWidth);
     else el.scrollLeft = el.scrollWidth;
   }, [view, todayStr]);
   const [showFoodAssistant, setShowFoodAssistant] = useState(false);
@@ -4333,6 +4045,26 @@ export default function FitnessPage() {
   // Look up the most recent prior day where this same workout was performed,
   // so each exercise's per-set table can show a "Last" column with the
   // previous reps×weight per set. We walk dayLogs date keys in reverse.
+  // Заголовок тренировки по макету: не «Тренировка 1», а какие мышцы
+  // сегодня работают. Берём ИИ-группы упражнений дня, самые частые —
+  // вперёд. Групп нет (ИИ ещё не разметил) — показываем имя тренировки.
+  const workoutHeading = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const ex of displayExercises) {
+      const raw = muscleGroups[ex.name.trim().toLowerCase()];
+      if (!raw) continue;
+      for (const part of String(raw).split(/[·,/]+/)) {
+        const g = part.trim().toLowerCase();
+        if (g) counts.set(g, (counts.get(g) || 0) + 1);
+      }
+    }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(e => e[0]);
+    if (top.length === 0) return currentWorkout?.name || String(t('workout'));
+    const joined = top.join(userSettings.language === 'ru' ? ' и ' : ' & ');
+    return joined.charAt(0).toUpperCase() + joined.slice(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayExercises, muscleGroups, currentWorkout, userSettings.language]);
+
   const lastSetsByExerciseId = useMemo(() => {
     const map: Record<string, ExerciseSet[]> = {};
     const norm = (n: string) => n.toLowerCase().trim();
@@ -4757,10 +4489,9 @@ export default function FitnessPage() {
             {!viewingPastWorkout && (
               <div>
                 <div className="tx-kicker">
-                  {(currentWorkout?.name || '').replace('Тренировка ', '')} · {t('workout')}
+                  {(currentWorkout?.name || '').replace('Тренировка ', 'T')} · {userSettings.language === 'ru' ? 'Мышцы' : 'Muscles'}
                 </div>
-                <div className="tx-titleline">
-                  <h2>{currentWorkout?.name?.replace(/^Тренировка\s*/, '') || t('workout')}</h2>
+                <div className="tx-titleline">                  <h2>{workoutHeading}</h2>
                   <button
                     className="tx-calbtn btn-press"
                     onClick={() => { setView('planner'); localStorage.setItem('fitness_view', 'planner'); }}
@@ -8859,30 +8590,8 @@ export default function FitnessPage() {
       )}
 
       {/* Нижняя навигация: основное меню-капсула + отдельная капсула AI-чата справа */}
-      <nav style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 90,
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: '10px',
-        maxWidth: '600px',
-        margin: '0 auto',
-        padding: '0 12px',
-        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
-      }}>
-        {/* Капсула с основными вкладками */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border)',
-          borderRadius: '27px',
-          padding: '6px 8px',
-          boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
-        }}>
+      <nav className="tx-tabbar">
+        <div style={{ flex: 1, display: 'flex' }}>
           {([
             { key: 'workout',   icon: <Dumbbell size={22} />,     label: String(t('workout')) },
             { key: 'nutrition', icon: <Apple size={22} />,        label: String(t('food')) },
@@ -8898,14 +8607,8 @@ export default function FitnessPage() {
             return (
               <button
                 key={tab.key}
-                className="btn-press"
+                className={['btn-press', 'tx-tab', isActive ? 'is-active' : ''].filter(Boolean).join(' ')}
                 onClick={() => { setView(tab.key); localStorage.setItem('fitness_view', tab.key); setShowProfileDropdown(false); }}
-                style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: '3px', padding: '8px 4px', background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: isActive ? '#222222' : '#b3b3b3',
-                  fontWeight: isActive ? 700 : 500, fontSize: '11px', transition: 'color 0.15s ease',
-                }}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
@@ -8914,30 +8617,15 @@ export default function FitnessPage() {
           })}
         </div>
 
-        {/* Отдельная капсула AI-чата справа — в одном стиле с капсулой меню,
-            внутри мозг (Brain) в лёгком оранжевом */}
+        {/* ИИ — такая же вкладка панели, как остальные (по макету).
+            Раньше висела отдельной круглой капсулой поверх меню. */}
         <button
-          className="btn-press"
+          className={['btn-press', 'tx-tab', view === 'chat' ? 'is-active' : ''].filter(Boolean).join(' ')}
           onClick={() => { setView('chat'); localStorage.setItem('fitness_view', 'chat'); setShowProfileDropdown(false); }}
           aria-label="AI-ассистент"
-          style={{
-            flexShrink: 0,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: '3px', padding: '6px 26px',
-            borderRadius: '27px', cursor: 'pointer',
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
-            transition: 'transform 0.15s ease',
-            transform: view === 'chat' ? 'scale(1.03)' : 'scale(1)',
-          }}
         >
-          <Brain size={22} style={{ color: view === 'chat' ? 'var(--yellow)' : 'var(--accent-warm, #ff7a52)' }} />
-          <span style={{
-            fontSize: '11px',
-            fontWeight: view === 'chat' ? 700 : 500,
-            color: view === 'chat' ? '#222222' : '#b3b3b3'
-          }}>AI</span>
+          <Brain size={21} />
+          <span>ИИ</span>
         </button>
       </nav>
     </main>
