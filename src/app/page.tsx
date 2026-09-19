@@ -18,8 +18,17 @@ import { WeightChart } from '@/components/WeightChart';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
-function parseRestTime(restTime: string): number {
-  const match = restTime.match(/(\d+)(?:-(\d+))?\s*мин/);
+function parseRestTime(restTime: string | undefined | null): number {
+  const raw = String(restTime ?? '').trim();
+  // Точное значение из карточки: «1:45», «0:15». Пишется степпером отдыха,
+  // поэтому проверяется первым — иначе настройка откатывалась бы к 2 минутам.
+  const exact = raw.match(/^(\d+):([0-5]\d)$/);
+  if (exact) {
+    const sec = parseInt(exact[1], 10) * 60 + parseInt(exact[2], 10);
+    if (sec > 0) return Math.min(600, sec);
+  }
+  // Формат программы: «2-3 мин», «3 мин» — середина диапазона.
+  const match = raw.match(/(\d+)(?:-(\d+))?\s*мин/);
   if (match) {
     const min = parseInt(match[1]);
     const max = match[2] ? parseInt(match[2]) : min;
@@ -37,7 +46,17 @@ function formatTime(seconds: number): string {
 }
 
 // Rest Timer Component
-function RestTimer({ restTime }: { restTime: string }) {
+function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
+  restTime: string;
+  // Счётчик-«сигнал»: увеличивается родителем, когда отмечен подход —
+  // таймер перезапускается. Ручные Play/Pause при этом сохраняются.
+  startSignal?: number;
+  // Счётчик-«сигнал» на остановку: последний подход упражнения и «Отметить
+  // все» гасят отдых — отдыхать уже не от чего.
+  stopSignal?: number;
+  // Сообщает родителю выбранное время в секундах (для настройки в карточке).
+  onSecondsChange?: (sec: number) => void;
+} = { restTime: '' }) {
   const totalSeconds = parseRestTime(restTime);
   const [timeLeft, setTimeLeft] = useState(totalSeconds);
   const [isRunning, setIsRunning] = useState(false);
@@ -128,6 +147,41 @@ function RestTimer({ restTime }: { restTime: string }) {
       }
     };
   }, [isRunning, timeLeft, playBeep]);
+
+  // Реакция на сигналы родителя: отметили подход — отдых пошёл, закрыли
+  // упражнение — погас. Сигнал приходит извне как счётчик, поэтому это
+  // синхронизация с внешним событием, а не производное состояние: setState
+  // здесь осознанный, ререндер ровно один на сигнал.
+  const prevStartRef = useRef(startSignal ?? 0);
+  useEffect(() => {
+    const sig = startSignal ?? 0;
+    if (sig === prevStartRef.current || sig === 0) return;
+    prevStartRef.current = sig;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- внешнее событие: подход отмечен
+    setTimeLeft(totalSeconds);
+    setIsFinished(false);
+    setIsRunning(true);
+  }, [startSignal, totalSeconds]);
+
+  const prevStopRef = useRef(stopSignal ?? 0);
+  useEffect(() => {
+    const sig = stopSignal ?? 0;
+    if (sig === prevStopRef.current || sig === 0) return;
+    prevStopRef.current = sig;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- внешнее событие: упражнение закрыто
+    setIsRunning(false);
+    setIsFinished(false);
+    setTimeLeft(totalSeconds);
+  }, [stopSignal, totalSeconds]);
+
+  // Время отдыха поменяли степпером — подхватываем, пока таймер стоит.
+  const prevTotalRef = useRef(totalSeconds);
+  useEffect(() => {
+    if (totalSeconds === prevTotalRef.current) return;
+    prevTotalRef.current = totalSeconds;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- внешнее событие: изменена настройка отдыха
+    if (!isRunning && !isFinished) setTimeLeft(totalSeconds);
+  }, [totalSeconds, isRunning, isFinished]);
 
   const toggleTimer = () => {
     if (isFinished) {
@@ -561,6 +615,7 @@ const translations = {
     setsPlaceholder: '3x12',
     restTime: 'Отдых',
     restTimePlaceholder: '2-3 мин',
+    lastTimeCol: 'В прошлый раз',
     notes: 'Заметки (опционально)',
     add: 'Добавить',
     delete: 'Удалить',
@@ -671,6 +726,7 @@ const translations = {
     setsPlaceholder: '3x12',
     restTime: 'Rest',
     restTimePlaceholder: '2-3 min',
+    lastTimeCol: 'Last time',
     notes: 'Notes (optional)',
     add: 'Add',
     delete: 'Delete',
@@ -875,7 +931,7 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
@@ -897,6 +953,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
   onToggleExpand?: () => void;
   // ИИ-определённая группа мышц (показывается под названием упражнения)
   muscleLabel?: string;
+  // Подпись колонки истории («В прошлый раз») — приходит из переводов
+  // родителя: внутри карточки функции t() нет.
+  lastLabel?: string;
 }) {
   const [expandedLocal, setExpandedLocal] = useState(false);
   const controlled = typeof expandedProp === 'boolean' && !!onToggleExpand;
@@ -910,6 +969,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
       setExpandedLocal(next as boolean);
     }
   };
+  // Сигналы таймеру отдыха: галочка подхода запускает, последний подход
+  // и «Отметить все» останавливают. Счётчики, а не булевы — два подряд
+  // отмеченных подхода должны перезапускать отдых заново.
+  const [restStart, setRestStart] = useState(0);
+  const [restStop, setRestStop] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -924,14 +988,17 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
   // Auto-collapse the moment the exercise is fully done. The user just
   // ticked the last set — keeping the expanded flyout open is just noise,
   // and a freshly-completed card should visually compact straight away.
+  //
+  // В управляемом режиме этим занимается родитель: он же сразу раскрывает
+  // следующее невыполненное упражнение. Дёргать onToggleExpand отсюда нельзя —
+  // это закрыло бы только что открытую родителем следующую карточку.
   const prevCompletedRef = useRef(ex.completed);
   useEffect(() => {
-    if (ex.completed && !prevCompletedRef.current) {
-      if (controlled && expandedProp) onToggleExpand?.();
-      else if (!controlled) setExpandedLocal(false);
+    if (ex.completed && !prevCompletedRef.current && !controlled) {
+      setExpandedLocal(false);
     }
     prevCompletedRef.current = ex.completed;
-  }, [ex.completed, controlled, expandedProp, onToggleExpand]);
+  }, [ex.completed, controlled]);
 
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1129,6 +1196,14 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             const updateSet = (i: number, patch: Partial<ExerciseSet>) => {
               const next = sets.map((s, j) => j === i ? { ...s, ...patch } : s);
               const allDone = next.length > 0 && next.every(s => s.completed);
+              // Отдых ведём только по отметке подхода (не по правке цифр):
+              // отметили — пошёл отсчёт, закрыли последний — гасим.
+              if (patch.completed === true) {
+                if (allDone) setRestStop(v => v + 1);
+                else setRestStart(v => v + 1);
+              } else if (patch.completed === false) {
+                setRestStop(v => v + 1);
+              }
               onUpdate({ sets: next, completed: allDone });
             };
             const addSet = () => {
@@ -1147,6 +1222,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             const markAllSets = () => {
               const next = sets.map(s => ({ ...s, completed: !allSetsDone }));
               const allDone = next.length > 0 && next.every(s => s.completed);
+              setRestStop(v => v + 1); // «Выполнено»/«Снять все» — отдыхать не от чего
               onUpdate({ sets: next, completed: allDone });
             };
             return (
@@ -1164,7 +1240,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   paddingLeft: '2px',
                 }}>
                   <span>Set</span>
-                  <span>Last</span>
+                  <span>{lastLabel ?? 'Last'}</span>
                   <span style={{ textAlign: 'center' }}>Reps</span>
                   <span style={{ textAlign: 'center' }}>lbs</span>
                   <span />
@@ -1324,7 +1400,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           {/* Таймер отдыха + фото — в одну строку */}
           <div style={{ marginTop: '10px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <label style={{
+              {/* Отдых настраивается прямо здесь: −/+ по 15 секунд, без
+                  попапов. Значение живёт в ex.restTime («1:45»), поэтому
+                  уходит в тот же черновик дня, что и подходы. */}
+              <div style={{
                 fontSize: '10px',
                 color: 'var(--text-muted)',
                 display: 'flex',
@@ -1333,9 +1412,35 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 marginBottom: '4px'
               }}>
                 <Timer size={11} />
-                Отдых: {ex.restTime}
-              </label>
-              <RestTimer restTime={ex.restTime} />
+                <span>Отдых</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.max(15, parseRestTime(ex.restTime) - 15)) }); }}
+                    aria-label="Уменьшить время отдыха"
+                    style={{
+                      width: '26px', height: '26px', borderRadius: '7px',
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', lineHeight: 1,
+                    }}
+                  >−</button>
+                  <b style={{
+                    minWidth: '38px', textAlign: 'center', fontSize: '12px',
+                    color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+                  }}>{formatTime(parseRestTime(ex.restTime))}</b>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.min(600, parseRestTime(ex.restTime) + 15)) }); }}
+                    aria-label="Увеличить время отдыха"
+                    style={{
+                      width: '26px', height: '26px', borderRadius: '7px',
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', lineHeight: 1,
+                    }}
+                  >+</button>
+                </span>
+              </div>
+              <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
             </div>
             <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
             {ex.imageUrl ? (
@@ -1825,15 +1930,12 @@ function FitnessCalendar({
           const isFuture = d.dateStr > today;
           const isOffDay = log?.isOffDay;
 
-          // Считаем выполненность тренировки за день по фактическим упражнениям.
-          // Берём snapshot (если есть) либо живой draft — это работает без
-          // «закрытия дня». pct = доля выполненных упражнений (0..1).
-          const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
-          const exTotal = dayExercises.length;
-          const exDone = dayExercises.filter(e => e.completed).length;
-          const hasWorkout = exDone > 0;                        // были выполненные упражнения
-          const fullyDone = exTotal > 0 && exDone === exTotal;  // все выполнены
-          const workoutPct = exTotal > 0 ? exDone / exTotal : 0; // доля для частичной заливки
+          // Статус берём из общей getDayStatus — тот же словарь, что и в
+          // верхней ленте дат: выполнено / в процессе / запланировано / нет.
+          const { status, exDone, exTotal, pct: workoutPct } = getDayStatus(log, d.dateStr, today);
+          const hasWorkout = status === 'done' || status === 'active';
+          const fullyDone = status === 'done';
+          const isPlanned = status === 'planned';
           const hasSteps = log?.steps && log.steps > 0 && !hasWorkout;
 
           // Прошлый день без тренировки = день отдыха (автоматически).
@@ -1885,7 +1987,10 @@ function FitnessCalendar({
           const getBorder = () => {
             if (isSelected) return 'none';
             if (isToday) return '2px solid var(--cyan, #0ea5e9)';
-            if (hasWorkout) return '1px solid transparent'; // зелёные дни — без бордера
+            // «В процессе» — пунктир по зелёному, как в ленте дат.
+            if (hasWorkout) return fullyDone ? '1px solid transparent' : '1px dashed var(--green)';
+            // «Запланировано» — тренировка выбрана, но ещё не начата.
+            if (isPlanned) return '1px dashed var(--border-strong)';
             if (isRestDay) return '1px solid transparent';
             return '1px solid transparent';
           };
@@ -2025,6 +2130,34 @@ function FitnessCalendar({
 }
 
 // Default workout selection - user picks manually, default to T1
+// Единый статус дня для ОБОИХ календарей — ленты дат сверху и месячной
+// сетки. Раньше каждый считал по-своему: лента знала только «есть/нет
+// тренировки», месяц различал ещё и частичное выполнение. Теперь словарь
+// один: выполнено / в процессе / запланировано / нет записи.
+type DayStatus = 'done' | 'active' | 'planned' | 'none';
+
+function getDayStatus(
+  log: DayLog | undefined,
+  dateStr: string,
+  todayStr: string,
+): { status: DayStatus; exDone: number; exTotal: number; pct: number } {
+  const exercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+  const exTotal = exercises.length;
+  const exDone = exercises.filter(e => e.completed).length;
+  const pct = exTotal > 0 ? exDone / exTotal : 0;
+
+  let status: DayStatus;
+  if (exTotal > 0 && exDone === exTotal) status = 'done';
+  else if (exDone > 0) status = 'active';
+  // Запланировано: тренировка на день выбрана, но ещё ничего не отмечено.
+  // Только для сегодня и будущего — в прошлом это уже пропуск, не план.
+  else if (dateStr >= todayStr && !log?.isOffDay &&
+           (log?.selectedWorkout || log?.workoutDraft?.workoutId || exTotal > 0)) status = 'planned';
+  else status = 'none';
+
+  return { status, exDone, exTotal, pct };
+}
+
 function getDefaultWorkout(): string {
   return 't1';
 }
@@ -3637,6 +3770,32 @@ export default function FitnessPage() {
     // If all completed, return first workout
     return workouts[0]?.id || 't1';
   }, [completedWorkoutsInCycle, workouts]);
+  // Какую тренировку предложить на дату, которую пользователь ещё не выбирал:
+  // следующую по порядку после последней, что он реально делал ДО этого дня.
+  // Раньше любая дата кроме сегодняшней молча открывала T1 — и после вчерашней
+  // T2 новый день снова показывал T1.
+  const getWorkoutForDate = useCallback((targetDate: string) => {
+    const active = workouts.filter(w => w.exercises.length > 0);
+    if (active.length === 0) return workouts[0]?.id || 't1';
+
+    const prevDates = Object.keys(dayLogs).filter(d => d < targetDate).sort().reverse();
+    for (const d of prevDates) {
+      const log = dayLogs[d];
+      const exercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+      // «Сделанной» считаем тренировку, где отмечено хоть одно упражнение:
+      // закрывать день для этого не обязательно.
+      if (!exercises.some(e => e.completed)) continue;
+      const lastId = log?.workoutSnapshot?.workoutId
+        ?? log?.workoutDraft?.workoutId
+        ?? log?.workoutCompleted
+        ?? log?.selectedWorkout;
+      const idx = active.findIndex(w => w.id === lastId);
+      if (idx >= 0) return active[(idx + 1) % active.length].id;
+      break;
+    }
+    // Истории нет — обычный цикловой подбор.
+    return getNextAvailableWorkout();
+  }, [dayLogs, workouts, getNextAvailableWorkout]);
 
   // Restore selected workout when date changes.
   //
@@ -3714,7 +3873,9 @@ export default function FitnessPage() {
         // Picker UI only — don't write into the dayLog. Otherwise clicking
         // a past date creates a phantom log entry and the user sees a
         // workout they never picked.
-        const fallback = dateKey === todayStr ? getNextAvailableWorkout() : (workouts[0]?.id || 't1');
+        // Любая дата, а не только сегодня: следующая по порядку после
+        // последней выполненной. Новый день больше не открывает всегда T1.
+        const fallback = getWorkoutForDate(dateKey);
         setSelectedWorkout(fallback);
       }
     }
@@ -3825,6 +3986,21 @@ export default function FitnessPage() {
 
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     userMadeChangeRef.current = true;
+    // Упражнение только что закрыли целиком («Отметить все» или последний
+    // подход) — карточка схлопывается, и сразу раскрываем следующее
+    // невыполненное, чтобы не искать его руками. Ищем по кругу: после
+    // последнего возвращаемся к пропущенным в начале списка.
+    if (updates.completed === true) {
+      setExpandedExerciseId(prevId => {
+        if (prevId !== exerciseId) return prevId;
+        const list = workouts.find(w => w.id === workoutId)?.exercises ?? [];
+        const from = list.findIndex(e => e.id === exerciseId);
+        if (from < 0) return null;
+        const ordered = [...list.slice(from + 1), ...list.slice(0, from)];
+        const next = ordered.find(e => !e.completed);
+        return next ? next.id : null;
+      });
+    }
     setWorkouts(prev => {
       const updated = prev.map(w =>
         w.id === workoutId
@@ -4744,16 +4920,19 @@ export default function FitnessPage() {
                   const ds = formatDate(d);
                   const isSel = ds === dateKey;
                   const log = dayLogs[ds];
-                  const dayExercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
-                  const exTotal = dayExercises.length;
-                  const exDone = dayExercises.filter(e => e.completed).length;
-                  const hasWorkout = exDone > 0;
-                  const fullyDone = exTotal > 0 && exDone === exTotal;
+                  // Статус считает общая getDayStatus — лента и месячная сетка
+                  // обязаны показывать одно и то же.
+                  const { status, exDone, exTotal } = getDayStatus(log, ds, todayStr);
+                  const hasWorkout = status === 'done' || status === 'active';
+                  const fullyDone = status === 'done';
+                  const isPlanned = status === 'planned';
                   // workoutDraft — главный носитель: снапшота нет, пока день не
                   // закрыт, а selectedWorkout пишется не каждый день. Без драфта
                   // чип показывал «5/7» вместо «T1».
                   const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutDraft?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
-                  const cw = hasWorkout && wId ? workouts.find(w => w.id === wId) : null;
+                  // Метку тренировки показываем и для запланированного дня —
+                  // иначе «запланировано» выглядело бы как пустой день.
+                  const cw = (hasWorkout || isPlanned) && wId ? workouts.find(w => w.id === wId) : null;
                   const wLabel = cw ? cw.name.replace('Тренировка ', 'T') : '';
                   const label = d.toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' });
                   const isToday = i === 0;
@@ -4768,8 +4947,16 @@ export default function FitnessPage() {
                         padding: '8px 4px',
                         scrollSnapAlign: 'center',
                         overflow: 'hidden',
+                        // Выполнено — сплошная зелёная заливка; в процессе —
+                        // та же зелёная, но с пунктирной рамкой (работа идёт);
+                        // запланировано — нейтральный фон с рамкой-намёком.
                         background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
-                        border: isSel ? 'none' : isToday ? '2px solid var(--cyan, #0ea5e9)' : hasWorkout ? 'none' : '1px solid var(--border)',
+                        border: isSel ? 'none'
+                          : isToday ? '2px solid var(--cyan, #0ea5e9)'
+                          : fullyDone ? 'none'
+                          : hasWorkout ? '1px dashed var(--green)'
+                          : isPlanned ? '1px dashed var(--border-strong)'
+                          : '1px solid var(--border)',
                         borderRadius: '12px',
                         cursor: 'pointer',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
@@ -4788,9 +4975,13 @@ export default function FitnessPage() {
                         fontSize: '9px', fontWeight: 700,
                         color: isSel ? 'rgba(255,255,255,0.85)' : hasWorkout ? 'var(--green)' : 'var(--text-muted)'
                       }}>
-                        {hasWorkout
+                        {fullyDone
                           ? (wLabel || exDone + '/' + exTotal)
-                          : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}
+                          : hasWorkout
+                            ? (wLabel ? wLabel + ' · ' + exDone + '/' + exTotal : exDone + '/' + exTotal)
+                            : isPlanned && wLabel
+                              ? wLabel
+                              : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}
                       </span>
                     </button>
                   );
@@ -4946,6 +5137,7 @@ export default function FitnessPage() {
                       expanded={expandedExerciseId === ex.id}
                       onToggleExpand={() => setExpandedExerciseId(prev => prev === ex.id ? null : ex.id)}
                       muscleLabel={muscleGroups[ex.name.trim().toLowerCase()]}
+                      lastLabel={t('lastTimeCol') as string}
                     />
                   );
                 })
