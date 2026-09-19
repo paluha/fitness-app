@@ -1589,14 +1589,12 @@ function FitnessCalendar({
             <ChevronLeft size={24} />
           </button>
 
-          <h3 style={{
-            margin: 0,
-            fontWeight: 700,
-            fontSize: '18px',
-            textTransform: 'capitalize'
-          }}>
-            {currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-          </h3>
+          <div>
+            <span className="tx-eyebrow">История тренировок</span>
+            <h4 className="tx-monthtitle" style={{ margin: 0, fontWeight: 700, fontSize: '17px', letterSpacing: '-0.5px', textTransform: 'capitalize' }}>
+              {currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+            </h4>
+          </div>
 
           <button
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
@@ -2286,6 +2284,8 @@ export default function FitnessPage() {
   // Accordion: only one exercise expanded at a time. Clicking the same one
   // collapses it. Reset when the day or workout changes.
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
+  // Выбранный показатель в карточке «Мой прогресс» (по макету).
+  const [bodyMetric, setBodyMetric] = useState<'weight' | 'waist' | 'chest'>('weight');
   const serverDataLoadedRef = useRef(false);
   const userMadeChangeRef = useRef(false); // Only sync after user actually changes something on THIS device
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
@@ -4818,28 +4818,65 @@ export default function FitnessPage() {
               />
             </div>
 
-            {/* Тренд прогресса — вес по замерам, под календарём */}
+            {/* «Мой прогресс» по макету: карточка с кикером, сегментом
+                показателей и графиком. Показываем всегда — при пустых
+                замерах вместо графика объясняющая строка. */}
             {(() => {
-              const withWeight = bodyMeasurements
-                .filter(m => typeof m.weight === 'number' && m.weight! > 0)
+              const metricOf = (m: BodyMeasurement) => bodyMetric === 'weight' ? m.weight : bodyMetric === 'waist' ? m.waist : m.chest;
+              const series = bodyMeasurements
+                .filter(m => typeof metricOf(m) === 'number' && (metricOf(m) as number) > 0)
                 .slice()
-                .sort((a, b) => (a.date < b.date ? -1 : 1));
-              if (withWeight.length < 2) return null;
+                .sort((a2, b2) => (a2.date < b2.date ? -1 : 1));
+              const unit = bodyMetric === 'weight' ? 'кг' : 'см';
+              const last = series.length ? (metricOf(series[series.length - 1]) as number) : null;
+              const delta = series.length > 1
+                ? Math.round(((metricOf(series[series.length - 1]) as number) - (metricOf(series[0]) as number)) * 10) / 10
+                : null;
               return (
-                <div style={{
-                  marginTop: '12px',
-                  background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  borderRadius: '16px', padding: '16px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>
-                    <TrendingUp size={16} style={{ color: 'var(--yellow)' }} />
-                    {userSettings.language === 'ru' ? 'Тренд прогресса' : 'Progress trend'}
+                <section className="tx-card">
+                  <div className="tx-card-head">
+                    <div>
+                      <span className="tx-eyebrow">{userSettings.language === 'ru' ? 'Вес тела и замеры' : 'Body & measurements'}</span>
+                      <h4>{userSettings.language === 'ru' ? 'Мой прогресс' : 'My progress'}</h4>
+                    </div>
+                    <span className="tx-badge">{new Date().toLocaleDateString('ru-RU', { month: 'long' })}</span>
                   </div>
-                  <WeightChart
-                    data={withWeight.map(m => m.weight!)}
-                    labels={withWeight.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
-                  />
-                </div>
+                  <div className="tx-modes" role="group">
+                    {([
+                      ['weight', userSettings.language === 'ru' ? 'Вес тела' : 'Weight'],
+                      ['waist', userSettings.language === 'ru' ? 'Талия' : 'Waist'],
+                      ['chest', userSettings.language === 'ru' ? 'Грудь' : 'Chest'],
+                    ] as [typeof bodyMetric, string][]).map(([key, label]) => (
+                      <button
+                        key={key}
+                        className={bodyMetric === key ? 'is-active' : ''}
+                        onClick={() => setBodyMetric(key)}
+                      >{label}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '12px 0 4px' }}>
+                    <strong style={{ fontSize: '28px', fontWeight: 650, letterSpacing: '-0.8px', fontVariantNumeric: 'tabular-nums' }}>
+                      {last !== null ? `${last.toLocaleString('ru')} ${unit}` : '—'}
+                    </strong>
+                    {delta !== null && (
+                      <span style={{ fontSize: '11px', color: '#857565', background: '#f3eee7', padding: '4px 7px', borderRadius: '5px' }}>
+                        {(delta > 0 ? '+' : '') + delta.toLocaleString('ru')} {unit}
+                      </span>
+                    )}
+                  </div>
+                  {series.length > 1 ? (
+                    <WeightChart
+                      data={series.map(m => metricOf(m) as number)}
+                      labels={series.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+                    />
+                  ) : (
+                    <p className="tx-empty">
+                      {userSettings.language === 'ru'
+                        ? 'Замеры появляются здесь по мере их добавления.'
+                        : 'Measurements will appear here as you add them.'}
+                    </p>
+                  )}
+                </section>
               );
             })()}
           </div>
