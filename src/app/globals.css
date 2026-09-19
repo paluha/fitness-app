@@ -727,3 +727,169 @@ button:disabled {
   0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-3px); }
 }
+
+/* ==========================================================================
+   Оформление экрана тренировки по макету design/trainx-workout-dev.html.
+   Классы, а не инлайн-стили: правка дизайна не требует ходить по сотням
+   style={{}} внутри page.tsx, макет остаётся единым источником правды.
+   ========================================================================== */
+
+/* Шапка: приветствие с логотипом и кружок профиля */
+.tx-welcome { font-size: 15px; line-height: 1.5; color: var(--text-primary); font-weight: 500; }
+.tx-welcome b { font-weight: 750; letter-spacing: -0.5px; }
+.tx-welcome b span { color: var(--yellow); }
+.tx-profile {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border: 1px solid #e2dbd1; border-radius: 50%;
+  background: #fff; color: var(--text-primary);
+  font-size: 13px; font-weight: 650; cursor: pointer; position: relative;
+}
+.tx-profile > i { position: absolute; width: 8px; height: 8px; right: 0; bottom: 0; border: 2px solid var(--bg-primary); background: var(--green); border-radius: 50%; }
+
+/* Переключатель Тренировки / Питание — сегмент в капсуле */
+.tx-modeswitch { display: flex; gap: 3px; padding: 3px; background: #eee8df; border-radius: 10px; }
+.tx-mode {
+  flex: 1; padding: 9px 8px; min-height: 35px;
+  background: transparent; border: 0; border-radius: 7px;
+  font-size: 12px; font-weight: 600; font-family: inherit; color: #857c70;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; box-shadow: none;
+}
+.tx-mode.is-active { background: #fff; color: var(--text-primary); box-shadow: 0 1px 4px rgba(20,34,53,.045); }
+
+/* Заголовок тренировки: кикер + название + кнопка календаря */
+.tx-kicker { font-size: 8px; letter-spacing: 1.1px; font-weight: 700; color: #85909e; text-transform: uppercase; }
+.tx-titleline { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 14px; }
+.tx-titleline h2 { font-size: 27px; line-height: 1.15; letter-spacing: -1px; margin: 0; font-weight: 700; }
+.tx-calbtn {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: transparent; border: 0; border-radius: 8px;
+  color: #38352f; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+
+/* Лента дат: без плашек, кружок на выбранном дне */
+.tx-strip { display: flex; gap: 4px; margin-bottom: 9px; padding: 0; overflow-x: auto; }
+.tx-day {
+  flex: 1 0 calc((100% - 24px) / 7); min-width: 0;
+  padding: 3px 0 4px; gap: 3px;
+  background: none; border: 0; border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; cursor: pointer;
+}
+.tx-day .dow { font-size: 9px; text-transform: uppercase; color: var(--text-muted); font-weight: 500; }
+.tx-day .num {
+  height: 30px; width: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 600; color: #443d33;
+}
+.tx-day .tag { font-size: 8px; color: #b5ada1; display: inline-flex; align-items: center; gap: 3px; }
+.tx-day.is-done .tag { color: #5d936c; font-weight: 650; }
+.tx-day.is-active .tag { color: var(--yellow); font-weight: 650; }
+.tx-day.is-today:not(.is-sel) .num { color: var(--text-secondary); box-shadow: inset 0 0 0 1px #cfc6b9; }
+.tx-day.is-sel .num { background: #24211c; color: #fff; box-shadow: 0 3px 6px rgba(36,33,28,.11); }
+
+/* Подпись программы над кнопками тренировок */
+.tx-utility { display: flex; justify-content: space-between; color: #93897b; font-size: 8px; font-weight: 650; letter-spacing: 1px; margin-bottom: 5px; text-transform: uppercase; }
+
+/* Кнопки T1-T7 — компактнее, чем были */
+.tx-wsel { display: flex; gap: 7px; margin-bottom: 8px; align-items: stretch; }
+.tx-wsel-grid { display: grid; gap: 5px; flex: 1; }
+.tx-wtab {
+  border: 1px solid #e2dbd1; border-radius: 8px; padding: 8px 0;
+  background: #fff; font-size: 12px; font-weight: 550; text-align: center;
+  color: var(--text-primary); cursor: pointer; font-family: inherit;
+}
+.tx-wtab.is-active { background: var(--yellow); border-color: var(--yellow); color: #fff; font-weight: 700; box-shadow: 0 3px 7px rgba(255,92,53,.13); }
+.tx-wtab.is-empty { color: var(--text-muted); font-size: 16px; line-height: 18px; }
+.tx-iconbtn {
+  border-radius: 8px; background: transparent; border: 1px solid #e2dbd1;
+  padding: 0 8px; color: #817769; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.tx-iconbtn.is-ai { background: #fff0e9; border-color: #f4d8cb; color: var(--yellow); }
+
+/* Подпись выбранного дня */
+.tx-daylabel { font-size: 10px; color: #857c70; margin: 0 0 10px; line-height: 1.5; }
+
+/* Карточка упражнения */
+.tx-ex { background: #fff; border: 1px solid #e8e1d7; border-radius: 15px; margin-bottom: 9px; box-shadow: 0 2px 3px rgba(21,33,49,.008); overflow: hidden; }
+.tx-ex.is-open { border-color: #ded4c5; box-shadow: 0 3px 12px rgba(21,33,49,.016); }
+.tx-exrow { display: flex; align-items: center; gap: 9px; padding: 12px; }
+.tx-exname { font-size: 13px; letter-spacing: -0.1px; font-weight: 650; line-height: 1.35; flex: 1; min-width: 0; text-align: left; }
+.tx-exname .muscle { display: block; font-size: 8px; letter-spacing: .55px; font-weight: 500; margin-top: 6px; color: var(--text-muted); line-height: 1.35; }
+.tx-excount { border: 0; background: none; color: var(--text-muted); font-size: 10px; font-weight: 600; padding: 0; min-width: 24px; }
+.tx-excount.is-done { color: #34814d; }
+.tx-excheck {
+  width: 24px; height: 24px; flex-shrink: 0;
+  border: 1px solid #ded7cc; border-radius: 50%;
+  font-size: 12px; background: #fff; color: #c8bfb1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.tx-excheck.is-on { color: var(--green); background: #e9f6eb; border-color: #d9e8d7; }
+
+/* Полоса отдыха внутри карточки */
+.tx-rest {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #f6f3ee; border-radius: 7px; padding: 0 10px; margin: 0 0 12px;
+  min-height: 36px; color: #817466; font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.tx-rest.is-running { background: #fff1e9; color: #b65334; }
+.tx-rest.is-done { background: #f2f6ef; color: #55764d; }
+.tx-rest button { min-height: 36px; border: 0; background: transparent; color: #8b7667; font: inherit; padding: 0 4px; cursor: pointer; }
+
+/* Настройка отдыха */
+.tx-restset { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; padding: 0 0 10px; border-bottom: 1px solid #eee8df; }
+.tx-restset > span { font-size: 10px; color: var(--text-muted); }
+.tx-stepper { display: flex; align-items: center; gap: 2px; background: #f6f3ee; border: 1px solid #e6dfd5; border-radius: 9px; padding: 2px; }
+.tx-stepper button { width: 32px; height: 32px; border: 0; background: transparent; border-radius: 7px; color: #71685b; font-size: 17px; line-height: 1; cursor: pointer; padding: 0; }
+.tx-stepper b { min-width: 42px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* Таблица подходов */
+.tx-sets { padding: 0 12px 13px; }
+.tx-grid { display: grid; grid-template-columns: 18px 61px minmax(0,1fr) minmax(0,1fr) 44px; gap: 6px; align-items: center; }
+.tx-head { font-size: 8px; letter-spacing: .2px; font-weight: 600; margin: 1px 0 9px; color: var(--text-muted); text-transform: uppercase; }
+.tx-head > span { text-align: center; }
+.tx-head > span:first-child, .tx-head > span:nth-child(2) { text-align: left; }
+.tx-row { margin-bottom: 6px; }
+.tx-setn { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+.tx-setn.is-on { color: var(--green); }
+.tx-last { font-size: 10px; font-weight: 500; color: var(--text-muted); text-align: left; white-space: nowrap; }
+.tx-input {
+  height: 42px; border: 1px solid #e6dfd5; border-radius: 8px; background: #f6f3ee;
+  font-size: 14px; font-weight: 600; color: #302b24; padding: 0 3px; text-align: center;
+  min-width: 0; width: 100%; font-family: inherit; box-shadow: none;
+}
+.tx-check {
+  height: 44px; width: 44px; border-radius: 9px; border: 1px solid #e6dfd5;
+  background: #f8f5ef; color: #c8bfb1; font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; justify-self: center;
+}
+.tx-check.is-on { background: #e9f6eb; color: var(--green); border-color: #d9e8d7; }
+.tx-row.is-current .tx-input { border-color: #e6bda9; background: #fffaf6; }
+.tx-row.is-current .tx-check { border-color: #e6bda9; background: #fff6f0; color: #d95731; }
+.tx-row.is-filled .tx-input { background: #f4f9f5; border-color: #e1eadf; color: #486454; }
+
+/* Кнопки под таблицей */
+.tx-actions { margin-top: 10px; }
+.tx-trend, .tx-addset {
+  height: 40px; font-size: 11px; font-weight: 550; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;
+  font-family: inherit;
+}
+.tx-trend { grid-column: 1 / 3; padding: 0 10px; background: #fff2eb; color: #bd5a3d; border: 1px solid #efd9ce; }
+.tx-addset { grid-column: 3 / 5; padding: 0 12px; background: transparent; border: 1px dashed #e6dfd5; color: var(--text-muted); }
+.tx-markall {
+  grid-column: 1 / -1; width: 100%; height: 44px; margin-top: 7px;
+  border: 1px solid #e0d9cf; border-radius: 9px; background: #f3f0eb;
+  color: #6d6253; font-size: 12px; font-weight: 600; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+}
+.tx-markall:hover { background: #ece7e0; }
+.tx-note input { width: 100%; padding: 9px 10px; font-size: 10px; color: var(--text-muted); background: #fdfcfa; border: 1px solid #eee8df; border-radius: 7px; font-family: inherit; }
+
+/* Легенда статусов под лентой дат */
+.tx-legend { display: flex; gap: 16px; align-items: center; margin: 0 0 14px; font-size: 9px; color: #9b9082; flex-wrap: wrap; }
+.tx-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.tx-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: none; }
+.tx-dot.d-done { background: #5d936c; }
+.tx-dot.d-active { background: var(--yellow); }
+.tx-dot.d-planned { background: #b9ae9c; }
+.tx-dot.d-none { background: transparent; box-shadow: inset 0 0 0 1px #d8cfc2; }

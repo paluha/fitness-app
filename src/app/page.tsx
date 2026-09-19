@@ -1028,31 +1028,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
 
   return (
     <div
-      className={`card-hover exercise-card ${ex.completed ? 'completed' : ''}`}
-      style={{
-        background: 'var(--bg-card)',
-        borderRadius: ex.completed ? '10px' : '14px',
-        border: '1px solid var(--border)',
-        overflow: 'hidden',
-        marginBottom: ex.completed ? '6px' : '10px'
-      }}
+      className={`card-hover exercise-card tx-ex ${expanded ? 'is-open' : ''} ${ex.completed ? 'completed' : ''}`}
     >
       {/* Main row */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: ex.completed ? '8px 12px' : '12px 14px',
-          gap: ex.completed ? '10px' : '12px',
-          cursor: 'pointer',
-          transition: 'padding 0.3s ease'
-        }}
+        className="tx-exrow"
+        style={{ cursor: 'pointer' }}
         onClick={() => setExpanded(!expanded)}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontWeight: 600,
-            fontSize: ex.completed ? '13px' : '14px',
+          <div className="tx-exname" style={{
             color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)',
             display: 'flex',
             alignItems: 'center',
@@ -1217,7 +1202,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               const allDone = next.length > 0 && next.every(s => s.completed);
               onUpdate({ sets: next, completed: allDone });
             };
-            const cols = '24px 56px 1fr 1fr 36px';
             const allSetsDone = sets.length > 0 && sets.every(s => s.completed);
             const markAllSets = () => {
               const next = sets.map(s => ({ ...s, completed: !allSetsDone }));
@@ -1225,173 +1209,80 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               setRestStop(v => v + 1); // «Выполнено»/«Снять все» — отдыхать не от чего
               onUpdate({ sets: next, completed: allDone });
             };
+            // Первый неотмеченный подход — подсвечивается как текущий (по макету).
+            const currentIdx = sets.findIndex(s => !s.completed);
             return (
               <div style={{ marginTop: '8px', marginBottom: '10px' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: cols,
-                  gap: '6px',
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.4px',
-                  marginBottom: '4px',
-                  paddingLeft: '2px',
-                }}>
-                  <span>Set</span>
+                <div className="tx-grid tx-head">
+                  <span>№</span>
                   <span>{lastLabel ?? 'Last'}</span>
-                  <span style={{ textAlign: 'center' }}>Reps</span>
-                  <span style={{ textAlign: 'center' }}>lbs</span>
+                  <span>ПОВТОРЫ</span>
+                  <span>LB</span>
                   <span />
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
                   return (
-                  <div key={i} style={{
-                    display: 'grid',
-                    gridTemplateColumns: cols,
-                    gap: '6px',
-                    alignItems: 'center',
-                    marginBottom: '4px',
-                  }}>
-                    <span style={{
-                      fontSize: '12px', fontWeight: 700,
-                      color: s.completed ? 'var(--green)' : 'var(--text-secondary)',
-                      paddingLeft: '2px',
-                    }}>{i + 1}</span>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      whiteSpace: 'nowrap',
-                    }}>
+                  <div
+                    key={i}
+                    className={['tx-grid', 'tx-row', i === currentIdx ? 'is-current' : '', s.completed ? 'is-filled' : ''].filter(Boolean).join(' ')}
+                  >
+                    <span className={['tx-setn', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}>{i + 1}</span>
+                    <span className="tx-last">
                       {last && (last.reps > 0 || last.weight > 0) ? `${last.reps}×${last.weight}` : '—'}
                     </span>
                     <input
+                      className="tx-input"
                       type="number"
                       inputMode="numeric"
                       value={s.reps || ''}
                       onChange={(e) => updateSet(i, { reps: parseInt(e.target.value, 10) || 0 })}
                       placeholder="0"
-                      style={{
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        height: '30px',
-                        padding: '0 8px',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        width: '100%',
-                        minWidth: 0,
-                      }}
                     />
                     <input
+                      className="tx-input"
                       type="number"
                       inputMode="numeric"
                       value={s.weight || ''}
                       onChange={(e) => updateSet(i, { weight: parseInt(e.target.value, 10) || 0 })}
                       placeholder="0"
-                      style={{
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        height: '30px',
-                        padding: '0 8px',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        width: '100%',
-                        minWidth: 0,
-                      }}
                     />
                     <button
+                      className={['tx-check', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}
                       onClick={() => updateSet(i, { completed: !s.completed })}
                       onContextMenu={(e) => { e.preventDefault(); removeSet(i); }}
                       title="Right-click / long-press to remove this set"
-                      style={{
-                        width: '30px', height: '30px',
-                        border: s.completed ? 'none' : '1.5px solid var(--border-strong)',
-                        background: s.completed ? 'var(--green)' : 'transparent',
-                        borderRadius: '8px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', justifySelf: 'center',
-                        padding: 0,
-                        transition: 'background 160ms ease, border 160ms ease',
-                      }}>
-                      {s.completed && <Check size={16} style={{ color: '#fff' }} strokeWidth={3} />}
+                    >
+                      {s.completed ? <Check size={16} strokeWidth={3} /> : <Check size={16} strokeWidth={2} />}
                     </button>
                   </div>
                   );
                 })}
-                {/* Add set / Отметить все / динамика — одна строка, выровненная
-                    по колонкам таблицы: Add set заканчивается у левого края Reps,
-                    «Отметить все» начинается от левого края lbs, динамика —
-                    справа в колонке галочек. Высота 30px — как у полей. */}
-                <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '6px', marginTop: '8px', alignItems: 'center' }}>
-                  {/* Динамика веса — во всю ширину колонок Set + Last (история относится к ним) */}
+                {/* Ряд действий по макету: тренд и «+ Подход» в одну строку,
+                    «Выполнено» — широкой кнопкой во всю ширину карточки. */}
+                <div className="tx-grid tx-actions">
                   <button
+                    className="tx-trend"
                     onClick={() => setShowChart(!showChart)}
                     title='Динамика веса'
                     disabled={!weightHistory || weightHistory.length === 0}
-                    style={{
-                      gridColumn: '1 / 3',
-                      height: '30px', borderRadius: '8px', width: '100%',
-                      background: showChart ? 'var(--yellow)' : 'var(--yellow-dim)',
-                      border: '1px solid var(--yellow-glow)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', padding: 0,
-                      opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1
-                    }}
+                    style={{ opacity: (!weightHistory || weightHistory.length === 0) ? 0.35 : 1 }}
                   >
-                    <TrendingUp size={14} style={{ color: showChart ? '#fff' : 'var(--yellow)' }} />
+                    <TrendingUp size={14} />
+                    <span>Тренд</span>
                   </button>
-                  {/* Add set — под колонкой Reps */}
-                  <button
-                    onClick={addSet}
-                    style={{
-                      gridColumn: '3 / 4',
-                      height: '30px',
-                      padding: '0 2px',
-                      background: 'var(--bg-primary)',
-                      border: '1px dashed var(--border-strong)',
-                      borderRadius: '8px',
-                      color: 'var(--text-muted)',
-                      fontSize: '11px', fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                      whiteSpace: 'nowrap',
-                      touchAction: 'manipulation',
-                    }}>
+                  <button className="tx-addset" onClick={addSet}>
                     <Plus size={13} />
-                    Add set
+                    Подход
                   </button>
-                  {/* Отметить все подходы этого упражнения — нейтральный вид
-                      (зелёный в таблице значит «выполнено»), двойная галочка
-                      + подпись, чтобы действие читалось без догадок */}
                   <button
                     type="button"
+                    className="tx-markall"
                     onClick={(e) => { e.stopPropagation(); markAllSets(); }}
                     title={allSetsDone ? 'Снять отметки со всех подходов' : 'Отметить все подходы'}
-                    style={{
-                      gridColumn: '4 / 6',
-                      height: '30px',
-                      padding: '0 4px',
-                      border: '1.5px solid var(--border-strong)',
-                      background: 'var(--bg-elevated)',
-                      color: 'var(--text-primary)',
-                      borderRadius: '8px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                      fontSize: '11px', fontWeight: 700,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      touchAction: 'manipulation',
-                    }}>
+                  >
                     <CheckCheck size={14} strokeWidth={2.5} />
-                    {allSetsDone ? 'Снять все' : 'Отметить все'}
+                    {allSetsDone ? 'Отменить выполнение' : 'Выполнено'}
                   </button>
                 </div>
               </div>
@@ -1400,43 +1291,25 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           {/* Таймер отдыха + фото — в одну строку */}
           <div style={{ marginTop: '10px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Отдых настраивается прямо здесь: −/+ по 15 секунд, без
-                  попапов. Значение живёт в ex.restTime («1:45»), поэтому
-                  уходит в тот же черновик дня, что и подходы. */}
-              <div style={{
-                fontSize: '10px',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginBottom: '4px'
-              }}>
-                <Timer size={11} />
-                <span>Отдых</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: 'auto' }}>
+              {/* Отдых по макету: подпись слева, степпер −/+ справа.
+                  Значение живёт в ex.restTime («1:45») и уходит в тот же
+                  черновик дня, что и подходы. */}
+              <div className="tx-restset">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Timer size={11} />
+                  Отдых между подходами
+                </span>
+                <span className="tx-stepper">
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.max(15, parseRestTime(ex.restTime) - 15)) }); }}
                     aria-label="Уменьшить время отдыха"
-                    style={{
-                      width: '26px', height: '26px', borderRadius: '7px',
-                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                      color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', lineHeight: 1,
-                    }}
                   >−</button>
-                  <b style={{
-                    minWidth: '38px', textAlign: 'center', fontSize: '12px',
-                    color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
-                  }}>{formatTime(parseRestTime(ex.restTime))}</b>
+                  <b>{formatTime(parseRestTime(ex.restTime))}</b>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onUpdate({ restTime: formatTime(Math.min(600, parseRestTime(ex.restTime) + 15)) }); }}
                     aria-label="Увеличить время отдыха"
-                    style={{
-                      width: '26px', height: '26px', borderRadius: '7px',
-                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                      color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', lineHeight: 1,
-                    }}
                   >+</button>
                 </span>
               </div>
@@ -4592,39 +4465,19 @@ export default function FitnessPage() {
           alignItems: 'center',
           gap: '10px'
         }}>
-          <div style={{
-            fontSize: '16px',
-            fontWeight: 700,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            Welcome to TrainX, {userSettings.name || 'Атлет'}{isNightMode ? ' 🌙' : ''}
-          </div>
-          {/* Кружок юзера — открывает раздел «Я» */}
-          <button
-            onClick={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); setShowProfileDropdown(false); }}
-            aria-label={userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
-            className='btn-press'
-            style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              border: (view === 'profile' || view === 'gains' || view === 'analytics') ? '2px solid var(--text-primary)' : 'none',
-              background: 'linear-gradient(135deg, var(--yellow), var(--orange, #ff9f43))',
-              color: '#fff',
-              fontSize: '13px',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 3px 12px var(--yellow-glow)',
-              flexShrink: 0
-            }}
-          >
-            {(userSettings.name || 'A')[0].toUpperCase()}
-          </button>
+          <div className="tx-welcome" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Welcome to <b>Train<span>X</span></b>, {userSettings.name || 'Атлет'}{isNightMode ? ' 🌙' : ''}
+                    </div>
+                    {/* Кружок юзера — открывает раздел «Я» */}
+                    <button
+                      onClick={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); setShowProfileDropdown(false); }}
+                      aria-label={userSettings.language === 'ru' ? 'Профиль' : 'Profile'}
+                      className="btn-press tx-profile"
+                      style={(view === 'profile' || view === 'gains' || view === 'analytics') ? { borderColor: 'var(--text-primary)' } : undefined}
+                    >
+                      {(userSettings.name || 'A')[0].toUpperCase()}
+                      <i />
+                    </button>
         </div>
       </header>
 
@@ -4900,15 +4753,30 @@ export default function FitnessPage() {
               </div>
             )}
 
-            {/* Лента дат: старые слева, «Сегодня» справа; при открытии
+            {/* Заголовок тренировки по макету: кикер, крупное название, календарь */}
+            {!viewingPastWorkout && (
+              <div>
+                <div className="tx-kicker">
+                  {(currentWorkout?.name || '').replace('Тренировка ', '')} · {t('workout')}
+                </div>
+                <div className="tx-titleline">
+                  <h2>{currentWorkout?.name?.replace(/^Тренировка\s*/, '') || t('workout')}</h2>
+                  <button
+                    className="tx-calbtn btn-press"
+                    onClick={() => { setView('planner'); localStorage.setItem('fitness_view', 'planner'); }}
+                    aria-label={userSettings.language === 'ru' ? 'Календарь' : 'Calendar'}
+                  >
+                    <CalendarDays size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+                        {/* Лента дат: старые слева, «Сегодня» справа; при открытии
                 прокручена к сегодняшнему дню. Внизу чипа — T1/счётчик или месяц. */}
             <div
               ref={workoutStripRef}
-              style={{
-                display: 'flex', gap: '6px', overflowX: 'auto',
-                marginBottom: '12px', paddingBottom: '6px',
-                scrollSnapType: 'x proximity'
-              }}>
+              className="tx-strip no-scrollbar"
+              style={{ scrollSnapType: 'x proximity' }}>
               {(() => {
                 if (!todayStr) return null;
                 const [ty, tm, td] = todayStr.split('-').map(Number);
@@ -4941,47 +4809,29 @@ export default function FitnessPage() {
                       key={ds}
                       data-selchip={isSel ? '1' : undefined}
                       onClick={() => setSelectedDate(d)}
-                      className='btn-press'
-                      style={{
-                        flex: '0 0 calc((100% - 36px) / 7)',
-                        padding: '8px 4px',
-                        scrollSnapAlign: 'center',
-                        overflow: 'hidden',
-                        // Выполнено — сплошная зелёная заливка; в процессе —
-                        // та же зелёная, но с пунктирной рамкой (работа идёт);
-                        // запланировано — нейтральный фон с рамкой-намёком.
-                        background: isSel ? 'var(--yellow)' : hasWorkout ? 'var(--green-dim)' : 'var(--bg-card)',
-                        border: isSel ? 'none'
-                          : isToday ? '2px solid var(--cyan, #0ea5e9)'
-                          : fullyDone ? 'none'
-                          : hasWorkout ? '1px dashed var(--green)'
-                          : isPlanned ? '1px dashed var(--border-strong)'
-                          : '1px solid var(--border)',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
-                      }}
+                      // Классы по макету: без плашек, кружок на выбранном дне,
+                      // статус передаётся цветом точки и подписи.
+                      className={[
+                        'btn-press', 'tx-day',
+                        isSel ? 'is-sel' : '',
+                        isToday ? 'is-today' : '',
+                        fullyDone ? 'is-done' : hasWorkout ? 'is-active' : isPlanned ? 'is-planned' : '',
+                      ].filter(Boolean).join(' ')}
+                      style={{ scrollSnapAlign: 'center' }}
                     >
-                      <span style={{
-                        fontSize: '10px', fontWeight: 600, textTransform: 'capitalize',
-                        whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
-                        color: isSel ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
-                      }}>{label}</span>
-                      <span style={{
-                        fontSize: '15px', fontWeight: 800, lineHeight: 1,
-                        color: isSel ? '#fff' : 'var(--text-primary)'
-                      }}>{d.getDate()}</span>
-                      <span style={{
-                        fontSize: '9px', fontWeight: 700,
-                        color: isSel ? 'rgba(255,255,255,0.85)' : hasWorkout ? 'var(--green)' : 'var(--text-muted)'
-                      }}>
+                      <span className="dow">{label}</span>
+                      <span className="num">{d.getDate()}</span>
+                      <span className="tag">
+                        {(fullyDone || hasWorkout || isPlanned) && (
+                          <i className={['tx-dot', fullyDone ? 'd-done' : hasWorkout ? 'd-active' : 'd-planned'].join(' ')} />
+                        )}
                         {fullyDone
                           ? (wLabel || exDone + '/' + exTotal)
                           : hasWorkout
                             ? (wLabel ? wLabel + ' · ' + exDone + '/' + exTotal : exDone + '/' + exTotal)
                             : isPlanned && wLabel
                               ? wLabel
-                              : d.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}
+                              : '—'}
                       </span>
                     </button>
                   );
@@ -4990,51 +4840,37 @@ export default function FitnessPage() {
               })()}
             </div>
 
-            {/* Функция ручной отметки «день отдыха» убрана: день без тренировки
+            {/* Легенда статусов дня — те же четыре состояния, что и в календаре */}
+            <div className="tx-legend">
+              <span><i className="tx-dot d-done" />{userSettings.language === 'ru' ? 'Выполнено' : 'Done'}</span>
+              <span><i className="tx-dot d-active" />{userSettings.language === 'ru' ? 'В процессе' : 'In progress'}</span>
+              <span><i className="tx-dot d-planned" />{userSettings.language === 'ru' ? 'Запланировано' : 'Planned'}</span>
+              <span><i className="tx-dot d-none" />{userSettings.language === 'ru' ? 'Нет записи' : 'No record'}</span>
+            </div>
+            
+                        {/* Функция ручной отметки «день отдыха» убрана: день без тренировки
                 считается днём отдыха автоматически. */}
 
             {/* Workout selector - compact grid, hidden when viewing history */}
             {!viewingPastWorkout && (
-              <div style={{
-                display: 'flex',
-                gap: '8px',
-                marginBottom: '16px',
-                // stretch — иконки настроек/программы ровно той же высоты, что чипы Т1–Т7
-                alignItems: 'stretch'
-              }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${Math.min(workouts.length + (workouts.length < MAX_WORKOUTS ? 1 : 0), 8)}, 1fr)`,
-                  gap: '6px',
-                  flex: 1
-                }}>
+              <>
+              <div className="tx-utility">
+                <span>{userSettings.language === 'ru' ? 'Моя программа' : 'My program'}</span>
+                <span>{(currentWorkout?.name || '').replace('Тренировка ', 'T')} / {workouts.filter(w => w.exercises.length > 0).length}</span>
+              </div>
+              <div className="tx-wsel">
+                <div
+                  className="tx-wsel-grid"
+                  style={{ gridTemplateColumns: `repeat(${Math.min(workouts.length + (workouts.length < MAX_WORKOUTS ? 1 : 0), 8)}, 1fr)` }}
+                >
                   {workouts.map(w => {
                     const isEmpty = w.exercises.length === 0;
                     const isActive = selectedWorkout === w.id;
                     return (
                       <button
                         key={w.id}
-                        className="tab-button btn-press"
+                        className={['tab-button', 'btn-press', 'tx-wtab', isActive ? 'is-active' : '', isEmpty ? 'is-empty' : ''].filter(Boolean).join(' ')}
                         onClick={() => selectWorkout(w.id)}
-                        style={{
-                          padding: '10px',
-                          background: isActive
-                            ? '#000'
-                            : 'var(--bg-card)',
-                          border: isActive ? '1px solid #000' : '1px solid var(--border)',
-                          borderRadius: '10px',
-                          color: isActive ? '#fff' : isEmpty ? 'var(--text-muted)' : 'var(--text-primary)',
-                          fontWeight: isActive ? 800 : 600,
-                          fontSize: '14px',
-                          boxShadow: isActive ? '0 4px 18px rgba(0,0,0,0.45)' : 'none',
-                          opacity: isActive ? 1 : isEmpty ? 0.5 : 1,
-                          transform: isActive ? 'scale(1.02)' : 'scale(1)',
-                          minWidth: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          touchAction: 'manipulation'
-                        }}
                       >
                         {w.name.replace('Тренировка ', 'T')}
                       </button>
@@ -5042,23 +4878,8 @@ export default function FitnessPage() {
                   })}
                   {workouts.length < MAX_WORKOUTS && (
                     <button
-                      className="btn-press"
+                      className="btn-press tx-wtab is-empty"
                       onClick={addNewWorkout}
-                      style={{
-                        padding: '10px',
-                        background: 'var(--bg-elevated)',
-                        border: '1px dashed var(--border-strong)',
-                        borderRadius: '10px',
-                        color: 'var(--text-muted)',
-                        fontWeight: 600,
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: 0,
-                        touchAction: 'manipulation'
-                      }}
                       title="Добавить тренировку"
                     >
                       <Plus size={18} />
@@ -5104,6 +4925,7 @@ export default function FitnessPage() {
                   <Sparkles size={18} />
                 </button>
               </div>
+              </>
             )}
 
             {/* Closed day dimming wrapper for exercises + steps */}
