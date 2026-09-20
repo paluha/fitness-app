@@ -2203,24 +2203,27 @@ export default function FitnessPage() {
   });
 
   const workoutStripRef = useRef<HTMLDivElement | null>(null);
+  // Ленту позиционируем ОДИН раз при входе в раздел: показываем неделю,
+  // заканчивающуюся сегодняшним днём. По нажатию на дату лента больше не
+  // прокручивается — выбранный день просто подсвечивается и открываются его
+  // данные, а строка дат остаётся на месте под пальцем.
+  const stripPlacedRef = useRef(false);
   useEffect(() => {
-    if (view !== 'workout' || !todayStr) return;
+    if (view !== 'workout') { stripPlacedRef.current = false; return; }
+    if (!todayStr || stripPlacedRef.current) return;
     const el = workoutStripRef.current;
     if (!el) return;
-    // Неделя заканчивается выбранным днём, как в макете: центрирование
-    // уводило вправо будущие даты, и видимая неделя выглядела чужой.
-    // Прокручиваем в rAF: на первом проходе чипы ещё не отрисованы, и
-    // scrollLeft молча падал в 0 — лента показывала чужую неделю.
     const apply = () => {
       const sel = el.querySelector('[data-selchip="1"]') as HTMLElement | null;
       if (sel) el.scrollLeft = Math.max(0, sel.offsetLeft + sel.offsetWidth - el.clientWidth);
       else el.scrollLeft = el.scrollWidth;
+      stripPlacedRef.current = true;
     };
     apply();
     const raf = requestAnimationFrame(apply);
     const t = setTimeout(apply, 120);
     return () => { cancelAnimationFrame(raf); clearTimeout(t); };
-  }, [view, todayStr, selectedDate]);
+  }, [view, todayStr]);
   const [showFoodAssistant, setShowFoodAssistant] = useState(false);
   const [foodRecommendations, setFoodRecommendations] = useState<{
     analysis: string;
