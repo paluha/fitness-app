@@ -4634,7 +4634,7 @@ export default function FitnessPage() {
       )}
 
       {/* Content */}
-      <div style={{
+      <div className={view === 'nutrition' ? 'content-flush' : undefined} style={{
         flex: 1,
         overflow: 'auto',
         padding: '4px 20px 16px',

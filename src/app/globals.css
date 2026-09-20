@@ -1458,3 +1458,12 @@ body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
 .nutv2-dialog h2, .nutv2-dialog h3, .nutv2-dialog strong, .nutv2-dialog label { color: var(--ink); }
 .nutv2-dialog .sheet-copy, .nutv2-dialog .portion-hint, .nutv2-dialog .scan-source-note { color: var(--muted); }
 .nutv2-dialog .dialog-quick-item strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Внешний контейнер приложения на экране питания без боковых отступов:
+   свои поля задаёт сам макет (main внутри .nutv2), иначе ширина карточек
+   получается на 40px меньше эталона. */
+.content-flush { padding-left: 0 !important; padding-right: 0 !important; max-width: none !important; }
+
+/* Быстрые продукты: название не выше двух строк — в эталоне карточка
+   фиксированной высоты, длинные названия переносились на третью строку. */
+.nutv2 .quick-name { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
