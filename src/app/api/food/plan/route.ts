@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     // Время приводим к ЧЧ:ММ и сортируем день по возрастанию: модель иногда
     // возвращает «8:00» или переставляет перекус вперёд завтрака.
     const normTime = (value: unknown) => {
-      const m = /^s*(d{1,2})[:.](d{2})/.exec(String(value ?? ''));
+      const m = /^\s*(\d{1,2})[:.](\d{2})/.exec(String(value ?? ''));
       if (!m) return null;
       const h = Number(m[1]), min = Number(m[2]);
       if (h > 23 || min > 59) return null;
