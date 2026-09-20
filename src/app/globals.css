@@ -1116,8 +1116,8 @@ button:disabled {
 .nutv2 .section-switch button:not([aria-current=page]):hover{ color:var(--ink); background:#e5ddd2; }
 .nutv2 .title-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
 .nutv2 .date-subtitle{ font-size:12px; color:var(--muted); margin-top:5px; }
-.nutv2 .icon-btn{ width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; flex-shrink:0; }
-.nutv2 .icon-btn:hover{ background:var(--soft); }
+.nutv2 .icon-btn, .nutv2-dialog .icon-btn{ width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; flex-shrink:0; }
+.nutv2 .icon-btn:hover, .nutv2-dialog .icon-btn:hover{ background:var(--soft); }
 .nutv2 .calendar-toggle svg{ width:23px; height:23px; }
 .nutv2 .calendar-toggle[aria-expanded=true]{ color:var(--accent); }
 .nutv2 .week-heading{ display:flex; align-items:center; justify-content:space-between; height:34px; margin:1px 0 3px; }
@@ -1162,8 +1162,8 @@ button:disabled {
 .nutv2 .goal-flame.is-igniting .flame-icon{ animation:flameIgnite .65s cubic-bezier(.2,.7,.2,1); }
 @keyframes flameIgnite { 0% { transform:translateY(3px) scale(.55); opacity:.4; } 48% { transform:translateY(-1px) scale(1.2); opacity:1; } 100% { transform:translateY(0) scale(1); opacity:1; } }
 .nutv2 .balance-heading .text-btn{ min-height:32px; }
-.nutv2 .text-btn{ display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:40px; color:var(--muted); font-size:12px; font-weight:500; }
-.nutv2 .text-btn svg{ width:14px; height:14px; }
+.nutv2 .text-btn, .nutv2-dialog .text-btn{ display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:40px; color:var(--muted); font-size:12px; font-weight:500; }
+.nutv2 .text-btn svg, .nutv2-dialog .text-btn svg{ width:14px; height:14px; }
 .nutv2 .energy{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin:6px 0 14px; }
 .nutv2 .energy-label{ color:var(--muted); font-size:11px; margin-bottom:1px; }
 .nutv2 .energy-value{ font-size:39px; letter-spacing:-1.6px; font-weight:650; line-height:1.15; font-variant-numeric:tabular-nums; }
@@ -1184,12 +1184,12 @@ button:disabled {
 .nutv2 .sugar strong{ color:var(--secondary); font-size:12px; font-weight:500; }
 .nutv2 .section-heading{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:23px 0 12px; }
 .nutv2 .heading-count{ font-size:11px; color:var(--muted); font-weight:500; margin-left:7px; letter-spacing:0; }
-.nutv2 .primary{ min-height:42px; padding:10px 15px; background:var(--accent); color:#fff; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; }
-.nutv2 .primary svg{ width:15px; height:15px; }
-.nutv2 .primary:hover{ background:#ee4f2a; }
-.nutv2 .secondary{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:42px; padding:9px 13px; border-radius:10px; border:1px solid var(--line); color:var(--secondary); font-size:12px; background:var(--paper); }
-.nutv2 .secondary svg{ width:15px; height:15px; }
-.nutv2 .secondary:hover{ background:var(--soft); }
+.nutv2 .primary, .nutv2-dialog .primary{ min-height:42px; padding:10px 15px; background:var(--accent); color:#fff; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; }
+.nutv2 .primary svg, .nutv2-dialog .primary svg{ width:15px; height:15px; }
+.nutv2 .primary:hover, .nutv2-dialog .primary:hover{ background:#ee4f2a; }
+.nutv2 .secondary, .nutv2-dialog .secondary{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:42px; padding:9px 13px; border-radius:10px; border:1px solid var(--line); color:var(--secondary); font-size:12px; background:var(--paper); }
+.nutv2 .secondary svg, .nutv2-dialog .secondary svg{ width:15px; height:15px; }
+.nutv2 .secondary:hover, .nutv2-dialog .secondary:hover{ background:var(--soft); }
 .nutv2 .quick-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
 .nutv2 .quick-title{ font-size:10px; color:var(--muted); display:flex; align-items:center; gap:5px; }
 .nutv2 .quick-title svg{ width:12px; height:12px; }
@@ -1234,8 +1234,8 @@ button:disabled {
 .nutv2 .form-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:11px; }
 .nutv2 .form-top .icon-btn{ width:32px; height:32px; }
 .nutv2 .form-top svg{ width:16px; height:16px; }
-.nutv2 .field{ display:flex; flex-direction:column; gap:5px; min-width:0; margin-bottom:12px; }
-.nutv2 .field > span{ font-size:11px; font-weight:500; color:var(--secondary); }
+.nutv2 .field, .nutv2-dialog .field{ display:flex; flex-direction:column; gap:5px; min-width:0; margin-bottom:12px; }
+.nutv2 .field > span, .nutv2-dialog .field > span{ font-size:11px; font-weight:500; color:var(--secondary); }
 .nutv2 input, .nutv2 select, .nutv2 textarea{ display:block; width:100%; max-width:100%; min-width:0; border:1px solid #e6dfd5; border-radius:9px; padding:10px 11px; font-size:16px; line-height:1.35; background:#fcfaf7; outline-offset:2px; }
 .nutv2 input, .nutv2 select{ min-height:43px; }
 .nutv2 textarea{ resize:vertical; min-height:65px; }
@@ -1245,10 +1245,10 @@ button:disabled {
 .nutv2 .fields-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .nutv2 .fields-3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .nutv2 .fields-3 input{ padding:10px 8px; }
-.nutv2 .form-actions{ display:flex; align-items:center; gap:10px; margin-top:5px; }
-.nutv2 .form-actions .primary{ flex:1; }
+.nutv2 .form-actions, .nutv2-dialog .form-actions{ display:flex; align-items:center; gap:10px; margin-top:5px; }
+.nutv2 .form-actions .primary, .nutv2-dialog .form-actions .primary{ flex:1; }
 .nutv2 .form-hint{ font-size:11px; color:var(--muted); margin-bottom:13px; line-height:1.5; }
-.nutv2 .form-error{ color:var(--danger); font-size:12px; margin:0 0 10px; }
+.nutv2 .form-error, .nutv2-dialog .form-error{ color:var(--danger); font-size:12px; margin:0 0 10px; }
 .nutv2 .goal-editor{ border-top:1px solid var(--line); padding:15px 0 17px; }
 .nutv2 .goal-editor h3{ margin-bottom:12px; }
 .nutv2 .rhythm{ margin-top:22px; padding:16px; }
@@ -1256,7 +1256,7 @@ button:disabled {
 .nutv2 .support-title{ display:flex; align-items:center; gap:9px; }
 .nutv2 .support-title h2{ font-size:16px; }
 .nutv2 .support-title svg{ width:18px; height:18px; color:#9a8771; }
-.nutv2 .subtle-tag{ font-size:10px; color:var(--muted); padding:4px 7px; background:var(--soft); border-radius:5px; white-space:nowrap; }
+.nutv2 .subtle-tag, .nutv2-dialog .subtle-tag{ font-size:10px; color:var(--muted); padding:4px 7px; background:var(--soft); border-radius:5px; white-space:nowrap; }
 .nutv2 .rhythm-copy{ font-size:12px; line-height:1.55; color:var(--muted); margin:10px 0 9px; max-width:34ch; }
 .nutv2 .survey-link{ font-size:12px; font-weight:550; color:var(--secondary); min-height:35px; display:flex; align-items:center; gap:8px; }
 .nutv2 .survey-link svg{ width:15px; height:15px; }
@@ -1452,3 +1452,9 @@ body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
 /* Блоки приложения внутри экрана («Когда есть», «Рецепты») — на светлом фоне. */
 .nutv2-legacy { --bg-primary: #f6f3ee; --bg-card: #fff; --bg-secondary: #fdfcfa; --bg-elevated: #f4f0ea; --bg-input: #f7f4ef; --text-primary: #1a1712; --text-secondary: #57534c; --text-muted: #82796d; --border: #e8e1d7; --border-strong: #d7cfc3; color: #1a1712; }
 .nutv2-legacy * { color-scheme: light; }
+
+/* Попап: своя светлая палитра (ночная тема приложения перекрывала цвета). */
+.nutv2-dialog { background: #fdfcfa; color: var(--ink); }
+.nutv2-dialog h2, .nutv2-dialog h3, .nutv2-dialog strong, .nutv2-dialog label { color: var(--ink); }
+.nutv2-dialog .sheet-copy, .nutv2-dialog .portion-hint, .nutv2-dialog .scan-source-note { color: var(--muted); }
+.nutv2-dialog .dialog-quick-item strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
