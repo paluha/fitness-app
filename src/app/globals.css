@@ -706,8 +706,10 @@ button:disabled {
 
 /* Раскрытие карточки упражнения: реальное «выезжание» по высоте */
 @keyframes expandOpen {
-  from { max-height: 0; opacity: 0; transform: translateY(-8px); }
-  to { max-height: 1200px; opacity: 1; transform: translateY(0); }
+  /* Без max-height: анимация высоты заставляет браузер пересчитывать
+     раскладку каждый кадр, и текст внутри карточки «плывёт». */
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Горизонтальные ленты без полосы прокрутки (недели в еде) */
@@ -1557,3 +1559,12 @@ body { min-height: calc(100svh + 1px); }
 /* Индикатор «в сети» у аватара одинаков на обоих экранах: на питании он был
    мельче и с другим цветом обводки — на переходе кружок заметно менялся. */
 .nutv2 .avatar::after { width: 8px; height: 8px; right: 0; bottom: 0; background: #16a34a; border-color: #f6f3ee; }
+
+/* Строка под названием упражнения (группа мышц или итог по подходам)
+   одинаковой высоты в обоих состояниях — иначе при раскрытии карточки
+   название смещается по вертикали. */
+.tx-exname .muscle, .tx-collapsed { display: block; min-height: 13.5px; margin-top: 5px; line-height: 1.35; font-size: 10px; }
+/* Высота строки заголовка постоянна: кнопка фото появляется только у
+   раскрытой карточки и раздвигала строку с 61 до 66px — название
+   съезжало. Резервируем место заранее. */
+.tx-exrow { min-height: 66px; }

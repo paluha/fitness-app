@@ -976,8 +976,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             (свёрнутая) — как в макете. Порядкового номера нет. */}
         <div className="tx-exname" style={{ color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}>
           {ex.name}
-          {expanded && muscleLabel && <span className="muscle">{muscleLabel}</span>}
-          {!expanded && (
+          {/* Подпись под названием есть ВСЕГДА и одной высоты: раскрытая —
+              группа мышц, свёрнутая — итог по подходам. Если её убирать,
+              название прыгает по вертикали при раскрытии карточки. */}
+          {expanded ? (
+            <span className="muscle">{muscleLabel || '\u00A0'}</span>
+          ) : (
             <span className={['tx-collapsed', setsTotal > 0 && setsDone === setsTotal ? 'is-complete' : ''].filter(Boolean).join(' ')}>
               {setsDone}/{setsTotal} подхода{bestSet ? ` · ${bestSet.weight} lb × ${bestSet.reps}` : ' · ещё не начато'}
             </span>
