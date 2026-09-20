@@ -3808,7 +3808,12 @@ export default function FitnessPage() {
 
   // Анализ фото/этикетки существующим сервисом приложения.
   const nutAnalyze = useCallback(async (args: { file: File; mode: 'food' | 'label'; hint: string; signal: AbortSignal }) => {
-    const base64Image = await compressImage(args.file, args.mode === 'label' ? 1200 : 800);
+    // Декодирование не должно подвешивать окно: если браузер не осилил файл
+    // за 10 секунд, показываем понятную ошибку вместо вечного спиннера.
+    const base64Image = await Promise.race([
+      compressImage(args.file, args.mode === 'label' ? 1200 : 800),
+      new Promise<string>((_, reject) => setTimeout(() => reject(new Error('decode timeout')), 10000)),
+    ]);
     const response = await fetch('/api/food/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

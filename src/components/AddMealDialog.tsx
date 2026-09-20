@@ -165,7 +165,12 @@ export default function AddMealDialog(props: AddMealDialogProps) {
     return () => d.removeEventListener('close', onCloseEvt);
   }, [onClose, resetCapture]);
 
-  useEffect(() => () => { abortRef.current?.abort(); if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+  // Освобождаем objectURL при смене превью. ВАЖНО: здесь нельзя трогать
+  // abortRef — эффект перезапускается при установке превью, и анализ,
+  // стартующий сразу после него, отменялся бы собственным же размонтированием.
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+  // Отмена анализа только при размонтировании компонента.
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   const stampText = (s: Stamp) =>
     `${asDate(s.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} · ${s.time}`;
@@ -228,11 +233,22 @@ export default function AddMealDialog(props: AddMealDialogProps) {
       if (run !== runRef.current) return;
       setAnalyzing(false);
       if ((e as Error)?.name === 'AbortError') return;
+      // Битый или неподдерживаемый файл: браузер не смог его декодировать —
+      // это не сеть, повторять запрос бессмысленно, нужно другое фото.
+      const msg = String((e as Error)?.message || '');
+      if ((e as Error)?.name === 'UnrecognizedFood' || msg === 'unrecognized') {
+        setFailure({ kind: 'unrecognized', message: 'Не удалось определить блюдо по фото. Попробуй другое фото или введи данные вручную.' });
+        return;
+      }
+      if (msg.includes('decode') || msg.includes('canvas') || e instanceof Event) {
+        setFailure({ kind: 'unrecognized', message: 'Не удалось открыть это фото. Выбери другой файл (JPEG или PNG).' });
+        return;
+      }
       setFailure({ kind: 'network', message: 'Сеть не ответила. Фото и уточнение сохранены — можно повторить.' });
     }
   }, [onAnalyze, persist]);
 
-  const pickFile = async (f: File | undefined) => {
+  const pickFile = async (f: File | undefined): Promise<void> => {
     if (!f) return;
     if (!f.type.startsWith('image/')) { setInputError('Выбери фотографию.'); return; }
     if (f.size > 15 * 1024 * 1024) { setInputError('Выбери фото размером до 15 МБ.'); return; }
@@ -513,7 +529,13 @@ export default function AddMealDialog(props: AddMealDialogProps) {
         )}
 
         <input ref={fileRef} type="file" accept="image/*" hidden
-          onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; pickFile(f); }} />
+          onChange={e => {
+            const input = e.target;
+            const f = input.files?.[0];
+            // Значение чистим ПОСЛЕ обработки: иначе выбор того же файла
+            // второй раз не вызывает onChange, а File уже прочитан.
+            pickFile(f).finally(() => { input.value = ''; });
+          }} />
       </div>
     </dialog>
   );
