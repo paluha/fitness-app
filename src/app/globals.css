@@ -1028,3 +1028,17 @@ button:disabled {
 .tx-profile, .tx-calbtn { font-size: 13px; }
 .tx-calbtn svg { width: 20px; height: 20px; }
 .tx-iconbtn { padding: 0 8px; }
+
+/* Фото упражнения: в шапке карточки между названием и счётчиком (по макету),
+   42x42 с радиусом 8. В свёрнутой карточке макет его прячет. */
+.tx-photo {
+  width: 42px; height: 42px; flex: 0 0 42px;
+  border: 1px solid #e5ded4; border-radius: 8px;
+  background: #f8f5ef; color: #a69b8b;
+  overflow: hidden; padding: 0; cursor: zoom-in;
+  display: flex; align-items: center; justify-content: center;
+}
+.tx-photo.is-empty { border-style: dashed; cursor: pointer; }
+.tx-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tx-photo svg { width: 20px; height: 20px; }
+.tx-ex:not(.is-open) .tx-photo { display: none; }

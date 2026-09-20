@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -981,6 +981,32 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           )}
         </div>
 
+        {/* Фото упражнения — в шапке карточки между названием и счётчиком,
+            как в макете. В свёрнутой карточке скрыто (CSS .tx-ex:not(.is-open)). */}
+        <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+        {ex.imageUrl ? (
+          <button
+            type="button"
+            className="tx-photo"
+            onClick={(e) => { e.stopPropagation(); onShowImage?.(ex.imageUrl!, ex.name); }}
+            onContextMenu={(e) => { e.preventDefault(); onUpdate({ imageUrl: undefined }); }}
+            title={'Фото: ' + ex.name}
+            aria-label={'Фото: ' + ex.name}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ex.imageUrl} alt={ex.name} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="tx-photo is-empty"
+            onClick={(e) => { e.stopPropagation(); imageInputRef.current?.click(); }}
+            aria-label="Добавить фото"
+          >
+            <ImageIcon size={20} />
+          </button>
+        )}
+
         {/* Счётчик подходов */}
         <span className={['tx-excount', setsTotal > 0 && setsDone === setsTotal ? 'is-done' : ''].filter(Boolean).join(' ')}>
           {setsDone}/{setsTotal}
@@ -1188,60 +1214,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               </div>
             );
           })()}
-          {/* Таймер отдыха + фото — в одну строку */}
-          <div style={{ marginTop: '10px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Отдых по макету: подпись слева, степпер −/+ справа.
-                  Значение живёт в ex.restTime («1:45») и уходит в тот же
-                  черновик дня, что и подходы. */}
-            </div>
-            <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-            {ex.imageUrl ? (
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <button
-                  onClick={() => onShowImage?.(ex.imageUrl!, ex.name)}
-                  style={{
-                    padding: 0, border: '1px solid #e5ded4', borderRadius: '8px',
-                    overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-primary)',
-                    width: '42px', height: '42px', display: 'block'
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={ex.imageUrl}
-                    alt={ex.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                </button>
-                <button
-                  onClick={() => onUpdate({ imageUrl: undefined })}
-                  aria-label='Убрать фото'
-                  style={{
-                    position: 'absolute', top: '-6px', right: '-6px',
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                    color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', padding: 0, cursor: 'pointer'
-                  }}
-                >
-                  <X size={10} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                aria-label='Добавить фото'
-                style={{
-                  width: '42px', height: '42px', borderRadius: '8px',
-                  background: 'var(--bg-primary)', border: '1px dashed var(--border-strong)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', flexShrink: 0
-                }}
-              >
-                <Camera size={18} style={{ color: 'var(--text-muted)' }} />
-              </button>
-            )}
-          </div>
 
           {/* Динамика рабочего веса — открывается иконкой справа от заметок */}
           {weightHistory && weightHistory.length > 0 && showChart && (
