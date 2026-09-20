@@ -15,6 +15,9 @@ import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
 import { WeightChart } from '@/components/WeightChart';
+import NutritionPage from '@/components/NutritionPage';
+import AddMealDialog from '@/components/AddMealDialog';
+import type { NutritionMeal } from '@/components/NutritionPage';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -3725,6 +3728,154 @@ export default function FitnessPage() {
     setShowNightMealPrompt(false);
   };
 
+  // --- Экран «Питание» по макету: состояние и мосты к сервисам приложения ---
+  const [nutDialogOpen, setNutDialogOpen] = useState(false);
+  const [nutEditing, setNutEditing] = useState<NutritionMeal | null>(null);
+  const [nutUndo, setNutUndo] = useState<{ meal: Meal; date: string } | null>(null);
+
+  // Приёмы пищи по датам в формате нового экрана.
+  const nutMealsByDate = useMemo(() => {
+    const out: Record<string, NutritionMeal[]> = {};
+    for (const [key, log] of Object.entries(dayLogs)) {
+      const list = (log?.meals || []) as Meal[];
+      if (!list.length) continue;
+      out[key] = list.map(m => ({
+        id: m.id, time: m.time, name: m.name,
+        protein: m.protein, fat: m.fat, carbs: m.carbs, calories: m.calories,
+        sugar: m.sugar ?? null,
+        isFavorite: !!m.isFavorite,
+        photoStamp: (m as unknown as { photoStamp?: NutritionMeal['photoStamp'] }).photoStamp ?? null,
+        captureKind: (m as unknown as { captureKind?: NutritionMeal['captureKind'] }).captureKind,
+        portionGrams: (m as unknown as { portionGrams?: number | null }).portionGrams ?? null,
+        basePortion: (m as unknown as { basePortion?: NutritionMeal['basePortion'] }).basePortion ?? null,
+      }));
+    }
+    return out;
+  }, [dayLogs]);
+
+  // Частые продукты: самые повторяемые записи за историю.
+  const nutQuickFrequent = useMemo(() => {
+    const counts = new Map<string, { meal: NutritionMeal; n: number }>();
+    for (const list of Object.values(nutMealsByDate)) {
+      for (const m of list) {
+        const key = m.name.trim().toLowerCase();
+        if (!key) continue;
+        const hit = counts.get(key);
+        if (hit) hit.n++; else counts.set(key, { meal: m, n: 1 });
+      }
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 8).map(x => x.meal);
+  }, [nutMealsByDate]);
+
+  const nutQuickFavorites = useMemo(
+    () => Object.values(nutMealsByDate).flat().filter(m => m.isFavorite)
+      .filter((m, i, all) => all.findIndex(x => x.name === m.name) === i).slice(0, 8),
+    [nutMealsByDate]);
+
+  // Сохранение записи: один operationId — одна запись. Повтор сохранения
+  // и повторный ответ ИИ обновляют ту же запись, а не создают вторую.
+  const nutSaveMeal = useCallback(async (meal: NutritionMeal, ctx: { date: string; operationId: string }) => {
+    userMadeChangeRef.current = true;
+    const record: Meal = {
+      id: meal.id,
+      time: meal.time,
+      name: meal.name,
+      protein: meal.protein, fat: meal.fat, carbs: meal.carbs, calories: meal.calories,
+      sugar: meal.sugar ?? undefined,
+    };
+    const extra = {
+      photoStamp: meal.photoStamp ?? undefined,
+      captureKind: meal.captureKind,
+      portionGrams: meal.portionGrams ?? undefined,
+      basePortion: meal.basePortion ?? undefined,
+    };
+    const full = { ...record, ...extra } as Meal;
+    await new Promise<void>((resolve, reject) => {
+      try {
+        setDayLogs(prev => {
+          const base = prev[ctx.date] || { date: ctx.date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+          const list = (base.meals || []) as Meal[];
+          const at = list.findIndex(x => x.id === meal.id);
+          const meals = at >= 0 ? list.map(x => x.id === meal.id ? full : x) : [...list, full];
+          upsertDayLog({ date: ctx.date, kind: 'meals', payload: meals }).catch(() => {});
+          return { ...prev, [ctx.date]: { ...base, meals } };
+        });
+        resolve();
+      } catch (e) { reject(e as Error); }
+    });
+    if (ctx.date !== dateKey) setSelectedDate(new Date(`${ctx.date}T12:00:00`));
+  }, [dateKey]);
+
+  // Анализ фото/этикетки существующим сервисом приложения.
+  const nutAnalyze = useCallback(async (args: { file: File; mode: 'food' | 'label'; hint: string; signal: AbortSignal }) => {
+    const base64Image = await compressImage(args.file, args.mode === 'label' ? 1200 : 800);
+    const response = await fetch('/api/food/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image, type: args.mode === 'label' ? 'nutrition_label' : 'food_photo', hint: args.hint || undefined }),
+      signal: args.signal,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result?.error || 'network');
+    if (!result?.success || !result?.data) {
+      // Еду определить нельзя — запись не создаётся, показываем причину.
+      const err = new Error(result?.error || 'unrecognized');
+      err.name = 'UnrecognizedFood';
+      throw err;
+    }
+    const d = result.data;
+    return {
+      name: String(d.name || ''),
+      protein: Number(d.protein), fat: Number(d.fat), carbs: Number(d.carbs),
+      calories: Number(d.calories),
+      // Неизвестные показатели не подменяем нулями.
+      sugar: d.sugar === null || d.sugar === undefined ? null : Number(d.sugar),
+      weight: d.weight === null || d.weight === undefined ? null : Number(d.weight),
+    };
+  }, []);
+
+  // Удаление с отменой: запись возвращается на ту же дату.
+  const nutDeleteMeal = useCallback((meal: NutritionMeal) => {
+    userMadeChangeRef.current = true;
+    const date = dateKey;
+    const existing = ((dayLogs[date]?.meals || []) as Meal[]).find(m => m.id === meal.id);
+    if (!existing) return;
+    setNutUndo({ meal: existing, date });
+    setDayLogs(prev => {
+      const base = prev[date];
+      if (!base) return prev;
+      const meals = (base.meals || []).filter(m => m.id !== meal.id);
+      upsertDayLog({ date, kind: 'meals', payload: meals }).catch(() => {});
+      return { ...prev, [date]: { ...base, meals } };
+    });
+  }, [dateKey, dayLogs]);
+
+  // Избранное — флаг на самой записи (как в остальном приложении).
+  const nutToggleFavorite = useCallback((meal: NutritionMeal) => {
+    userMadeChangeRef.current = true;
+    const date = dateKey;
+    setDayLogs(prev => {
+      const base = prev[date];
+      if (!base) return prev;
+      const meals = (base.meals || []).map(m => m.id === meal.id ? { ...m, isFavorite: !m.isFavorite } : m);
+      upsertDayLog({ date, kind: 'meals', payload: meals }).catch(() => {});
+      return { ...prev, [date]: { ...base, meals } };
+    });
+  }, [dateKey]);
+
+  const nutRestoreMeal = useCallback(() => {
+    if (!nutUndo) return;
+    const { meal, date } = nutUndo;
+    setNutUndo(null);
+    userMadeChangeRef.current = true;
+    setDayLogs(prev => {
+      const base = prev[date] || { date, selectedWorkout: null, workoutCompleted: null, workoutRating: null, workoutSnapshot: null, workoutDraft: null, meals: [], notes: '', steps: null, dayClosed: false, isOffDay: false };
+      const meals = [...(base.meals || []), meal];
+      upsertDayLog({ date, kind: 'meals', payload: meals }).catch(() => {});
+      return { ...prev, [date]: { ...base, meals } };
+    });
+  }, [nutUndo]);
+
   const deleteMeal = (mealId: string) => {
     userMadeChangeRef.current = true;
     updateDayLog({ meals: currentDayLog.meals.filter(m => m.id !== mealId) });
@@ -4208,7 +4359,8 @@ export default function FitnessPage() {
         background: 'var(--bg-primary)'
       }}
     >
-      {/* Header */}
+      {/* Header — на экране питания шапка своя (в макете она часть страницы) */}
+      {view !== 'nutrition' && (
       <header style={{
         padding: '14px 20px 10px',
         paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))',
@@ -4237,6 +4389,7 @@ export default function FitnessPage() {
                     </button>
         </div>
       </header>
+      )}
 
       {/* Navigation tabs */}
       {/* Верхняя навигация убрана — всё переехало в нижний таб-бар (как в Superpower) */}
@@ -4910,740 +5063,32 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* NUTRITION VIEW */}
+        {/* NUTRITION VIEW — оформление по макету, данные и сервисы приложения */}
         {view === 'nutrition' && (
-          <div className="view-content">
-            {/* Daily target header */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              marginBottom: '12px',
-              padding: '10px 16px',
-              background: 'var(--bg-card)',
-              borderRadius: '12px',
-              border: '1px solid var(--border)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Target size={14} className="pulse-subtle" style={{ color: 'var(--red)' }} />
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>{t('goal')}</span>
-              </div>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--blue)' }}>{MACRO_TARGETS.protein} {t('protein')}</span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--yellow)' }}>{MACRO_TARGETS.fat} {t('fat')}</span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--green)' }}>{MACRO_TARGETS.carbs} {t('carbs')}</span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--red)' }}>{MACRO_TARGETS.calories} {t('kcal')}</span>
-            </div>
-
-            {/* Nutrition Streak - недели листаются прокруткой */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              marginBottom: '12px',
-              padding: '14px 16px',
-              background: 'var(--bg-card)',
-              borderRadius: '12px',
-              border: '1px solid var(--border)',
-              overflow: 'hidden'
-            }}>
-              {/* Header with streak count */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{
-                    fontSize: '16px',
-                    filter: nutritionStreak > 0 ? 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.5))' : 'grayscale(0.5)'
-                  }}>
-                    🔥
-                  </span>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: nutritionStreak > 0 ? '#ff6b00' : 'var(--text-muted)'
-                  }}>
-                    {nutritionStreak} {nutritionStreak === 1 ? 'день' : nutritionStreak >= 2 && nutritionStreak <= 4 ? 'дня' : 'дней'}
-                  </span>
-                </div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {(() => {
-                    const w = streakWeeks[streakShownIdx];
-                    if (!w) return '';
-                    if (w.days.some(d => d.isToday)) return 'текущая неделя';
-                    const [y, m, d] = w.days[6].date.split('-').map(Number);
-                    return `${Number(w.days[0].date.slice(8, 10))}–${Number(w.days[6].date.slice(8, 10))} ${new Date(y, m - 1, d).toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}`;
-                  })()}
-                </span>
-              </div>
-
-              {/* Недели: горизонтальная прокрутка со снапом, соседние недели
-                  выглядывают по краям и приглушены */}
-              <div
-                ref={streakScrollRef}
-                onScroll={handleStreakScroll}
-                className="no-scrollbar"
-                style={{
-                  display: 'flex',
-                  gap: `${STREAK_GAP}px`,
-                  overflowX: 'auto',
-                  scrollSnapType: 'x mandatory',
-                  scrollPadding: `0 ${STREAK_PEEK}px`,
-                  margin: '0 -16px',
-                  WebkitOverflowScrolling: 'touch',
-                  overscrollBehaviorX: 'contain'
-                }}
-              >
-                {streakWeeks.map((week, wi) => (
-                  <div
-                    key={week.monday}
-                    style={{
-                      flex: `0 0 calc(100% - ${STREAK_PEEK * 2}px)`,
-                      marginLeft: wi === 0 ? `${STREAK_PEEK}px` : 0,
-                      marginRight: wi === streakWeeks.length - 1 ? `${STREAK_PEEK}px` : 0,
-                      scrollSnapAlign: 'center',
-                      display: 'flex',
-                      gap: '6px',
-                      justifyContent: 'space-between',
-                      opacity: wi === streakShownIdx ? 1 : 0.35,
-                      transition: 'opacity 0.2s ease'
-                    }}
-                  >
-                {week.days.map((day) => {
-                  const isSelected = day.date === dateKey;
-                  return (
-                  <div
-                    key={day.date}
-                    onClick={() => {
-                      if (!day.isFuture) {
-                        const [y, m, d] = day.date.split('-').map(Number);
-                        setSelectedDate(new Date(y, m - 1, d));
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '4px',
-                      cursor: day.isFuture ? 'default' : 'pointer'
-                    }}
-                  >
-                    {/* Day name and number */}
-                    <span style={{
-                      fontSize: '10px',
-                      color: day.isToday ? 'var(--yellow)' : isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
-                      fontWeight: day.isToday || isSelected ? 600 : 400,
-                      textAlign: 'center'
-                    }}>
-                      {day.isToday ? 'Сег' : day.dayName}
-                      <br />
-                      <span style={{ fontSize: '9px' }}>{day.date.split('-')[2]}</span>
-                    </span>
-                    {/* Cell */}
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: day.isToday
-                        ? isTodayCloseToGoal
-                          ? 'transparent'
-                          : 'var(--bg-elevated)'
-                        : day.isFuture
-                          ? 'rgba(239, 68, 68, 0.05)'
-                          : isSelected
-                            ? 'rgba(17, 20, 24, 0.06)'
-                            : 'transparent',
-                      border: day.isToday
-                        ? isTodayCloseToGoal
-                          ? '1px solid rgba(255, 152, 0, 0.2)'
-                          : 'none'
-                        : isSelected && !day.isToday
-                          ? '1px solid rgba(17, 20, 24, 0.14)'
-                          : day.isFuture
-                            ? '1px dashed rgba(239, 68, 68, 0.25)'
-                            : 'none',
-                      opacity: day.isFuture ? 0.5 : 1
-                    }}>
-                      {day.isToday ? (
-                        isTodayCloseToGoal ? (
-                          <span style={{
-                            fontSize: '16px',
-                            animation: 'fireBounce 0.5s ease-in-out infinite',
-                            filter: 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8))'
-                          }}>🔥</span>
-                        ) : (
-                          /* Анимированные песочные часы (в стиле animateicons.in) */
-                          <Hourglass size={14} className="hourglass-animated" style={{ color: 'var(--text-muted)' }} />
-                        )
-                      ) : day.isFuture ? (
-                        <span style={{
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          color: 'rgba(239, 68, 68, 0.4)'
-                        }}>✕</span>
-                      ) : day.completed ? (
-                        <span style={{
-                          fontSize: '18px',
-                          animation: 'fireBurn 1.5s ease-in-out infinite',
-                          filter: 'drop-shadow(0 0 4px rgba(255, 107, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 193, 7, 0.5))'
-                        }}>🔥</span>
-                      ) : (
-                        /* День без выполненной цели — показываем процент вместо смайлика */
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          color: 'var(--text-muted)'
-                        }}>{day.pct}%</span>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-                  </div>
-                ))}
-              </div>
-
-            </div>
-
-            {/* Streak Day Detail Modal */}
-            {streakDetailDate && (() => {
-              const log = dayLogs[streakDetailDate];
-              const meals = log?.meals || [];
-              const totals = meals.reduce((acc, m) => ({
-                protein: acc.protein + m.protein,
-                fat: acc.fat + m.fat,
-                carbs: acc.carbs + m.carbs,
-                calories: acc.calories + m.calories
-              }), { protein: 0, fat: 0, carbs: 0, calories: 0 });
-              const dayInfo = last7Days.find(d => d.date === streakDetailDate);
-              // Parse date correctly to avoid timezone issues
-              const [year, month, dayNum] = streakDetailDate.split('-').map(Number);
-              const dateObj = new Date(year, month - 1, dayNum);
-              const dateStr = dateObj.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
-
-              return (
-                <div
-                  onClick={() => setStreakDetailDate(null)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.7)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '20px'
-                  }}
-                >
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      background: 'var(--bg-primary)',
-                      borderRadius: '16px',
-                      width: '100%',
-                      maxWidth: '360px',
-                      maxHeight: '80vh',
-                      overflow: 'auto',
-                      padding: '20px'
-                    }}
-                  >
-                    {/* Header */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '16px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: dayInfo?.completed ? '24px' : '16px', fontWeight: 800, color: dayInfo?.completed ? undefined : 'var(--text-muted)' }}>
-                          {dayInfo?.completed ? '🔥' : ((dayInfo?.pct ?? 0) + '%')}
-                        </span>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '15px', textTransform: 'capitalize' }}>
-                            {dateStr}
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {dayInfo?.completed ? 'Цель выполнена' : 'Цель не выполнена'}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setStreakDetailDate(null)}
-                        style={{
-                          background: 'var(--bg-elevated)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '8px',
-                          cursor: 'pointer',
-                          color: 'var(--text-muted)'
-                        }}
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-
-                    {/* Totals */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(4, 1fr)',
-                      gap: '8px',
-                      marginBottom: '16px'
-                    }}>
-                      <div style={{
-                        background: 'var(--bg-card)',
-                        padding: '10px 8px',
-                        borderRadius: '10px',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>
-                          {totals.protein}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Б</div>
-                      </div>
-                      <div style={{
-                        background: 'var(--bg-card)',
-                        padding: '10px 8px',
-                        borderRadius: '10px',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--yellow)' }}>
-                          {totals.fat}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Ж</div>
-                      </div>
-                      <div style={{
-                        background: 'var(--bg-card)',
-                        padding: '10px 8px',
-                        borderRadius: '10px',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--blue)' }}>
-                          {totals.carbs}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>У</div>
-                      </div>
-                      <div style={{
-                        background: 'var(--bg-card)',
-                        padding: '10px 8px',
-                        borderRadius: '10px',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>
-                          {totals.calories}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ккал</div>
-                      </div>
-                    </div>
-
-                    {/* Meals list */}
-                    {meals.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {meals.map((meal, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              background: 'var(--bg-card)',
-                              padding: '12px',
-                              borderRadius: '10px',
-                              border: '1px solid var(--border)'
-                            }}
-                          >
-                            <div style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              marginBottom: '6px'
-                            }}>
-                              <div style={{ fontWeight: 600, fontSize: '13px' }}>
-                                {meal.name}
-                              </div>
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                {meal.time}
-                              </div>
-                            </div>
-                            <div style={{
-                              display: 'flex',
-                              gap: '12px',
-                              fontSize: '11px',
-                              color: 'var(--text-secondary)'
-                            }}>
-                              <span>Б: {meal.protein}</span>
-                              <span>Ж: {meal.fat}</span>
-                              <span>У: {meal.carbs}</span>
-                              <span style={{ color: 'var(--green)' }}>{meal.calories} ккал</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '30px',
-                        color: 'var(--text-muted)',
-                        fontSize: '13px'
-                      }}>
-                        Нет записей о питании
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Compact Macro summary - 2x2 grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '6px',
-              marginBottom: '12px'
-            }}>
-              {/* Protein */}
-              <div className="macro-card" style={{
-                background: 'var(--bg-card)',
-                padding: '8px 10px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600 }}>{t('protein')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue)' }}>{macroTotals.protein}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.protein}</span></span>
-                </div>
-                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.protein}%`, height: '100%', background: 'var(--blue)', borderRadius: '1px' }} />
-                </div>
-              </div>
-
-              {/* Fat */}
-              <div className="macro-card" style={{
-                background: 'var(--bg-card)',
-                padding: '8px 10px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--yellow)', fontWeight: 600 }}>{t('fat')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--yellow)' }}>{macroTotals.fat}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.fat}</span></span>
-                </div>
-                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.fat}%`, height: '100%', background: 'var(--yellow)', borderRadius: '1px' }} />
-                </div>
-              </div>
-
-              {/* Carbs */}
-              <div className="macro-card" style={{
-                background: 'var(--bg-card)',
-                padding: '8px 10px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>{t('carbs')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)' }}>{macroTotals.carbs}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.carbs}</span></span>
-                </div>
-                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.carbs}%`, height: '100%', background: 'var(--green)', borderRadius: '1px' }} />
-                </div>
-              </div>
-
-              {/* Calories */}
-              <div className="macro-card" style={{
-                background: 'var(--bg-card)',
-                padding: '8px 10px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '3px'
-                }}>
-                  <span style={{ fontSize: '10px', color: 'var(--red)', fontWeight: 600 }}>{t('kcal')}</span>
-                  <span className="number-transition" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)' }}>{macroTotals.calories}<span style={{ fontSize: '10px', fontWeight: 500 }}>/{MACRO_TARGETS.calories}</span></span>
-                </div>
-                <div style={{ height: '2px', background: 'var(--bg-elevated)', borderRadius: '1px', overflow: 'hidden' }}>
-                  <div className="progress-fill-animated" style={{ width: `${macroProgress.calories}%`, height: '100%', background: 'var(--red)', borderRadius: '1px' }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Сахар за день — общий (природный + добавленный одним числом) */}
-            {macroTotals.sugar > 0 && (
-              <div style={{
-                marginTop: '-8px',
-                marginBottom: '16px',
-                padding: '10px 14px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '13px'
-              }}>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  {userSettings.language === 'ru' ? 'Сахар за день' : 'Sugar today'}
-                </span>
-                <span style={{
-                  fontWeight: 700,
-                  color: macroTotals.sugar > 50 ? 'var(--red)' : macroTotals.sugar > 25 ? 'var(--yellow)' : 'var(--green)'
-                }}>
-                  {Math.round(macroTotals.sugar)} г
-                </span>
-              </div>
-            )}
-
-            {/* Meals header */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '16px'
-            }}>
-              <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px' }}>{t('meals')}</h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {/* AI-кнопка убрана — ассистент есть в нижнем меню */}
-                <button
-                  onClick={() => {
-                    setEditingMeal(null);
-                    setMealForm({ time: '', name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '' });
-                    setShowMealModal(true);
-                  }}
-                  className="btn-press fab"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '12px 18px',
-                    background: 'var(--yellow)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    boxShadow: '0 4px 20px var(--yellow-glow)'
-                  }}
-                >
-                  <Plus size={18} /> {t('addMeal')}
-                </button>
-              </div>
-            </div>
-
-            {/* Частые продукты — добавление в один тап, без фото и форм */}
-            {mealHistory.length > 0 && (
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{
-                  fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)',
-                  marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px'
-                }}>
-                  <History size={13} />
-                  {userSettings.language === 'ru' ? 'Частые продукты — добавить в один тап' : 'Frequent foods — one-tap add'}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }}>
-                  {mealHistory.slice(0, 8).map((item, idx) => (
-                    <button
-                      key={`freq-${idx}`}
-                      type="button"
-                      className="btn-press"
-                      onClick={() => {
-                        const newMeal: Meal = {
-                          id: Date.now().toString(),
-                          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-                          name: item.meal.name,
-                          protein: item.meal.protein,
-                          fat: item.meal.fat,
-                          carbs: item.meal.carbs,
-                          calories: item.meal.calories,
-                          sugar: item.meal.sugar
-                        };
-                        userMadeChangeRef.current = true;
-                        updateDayLog({ meals: [...currentDayLog.meals, newMeal] });
-                      }}
-                      style={{
-                        flexShrink: 0, padding: '8px 12px',
-                        background: 'var(--bg-card)', border: '1px solid var(--border)',
-                        borderRadius: '10px', cursor: 'pointer', textAlign: 'left', maxWidth: '150px'
-                      }}
-                    >
-                      <div style={{
-                        fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                      }}>
-                        + {item.meal.name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {item.meal.calories} ккал · {item.meal.protein}Б
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Meals list */}
-            {currentDayLog.meals.length === 0 ? (
-              <div className="view-content" style={{
-                textAlign: 'center',
-                padding: '40px 20px',
-                color: 'var(--text-muted)',
-                background: 'var(--bg-card)',
-                borderRadius: '12px',
-                border: '1px solid var(--border)'
-              }}>
-                <Apple size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                <div style={{ fontSize: '14px', fontWeight: 500 }}>{t('noMeals')}</div>
-                <div style={{ fontSize: '12px', marginTop: '4px' }}>{t('addFirstMeal')}</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[...currentDayLog.meals].sort((a, b) => {
-                  // Sort by time (HH:MM format)
-                  const timeA = a.time || '99:99';
-                  const timeB = b.time || '99:99';
-                  return timeA.localeCompare(timeB);
-                }).map((meal, index) => (
-                  <div
-                    key={meal.id}
-                    className="card-hover list-item-animated"
-                    style={{
-                      background: 'var(--bg-card)',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border)',
-                      animationDelay: `${index * 0.05}s`
-                    }}
-                  >
-                    {(() => { const peeking = peekMealId === meal.id; return (
-                    <div
-                      onClick={() => peekMeal(meal.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer'
-                      }}>
-                      {/* Time */}
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '36px' }}>
-                        {meal.time}
-                      </span>
-                      {/* Name — при peek дочитывается на освободившееся место */}
-                      <span style={{
-                        fontWeight: 600, fontSize: '13px', flex: 1, minWidth: 0,
-                        overflow: 'hidden', textOverflow: 'ellipsis',
-                        whiteSpace: peeking && peekWrapId === meal.id ? 'normal' : 'nowrap',
-                        wordBreak: peeking && peekWrapId === meal.id ? 'break-word' : 'normal',
-                        transition: 'all 0.25s ease'
-                      }}>
-                        {meal.name}
-                      </span>
-                      {/* Правая часть (макросы + кнопки): при peek стирается вправо */}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        maxWidth: peeking ? '0px' : '360px',
-                        opacity: peeking ? 0 : 1,
-                        transform: peeking ? 'translateX(18px)' : 'translateX(0)',
-                        overflow: 'hidden',
-                        pointerEvents: peeking ? 'none' : 'auto',
-                        transition: 'max-width 0.35s ease, opacity 0.3s ease, transform 0.35s ease',
-                        flexShrink: 0
-                      }}>
-                      {/* Compact macros */}
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '11px' }}>
-                        <span style={{ color: 'var(--blue)', fontWeight: 600 }}>{meal.protein}</span>
-                        <span style={{ color: 'var(--border-strong)' }}>/</span>
-                        <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>{meal.fat}</span>
-                        <span style={{ color: 'var(--border-strong)' }}>/</span>
-                        <span style={{ color: 'var(--green)', fontWeight: 600 }}>{meal.carbs}</span>
-                        <span style={{ color: 'var(--border-strong)' }}>/</span>
-                        <span style={{ color: 'var(--red)', fontWeight: 600 }}>{meal.calories}</span>
-                      </div>
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDayLogs(prev => {
-                              const existingLog = prev[dateKey] || currentDayLog;
-                              const newMeals = existingLog.meals.map(m =>
-                                m.id === meal.id ? { ...m, isFavorite: !m.isFavorite } : m
-                              );
-                              upsertDayLog({ date: dateKey, kind: 'meals', payload: newMeals }).catch(() => {});
-                              return {
-                                ...prev,
-                                [dateKey]: { ...existingLog, meals: newMeals }
-                              };
-                            });
-                          }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            padding: '6px',
-                            color: meal.isFavorite ? 'var(--red)' : 'var(--text-muted)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Heart size={14} fill={meal.isFavorite ? 'var(--red)' : 'none'} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditMeal(meal); }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            padding: '6px',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteMeal(meal.id); }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            padding: '6px',
-                            color: 'var(--red)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      </div>
-                    </div>
-                    ); })()}
-                  </div>
-                ))}
-              </div>
-            )}
-
+          <>
+          <NutritionPage
+            userName={userSettings.name || 'Атлет'}
+            selectedDate={dateKey}
+            todayStr={todayStr}
+            goals={{ protein: MACRO_TARGETS.protein, fat: MACRO_TARGETS.fat, carbs: MACRO_TARGETS.carbs, calories: MACRO_TARGETS.calories }}
+            mealsByDate={nutMealsByDate}
+            quickFrequent={nutQuickFrequent}
+            quickFavorites={nutQuickFavorites}
+            onSelectDate={key => setSelectedDate(new Date(`${key}T12:00:00`))}
+            onOpenAdd={() => { setNutEditing(null); setNutDialogOpen(true); }}
+            onQuickAdd={m => {
+              const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              nutSaveMeal({ ...m, id: `${Date.now()}`, time: now, photoStamp: null, captureKind: undefined, portionGrams: null, basePortion: null },
+                { date: dateKey, operationId: `${Date.now()}` });
+            }}
+            onEditMeal={m => { setNutEditing(m); setNutDialogOpen(true); }}
+            onDeleteMeal={nutDeleteMeal}
+            onToggleFavorite={nutToggleFavorite}
+            onSaveGoals={g => setUserSettings(prev => ({ ...prev, goal: { protein: g.protein, fat: g.fat, carbs: g.carbs, calories: g.calories } }))}
+            onOpenProfile={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); }}
+            onNavigateWorkout={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
+            rhythmSlot={(
+              <div className="nutv2-legacy">
             {/* Meal Timing Recommendations */}
             <div style={{
               marginTop: '24px',
@@ -5946,8 +5391,38 @@ export default function FitnessPage() {
                 ))}
               </div>
             </div>
-          </div>
+              </div>
+            )}
+          />
+
+          {/* Отмена удаления — тост приложения */}
+          {nutUndo && (
+            <div className="nutv2-toast is-visible" role="status">
+              <span>Приём пищи удалён</span>
+              <button type="button" onClick={nutRestoreMeal}>Отменить</button>
+            </div>
+          )}
+
+          <AddMealDialog
+            open={nutDialogOpen}
+            selectedDate={dateKey}
+            quickItems={nutQuickFrequent}
+            editing={nutEditing}
+            onClose={() => { setNutDialogOpen(false); setNutEditing(null); }}
+            onAnalyze={nutAnalyze}
+            onSave={nutSaveMeal}
+            onQuickAdd={m => {
+              const now = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              nutSaveMeal({ ...m, id: `${Date.now()}`, time: now, photoStamp: null, captureKind: undefined, portionGrams: null, basePortion: null },
+                { date: dateKey, operationId: `${Date.now()}` });
+            }}
+            onViewInDiary={(id) => {
+              requestAnimationFrame(() => document.querySelector(`[data-meal-card="${id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+            }}
+          />
+          </>
         )}
+
 
         {/* ANALYTICS VIEW */}
         {view === 'analytics' && (

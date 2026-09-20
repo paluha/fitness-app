@@ -1420,3 +1420,35 @@ button:disabled {
 @media(prefers-reduced-motion:reduce) {
 *,*::before,*::after{ animation:none!important; transition:none!important; scroll-behavior:auto!important; }
 }
+
+/* Тост отмены удаления и контейнер для блоков приложения, которые остаются
+   внутри нового экрана питания («Когда есть», «Рецепты»). */
+.nutv2-toast {
+  position: fixed; z-index: 50; left: 50%; transform: translate(-50%, 0);
+  bottom: calc(83px + env(safe-area-inset-bottom, 0px));
+  width: max-content; max-width: calc(min(100vw, 460px) - 36px);
+  background: #302b25; color: #fff; box-shadow: 0 5px 20px #302b2520;
+  padding: 11px 14px; border-radius: 11px;
+  display: flex; align-items: center; gap: 14px; font-size: 12px;
+}
+.nutv2-toast button { color: #ffba9f; font-size: 12px; padding: 5px 0; font-weight: 550; background: none; border: 0; cursor: pointer; }
+.nutv2-legacy { display: block; }
+
+/* Экран питания всегда в своей светлой палитре: ночная тема приложения
+   переопределяет переменные фона и текста глобально, а макет светлый.
+   Фон задаём самой странице, чтобы не просвечивал тёмный корпус. */
+.nutv2 { background: var(--bg); color: var(--ink); min-height: 100svh; }
+.night-mode .nutv2, .night-mode .nutv2-dialog { color-scheme: light; }
+/* Родительские контейнеры приложения на этом экране тоже светлые, иначе
+   тёмный фон ночной темы просвечивает вокруг карточек. */
+body:has(.nutv2) { background: #f6f3ee !important; }
+body:has(.nutv2) main { background: #f6f3ee !important; }
+body:has(.nutv2) .tx-tabbar { background: #fdfcfa !important; border-top-color: #e5ddd1 !important; }
+
+/* Заголовки и текст макета не должны наследовать цвета ночной темы. */
+body:has(.nutv2) .nutv2 h1,
+body:has(.nutv2) .nutv2 h2,
+body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
+/* Блоки приложения внутри экрана («Когда есть», «Рецепты») — на светлом фоне. */
+.nutv2-legacy { --bg-primary: #f6f3ee; --bg-card: #fff; --bg-secondary: #fdfcfa; --bg-elevated: #f4f0ea; --bg-input: #f7f4ef; --text-primary: #1a1712; --text-secondary: #57534c; --text-muted: #82796d; --border: #e8e1d7; --border-strong: #d7cfc3; color: #1a1712; }
+.nutv2-legacy * { color-scheme: light; }
