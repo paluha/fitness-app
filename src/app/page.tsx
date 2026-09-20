@@ -3832,7 +3832,13 @@ export default function FitnessPage() {
       signal: args.signal,
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result?.error || 'network');
+    if (!response.ok) {
+      // Ошибка СЕРВЕРА (нет ключа ИИ, лимит, сбой модели) — это не обрыв
+      // сети: показываем пользователю настоящую причину, а не «нет связи».
+      const err = new Error(result?.error || `Сервис анализа недоступен (${response.status})`);
+      err.name = 'ServiceError';
+      throw err;
+    }
     if (!result?.success || !result?.data) {
       // Еду определить нельзя — запись не создаётся, показываем причину.
       const err = new Error(result?.error || 'unrecognized');

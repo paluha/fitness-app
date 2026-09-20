@@ -1507,3 +1507,18 @@ body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
   background: transparent !important; width: auto !important; height: auto !important;
 }
 .nutv2-legacy div[style*="width: 32px"][style*="border-radius: 8px"] svg { color: #9a8771; width: 18px; height: 18px; }
+
+/* Переход между разделами ровный и одинаковый: экран питания появляется той
+   же анимацией, что и остальные (.view-content), иначе он «выстреливал»
+   мгновенно, а тренировки плавно — и переход читался как рывок. */
+.nutv2 { animation: viewEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Страница всегда выше экрана: иначе при переходе на более короткий раздел
+   пропадает полоса прокрутки, ширина контента скачком меняется на ~15px,
+   и вместе с ней «дёргаются» шапка, переключатель и меню. */
+html { scrollbar-gutter: stable; }
+body { min-height: calc(100svh + 1px); }
+
+/* Меню и шапка не участвуют в анимации появления — они общие для разделов
+   и должны стоять неподвижно. */
+.tx-tabbar { animation: none !important; }

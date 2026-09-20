@@ -236,6 +236,11 @@ export default function AddMealDialog(props: AddMealDialogProps) {
       // Битый или неподдерживаемый файл: браузер не смог его декодировать —
       // это не сеть, повторять запрос бессмысленно, нужно другое фото.
       const msg = String((e as Error)?.message || '');
+      if ((e as Error)?.name === 'ServiceError') {
+        // Текст от сервера: «ключ не настроен», «лимит исчерпан» и т.п.
+        setFailure({ kind: 'network', message: msg + ' Фото сохранено — можно повторить.' });
+        return;
+      }
       if ((e as Error)?.name === 'UnrecognizedFood' || msg === 'unrecognized') {
         setFailure({ kind: 'unrecognized', message: 'Не удалось определить блюдо по фото. Попробуй другое фото или введи данные вручную.' });
         return;

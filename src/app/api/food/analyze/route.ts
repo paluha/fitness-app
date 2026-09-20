@@ -363,6 +363,16 @@ export async function POST(request: Request) {
         details: error.message,
         duration,
       });
+      // Закончились кредиты на аккаунте ИИ — это не сбой приложения и не
+      // «плохое фото». Говорим прямо, иначе пользователь думает, что сломан
+      // анализатор, и пробует снимать снова и снова.
+      const text = String(error.message || '');
+      if (/credit balance is too low|insufficient.*(credit|quota)|billing/i.test(text)) {
+        return NextResponse.json(
+          { error: 'Закончились кредиты на ИИ-анализ. Пополни баланс Anthropic — после этого распознавание заработает.' },
+          { status: 402 }
+        );
+      }
       return NextResponse.json({ error: 'Failed to analyze image' }, { status: 500 });
     }
 
