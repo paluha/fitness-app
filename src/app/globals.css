@@ -1467,3 +1467,40 @@ body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
 /* Быстрые продукты: название не выше двух строк — в эталоне карточка
    фиксированной высоты, длинные названия переносились на третью строку. */
 .nutv2 .quick-name { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Переключатель разделов одинаков на тренировках и питании: разная высота
+   кнопок (35 против 40) сдвигала всю страницу при переходе — «прыгало» меню. */
+.tx-mode { min-height: 40px; }
+.tx-modeswitch { margin: 0 0 22px; }
+
+/* Боковые поля шапки питания как у остальных экранов. */
+.nutv2 .welcome { padding-left: 20px; padding-right: 20px; }
+
+/* Шапки обоих экранов одинаковой высоты: иначе переход сдвигает страницу. */
+.tx-welcome, .nutv2 .welcome-text { font-size: 15px; line-height: 1.5; }
+
+/* «Когда есть» и «Рецепты»: оформление карточек по эталону питания.
+   Разметку и логику блоков не трогаем — это рабочие функции приложения,
+   меняем только подачу: та же бумага, рамка, радиус и типографика. */
+.nutv2-legacy > div {
+  background: var(--paper) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius) !important;
+  margin-top: 20px !important;
+  padding: 16px !important;
+  box-shadow: none !important;
+}
+.nutv2-legacy h2, .nutv2-legacy h3 { font-size: 16px !important; font-weight: 650 !important; letter-spacing: -.4px; color: var(--ink) !important; }
+.nutv2-legacy p, .nutv2-legacy span, .nutv2-legacy div { font-family: inherit; }
+/* Подписи-теги и вспомогательный текст — как .subtle-tag / .rhythm-copy. */
+.nutv2-legacy .subtle-tag { font-size: 10px; color: var(--muted); padding: 4px 7px; background: var(--soft); border-radius: 5px; white-space: nowrap; }
+/* Кнопки внутри — в языке макета. */
+.nutv2-legacy button { font-family: inherit; }
+
+/* Иконки заголовков «Когда есть» / «Рецепты» — плоские контурные, как в
+   эталоне: цветные квадраты-плашки 32x32 вокруг иконки убираем, кнопки
+   (Скан/Свой/Пройти опрос) не трогаем. */
+.nutv2-legacy div[style*="width: 32px"][style*="border-radius: 8px"] {
+  background: transparent !important; width: auto !important; height: auto !important;
+}
+.nutv2-legacy div[style*="width: 32px"][style*="border-radius: 8px"] svg { color: #9a8771; width: 18px; height: 18px; }

@@ -167,6 +167,25 @@ export default function NutritionPage(props: NutritionPageProps) {
     prevFlame.current = { day: selectedDate, lit: status.lit };
   }, [selectedDate, status.lit]);
 
+  // Свайп пальцем по ленте и по месяцу: влево — вперёд, вправо — назад.
+  // Вертикальную прокрутку не перехватываем: жест считается горизонтальным,
+  // только если сдвиг по X заметно больше, чем по Y.
+  const swipeRef = useRef<{ x: number; y: number; active: boolean }>({ x: 0, y: 0, active: false });
+  const makeSwipe = (onPrev: () => void, onNext: () => void) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      swipeRef.current = { x: e.clientX, y: e.clientY, active: true };
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const st = swipeRef.current;
+      if (!st.active) return;
+      swipeRef.current = { x: 0, y: 0, active: false };
+      const dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0) onNext(); else onPrev();
+    },
+    onPointerCancel: () => { swipeRef.current = { x: 0, y: 0, active: false }; },
+  });
+
   const dayAria = (key: string) => {
     const s = dayFlame(key);
     return asDate(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -245,7 +264,10 @@ export default function NutritionPage(props: NutritionPageProps) {
             </div>
           </div>
 
-          <div className="week">
+          <div
+            className="week"
+            {...makeSwipe(() => setWeekStart(w => plusDays(w, -7)), () => setWeekStart(w => plusDays(w, 7)))}
+          >
             {weekKeys.map(key => {
               const d = asDate(key), s = dayFlame(key);
               return (
@@ -274,7 +296,13 @@ export default function NutritionPage(props: NutritionPageProps) {
                   <button className="icon-btn" type="button" aria-label="Следующий месяц" onClick={() => setMonthCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}><IconChevron /></button>
                 </div>
               </div>
-              <div className="month-grid">
+              <div
+                className="month-grid"
+                {...makeSwipe(
+                  () => setMonthCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1)),
+                  () => setMonthCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1)),
+                )}
+              >
                 {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(x => <span key={x} className="month-dow">{x}</span>)}
                 {monthDays.map((key, i) => key === null ? <span key={`e${i}`} /> : (
                   <button

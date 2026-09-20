@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -2182,7 +2182,18 @@ export default function FitnessPage() {
       const n = el.children.length;
       if (!n) return;
       const gap = 5;
-      const w = Math.floor((el.clientWidth - gap * (n - 1)) / n);
+      // Считаем от РЯДА, а не от самой сетки: сетка тянется flex:1, и её
+      // ширина зависит от результата — из-за этого кнопки вылезали за край.
+      const row = el.parentElement;
+      if (!row) return;
+      const rowStyle = getComputedStyle(row);
+      const rowGap = parseFloat(rowStyle.columnGap || rowStyle.gap || '7') || 7;
+      let free = row.clientWidth - parseFloat(rowStyle.paddingLeft || '0') - parseFloat(rowStyle.paddingRight || '0');
+      for (const sib of Array.from(row.children)) {
+        if (sib === el) continue;
+        free -= sib.getBoundingClientRect().width + rowGap;
+      }
+      const w = Math.floor((free - gap * (n - 1)) / n);
       if (w > 0) el.style.setProperty('--tx-wcol', w + 'px');
     };
     fit();
@@ -4367,8 +4378,10 @@ export default function FitnessPage() {
       {/* Header — на экране питания шапка своя (в макете она часть страницы) */}
       {view !== 'nutrition' && (
       <header style={{
-        padding: '14px 20px 10px',
-        paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))',
+        // Отступы как на экране питания (эталон), иначе при переходе
+        // страница сдвигается и нижнее меню визуально «прыгает».
+        padding: '18px 20px 18px',
+        paddingTop: 'calc(18px + env(safe-area-inset-top, 0px))',
         background: 'var(--bg-primary)'
       }}>
         <div style={{
@@ -5109,17 +5122,8 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 gap: '10px'
               }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  background: 'var(--purple-dim)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Timer size={16} style={{ color: 'var(--purple)' }} />
-                </div>
+                {/* Иконка по эталону питания: контурная, без цветной плашки */}
+                <Clock size={18} style={{ color: '#9a8771', flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: '15px', flex: 1 }}>
                   {nutritionRecommendations ? 'Рекомендации тренера' : aiNutritionPlan ? (userSettings.language === 'ru' ? 'Когда и что есть — план от ИИ' : 'AI meal plan') : 'Когда есть'}
                 </span>
@@ -5308,13 +5312,8 @@ export default function FitnessPage() {
                 alignItems: 'center',
                 gap: '10px'
               }}>
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '8px',
-                  background: 'var(--yellow-dim)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  <span style={{ fontSize: '16px' }}>📖</span>
-                </div>
+                {/* Иконка по эталону питания: контурная, без цветной плашки */}
+                <BookOpen size={18} style={{ color: '#9a8771', flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: '15px', flex: 1 }}>Рецепты</span>
                 <input ref={recipePhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleRecipePhoto} />
                 <button
