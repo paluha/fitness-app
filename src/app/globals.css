@@ -1647,3 +1647,53 @@ body { min-height: calc(100svh + 1px); }
    раскрытой карточки и раздвигала строку с 61 до 66px — название
    съезжало. Резервируем место заранее. */
 .tx-exrow { min-height: 66px; }
+
+/* ==========================================================================
+   РАЗДЕЛ «АНАЛИЗЫ» — список показателей по эталону
+   design/trainx-analyses-reference.html. Классы .labv2 изолируют
+   оформление, чтобы оно не задело другие экраны приложения.
+   ========================================================================== */
+.labv2 .markers { display: flex; flex-direction: column; gap: 8px; }
+.labv2 .marker {
+  --tile-ink: #53765a;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto 72px;
+  grid-template-areas: "title reading mini" "reference reference mini";
+  align-items: center; gap: 5px 8px;
+  min-width: 0; min-height: 72px; padding: 11px 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--line, #e8e1d7); border-radius: 14px; background: #fff;
+  font-family: inherit; color: #1a1712;
+  transition: border-color .18s, box-shadow .18s;
+}
+.labv2 .marker[data-status=out] { --tile-ink: #ac5838; }
+.labv2 .marker[data-status=unknown] { --tile-ink: #82796d; }
+.labv2 .marker:hover { background: #fff; border-color: #cfc4b6; box-shadow: 0 3px 12px #62503908; }
+.labv2 .marker[aria-pressed=true] { background: #fff; border-color: #cfc4b6; box-shadow: 0 0 0 1px #e8e1d766; }
+.labv2 .marker-top { grid-area: title; display: flex; justify-content: flex-start; align-items: center; gap: 7px; min-height: 24px; }
+.labv2 .marker h3 { font-size: 12px; font-weight: 600; line-height: 16px; overflow-wrap: anywhere; margin: 0; }
+.labv2 .marker-reading { grid-area: reading; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; margin: 0; }
+.labv2 .marker-value { font-size: 23px; line-height: 1.1; color: #1a1712; font-weight: 650; letter-spacing: -.7px; font-variant-numeric: tabular-nums; }
+.labv2 .marker-unit { font-size: 8px; line-height: 11px; color: #82796d; max-width: 66px; overflow-wrap: anywhere; }
+.labv2 .marker-bottom { grid-area: reference; display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 4px 9px; margin: 0; padding-left: 0; }
+.labv2 .marker-ref { font-size: 9px; line-height: 12px; color: #8a8176; overflow-wrap: anywhere; }
+.labv2 .marker-state { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 500; line-height: 12px; white-space: nowrap; }
+.labv2 .marker-state:before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex: none; }
+.labv2 .marker-mini { grid-area: mini; align-self: stretch; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.labv2 .mini-chart { display: block; width: 72px; height: 42px; overflow: visible; fill: none; stroke: none; }
+.labv2 .mini-chart text { fill: #9b9286; stroke: none; font-size: 7px; font-family: inherit; }
+.labv2 .mini-chart .mini-line { fill: none; stroke: #b2a798; stroke-width: 1.2; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: labDrawLine .6s ease forwards; }
+.labv2 .mini-chart circle { stroke: #fff; stroke-width: 1; }
+.labv2 .empty { padding: 27px 17px; text-align: center; color: #82796d; font-size: 12px; background: #fff; border: 1px solid var(--line, #e8e1d7); border-radius: 14px; }
+@keyframes labDrawLine { to { stroke-dashoffset: 0; } }
+@media (max-width: 359px) {
+  .labv2 .marker { grid-template-columns: minmax(0,1fr) auto 62px; padding: 10px; gap: 5px 7px; }
+  .labv2 .mini-chart { width: 62px; height: 42px; }
+  .labv2 .marker h3 { font-size: 11px; line-height: 14px; }
+  .labv2 .marker-value { font-size: 21px; }
+  .labv2 .marker-state { font-size: 8px; }
+  .labv2 .marker-ref { font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .labv2 .mini-chart .mini-line { stroke-dashoffset: 0; animation: none; }
+}

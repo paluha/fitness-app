@@ -17,6 +17,14 @@ Rules:
   range (low/high) if printed.
 - Use the exact marker names as printed (e.g. "Glucose", "Total Cholesterol",
   "Vitamin D, 25-Hydroxy", "TSH", "Hemoglobin A1c").
+- key: a stable snake_case identifier for the ANALYTE, not the printed spelling.
+  The same analyte must get the same key across different labs and languages:
+  "Glucose"/"Глюкоза натощак"/"Fasting glucose" -> "fasting_glucose";
+  "LDL"/"Холестерин ЛПНП"/"LDL-C" -> "ldl_cholesterol";
+  "Vitamin D, 25-Hydroxy" -> "vitamin_d_25oh"; "Hemoglobin" -> "haemoglobin";
+  "TSH" -> "tsh"; "HbA1c" -> "hba1c". Use a descriptive snake_case key when the
+  analyte is not in this list. Different assays of the same substance get
+  different keys (e.g. "insulin_fasting" vs "insulin_2h").
 - value: numeric only (no unit). If a value is a "<" or ">" bound, use the number.
 - unit: as printed (e.g. "mg/dL", "ng/mL", "%", "mIU/L"). Empty string if none.
 - refLow / refHigh: numbers from the reference range if present, else null.
@@ -42,6 +50,7 @@ const LAB_SCHEMA = {
       items: {
         type: 'object',
         properties: {
+          key: { type: 'string' },
           name: { type: 'string' },
           value: { type: 'number' },
           unit: { type: 'string' },
@@ -49,7 +58,7 @@ const LAB_SCHEMA = {
           refHigh: { type: ['number', 'null'] },
           flag: { type: 'string', enum: ['low', 'normal', 'high'] },
         },
-        required: ['name', 'value', 'unit', 'flag'],
+        required: ['key', 'name', 'value', 'unit', 'flag'],
         additionalProperties: false,
       },
     },
