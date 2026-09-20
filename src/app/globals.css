@@ -1529,7 +1529,10 @@ body { min-height: calc(100svh + 1px); }
 /* Шапка обоих разделов совпадает попиксельно: у питания приветствие стояло
    на 4px ниже (шапка центрировала по-другому) и имело своё межбуквенное
    расстояние — при переходе текст заметно сдвигался. */
-.nutv2 .welcome { align-items: center; padding-top: 18px; padding-bottom: 18px; }
+/* ВАЖНО: верхний отступ обязан учитывать вырез экрана (safe-area),
+   иначе под чёлкой iPhone приветствие и аватар уезжают под статус-бар и
+   их не видно. Голый padding-top: 18px эту поправку стирал. */
+.nutv2 .welcome { align-items: center; padding-top: calc(18px + env(safe-area-inset-top, 0px)); padding-bottom: 18px; }
 .nutv2 .welcome-text, .tx-welcome { letter-spacing: -0.16px; line-height: 1.5; }
 .nutv2 .avatar, .tx-profile { align-self: center; }
 
