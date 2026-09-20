@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TrainX — Тренировка / актуальный дизайн</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<style>
+/* ============================================================================
+   ЭКРАН «ТРЕНИРОВКА» — СНЯТ С РАБОТАЮЩЕГО ПРИЛОЖЕНИЯ (не нарисован заново).
+   Разметка и стили выгружены из браузера как есть, данные демонстрационные.
+   Первая карточка упражнения раскрыта. Файл ни на что в приложении не влияет.
+   ============================================================================ */
+:root, body { --font-inter: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.inter_171132ad-module__ojzjvq__className { font-family: Inter, "Inter Fallback"; font-style: normal; }
+.inter_171132ad-module__ojzjvq__variable { --font-inter: "Inter", "Inter Fallback"; }
+@layer properties {
+  @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+  *, ::before, ::after, ::backdrop { --tw-rotate-x: initial; --tw-rotate-y: initial; --tw-rotate-z: initial; --tw-skew-x: initial; --tw-skew-y: initial; --tw-border-style: solid; --tw-ordinal: initial; --tw-slashed-zero: initial; --tw-numeric-figure: initial; --tw-numeric-spacing: initial; --tw-numeric-fraction: initial; --tw-shadow: 0 0 #0000; --tw-shadow-color: initial; --tw-shadow-alpha: 100%; --tw-inset-shadow: 0 0 #0000; --tw-inset-shadow-color: initial; --tw-inset-shadow-alpha: 100%; --tw-ring-color: initial; --tw-ring-shadow: 0 0 #0000; --tw-inset-ring-color: initial; --tw-inset-ring-shadow: 0 0 #0000; --tw-ring-inset: initial; --tw-ring-offset-width: 0px; --tw-ring-offset-color: #fff; --tw-ring-offset-shadow: 0 0 #0000; --tw-outline-style: solid; --tw-blur: initial; --tw-brightness: initial; --tw-contrast: initial; --tw-grayscale: initial; --tw-hue-rotate: initial; --tw-invert: initial; --tw-opacity: initial; --tw-saturate: initial; --tw-sepia: initial; --tw-drop-shadow: initial; --tw-drop-shadow-color: initial; --tw-drop-shadow-alpha: 100%; --tw-drop-shadow-size: initial; --tw-backdrop-blur: initial; --tw-backdrop-brightness: initial; --tw-backdrop-contrast: initial; --tw-backdrop-grayscale: initial; --tw-backdrop-hue-rotate: initial; --tw-backdrop-invert: initial; --tw-backdrop-opacity: initial; --tw-backdrop-saturate: initial; --tw-backdrop-sepia: initial; --tw-ease: initial; }
+}
+}
+@layer theme {
+  :root, :host { --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; --radius-lg: .5rem; --ease-in-out: cubic-bezier(.4, 0, .2, 1); --animate-spin: spin 1s linear infinite; --animate-pulse: pulse 2s cubic-bezier(.4, 0, .6, 1) infinite; --default-transition-duration: .15s; --default-transition-timing-function: cubic-bezier(.4, 0, .2, 1); --default-font-family: var(--font-sans); --default-mono-font-family: var(--font-mono); }
+}
+@layer base {
+  *, ::after, ::before, ::backdrop { box-sizing: border-box; border: 0px solid; margin: 0px; padding: 0px; }
+  ::file-selector-button { box-sizing: border-box; border: 0px solid; margin: 0px; padding: 0px; }
+  html, :host { text-size-adjust: 100%; tab-size: 4; line-height: 1.5; font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"); font-feature-settings: var(--default-font-feature-settings, normal); font-variation-settings: var(--default-font-variation-settings, normal); -webkit-tap-highlight-color: transparent; }
+  hr { height: 0px; color: inherit; border-top-width: 1px; }
+  abbr:where([title]) { text-decoration: underline dotted; }
+  h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; }
+  a { color: inherit; text-decoration: inherit; }
+  b, strong { font-weight: bolder; }
+  code, kbd, samp, pre { font-family: var(--default-mono-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace); font-feature-settings: var(--default-mono-font-feature-settings, normal); font-variation-settings: var(--default-mono-font-variation-settings, normal); font-size: 1em; }
+  small { font-size: 80%; }
+  sub, sup { vertical-align: baseline; font-size: 75%; line-height: 0; position: relative; }
+  sub { bottom: -0.25em; }
+  sup { top: -0.5em; }
+  table { text-indent: 0px; border-color: inherit; border-collapse: collapse; }
+  progress { vertical-align: baseline; }
+  summary { display: list-item; }
+  ol, ul, menu { list-style: none; }
+  img, svg, video, canvas, audio, iframe, embed, object { vertical-align: middle; display: block; }
+  img, video { max-width: 100%; height: auto; }
+  button, input, select, optgroup, textarea { font: inherit; letter-spacing: inherit; color: inherit; opacity: 1; background-color: rgba(0, 0, 0, 0); border-radius: 0px; }
+  ::file-selector-button { font: inherit; letter-spacing: inherit; color: inherit; opacity: 1; background-color: rgba(0, 0, 0, 0); border-radius: 0px; }
+  :where(select:is([multiple], [size])) optgroup { font-weight: bolder; }
+  :where(select:is([multiple], [size])) optgroup option { padding-inline-start: 20px; }
+  ::file-selector-button { margin-inline-end: 4px; }
+  ::placeholder { opacity: 1; }
+  @supports (not ((-webkit-appearance: -apple-pay-button))) or (contain-intrinsic-size: 1px) {
+  ::placeholder { color: currentcolor; }
+  @supports (color: color-mix(in lab, red, red)) {
+  ::placeholder { color: color-mix(currentcolor, transparent); }
+}
+}
+  textarea { resize: vertical; }
+  ::-webkit-search-decoration { appearance: none; }
+  ::-webkit-date-and-time-value { min-height: 1lh; text-align: inherit; }
+  ::-webkit-datetime-edit { display: inline-flex; }
+  ::-webkit-datetime-edit-fields-wrapper { padding: 0px; }
+  ::-webkit-datetime-edit { padding-block: 0px; }
+  ::-webkit-datetime-edit-year-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-month-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-day-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-hour-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-minute-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-second-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-millisecond-field { padding-block: 0px; }
+  ::-webkit-datetime-edit-meridiem-field { padding-block: 0px; }
+  ::-webkit-calendar-picker-indicator { line-height: 1; }
+  button, input:where([type="button"], [type="reset"], [type="submit"]) { appearance: button; }
+  ::file-selector-button { appearance: button; }
+  ::-webkit-inner-spin-button { height: auto; }
+  ::-webkit-outer-spin-button { height: auto; }
+  [hidden]:where(:not([hidden="until-found"])) { display: none !important; }
+}
+@layer components;
+@layer utilities {
+  .invisible { visibility: hidden; }
+  .visible { visibility: visible; }
+  .absolute { position: absolute; }
+  .fixed { position: fixed; }
+  .relative { position: relative; }
+  .isolate { isolation: isolate; }
+  .block { display: block; }
+  .contents { display: contents; }
+  .flex { display: flex; }
+  .grid { display: grid; }
+  .hidden { display: none; }
+  .inline-block { display: inline-block; }
+  .inline-flex { display: inline-flex; }
+  .table { display: table; }
+  .flex-shrink { flex-shrink: 1; }
+  .flex-grow, .grow { flex-grow: 1; }
+  .border-collapse { border-collapse: collapse; }
+  .transform { transform: var(--tw-rotate-x, ) var(--tw-rotate-y, ) var(--tw-rotate-z, ) var(--tw-skew-x, ) var(--tw-skew-y, ); }
+  .animate-pulse { animation: var(--animate-pulse); }
+  .animate-spin { animation: var(--animate-spin); }
+  .resize { resize: both; }
+  .flex-wrap { flex-wrap: wrap; }
+  .border { border-style: var(--tw-border-style); border-width: 1px; }
+  .text-wrap { text-wrap: wrap; }
+  .capitalize { text-transform: capitalize; }
+  .uppercase { text-transform: uppercase; }
+  .italic { font-style: italic; }
+  .tabular-nums { --tw-numeric-spacing: tabular-nums; font-variant-numeric: var(--tw-ordinal, ) var(--tw-slashed-zero, ) var(--tw-numeric-figure, ) var(--tw-numeric-spacing, ) var(--tw-numeric-fraction, ); }
+  .underline { text-decoration-line: underline; }
+  .shadow { --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, #0000001a), 0 1px 2px -1px var(--tw-shadow-color, #0000001a); box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); }
+  .ring { --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor); box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); }
+  .outline { outline-style: var(--tw-outline-style); outline-width: 1px; }
+  .filter { filter: var(--tw-blur, ) var(--tw-brightness, ) var(--tw-contrast, ) var(--tw-grayscale, ) var(--tw-hue-rotate, ) var(--tw-invert, ) var(--tw-saturate, ) var(--tw-sepia, ) var(--tw-drop-shadow, ); }
+  .backdrop-filter { backdrop-filter: var(--tw-backdrop-blur, ) var(--tw-backdrop-brightness, ) var(--tw-backdrop-contrast, ) var(--tw-backdrop-grayscale, ) var(--tw-backdrop-hue-rotate, ) var(--tw-backdrop-invert, ) var(--tw-backdrop-opacity, ) var(--tw-backdrop-saturate, ) var(--tw-backdrop-sepia, ); }
+  .transition { transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events; transition-timing-function: var(--tw-ease, var(--default-transition-timing-function)); transition-duration: var(--tw-duration, var(--default-transition-duration)); }
+  .ease-in-out { --tw-ease: var(--ease-in-out); transition-timing-function: var(--ease-in-out); }
+}
+:root { --bg-primary: #f6f3ee; --bg-secondary: #fdfcfa; --bg-card: #fff; --bg-elevated: #f1ede6; --bg-input: #f4f0ea; --yellow: #ff5c35; --yellow-dim: #ff5c351f; --yellow-glow: #ff5c3547; --gold: #ff5c35; --gold-dim: #ff5c351f; --gold-glow: #ff5c3547; --lime: #ff5c35; --lime-dim: #ff5c351f; --lime-glow: #ff5c3547; --accent: #ff5c35; --accent-warm: #ff7a52; --green: #16a34a; --green-dim: #16a34a1f; --green-glow: #16a34a4d; --success: #16a34a; --success-dim: #16a34a1f; --success-glow: #16a34a4d; --cyan: #0891b2; --cyan-dim: #0891b21f; --blue: #2563eb; --blue-dim: #2563eb1a; --red: #dc2626; --red-dim: #dc26261a; --purple: #7c3aed; --purple-dim: #7c3aed1a; --orange: #ea580c; --orange-dim: #ea580c1a; --candle-green: #16a34a; --candle-red: #dc2626; --text-primary: #1a1712; --text-secondary: #57534c; --text-muted: #9b968d; --border: #1a171212; --border-strong: #1a171221; --radius-card: 20px; --radius-lg: 28px; --shadow-card: 0 1px 2px #1a17120a, 0 8px 24px #1a17120d; }
+.night-mode { --bg-primary: #0e0c0a; --bg-secondary: #141210; --bg-card: #1a1613; --bg-elevated: #201b17; --bg-input: #221d18; --yellow: #ff6a44; --yellow-dim: #ff6a441f; --yellow-glow: #ff6a4447; --gold: #ff6a44; --gold-dim: #ff6a441f; --gold-glow: #ff6a4447; --lime: #ff6a44; --lime-dim: #ff6a441f; --lime-glow: #ff6a4447; --accent: #ff6a44; --accent-warm: #ff855f; --green: #34c759; --green-dim: #34c7591f; --green-glow: #34c75940; --text-primary: #f0ebe3; --text-secondary: #a39d93; --text-muted: #6b655c; --border: #fff8f00f; --border-strong: #fff8f01c; --shadow-card: 0 1px 2px #0000004d, 0 8px 28px #00000059; --blue: #4a9eff; --cyan: #2dd4bf; --red: #ff5a5a; }
+* { box-sizing: border-box; margin: 0px; padding: 0px; }
+html { background: var(--bg-primary); height: 100%; }
+body { background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; min-height: 100vh; line-height: 1.5; }
+h1, h2, h3 { letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.1; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); font-weight: 600; }
+h2 { font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 600; }
+h3 { font-size: 1.2rem; font-weight: 600; }
+.metric-number, .big-number { font-variant-numeric: tabular-nums; letter-spacing: -0.04em; font-weight: 600; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: none; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+input, textarea, select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); box-sizing: border-box; appearance: none; border-radius: 14px; outline: none; min-width: 0px; max-width: 100%; padding: 14px 16px; font-size: 16px; transition: 0.2s; }
+input:focus, textarea:focus, select:focus { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow-dim); }
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+input[type="number"]::-webkit-outer-spin-button { appearance: none; margin: 0px; }
+input[type="number"]::-webkit-inner-spin-button { appearance: none; margin: 0px; }
+button { cursor: pointer; font-family: inherit; transition: 0.2s; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+@keyframes spin { 
+  100% { transform: rotate(360deg); }
+}
+@keyframes bounce { 
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes pulse { 
+  50% { opacity: 0.5; }
+}
+@keyframes pulse-subtle { 
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+.pulse-subtle { animation: 2s ease-in-out 0s infinite normal none running pulse-subtle; }
+@keyframes slideUp { 
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0px); }
+}
+@keyframes fadeIn { 
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes scaleIn { 
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer { 
+  0% { background-position: -200% 0px; }
+  100% { background-position: 200% 0px; }
+}
+@keyframes glow { 
+  0%, 100% { box-shadow: 0 0 20px var(--yellow-dim); }
+  50% { box-shadow: 0 0 40px var(--yellow-glow); }
+}
+@keyframes fireBounce { 
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-3px) scale(1.1); }
+}
+@keyframes fireGlow { 
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes fireBurn { 
+  0%, 100% { filter: drop-shadow(rgba(255, 107, 0, 0.9) 0px 0px 6px) drop-shadow(rgba(255, 193, 7, 0.6) 0px 0px 12px); transform: translateY(0px) scale(1) rotate(-2deg); }
+  25% { filter: drop-shadow(rgb(255, 107, 0) 0px 0px 8px) drop-shadow(rgba(255, 193, 7, 0.8) 0px 0px 16px); transform: translateY(-2px) scale(1.05) rotate(2deg); }
+  50% { filter: drop-shadow(rgb(255, 107, 0) 0px 0px 10px) drop-shadow(rgba(255, 193, 7, 0.9) 0px 0px 20px); transform: translateY(-4px) scale(1.1) rotate(-1deg); }
+  75% { filter: drop-shadow(rgb(255, 107, 0) 0px 0px 8px) drop-shadow(rgba(255, 193, 7, 0.8) 0px 0px 16px); transform: translateY(-2px) scale(1.05) rotate(1deg); }
+}
+.animate-pulse { animation: 2s ease-in-out 0s infinite normal none running pulse; }
+.animate-glow { animation: 2s ease-in-out 0s infinite normal none running glow; }
+.glass { border: 1px solid var(--border); background: rgba(255, 255, 255, 0.85); }
+.gradient-border { background: var(--bg-card); border-radius: 16px; position: relative; }
+.gradient-border::before { content: ""; background: linear-gradient(135deg, var(--yellow), var(--orange), var(--red)); opacity: 0.5; border-radius: 16px; padding: 1px; position: absolute; inset: 0px; mask: linear-gradient(rgb(255, 255, 255) 0px, rgb(255, 255, 255) 0px) 0px 0px content-box exclude, linear-gradient(rgb(255, 255, 255) 0px, rgb(255, 255, 255) 0px) 0px 0px; }
+.modal-overlay { backdrop-filter: blur(8px); z-index: 100; background: rgba(0, 0, 0, 0.85); justify-content: center; align-items: center; padding: 16px; animation: 0.2s ease 0s 1 normal none running fadeIn; display: flex; position: fixed; inset: 0px; }
+.modal-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; width: 100%; max-width: 500px; max-height: 90vh; animation: 0.2s ease 0s 1 normal none running scaleIn; overflow-y: auto; }
+.progress-bar { background: var(--bg-elevated); border-radius: 3px; height: 6px; overflow: hidden; }
+.progress-bar-fill { border-radius: 3px; height: 100%; transition: width 0.3s; }
+.card-hover { transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.card-hover:hover { transform: translateY(-2px); box-shadow: rgba(17, 20, 24, 0.08) 0px 8px 24px; }
+.card-hover:active { transform: translateY(0px) scale(0.98); }
+.macro-card, .meal-card { transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.macro-card:hover { transform: scale(1.02); }
+.tab-button { transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.view-content { animation: 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0s 1 normal none running viewEnter; }
+@keyframes viewEnter { 
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0px); }
+}
+.exercise-card { transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.exercise-card.completed { transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.checkbox-animated { transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.checkbox-animated:active { transform: scale(0.9); }
+.progress-fill-animated { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.btn-press { transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+.btn-press:active { transform: scale(0.95); }
+.expand-content { transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
+@keyframes listItemEnter { 
+  0% { opacity: 0; transform: translateX(-10px); }
+  100% { opacity: 1; transform: translateX(0px); }
+}
+.list-item-animated { animation: 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0s 1 normal forwards running listItemEnter; }
+.status-transition { transition: background-color 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s; }
+.icon-rotate { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.icon-rotate.rotated { transform: rotate(180deg); }
+.ripple { position: relative; overflow: hidden; }
+.ripple::after { content: ""; opacity: 0; background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(0, 0, 0, 0) 70%); transition: 0.4s; position: absolute; inset: 0px; transform: scale(0); }
+.ripple:active::after { opacity: 1; transition: all; transform: scale(2); }
+.number-transition { transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.fab { transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: rgba(17, 20, 24, 0.12) 0px 4px 12px; }
+.fab:hover { transform: scale(1.1); box-shadow: rgba(17, 20, 24, 0.16) 0px 6px 20px; }
+.fab:active { transform: scale(0.95); }
+.btn-primary { background: var(--yellow); color: rgb(0, 0, 0); border-width: medium; border-style: none; border-color: currentcolor; border-image: none; border-radius: 12px; padding: 14px 24px; font-size: 15px; font-weight: 700; transition: 0.2s; }
+.btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 20px var(--yellow-glow); }
+.card-soft { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; box-shadow: rgba(17, 20, 24, 0.04) 0px 2px 12px; }
+.bottom-nav-dock { z-index: 60; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; align-items: center; gap: 4px; padding: 6px; display: flex; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); box-shadow: rgba(17, 20, 24, 0.08) 0px 8px 32px, rgba(17, 20, 24, 0.04) 0px 2px 8px; }
+.bottom-nav-dock button { width: 48px; height: 48px; color: var(--text-muted); cursor: pointer; background: none; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; border-radius: 999px; justify-content: center; align-items: center; transition: background 0.16s, color 0.16s, transform 0.16s; display: inline-flex; }
+.bottom-nav-dock button:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+.bottom-nav-dock button.active, .bottom-nav-dock button.active:hover { background: var(--text-primary); color: var(--bg-card); }
+.bottom-nav-spacer { height: 80px; }
+.date-pill { color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); cursor: pointer; border-radius: 999px; flex-shrink: 0; padding: 10px 18px; font-size: 13px; font-weight: 600; transition: background 0.14s, color 0.14s; }
+.date-pill.active { color: rgb(255, 255, 255); background: rgb(248, 113, 113); border-color: rgba(0, 0, 0, 0); }
+.date-pill:hover:not(.active) { background: var(--bg-secondary); }
+.icon-btn-round { border: 1px solid var(--border); background: var(--bg-card); width: 40px; height: 40px; color: var(--text-secondary); cursor: pointer; border-radius: 999px; justify-content: center; align-items: center; transition: background 0.16s, color 0.16s; display: inline-flex; }
+.icon-btn-round:hover { background: var(--bg-elevated); color: var(--text-primary); }
+@media (max-width: 640px) {
+  input, textarea, select { font-size: 16px; }
+}
+@supports (-webkit-touch-callout: none) {
+  input[type="time"], input[type="date"] { min-height: 44px; }
+  input, textarea, select { appearance: none; }
+}
+@keyframes walking { 
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(-3deg); }
+  50% { transform: translateY(0px) rotate(0deg); }
+  75% { transform: translateY(-2px) rotate(3deg); }
+}
+.steps-walking { animation: 1.2s ease-in-out 0s infinite normal none running walking; }
+@keyframes hourglassFlip { 
+  0%, 40% { transform: rotate(0deg); }
+  50%, 90% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+.hourglass-animated { transform-origin: center center; animation: 2.6s ease-in-out 0s infinite normal none running hourglassFlip; }
+@media (prefers-reduced-motion: reduce) {
+  .hourglass-animated { animation: auto ease 0s 1 normal none running none; }
+}
+@keyframes cardExpand { 
+  0% { opacity: 0; transform: translateY(-10px) scale(0.985); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0px) scale(1); }
+}
+@keyframes expandOpen { 
+  0% { opacity: 0; max-height: 0px; transform: translateY(-8px); }
+  100% { opacity: 1; max-height: 1200px; transform: translateY(0px); }
+}
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.chat-typing { align-items: center; gap: 4px; padding: 6px 0px; display: inline-flex; }
+.chat-dot { background: var(--text-muted); border-radius: 50%; width: 7px; height: 7px; animation: 1.2s ease-in-out 0s infinite normal none running chatDot; }
+.chat-dot:nth-child(2) { animation-delay: 0.15s; }
+.chat-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chatDot { 
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0px); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+.tx-welcome { color: var(--text-primary); font-size: 15px; font-weight: 500; line-height: 1.5; }
+.tx-welcome b { letter-spacing: -0.5px; font-weight: 750; }
+.tx-welcome b span { color: var(--yellow); }
+.tx-profile { width: 36px; height: 36px; color: var(--text-primary); cursor: pointer; background: rgb(255, 255, 255); border: 1px solid rgb(226, 219, 209); border-radius: 50%; flex-shrink: 0; font-size: 13px; font-weight: 650; position: relative; }
+.tx-profile > i { border: 2px solid var(--bg-primary); background: var(--green); border-radius: 50%; width: 8px; height: 8px; position: absolute; bottom: 0px; right: 0px; }
+.tx-modeswitch { background: rgb(238, 232, 223); border-radius: 10px; gap: 3px; padding: 3px; display: flex; }
+.tx-mode { color: rgb(133, 124, 112); cursor: pointer; min-height: 35px; box-shadow: none; background: none; border: 0px; border-radius: 7px; flex: 1 1 0%; justify-content: center; align-items: center; gap: 6px; padding: 9px 8px; font-family: inherit; font-size: 12px; font-weight: 600; display: flex; }
+.tx-mode.is-active { color: var(--text-primary); background: rgb(255, 255, 255); box-shadow: rgba(20, 34, 53, 0.043) 0px 1px 4px; }
+.tx-kicker { letter-spacing: 1.1px; color: rgb(133, 144, 158); text-transform: uppercase; font-size: 8px; font-weight: 700; }
+.tx-titleline { justify-content: space-between; align-items: center; gap: 10px; margin: 8px 0px 14px; display: flex; }
+.tx-titleline h2 { letter-spacing: -1px; margin: 0px; font-size: 27px; font-weight: 700; line-height: 1.15; }
+.tx-calbtn { color: rgb(56, 53, 47); cursor: pointer; background: none; border: 0px; border-radius: 8px; flex-shrink: 0; justify-content: center; align-items: center; width: 40px; height: 40px; display: flex; }
+.tx-strip { gap: 4px; margin-bottom: 9px; padding: 0px; display: flex; overflow-x: auto; }
+.tx-day { cursor: pointer; background: none; border: 0px; border-radius: 12px; flex-direction: column; flex: 0 0 calc(14.2857% - 3.42857px); align-items: center; gap: 3px; min-width: 0px; padding: 3px 0px 4px; display: flex; }
+.tx-day .dow { text-transform: uppercase; color: var(--text-muted); font-size: 9px; font-weight: 500; }
+.tx-day .num { color: rgb(68, 61, 51); border-radius: 50%; place-items: center; width: 30px; height: 30px; font-size: 14px; font-weight: 600; display: grid; }
+.tx-day .tag { color: rgb(181, 173, 161); align-items: center; gap: 3px; font-size: 8px; display: inline-flex; }
+.tx-day.is-done .tag { color: rgb(93, 147, 108); font-weight: 650; }
+.tx-day.is-active .tag { color: var(--yellow); font-weight: 650; }
+.tx-day.is-today:not(.is-sel) .num { color: var(--text-secondary); box-shadow: rgb(207, 198, 185) 0px 0px 0px 1px inset; }
+.tx-day.is-sel .num { color: rgb(255, 255, 255); background: rgb(36, 33, 28); box-shadow: rgba(36, 33, 28, 0.11) 0px 3px 6px; }
+.tx-utility { color: rgb(147, 137, 123); letter-spacing: 1px; text-transform: uppercase; justify-content: space-between; margin-bottom: 5px; font-size: 8px; font-weight: 650; display: flex; }
+.tx-wsel { align-items: stretch; gap: 7px; margin-bottom: 8px; display: flex; }
+.tx-wsel-grid { flex: 1 1 0%; gap: 5px; display: grid; }
+.tx-wtab { text-align: center; color: var(--text-primary); cursor: pointer; background: rgb(255, 255, 255); border: 1px solid rgb(226, 219, 209); border-radius: 8px; padding: 8px 0px; font-family: inherit; font-size: 12px; font-weight: 550; }
+.tx-wtab.is-active { background: var(--yellow); border-color: var(--yellow); color: rgb(255, 255, 255); font-weight: 700; box-shadow: rgba(255, 92, 53, 0.13) 0px 3px 7px; }
+.tx-wtab.is-empty { color: var(--text-muted); font-size: 16px; line-height: 18px; }
+.tx-iconbtn { color: rgb(129, 119, 105); cursor: pointer; background: none; border: 1px solid rgb(226, 219, 209); border-radius: 8px; justify-content: center; align-items: center; padding: 0px 8px; display: flex; }
+.tx-iconbtn.is-ai { color: var(--yellow); background: rgb(255, 240, 233); border-color: rgb(244, 216, 203); }
+.tx-daylabel { color: rgb(133, 124, 112); margin: 0px 0px 10px; font-size: 10px; line-height: 1.5; }
+.tx-ex { background: rgb(255, 255, 255); border: 1px solid rgb(232, 225, 215); border-radius: 15px; margin-bottom: 9px; overflow: hidden; box-shadow: rgba(21, 33, 49, 0.008) 0px 2px 3px; }
+.tx-ex.is-open { border-color: rgb(222, 212, 197); box-shadow: rgba(21, 33, 49, 0.016) 0px 3px 12px; }
+.tx-exrow { align-items: center; gap: 9px; padding: 12px; display: flex; }
+.tx-exname { letter-spacing: -0.1px; text-align: left; flex: 1 1 0%; min-width: 0px; font-size: 13px; font-weight: 650; line-height: 1.35; }
+.tx-exname .muscle { letter-spacing: 0.55px; color: var(--text-muted); margin-top: 6px; font-size: 8px; font-weight: 500; line-height: 1.35; display: block; }
+.tx-excount { color: var(--text-muted); background: none; border: 0px; min-width: 24px; padding: 0px; font-size: 10px; font-weight: 600; }
+.tx-excheck { color: rgb(200, 191, 177); cursor: pointer; background: rgb(255, 255, 255); border: 1px solid rgb(222, 215, 204); border-radius: 50%; flex-shrink: 0; justify-content: center; align-items: center; width: 24px; height: 24px; font-size: 12px; display: flex; }
+.tx-excheck.is-on { color: var(--green); background: rgb(233, 246, 235); border-color: rgb(217, 232, 215); }
+.tx-rest { color: rgb(129, 116, 102); font-variant-numeric: tabular-nums; background: rgb(246, 243, 238); border-radius: 7px; justify-content: space-between; align-items: center; gap: 8px; min-height: 36px; margin: 0px 0px 12px; padding: 0px 10px; font-size: 11px; display: flex; }
+.tx-rest.is-running { color: rgb(182, 83, 52); background: rgb(255, 241, 233); }
+.tx-rest.is-done { color: rgb(85, 118, 77); background: rgb(242, 246, 239); }
+.tx-rest button { color: rgb(139, 118, 103); min-height: 36px; font: inherit; cursor: pointer; background: none; border: 0px; padding: 0px 4px; }
+.tx-restset { border-bottom: 1px solid rgb(238, 232, 223); justify-content: space-between; align-items: center; gap: 8px; margin: 0px 0px 10px; padding: 0px 0px 10px; display: flex; }
+.tx-restset > span { color: var(--text-muted); font-size: 10px; }
+.tx-stepper { background: rgb(246, 243, 238); border: 1px solid rgb(230, 223, 213); border-radius: 9px; align-items: center; gap: 2px; padding: 2px; display: flex; }
+.tx-stepper button { color: rgb(113, 104, 91); cursor: pointer; background: none; border: 0px; border-radius: 7px; width: 32px; height: 32px; padding: 0px; font-size: 17px; line-height: 1; }
+.tx-stepper b { text-align: center; min-width: 42px; color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
+.tx-sets { padding: 0px 12px 13px; }
+.tx-grid { grid-template-columns: 18px 61px minmax(0px, 1fr) minmax(0px, 1fr) 44px; align-items: center; gap: 6px; display: grid; }
+.tx-head { letter-spacing: 0.2px; color: var(--text-muted); text-transform: uppercase; margin: 1px 0px 9px; font-size: 8px; font-weight: 600; }
+.tx-head > span { text-align: center; }
+.tx-head > span:first-child, .tx-head > span:nth-child(2) { text-align: left; }
+.tx-row { margin-bottom: 6px; }
+.tx-setn { color: var(--text-muted); font-size: 10px; font-weight: 500; }
+.tx-setn.is-on { color: var(--green); }
+.tx-last { color: var(--text-muted); text-align: left; white-space: nowrap; font-size: 10px; font-weight: 500; }
+.tx-input { color: rgb(48, 43, 36); text-align: center; width: 100%; min-width: 0px; height: 42px; box-shadow: none; background: rgb(246, 243, 238); border: 1px solid rgb(230, 223, 213); border-radius: 8px; padding: 0px 3px; font-family: inherit; font-size: 14px; font-weight: 600; }
+.tx-check { color: rgb(200, 191, 177); cursor: pointer; background: rgb(248, 245, 239); border: 1px solid rgb(230, 223, 213); border-radius: 9px; justify-content: center; justify-self: center; align-items: center; width: 44px; height: 44px; font-size: 16px; display: flex; }
+.tx-check.is-on { color: var(--green); background: rgb(233, 246, 235); border-color: rgb(217, 232, 215); }
+.tx-row.is-current .tx-input { background: rgb(255, 250, 246); border-color: rgb(230, 189, 169); }
+.tx-row.is-current .tx-check { color: rgb(217, 87, 49); background: rgb(255, 246, 240); border-color: rgb(230, 189, 169); }
+.tx-row.is-filled .tx-input { color: rgb(72, 100, 84); background: rgb(244, 249, 245); border-color: rgb(225, 234, 223); }
+.tx-actions { margin-top: 10px; }
+.tx-trend, .tx-addset { cursor: pointer; border-radius: 7px; justify-content: center; align-items: center; gap: 4px; height: 40px; font-family: inherit; font-size: 11px; font-weight: 550; display: flex; }
+.tx-trend { color: rgb(189, 90, 61); background: rgb(255, 242, 235); border: 1px solid rgb(239, 217, 206); grid-column: 1 / 3; padding: 0px 10px; }
+.tx-addset { color: var(--text-muted); background: none; border: 1px dashed rgb(230, 223, 213); grid-column: 3 / 5; padding: 0px 12px; }
+.tx-markall { color: rgb(109, 98, 83); cursor: pointer; background: rgb(243, 240, 235); border: 1px solid rgb(224, 217, 207); border-radius: 9px; grid-column: 1 / -1; justify-content: center; align-items: center; gap: 8px; width: 100%; height: 44px; margin-top: 7px; font-family: inherit; font-size: 12px; font-weight: 600; display: flex; }
+.tx-markall:hover { background: rgb(236, 231, 224); }
+.tx-note input { width: 100%; color: var(--text-muted); background: rgb(253, 252, 250); border: 1px solid rgb(238, 232, 223); border-radius: 7px; padding: 9px 10px; font-family: inherit; font-size: 10px; }
+.tx-legend { color: rgb(155, 144, 130); flex-wrap: wrap; align-items: center; gap: 16px; margin: 0px 0px 14px; font-size: 9px; display: flex; }
+.tx-legend span { align-items: center; gap: 5px; display: inline-flex; }
+.tx-dot { border-radius: 50%; flex: 0 0 auto; width: 6px; height: 6px; display: inline-block; }
+.tx-dot.d-done { background: rgb(93, 147, 108); }
+.tx-dot.d-active { background: var(--yellow); }
+.tx-dot.d-planned { background: rgb(185, 174, 156); }
+.tx-dot.d-none { background: none; box-shadow: rgb(216, 207, 194) 0px 0px 0px 1px inset; }
+.tx-collapsed { color: rgb(140, 130, 116); letter-spacing: 0px; margin-top: 5px; font-size: 10px; font-weight: 500; line-height: 1.45; display: block; }
+.tx-collapsed.is-complete { color: rgb(52, 129, 77); }
+.tx-tabbar { z-index: 90; max-width: 600px; padding-top: 8px; padding-right: 10px; padding-left: 10px; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: rgb(253, 252, 250); border-top: 1px solid rgb(228, 221, 210); gap: 0px; margin: 0px auto; display: flex; position: fixed; bottom: 0px; left: 0px; right: 0px; }
+.tx-tab { cursor: pointer; color: rgb(161, 151, 137); background: none; border: 0px; flex-direction: column; flex: 1 1 0%; justify-content: center; align-items: center; gap: 5px; min-height: 47px; padding: 5px 0px; font-family: inherit; font-size: 9px; font-weight: 500; display: flex; position: relative; }
+.tx-tab.is-active { color: rgb(189, 89, 57); font-weight: 650; }
+.tx-tab.is-active::before { content: ""; background: var(--yellow); border-radius: 2px; width: 24px; height: 2px; position: absolute; top: -8px; }
+.tx-tab svg { width: 21px; height: 21px; }
+.tx-card { background: rgb(255, 255, 255); border: 1px solid rgb(232, 225, 215); border-radius: 16px; margin-top: 20px; padding: 15px; }
+.tx-card-head { justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; display: flex; }
+.tx-eyebrow { letter-spacing: 0.8px; color: rgb(175, 156, 135); text-transform: uppercase; margin-bottom: 6px; font-size: 7px; font-weight: 700; display: block; }
+.tx-card-head h4 { letter-spacing: -0.5px; margin: 0px; font-size: 17px; font-weight: 700; }
+.tx-badge { color: rgb(145, 132, 116); white-space: nowrap; background: rgb(244, 240, 234); border-radius: 6px; padding: 5px 7px; font-size: 8px; }
+.tx-montharrows { gap: 4px; display: flex; }
+.tx-montharrows button { color: rgb(129, 119, 105); cursor: pointer; background: rgb(246, 243, 238); border: 0px; border-radius: 7px; justify-content: center; align-items: center; width: 27px; height: 27px; font-size: 16px; display: flex; }
+.tx-monthstats { color: rgb(155, 139, 121); border-bottom: 1px solid rgb(238, 232, 223); gap: 12px; margin-bottom: 10px; padding: 2px 0px 12px; font-size: 10px; display: flex; }
+.tx-monthstats b { color: rgb(81, 71, 55); font-size: 17px; font-weight: 700; display: block; }
+.tx-monthgrid { grid-template-columns: repeat(7, minmax(0px, 1fr)); gap: 3px; display: grid; }
+.tx-monthdow { color: var(--text-muted); text-align: center; text-transform: uppercase; padding: 5px 0px; font-size: 8px; }
+.tx-monthday { color: rgb(113, 104, 91); cursor: pointer; background: none; border: 0px; border-radius: 8px; flex-direction: column; justify-content: center; align-items: center; gap: 2px; min-width: 0px; height: 42px; font-family: inherit; font-size: 11px; display: flex; position: relative; }
+.tx-monthday small { align-items: center; gap: 3px; min-height: 9px; font-size: 8px; line-height: 1.1; display: inline-flex; }
+.tx-monthday.has-rec { color: rgb(81, 73, 63); background: rgb(245, 242, 237); }
+.tx-monthday.is-sel { color: rgb(255, 255, 255); background: rgb(48, 43, 37); }
+.tx-monthday.is-sel small { color: rgb(232, 224, 213); }
+.tx-monthday.is-today { color: var(--text-secondary); font-weight: 700; }
+.tx-daydetail { color: rgb(111, 99, 83); background: rgb(252, 250, 247); border: 1px solid rgb(235, 227, 216); border-radius: 9px; margin-top: 13px; padding: 12px; font-size: 11px; }
+.tx-daydetail b { color: rgb(68, 58, 45); margin-bottom: 5px; display: block; }
+.tx-daydetail small { color: rgb(155, 139, 121); font-size: 10px; }
+.tx-modes { background: rgb(244, 240, 234); border-radius: 8px; gap: 3px; margin: 12px 0px; padding: 3px; display: flex; }
+.tx-modes button { color: rgb(155, 142, 125); cursor: pointer; background: none; border: 0px; border-radius: 6px; flex: 1 1 0%; padding: 7px 3px; font-family: inherit; font-size: 10px; font-weight: 500; }
+.tx-modes button.is-active { color: rgb(98, 89, 76); background: rgb(255, 255, 255); box-shadow: rgba(48, 42, 34, 0.035) 0px 1px 3px; }
+.tx-empty { color: var(--text-muted); margin: 7px 0px 0px; font-size: 10px; }
+.tx-trend { color: rgb(133, 121, 105); background: none; border: 0px; justify-content: flex-start; padding: 0px 2px; }
+.tx-addset { color: rgb(133, 121, 105); background: none; border: 0px; justify-content: flex-end; padding: 0px 2px; }
+.tx-trend:disabled { opacity: 0.35; }
+.tx-photo { cursor: zoom-in; color: rgb(166, 155, 139); background: rgb(248, 245, 239); border: 1px solid rgb(229, 222, 212); border-radius: 8px; flex: 0 0 42px; justify-content: center; align-items: center; width: 42px; height: 42px; padding: 0px; display: flex; overflow: hidden; }
+.view-content, .tx-tabbar, .tx-ex, .tx-card { letter-spacing: normal; }
+.tx-kicker, .tx-utility { text-transform: none; }
+.tx-titleline h2 { font-size: 26px; }
+.tx-wtab { padding: 9px 0px; }
+.tx-grid.tx-actions { grid-template-columns: auto 1fr auto; gap: 6px; }
+.tx-trend { grid-column: 1; justify-self: start; width: auto; height: 44px; }
+.tx-addset { grid-column: 3; justify-self: end; width: auto; height: 44px; }
+.tx-markall { grid-column: 1 / -1; }
+.tx-excount { color: var(--text-primary); font-size: 10px; }
+.tx-excount.is-done { color: rgb(52, 129, 77); }
+.tx-head { color: rgb(146, 136, 122); padding-left: 2px; }
+.tx-check { font-weight: 600; }
+.tx-ex .ex-note input, .tx-ex input[placeholder*="амет"] { color: var(--text-muted); background: rgb(253, 252, 250); border: 1px solid rgb(238, 232, 223); border-radius: 7px; padding: 9px 10px; font-size: 10px; }
+.tx-tabbar > div { flex: 1 1 0%; display: flex; }
+.view-content { font-size: 14px; }
+.tx-wtab { min-height: 37px; padding: 8px 0px; }
+.tx-iconbtn { min-height: 37px; padding: 0px 7px; }
+.tx-iconbtn svg { width: 16px; height: 16px; }
+.tx-welcome { color: rgb(48, 42, 34); font-weight: 400; }
+.tx-excount { font-size: 10px; line-height: 1.2; }
+.tx-profile, .tx-calbtn { font-size: 13px; }
+.tx-calbtn svg { width: 20px; height: 20px; }
+.tx-iconbtn { padding: 0px 8px; }
+.tx-photo { color: rgb(166, 155, 139); cursor: zoom-in; background: rgb(248, 245, 239); border: 1px solid rgb(229, 222, 212); border-radius: 8px; flex: 0 0 42px; justify-content: center; align-items: center; width: 42px; height: 42px; padding: 0px; display: flex; overflow: hidden; }
+.tx-photo.is-empty { cursor: pointer; border-style: dashed; }
+.tx-photo img { object-fit: cover; width: 100%; height: 100%; display: block; }
+.tx-photo svg { width: 20px; height: 20px; }
+.tx-ex:not(.is-open) .tx-photo { display: none; }
+.tx-wsel-grid { gap: 5px; display: flex; }
+.tx-wsel-grid > * { width: var(--tx-wcol, 40px); flex: 0 0 auto; min-width: 0px; }
+@property --tw-rotate-x { syntax: "*"; inherits: false; }
+@property --tw-rotate-y { syntax: "*"; inherits: false; }
+@property --tw-rotate-z { syntax: "*"; inherits: false; }
+@property --tw-skew-x { syntax: "*"; inherits: false; }
+@property --tw-skew-y { syntax: "*"; inherits: false; }
+@property --tw-border-style { syntax: "*"; inherits: false; initial-value: solid; }
+@property --tw-ordinal { syntax: "*"; inherits: false; }
+@property --tw-slashed-zero { syntax: "*"; inherits: false; }
+@property --tw-numeric-figure { syntax: "*"; inherits: false; }
+@property --tw-numeric-spacing { syntax: "*"; inherits: false; }
+@property --tw-numeric-fraction { syntax: "*"; inherits: false; }
+@property --tw-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
+@property --tw-shadow-color { syntax: "*"; inherits: false; }
+@property --tw-shadow-alpha { syntax: "<percentage>"; inherits: false; initial-value: 100%; }
+@property --tw-inset-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
+@property --tw-inset-shadow-color { syntax: "*"; inherits: false; }
+@property --tw-inset-shadow-alpha { syntax: "<percentage>"; inherits: false; initial-value: 100%; }
+@property --tw-ring-color { syntax: "*"; inherits: false; }
+@property --tw-ring-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
+@property --tw-inset-ring-color { syntax: "*"; inherits: false; }
+@property --tw-inset-ring-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
+@property --tw-ring-inset { syntax: "*"; inherits: false; }
+@property --tw-ring-offset-width { syntax: "<length>"; inherits: false; initial-value: 0; }
+@property --tw-ring-offset-color { syntax: "*"; inherits: false; initial-value: #fff; }
+@property --tw-ring-offset-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
+@property --tw-outline-style { syntax: "*"; inherits: false; initial-value: solid; }
+@property --tw-blur { syntax: "*"; inherits: false; }
+@property --tw-brightness { syntax: "*"; inherits: false; }
+@property --tw-contrast { syntax: "*"; inherits: false; }
+@property --tw-grayscale { syntax: "*"; inherits: false; }
+@property --tw-hue-rotate { syntax: "*"; inherits: false; }
+@property --tw-invert { syntax: "*"; inherits: false; }
+@property --tw-opacity { syntax: "*"; inherits: false; }
+@property --tw-saturate { syntax: "*"; inherits: false; }
+@property --tw-sepia { syntax: "*"; inherits: false; }
+@property --tw-drop-shadow { syntax: "*"; inherits: false; }
+@property --tw-drop-shadow-color { syntax: "*"; inherits: false; }
+@property --tw-drop-shadow-alpha { syntax: "<percentage>"; inherits: false; initial-value: 100%; }
+@property --tw-drop-shadow-size { syntax: "*"; inherits: false; }
+@property --tw-backdrop-blur { syntax: "*"; inherits: false; }
+@property --tw-backdrop-brightness { syntax: "*"; inherits: false; }
+@property --tw-backdrop-contrast { syntax: "*"; inherits: false; }
+@property --tw-backdrop-grayscale { syntax: "*"; inherits: false; }
+@property --tw-backdrop-hue-rotate { syntax: "*"; inherits: false; }
+@property --tw-backdrop-invert { syntax: "*"; inherits: false; }
+@property --tw-backdrop-opacity { syntax: "*"; inherits: false; }
+@property --tw-backdrop-saturate { syntax: "*"; inherits: false; }
+@property --tw-backdrop-sepia { syntax: "*"; inherits: false; }
+@property --tw-ease { syntax: "*"; inherits: false; }
+
+
+html, body { background: var(--bg-primary); }
+body { margin: 0; font-family: var(--font-inter), sans-serif; }
+.mock-phone { max-width: 430px; margin: 0 auto; background: var(--bg-primary); min-height: 100vh; position: relative; padding-bottom: 96px; }
+.mock-phone > header { padding: 14px 20px 10px; }
+.mock-screen { padding: 4px 20px 16px; }
+.tx-tabbar { position: fixed; }
+</style></head>
+<body>
+<div class="mock-phone">
+<header style="padding-top: calc(14px + env(safe-area-inset-top, 0px)); padding-right: 20px; padding-bottom: 10px; padding-left: 20px; background: var(--bg-primary);"><div style="max-width: 600px; margin: 0px auto; display: flex; justify-content: space-between; align-items: center; gap: 10px;"><div class="tx-welcome" style="flex: 1 1 0%; min-width: 0px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Welcome to <b>Train<span>X</span></b>, Pavel</div><button aria-label="Профиль" class="btn-press tx-profile">P<i></i></button></div></header>
+<div class="mock-screen">
+<div class="view-content"><div class="tx-modeswitch"><button class="tx-mode is-active">Тренировки</button><button class="tx-mode">Питание <span>↗</span></button></div><div><div class="tx-kicker">T1 · Мышцы</div><div class="tx-titleline"><h2>Тренировка 1</h2><button class="tx-calbtn btn-press" aria-label="Календарь"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg></button></div></div><div class="tx-strip no-scrollbar" style="scroll-snap-type: x;"><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">22</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">23</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">24</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">25</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">26</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">27</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">28</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">29</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">30</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">1</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">2</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">3</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">4</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">5</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">6</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">7</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">8</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">9</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">10</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">11</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">12</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">13</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">14</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">15</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">16</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">17</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">18</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">19</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">20</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">21</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">22</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">23</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">24</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">25</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">26</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">27</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">28</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">29</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">30</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">31</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">1</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">2</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">3</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">4</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">5</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">6</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">7</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">8</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">9</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">10</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">11</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">12</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">13</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">14</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">15</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">16</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">17</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">18</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">19</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">20</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">21</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">22</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">23</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">24</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">25</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">26</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">27</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">28</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">29</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">30</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">31</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">1</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">2</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">3</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">4</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">5</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">6</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">7</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">8</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">9</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">10</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">11</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">12</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вс</span><span class="num">13</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пн</span><span class="num">14</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">вт</span><span class="num">15</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">ср</span><span class="num">16</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">чт</span><span class="num">17</span><span class="tag">—</span></button><button class="btn-press tx-day" style="scroll-snap-align: center;"><span class="dow">пт</span><span class="num">18</span><span class="tag">—</span></button><button data-selchip="1" class="btn-press tx-day is-sel is-today" style="scroll-snap-align: center;"><span class="dow">сб</span><span class="num">19</span><span class="tag">—</span></button></div><div class="tx-legend"><span><i class="tx-dot d-done"></i>Выполнено</span><span><i class="tx-dot d-active"></i>В процессе</span><span><i class="tx-dot d-planned"></i>Запланировано</span><span><i class="tx-dot d-none"></i>Нет записи</span></div><div class="tx-utility"><span>Моя программа</span><span>T1 / 4</span></div><div class="tx-wsel"><div class="tx-wsel-grid" style="--tx-wcol: 40px;"><button class="tab-button btn-press tx-wtab is-active">T1</button><button class="tab-button btn-press tx-wtab">T2</button><button class="tab-button btn-press tx-wtab">T3</button><button class="tab-button btn-press tx-wtab">T4</button><button class="tab-button btn-press tx-wtab is-empty">T5</button><button class="tab-button btn-press tx-wtab is-empty">T6</button><button class="tab-button btn-press tx-wtab is-empty">T7</button></div><button class="tx-iconbtn" title="Редактировать тренировку"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg></button><button class="tx-iconbtn is-ai" title="Программа: ИИ-предложение и история"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg></button></div><div class="tx-daylabel">19.09 · Нет записи · T1</div><div style="opacity: 1; pointer-events: auto; transition: opacity 0.3s;"><div class="card-hover exercise-card tx-ex is-open "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Скручивания лежа</div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/3</span><div class="checkbox-animated status-transition tx-excheck"></div></div><div style="padding: 0px 12px 12px; border-top: 1px solid var(--border); animation: 0.22s cubic-bezier(0.4, 0, 0.2, 1) 0s 1 normal none running expandOpen; overflow: hidden;"><div style="margin-top: 8px; margin-bottom: 10px;"><div class="tx-restset"><span style="display: inline-flex; align-items: center; gap: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-timer" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"></line><line x1="12" x2="15" y1="14" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg>Отдых между подходами</span><span class="tx-stepper"><button type="button" aria-label="Уменьшить время отдыха">−</button><b>2:00</b><button type="button" aria-label="Увеличить время отдыха">+</button></span></div><div class="exercise-rest tx-rest"><span class="rest-state" role="status">Отдых после подхода · 2:00</span><span style="display: inline-flex; align-items: center; gap: 2px;"><button type="button">Старт</button></span></div><div class="tx-grid tx-head"><span>№</span><span>В прошлый раз</span><span>ПОВТОРЫ</span><span>LB</span><span></span></div><div class="tx-grid tx-row is-current"><span class="tx-setn">1</span><span class="tx-last">—</span><input class="tx-input" inputmode="numeric" placeholder="0" type="number" value=""><input class="tx-input" inputmode="numeric" placeholder="0" type="number" value=""><button class="tx-check" title="Right-click / long-press to remove this set"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></button></div><div class="tx-grid tx-row"><span class="tx-setn">2</span><span class="tx-last">—</span><input class="tx-input" inputmode="numeric" placeholder="0" type="number" value=""><input class="tx-input" inputmode="numeric" placeholder="0" type="number" value=""><button class="tx-check" title="Right-click / long-press to remove this set"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></button></div><div class="tx-grid tx-row"><span class="tx-setn">3</span><span class="tx-last">—</span><input class="tx-input" inputmode="numeric" placeholder="0" type="number" value=""><input class="tx-input" inputmode="numeric" placeholder="0" type="number" value=""><button class="tx-check" title="Right-click / long-press to remove this set"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></button></div><div class="tx-grid tx-actions"><button class="tx-trend" title="Динамика веса" disabled="" style="opacity: 0.35;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-up" aria-hidden="true"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg><span>Тренд</span></button><button class="tx-addset"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Подход</button><button type="button" class="tx-markall" title="Отметить все подходы"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-check" aria-hidden="true"><path d="M18 6 7 17l-5-5"></path><path d="m22 10-7.5 7.5L13 16"></path></svg>Выполнено</button></div></div><div class="tx-note" style="margin-top: 8px;"><input placeholder="Заметка к упражнению…" type="text" value=""></div></div></div><div class="card-hover exercise-card tx-ex  "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Румынская тяга со штангой<span class="tx-collapsed">0/3 подхода · ещё не начато</span></div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/3</span><div class="checkbox-animated status-transition tx-excheck"></div></div></div><div class="card-hover exercise-card tx-ex  "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Вертикальная тяга к груди<span class="tx-collapsed">0/3 подхода · ещё не начато</span></div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/3</span><div class="checkbox-animated status-transition tx-excheck"></div></div></div><div class="card-hover exercise-card tx-ex  "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Отведения с гантелями сидя<span class="tx-collapsed">0/3 подхода · ещё не начато</span></div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/3</span><div class="checkbox-animated status-transition tx-excheck"></div></div></div><div class="card-hover exercise-card tx-ex  "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Горизонтальная тяга блока<span class="tx-collapsed">0/3 подхода · ещё не начато</span></div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/3</span><div class="checkbox-animated status-transition tx-excheck"></div></div></div><div class="card-hover exercise-card tx-ex  "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Подъем штанги на бицепс стоя<span class="tx-collapsed">0/5 подхода · ещё не начато</span></div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/5</span><div class="checkbox-animated status-transition tx-excheck"></div></div></div><div class="card-hover exercise-card tx-ex  "><div class="tx-exrow" style="cursor: pointer;"><div class="tx-exname" style="color: var(--text-primary);">Отведения с гантелями в наклоне<span class="tx-collapsed">0/3 подхода · ещё не начато</span></div><input accept="image/*" type="file" style="display: none;"><button type="button" class="tx-photo is-empty" aria-label="Добавить фото"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><span class="tx-excount">0/3</span><div class="checkbox-animated status-transition tx-excheck"></div></div></div></div><div style="margin-top: 16px; padding: 12px 14px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border);"><div style="display: flex; align-items: center; gap: 12px;"><span style="font-size: 14px; font-weight: 600; color: var(--text-secondary); flex-shrink: 0;">Шаги</span><input placeholder="Добавьте шаги" type="number" value="8200" style="flex: 1 1 0%; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 15px; font-weight: 500;"><div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 14px; background: var(--bg-elevated); border-radius: 8px; border: 1px solid var(--border); min-width: 70px;"><span style="font-size: 10px; color: var(--text-muted); line-height: 1;">неделя</span><span style="font-size: 14px; font-weight: 700; color: var(--blue); line-height: 1.3;">57&nbsp;400</span></div></div></div><div style="margin-top: 28px;"><div class="card-soft" style="overflow: hidden;"><div style="padding: 20px; background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%); border-bottom: 1px solid var(--border);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><button style="background: transparent; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; border-radius: 12px; padding: 12px 18px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button><div><span class="tx-eyebrow">История тренировок</span><h4 class="tx-monthtitle" style="margin: 0px; font-weight: 700; font-size: 17px; letter-spacing: -0.5px; text-transform: capitalize;">сентябрь 2026 г.</h4></div><button style="background: transparent; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; border-radius: 12px; padding: 12px 18px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button></div><div class="tx-monthstats"><span><b>0</b>тренировок</span><span><b>57K</b>шагов</span><span><b>8200</b>ср. шагов</span></div></div><div style="display: grid; grid-template-columns: repeat(7, 1fr); padding: 4px 16px 2px;"><div class="tx-monthdow">Пн</div><div class="tx-monthdow">Вт</div><div class="tx-monthdow">Ср</div><div class="tx-monthdow">Чт</div><div class="tx-monthdow">Пт</div><div class="tx-monthdow">Сб</div><div class="tx-monthdow">Вс</div></div><div class="tx-monthgrid" style="padding: 4px 16px 16px;"><div></div><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>1</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>2</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>3</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>4</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>5</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>6</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>7</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>8</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>9</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>10</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>11</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>12</span><small>—</small></button><button class="tx-monthday" style="cursor: pointer; opacity: 1;"><span>13</span><small>—</small></button><button class="tx-monthday has-rec" style="cursor: pointer; opacity: 1;"><span>14</span><small>шаги</small></button><button class="tx-monthday has-rec" style="cursor: pointer; opacity: 1;"><span>15</span><small>шаги</small></button><button class="tx-monthday has-rec" style="cursor: pointer; opacity: 1;"><span>16</span><small>шаги</small></button><button class="tx-monthday has-rec" style="cursor: pointer; opacity: 1;"><span>17</span><small>шаги</small></button><button class="tx-monthday has-rec" style="cursor: pointer; opacity: 1;"><span>18</span><small>шаги</small></button><button class="tx-monthday is-sel" style="cursor: pointer; opacity: 1;"><span>19</span><small>шаги</small></button><button class="tx-monthday has-rec" style="cursor: default; opacity: 0.45;"><span>20</span><small>шаги</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>21</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>22</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>23</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>24</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>25</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>26</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>27</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>28</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>29</span><small>—</small></button><button class="tx-monthday" style="cursor: default; opacity: 0.45;"><span>30</span><small>—</small></button></div><div class="tx-legend" style="padding: 12px 16px 16px; border-top: 1px solid var(--border); justify-content: center; margin: 0px;"><span><i class="tx-dot d-done"></i>Выполнено</span><span><i class="tx-dot d-active"></i>В процессе</span><span><i class="tx-dot d-planned"></i>Запланировано</span><span><i class="tx-dot d-none"></i>Нет записи</span></div></div></div><section class="tx-card"><div class="tx-card-head"><div><span class="tx-eyebrow">Вес тела и замеры</span><h4>Мой прогресс</h4></div><span class="tx-badge">сентябрь</span></div><div class="tx-modes" role="group"><button class="is-active">Вес тела</button><button class="">Талия</button><button class="">Грудь</button></div><div style="display: flex; justify-content: space-between; align-items: baseline; margin: 12px 0px 4px;"><strong style="font-size: 28px; font-weight: 650; letter-spacing: -0.8px; font-variant-numeric: tabular-nums;">86,4 кг</strong><span style="font-size: 11px; color: rgb(133, 117, 101); background: rgb(243, 238, 231); padding: 4px 7px; border-radius: 5px;">-1,7 кг</span></div><div style="width: 100%;"><svg width="100%" viewBox="0 0 310 168" style="display: block;"><g><line x1="42" y1="138" x2="292" y2="138" stroke="var(--border)" stroke-dasharray="4,4"></line><text x="34" y="142" fill="var(--text-muted)" font-size="10" text-anchor="end">85</text></g><g><line x1="42" y1="80" x2="292" y2="80" stroke="var(--border)" stroke-dasharray="4,4"></line><text x="34" y="84" fill="var(--text-muted)" font-size="10" text-anchor="end">87</text></g><g><line x1="42" y1="22" x2="292" y2="22" stroke="var(--border)" stroke-dasharray="4,4"></line><text x="34" y="26" fill="var(--text-muted)" font-size="10" text-anchor="end">89</text></g><defs><linearGradient id="wgt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff5c35" stop-opacity="0.17"></stop><stop offset="100%" stop-color="#ff5c35" stop-opacity="0"></stop></linearGradient></defs><path d="M 42,53.35135135135144 L 125.33333333333333,72.16216216216213 L 208.66666666666666,90.97297297297283 L 292,106.64864864864855 L 292,138 L 42,138 Z" fill="url(#wgt)"></path><path d="M 42,53.35135135135144 L 125.33333333333333,72.16216216216213 L 208.66666666666666,90.97297297297283 L 292,106.64864864864855" fill="none" stroke="#ff5c35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path><g><circle cx="42" cy="53.35135135135144" r="4" fill="var(--bg-card)" stroke="#ff5c35" stroke-width="2"></circle><text x="42" y="43.35135135135144" fill="var(--text-primary)" font-size="11" font-weight="600" text-anchor="middle">88.1</text></g><g><circle cx="125.33333333333333" cy="72.16216216216213" r="4" fill="var(--bg-card)" stroke="#ff5c35" stroke-width="2"></circle></g><g><circle cx="208.66666666666666" cy="90.97297297297283" r="4" fill="var(--bg-card)" stroke="#ff5c35" stroke-width="2"></circle></g><g><circle cx="292" cy="106.64864864864855" r="4" fill="var(--bg-card)" stroke="#ff5c35" stroke-width="2"></circle><text x="292" y="96.64864864864855" fill="var(--text-primary)" font-size="11" font-weight="600" text-anchor="middle">86.4</text></g><text x="42" y="160" fill="var(--text-muted)" font-size="9" text-anchor="middle">1 сент.</text><text x="125.33333333333333" y="160" fill="var(--text-muted)" font-size="9" text-anchor="middle">8 сент.</text><text x="208.66666666666666" y="160" fill="var(--text-muted)" font-size="9" text-anchor="middle">15 сент.</text><text x="292" y="160" fill="var(--text-muted)" font-size="9" text-anchor="middle">19 сент.</text></svg></div></section></div>
+</div>
+<nav class="tx-tabbar"><button class="btn-press tx-tab is-active"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span>Главная</span></button><button class="btn-press tx-tab"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg><span>Планер</span></button><button class="btn-press tx-tab"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-brain" aria-hidden="true"><path d="M12 18V5"></path><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"></path><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"></path><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path><path d="M18 18a4 4 0 0 0 2-7.464"></path><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path><path d="M6 18a4 4 0 0 1-2-7.464"></path><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path></svg><span>ИИ</span></button><button class="btn-press tx-tab"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-flask-conical" aria-hidden="true"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"></path><path d="M6.453 15h11.094"></path><path d="M8.5 2h7"></path></svg><span>Анализы</span></button></nav>
+</div>
+</body></html>
