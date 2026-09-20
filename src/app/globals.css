@@ -791,26 +791,37 @@ button:disabled {
 .tx-day.is-sel .num { background: #24211c; color: #fff; box-shadow: 0 3px 6px rgba(36,33,28,.11); }
 
 /* Подпись программы над кнопками тренировок */
-.tx-utility { display: flex; justify-content: space-between; color: #93897b; font-size: 8px; font-weight: 650; letter-spacing: 1px; margin-bottom: 5px; text-transform: uppercase; }
+.tx-utility { display: flex; justify-content: space-between; color: #93897b; font-size: 8px; font-weight: 650; letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }
 
-/* Кнопки T1-T7 — компактнее, чем были */
-.tx-wsel { display: flex; gap: 7px; margin-bottom: 8px; align-items: stretch; }
-.tx-wsel-grid { display: grid; gap: 5px; flex: 1; }
+/* Ряд «Моя программа»: кнопки тренировок + настройки + ИИ.
+   Все кнопки ряда одной высоты 44px, промежутки везде 8px.
+   Служебные кнопки фиксированной ширины и НЕ сжимаются: при нехватке
+   места прокручивается только список тренировок. */
+.tx-wsel { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.tx-wsel-grid { display: flex; gap: 8px; flex: 1 1 auto; min-width: 0; }
 .tx-wtab {
-  border: 1px solid #e2dbd1; border-radius: 8px; padding: 8px 0;
-  background: #fff; font-size: 12px; font-weight: 550; text-align: center;
+  border: 1px solid #e2dbd1; border-radius: 8px; padding: 0;
+  background: #fff; font-size: 12px; font-weight: 550;
   color: var(--text-primary); cursor: pointer; font-family: inherit;
+  height: 44px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
 }
 .tx-wtab.is-active { background: var(--yellow); border-color: var(--yellow); color: #fff; font-weight: 700; box-shadow: 0 3px 7px rgba(255,92,53,.13); }
-.tx-wtab.is-empty { color: var(--text-muted); font-size: 16px; line-height: 18px; }
+/* Кнопка «+» и пустые тренировки: значок строго по центру, без padding —
+   раньше он был прижат влево из-за line-height и отступов текста. */
+.tx-wtab.is-empty { color: var(--text-muted); font-size: 16px; line-height: 1; }
+.tx-wtab svg { width: 20px; height: 20px; display: block; flex: none; }
 .tx-iconbtn {
   border-radius: 8px; background: transparent; border: 1px solid #e2dbd1;
-  padding: 0 8px; color: #817769; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  padding: 0; color: #817769; cursor: pointer;
+  width: 44px; height: 44px; flex: 0 0 44px;
+  display: flex; align-items: center; justify-content: center;
 }
+.tx-iconbtn svg { width: 20px; height: 20px; display: block; flex: none; }
 .tx-iconbtn.is-ai { background: #fff0e9; border-color: #f4d8cb; color: var(--yellow); }
 
 /* Подпись выбранного дня */
-.tx-daylabel { font-size: 10px; color: #857c70; margin: 0 0 10px; line-height: 1.5; }
+.tx-daylabel { font-size: 10px; color: #857c70; margin: 0 0 12px; line-height: 1.5; }
 
 /* Карточка упражнения */
 .tx-ex { background: #fff; border: 1px solid #e8e1d7; border-radius: 15px; margin-bottom: 9px; box-shadow: 0 2px 3px rgba(21,33,49,.008); overflow: hidden; }
@@ -981,8 +992,7 @@ button:disabled {
 /* Заголовок — 26px, как в эталоне (было 27). */
 .tx-titleline h2 { font-size: 26px; }
 
-/* Кнопки тренировок: в макете 6 колонок по ~47px и высота 37. */
-.tx-wtab { padding: 9px 0; }
+
 
 /* Ряд действий: Тренд слева, «+ Подход» справа, обе — по содержимому,
    высота 44 как в эталоне. Раньше они растягивались по колонкам таблицы. */
@@ -1015,11 +1025,7 @@ button:disabled {
 /* Базовый кегль экрана — 14px, как в макете (.app). Браузерные 16px делали
    все вложенные rem/em-размеры крупнее эталона. */
 .view-content { font-size: 14px; }
-/* Ширина кнопок T зависит от их числа: в приложении их до 7 против 6 в
-   макете, поэтому фиксируем не ширину, а высоту и кегль. */
-.tx-wtab { padding: 8px 0; min-height: 37px; }
-.tx-iconbtn { min-height: 37px; padding: 0 7px; }
-.tx-iconbtn svg { width: 16px; height: 16px; }
+
 
 /* Приветствие: в макете обычное начертание и чуть более тёплый цвет. */
 .tx-welcome { font-weight: 400; color: #302a22; }
@@ -1029,7 +1035,6 @@ button:disabled {
 /* Кнопки шапки: кегль иконок и внутренние отступы по эталону. */
 .tx-profile, .tx-calbtn { font-size: 13px; }
 .tx-calbtn svg { width: 20px; height: 20px; }
-.tx-iconbtn { padding: 0 8px; }
 
 /* Фото упражнения: в шапке карточки между названием и счётчиком (по макету),
    42x42 с радиусом 8. В свёрнутой карточке макет его прячет. */
@@ -1045,11 +1050,32 @@ button:disabled {
 .tx-photo svg { width: 20px; height: 20px; }
 .tx-ex:not(.is-open) .tx-photo { display: none; }
 
-/* Кнопки тренировок: ряд одинаковых квадратов. Ширину колонки задаёт
-   JS целым числом пикселей (--tx-wcol) — grid/flex с долями 1fr делил
-   остаток на 39.70/39.71/39.72, и квадратики выглядели неровными. */
-.tx-wsel-grid { display: flex; gap: 5px; }
-.tx-wsel-grid > * { flex: 0 0 auto; width: var(--tx-wcol, 40px); min-width: 0; }
+/* Ряд одинаковых кнопок тренировок. Ширину колонки задаёт JS целым
+   числом пикселей (--tx-wcol): flex с долями 1fr делил остаток на
+   39.70/39.71/39.72, и квадратики выглядели разной ширины.
+   Кнопки не сжимаются ниже 44px — вместо этого список прокручивается,
+   а настройки и ИИ остаются на месте и доступны. */
+.tx-wsel-grid {
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  /* Место под затухание у правого края: без него последняя кнопка
+     упиралась бы в градиент вплотную. */
+  padding-right: 2px;
+}
+.tx-wsel-grid::-webkit-scrollbar { display: none; }
+.tx-wsel-grid > * { flex: 0 0 auto; width: var(--tx-wcol, 44px); min-width: 44px; scroll-snap-align: start; }
+
+/* Обёртка списка: нужна ради затухания у правого края. Градиент обязан
+   лежать ПОВЕРХ кнопок (они непрозрачно-белые), поэтому это отдельный
+   слой ::after, а не фон самой прокручиваемой ленты.
+   Появляется только когда список не помещается — класс ставит JS. */
+.tx-wselwrap { position: relative; flex: 1 1 auto; min-width: 0; display: flex; }
+.tx-wselwrap.is-scrollable::after {
+  content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 26px;
+  pointer-events: none;
+  background: linear-gradient(to left, #f6f3ee 25%, rgba(246,243,238,0));
+}
 
 /* ==========================================================================
    ЭКРАН «ПИТАНИЕ» — оформление по эталону design/trainx-nutrition-reference.html.

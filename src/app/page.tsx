@@ -2184,36 +2184,51 @@ export default function FitnessPage() {
     peekWrapTimerRef.current = setTimeout(() => setPeekWrapId(id), 370);
     peekTimerRef.current = setTimeout(() => { setPeekMealId(null); setPeekWrapId(null); }, 2600);
   };
-  // Лента дат тренировок: при заходе в раздел прокручиваем к выбранному дню (сегодня)
   // Ровный ряд кнопок T1..T7: ширину колонки считаем целыми пикселями.
-  // Через grid/flex с 1fr браузер раздаёт доли (39.70 / 39.71 / 39.72),
-  // и квадратики выглядят разной ширины. Остаток уходит в последний зазор.
+  // Через grid/flex с долями 1fr браузер раздаёт остаток (39.70 / 39.71 /
+  // 39.72), и квадратики выглядят разной ширины.
+  const TX_WCOL_GAP = 8;   // промежуток между кнопками ряда
+  const TX_WCOL_MIN = 44;  // кнопка не уже своей высоты — иначе не квадрат
   const wselRef = useRef<HTMLDivElement | null>(null);
+  const wselWrapRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = wselRef.current;
-    if (!el) return;
+    const wrap = wselWrapRef.current;
+    if (!el || !wrap) return;
     const fit = () => {
       const n = el.children.length;
       if (!n) return;
-      const gap = 5;
-      // Считаем от РЯДА, а не от самой сетки: сетка тянется flex:1, и её
+      // Считаем от РЯДА, а не от самой ленты: лента тянется flex, и её
       // ширина зависит от результата — из-за этого кнопки вылезали за край.
-      const row = el.parentElement;
+      const row = wrap.parentElement;
       if (!row) return;
       const rowStyle = getComputedStyle(row);
-      const rowGap = parseFloat(rowStyle.columnGap || rowStyle.gap || '7') || 7;
+      const rowGap = parseFloat(rowStyle.columnGap || rowStyle.gap || '8') || 8;
       let free = row.clientWidth - parseFloat(rowStyle.paddingLeft || '0') - parseFloat(rowStyle.paddingRight || '0');
       for (const sib of Array.from(row.children)) {
-        if (sib === el) continue;
+        if (sib === wrap) continue;
         free -= sib.getBoundingClientRect().width + rowGap;
       }
-      const w = Math.floor((free - gap * (n - 1)) / n);
-      if (w > 0) el.style.setProperty('--tx-wcol', w + 'px');
+      // Ниже TX_WCOL_MIN кнопки не сжимаем: вместо этого список
+      // тренировок прокручивается по горизонтали, а настройки и ИИ
+      // остаются на своих местах и доступны без прокрутки.
+      const w = Math.max(TX_WCOL_MIN, Math.floor((free - TX_WCOL_GAP * (n - 1)) / n));
+      el.style.setProperty('--tx-wcol', w + 'px');
+      // Затухание у правого края показываем только когда лента длиннее
+      // видимой части — иначе оно висело бы поверх последней кнопки.
+      wrap.classList.toggle('is-scrollable', el.scrollWidth > el.clientWidth + 1);
     };
     fit();
+    // Долистали до конца — затухание убираем: справа больше ничего нет.
+    const onScroll = () => {
+      const more = el.scrollWidth - el.clientWidth - el.scrollLeft > 1;
+      wrap.classList.toggle('is-scrollable', more);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
     const ro = new ResizeObserver(fit);
     ro.observe(el);
-    return () => ro.disconnect();
+    ro.observe(wrap);
+    return () => { ro.disconnect(); el.removeEventListener('scroll', onScroll); };
   });
 
   const workoutStripRef = useRef<HTMLDivElement | null>(null);
@@ -5041,6 +5056,9 @@ export default function FitnessPage() {
                 <span>{(currentWorkout?.name || '').replace('Тренировка ', 'T')} / {workouts.filter(w => w.exercises.length > 0).length}</span>
               </div>
               <div className="tx-wsel">
+                {/* Обёртка нужна для затухания у правого края: оно должно
+                    лежать поверх кнопок, а не под ними. */}
+                <div ref={wselWrapRef} className="tx-wselwrap">
                 <div
                   ref={wselRef}
                   className="tx-wsel-grid"
@@ -5064,9 +5082,10 @@ export default function FitnessPage() {
                       onClick={addNewWorkout}
                       title="Добавить тренировку"
                     >
-                      <Plus size={18} />
+                      <Plus size={20} />
                     </button>
                   )}
+                </div>
                 </div>
                 {/* Ручная отметка отдыха убрана — день без тренировки
                     автоматически считается днём отдыха. */}
@@ -5075,14 +5094,14 @@ export default function FitnessPage() {
                   className="tx-iconbtn"
                   title="Редактировать тренировку"
                 >
-                  <Settings size={18} />
+                  <Settings size={20} />
                 </button>
                 <button
                   onClick={() => { setShowProgramModal(true); setProgramDays(Math.max(2, workouts.filter(w => w.exercises.length > 0).length) || 4); }}
                   className="tx-iconbtn is-ai"
                   title="Программа: ИИ-предложение и история"
                 >
-                  <Sparkles size={18} />
+                  <Sparkles size={20} />
                 </button>
               </div>
               {/* Подпись выбранного дня: дата, статус и тренировка — по макету. */}
@@ -7597,7 +7616,7 @@ export default function FitnessPage() {
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <Sparkles size={20} style={{ color: '#fff' }} />
+                  <Sparkles size={18} style={{ color: '#fff' }} />
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
