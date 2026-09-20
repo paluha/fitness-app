@@ -1676,6 +1676,31 @@ function FitnessCalendar({
 // один: выполнено / в процессе / запланировано / нет записи.
 type DayStatus = 'done' | 'active' | 'planned' | 'none';
 
+// ---------------------------------------------------------------------------
+// Огонёк питания: день засчитывается, когда набрано НЕ МЕНЕЕ 90% дневной цели
+// по калориям. Сравниваем без округления вверх (kcal*100 >= goal*90), поэтому
+// при цели 2410 огонёк загорается с 2169 ккал, а на 2168 его ещё нет.
+// Белки/жиры/углеводы в это условие не входят и не усредняются.
+export const NUTRITION_FLAME_PERCENT = 90;
+
+export function nutritionFlameStatus(
+  meals: { calories?: number }[] | undefined,
+  goalCalories: number | undefined | null,
+): { lit: boolean; kcal: number; ratio: number; has: boolean; over: number } {
+  const list = Array.isArray(meals) ? meals : [];
+  const kcal = list.reduce((sum, m) => sum + (Number(m?.calories) || 0), 0);
+  const goal = Number(goalCalories);
+  const valid = Number.isFinite(goal) && goal > 0 && Number.isFinite(kcal);
+  return {
+    has: list.length > 0,
+    kcal,
+    ratio: valid ? kcal / goal : 0,
+    // Пустой день и отсутствующая/нулевая цель огонька не получают.
+    lit: valid && list.length > 0 && kcal * 100 >= goal * NUTRITION_FLAME_PERCENT,
+    over: valid && kcal > goal ? kcal - goal : 0,
+  };
+}
+
 // Подписи статусов дня — один словарь для ленты, календаря и подписи дня.
 const DAY_STATUS_TEXT: Record<DayStatus, string> = {
   done: 'Выполнено',
