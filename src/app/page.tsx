@@ -8136,7 +8136,12 @@ export default function FitnessPage() {
           { key: 'chat' as typeof view,      icon: <Brain size={21} />,         label: userSettings.language === 'ru' ? 'ИИ' : 'AI' },
           { key: 'labs' as typeof view,      icon: <FlaskConical size={21} />,  label: userSettings.language === 'ru' ? 'Анализы' : 'Labs' },
         ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((tab) => {
-          const isActive = view === tab.key;
+          // «Главная» — это и тренировки, и питание: разделы переключаются
+          // своим верхним переключателем, а вкладка меню должна оставаться
+          // подсвеченной. Иначе при переходе подсветка гасла и меню «прыгало».
+          const isActive = tab.key === 'workout'
+            ? (view === 'workout' || view === 'nutrition')
+            : view === tab.key;
           return (
             <button
               key={tab.key}

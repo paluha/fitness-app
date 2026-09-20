@@ -1465,7 +1465,7 @@ body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
 .content-flush { padding-left: 0 !important; padding-right: 0 !important; max-width: none !important; }
 /* Нижний отступ задаёт сам макет (.nutv2 main), иначе он складывается с
    отступом контейнера приложения и внизу остаётся лишняя пустота. */
-.content-flush { padding-bottom: 0 !important; }
+.content-flush { padding-bottom: 0 !important; padding-top: 0 !important; }
 
 /* Быстрые продукты: название не выше двух строк — в эталоне карточка
    фиксированной высоты, длинные названия переносились на третью строку. */
@@ -1511,7 +1511,10 @@ body:has(.nutv2) .nutv2 h3 { color: var(--ink); }
 /* Переход между разделами ровный и одинаковый: экран питания появляется той
    же анимацией, что и остальные (.view-content), иначе он «выстреливал»
    мгновенно, а тренировки плавно — и переход читался как рывок. */
-.nutv2 { animation: viewEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+/* Анимация появления только у СОДЕРЖИМОГО: если двигать весь экран, вместе
+   с ним уезжает шапка, и переход читается как рывок всей страницы. */
+.nutv2 > main { animation: viewEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.nutv2 > header { animation: none; }
 
 /* Страница всегда выше экрана: иначе при переходе на более короткий раздел
    пропадает полоса прокрутки, ширина контента скачком меняется на ~15px,
@@ -1522,3 +1525,28 @@ body { min-height: calc(100svh + 1px); }
 /* Меню и шапка не участвуют в анимации появления — они общие для разделов
    и должны стоять неподвижно. */
 .tx-tabbar { animation: none !important; }
+
+/* Шапка обоих разделов совпадает попиксельно: у питания приветствие стояло
+   на 4px ниже (шапка центрировала по-другому) и имело своё межбуквенное
+   расстояние — при переходе текст заметно сдвигался. */
+.nutv2 .welcome { align-items: center; padding-top: 18px; padding-bottom: 18px; }
+.nutv2 .welcome-text, .tx-welcome { letter-spacing: -0.16px; line-height: 1.5; }
+.nutv2 .avatar, .tx-profile { align-self: center; }
+
+/* Переключатель разделов — общий элемент, он не должен участвовать в
+   анимации появления: иначе при каждом переходе он съезжает и возвращается. */
+.tx-modeswitch, .section-switch { animation: none !important; }
+/* Анимацию даём только контенту НИЖЕ переключателя, а не всему разделу:
+   шапка и переключатель общие и должны стоять неподвижно. */
+.view-content { animation: none !important; }
+.view-content > *:not(.tx-modeswitch) { animation: viewEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.nutv2 > main { animation: none !important; }
+.nutv2 > main > *:not(.section-switch) { animation: viewEnter 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Верхний отступ содержимого одинаков: на тренировках его давал контейнер
+   приложения (4px), у питания его не было — переключатель стоял выше. */
+.nutv2 > main { padding-top: 4px; }
+
+/* Логотип в приветствии набирается одинаково на обоих экранах: разное
+   межбуквенное расстояние меняло ширину слова и текст «дёргался». */
+.nutv2 .wordmark { letter-spacing: -0.5px; }
