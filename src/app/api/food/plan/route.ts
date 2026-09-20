@@ -23,15 +23,22 @@ const PLAN_SCHEMA = {
   properties: {
     items: {
       type: 'array' as const,
+      description: 'Приёмы пищи по порядку дня: когда, что именно и сколько',
       items: {
         type: 'object' as const,
         properties: {
+          time: { type: 'string' as const, description: 'Время приёма в формате ЧЧ:ММ, например «08:00»' },
+          label: { type: 'string' as const, description: 'Название приёма: Завтрак, Обед, Перекус, Ужин, После тренировки' },
+          dish: { type: 'string' as const, description: 'Конкретное блюдо, которое нужно съесть, например «Гречка с курицей и овощами»' },
+          portions: { type: 'number' as const, description: 'Сколько порций съесть, от 0.25 до 10, обычно 1' },
+          protein: { type: 'number' as const, description: 'Белки ОДНОЙ порции блюда, г' },
+          fat: { type: 'number' as const, description: 'Жиры ОДНОЙ порции блюда, г' },
+          carbs: { type: 'number' as const, description: 'Углеводы ОДНОЙ порции блюда, г' },
+          calories: { type: 'number' as const, description: 'Калории ОДНОЙ порции блюда, ккал' },
           emoji: { type: 'string' as const, description: 'Один эмодзи для приёма пищи' },
-          title: { type: 'string' as const, description: 'Короткий заголовок: время/приём, например «Утро», «После тренировки»' },
-          description: { type: 'string' as const, description: '1-2 предложения: что именно есть и почему, с конкретными продуктами' },
-          color: { type: 'string' as const, enum: ['yellow', 'green', 'blue', 'red', 'purple'] },
+          note: { type: 'string' as const, description: 'Одно короткое предложение: почему именно это и сейчас' },
         },
-        required: ['emoji', 'title', 'description', 'color'],
+        required: ['time', 'label', 'dish', 'portions', 'protein', 'fat', 'carbs', 'calories', 'emoji', 'note'],
         additionalProperties: false,
       },
     },
@@ -100,9 +107,12 @@ export async function POST(request: Request) {
         'Число приёмов подстрой под анкету, но медицинские правила ВАЖНЕЕ привычек — если привычка вредна ' +
         '(например перекусы при инсулинорезистентности), мягко объясни это прямо в описании пункта плана. ' +
         'Список products должен ЛОГИЧЕСКИ следовать из плана: только продукты, совместимые с ограничениями и упомянутыми приёмами. ' +
-        'Составляешь: (1) короткий план питания на день — 4-6 пунктов ' +
-        '(утро, день, до/после тренировки, вечер), каждый пункт — когда есть и ЧТО именно, ' +
-        'с конкретными продуктами и краткой причиной под цель пользователя; ' +
+        'Составляешь: (1) план «когда и что есть» на день — 3-5 приёмов пищи по порядку. ' +
+        'Для КАЖДОГО приёма обязательно: время в формате ЧЧ:ММ, название приёма, ОДНО конкретное ' +
+        'блюдо с составом в названии, число порций и КБЖУ ОДНОЙ порции этого блюда. ' +
+        'Сумма (КБЖУ × порции) по всем приёмам должна сходиться с дневной целью в пределах 5%. ' +
+        'Значения КБЖУ должны быть реалистичны для описанного блюда — не подгоняй их произвольно. ' +
+        'Число приёмов бери из анкеты (сколько удобно), но не меньше 3 и не больше 5; ' +
         '(2) список рекомендуемых («разрешённых») продуктов под эту цель — 25-40 штук ' +
         'по категориям: protein (мясо/рыба/яйца), carbs (крупы/гарниры), vegetables (овощи), ' +
         'dairy (молочное), fats (жиры/орехи), fruits (фрукты/ягоды). ' +
@@ -139,17 +149,52 @@ export async function POST(request: Request) {
     const textBlock = response.content.find(b => b.type === 'text');
     const parsed = textBlock
       ? JSON.parse(textBlock.text) as {
-          items: { emoji: string; title: string; description: string; color: string }[];
+          items: {
+            time: string; label: string; dish: string; portions: number;
+            protein: number; fat: number; carbs: number; calories: number;
+            emoji: string; note: string;
+          }[];
           products?: { name: string; category: string }[];
         }
       : { items: [], products: [] };
-    const items = (parsed.items || []).slice(0, 6).map((it, i) => ({
-      id: `ai-${i + 1}`,
-      emoji: it.emoji || '🍽️',
-      title: it.title,
-      description: it.description,
-      color: it.color || 'yellow',
-    }));
+    // Время приводим к ЧЧ:ММ и сортируем день по возрастанию: модель иногда
+    // возвращает «8:00» или переставляет перекус вперёд завтрака.
+    const normTime = (value: unknown) => {
+      const m = /^s*(d{1,2})[:.](d{2})/.exec(String(value ?? ''));
+      if (!m) return null;
+      const h = Number(m[1]), min = Number(m[2]);
+      if (h > 23 || min > 59) return null;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    };
+    const num = (value: unknown, max: number) => {
+      const n = Number(value);
+      return Number.isFinite(n) && n >= 0 ? Math.min(Math.round(n), max) : 0;
+    };
+    const items = (parsed.items || [])
+      .map(it => ({ it, time: normTime(it?.time) }))
+      .filter((row): row is { it: typeof row.it; time: string } => !!row.time && !!row.it?.dish)
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 5)
+      .map((row, i) => {
+        const portions = Number(row.it.portions);
+        return {
+          id: `ai-${i + 1}`,
+          time: row.time,
+          label: String(row.it.label || 'Приём пищи').slice(0, 40),
+          dish: String(row.it.dish).slice(0, 180),
+          // Порции ИИ иногда даёт нулём или дробью вне шага 0.25 — приводим
+          // к тому же диапазону, что и ручной выбор в плане.
+          portions: Number.isFinite(portions) && portions > 0
+            ? Math.min(10, Math.max(0.25, Math.round(portions * 4) / 4))
+            : 1,
+          protein: num(row.it.protein, 400),
+          fat: num(row.it.fat, 400),
+          carbs: num(row.it.carbs, 800),
+          calories: num(row.it.calories, 4000),
+          emoji: String(row.it.emoji || '🍽️').slice(0, 8),
+          note: String(row.it.note || '').slice(0, 240),
+        };
+      });
     const CATS = new Set(['protein', 'carbs', 'vegetables', 'dairy', 'fats', 'fruits']);
     const products = (parsed.products || [])
       .filter(p => p?.name && CATS.has(p.category))

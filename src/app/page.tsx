@@ -17,7 +17,11 @@ import { LabsView } from '@/components/LabsView';
 import { WeightChart } from '@/components/WeightChart';
 import NutritionPage from '@/components/NutritionPage';
 import AddMealDialog from '@/components/AddMealDialog';
+import NutritionPlanSection from '@/components/NutritionPlanSection';
+import NutritionRecipesSection from '@/components/NutritionRecipesSection';
 import type { NutritionMeal } from '@/components/NutritionPage';
+import type { PlanSlot, PlanDish } from '@/components/NutritionPlanSection';
+import type { RecipeCard } from '@/components/NutritionRecipesSection';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -378,20 +382,26 @@ interface NutritionRecommendation {
   color: 'yellow' | 'green' | 'blue' | 'red' | 'purple';
 }
 
-const DEFAULT_NUTRITION_RECOMMENDATIONS: NutritionRecommendation[] = [
-  { id: '1', emoji: '🌅', title: 'Утро', description: 'Белок + углеводы. Творог, яйца, каша или рисовые хлебцы', color: 'yellow' },
-  { id: '2', emoji: '💪', title: 'До тренировки (1-2 часа)', description: 'Углеводы + немного белка. Рис, картофель, курица', color: 'green' },
-  { id: '3', emoji: '🏋️', title: 'После тренировки (до 1 часа)', description: 'Быстрые углеводы + белок. Whey + банан или рисовые хлебцы', color: 'blue' },
-  { id: '4', emoji: '🌙', title: 'Вечер / перед сном', description: 'Белок + жиры, минимум углеводов. Творог, казеин, рыба', color: 'red' }
-];
-
-const RECOMMENDATION_COLORS: Record<string, { bg: string; }> = {
-  yellow: { bg: 'var(--yellow-dim)' },
-  green: { bg: 'var(--green-dim)' },
-  blue: { bg: 'var(--blue-dim)' },
-  red: { bg: 'var(--red-dim)' },
-  purple: { bg: 'var(--purple-dim)' }
-};
+/**
+ * Приём пищи в плане «когда и что есть». КБЖУ здесь — на ОДНУ порцию:
+ * от них считаются и строка плана, и итог, поэтому изменение числа
+ * порций не накапливает ошибку округления.
+ */
+interface PlanMeal {
+  id: string;
+  time: string;
+  label: string;
+  dish: string;
+  portions: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  calories: number;
+  emoji: string;
+  note: string;
+  /** Блюдо заменено на сохранённый рецепт — отсюда кнопка «Рецепт». */
+  recipeId?: string | null;
+}
 
 interface WorkoutSnapshot {
   workoutId: string;
@@ -2335,8 +2345,14 @@ export default function FitnessPage() {
   const serverDataLoadedRef = useRef(false);
   const userMadeChangeRef = useRef(false); // Only sync after user actually changes something on THIS device
   const [nutritionRecommendations, setNutritionRecommendations] = useState<NutritionRecommendation[] | null>(null);
-  // ИИ-план «когда и что есть» под цель пользователя (кэш на день в localStorage)
-  const [aiNutritionPlan, setAiNutritionPlan] = useState<NutritionRecommendation[] | null>(null);
+  // План «когда и что есть»: приёмы пищи от ИИ под цель и анкету.
+  // Кэш на день в localStorage, правки пользователя (блюдо/порции)
+  // сохраняются туда же — план живёт отдельно от дневника.
+  const [aiNutritionPlan, setAiNutritionPlan] = useState<PlanMeal[] | null>(null);
+  // Раскрытые карточки рецептов в разделе «Рецепты».
+  const [openRecipeCards, setOpenRecipeCards] = useState<string[]>([]);
+  // Последняя добавленная из рецепта порция — для «Отменить».
+  const [recipeUndo, setRecipeUndo] = useState<{ meal: NutritionMeal; date: string; name: string } | null>(null);
   // ИИ-список рекомендуемых продуктов под цель (заменяет статичный DEFAULT_FOOD_PRODUCTS)
   const [aiFoodProducts, setAiFoodProducts] = useState<FoodProduct[] | null>(null);
   const aiPlanFetchingRef = useRef(false);
@@ -3114,7 +3130,25 @@ export default function FitnessPage() {
     const profile: NutritionProfile = { ...surveyResult, completedAt: new Date().toISOString() };
     setNutritionProfile(profile);
     setShowNutritionSurvey(false);
-    // сбрасываем кэш плана — он пересоберётся под новую анкету
+    // Кэш плана сбрасываем — он пересоберётся под новую анкету. Но блюда,
+    // которые пользователь уже выбрал сам, запоминаем: смена времени не
+    // должна стирать его выбор. Сопоставляем по названию приёма.
+    try {
+      const chosen = (aiNutritionPlan || [])
+        .filter(item => item.recipeId)
+        .map(item => ({
+          label: item.label,
+          dish: item.dish,
+          portions: item.portions,
+          recipeId: item.recipeId,
+          protein: item.protein,
+          fat: item.fat,
+          carbs: item.carbs,
+          calories: item.calories,
+        }));
+      if (chosen.length) sessionStorage.setItem('fitness_plan_choices', JSON.stringify(chosen));
+      else sessionStorage.removeItem('fitness_plan_choices');
+    } catch { /* без переноса выбора — не критично */ }
     try { localStorage.removeItem('fitness_ai_food_plan'); } catch { /* ignore */ }
     setAiNutritionPlan(null);
     setAiFoodProducts(null);
@@ -3606,15 +3640,206 @@ export default function FitnessPage() {
         if (!res.ok) return;
         const data = await res.json();
         if (data?.success && Array.isArray(data.items) && data.items.length) {
-          setAiNutritionPlan(data.items);
+          // Блюда, выбранные пользователем до смены расписания, возвращаем
+          // на сопоставимые приёмы: менялось время, а не его выбор.
+          let items = data.items as PlanMeal[];
+          try {
+            const saved = JSON.parse(sessionStorage.getItem('fitness_plan_choices') || 'null');
+            if (Array.isArray(saved) && saved.length) {
+              const byLabel = new Map(saved.map((c: PlanMeal) => [c.label, c]));
+              items = items.map(item => {
+                const choice = byLabel.get(item.label);
+                if (!choice) return item;
+                byLabel.delete(item.label);
+                return {
+                  ...item,
+                  dish: choice.dish,
+                  recipeId: choice.recipeId,
+                  portions: choice.portions,
+                  protein: choice.protein,
+                  fat: choice.fat,
+                  carbs: choice.carbs,
+                  calories: choice.calories,
+                };
+              });
+              sessionStorage.removeItem('fitness_plan_choices');
+            }
+          } catch { /* без переноса — план просто будет новым */ }
+          setAiNutritionPlan(items);
           if (Array.isArray(data.products) && data.products.length) setAiFoodProducts(data.products);
-          try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: todayStr, goal: goalKey, targets: targetsKey, items: data.items, products: data.products || [] })); } catch { /* quota */ }
+          try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: todayStr, goal: goalKey, targets: targetsKey, items, products: data.products || [] })); } catch { /* quota */ }
         }
       } catch { /* офлайн — покажем статичный план */ }
       finally { aiPlanFetchingRef.current = false; }
     })();
   }, [isLoaded, todayStr, userSettings.goalType, userSettings.language, nutritionRecommendations, MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories, mealHistory, nutritionProfile]);
 
+  /** Строки плана для секции «Когда и что есть». */
+  const planSlots: PlanSlot[] | null = useMemo(() => {
+    if (!aiNutritionPlan) return null;
+    return aiNutritionPlan.map(item => ({
+      time: item.time,
+      label: item.label,
+      // Блюдо у пункта плана всегда своё: id пункта и есть id блюда.
+      dishId: item.dish ? item.id : null,
+      portions: item.portions,
+    }));
+  }, [aiNutritionPlan]);
+
+  /**
+   * Что можно выбрать в плане: предложения ИИ для этих приёмов плюс
+   * сохранённые рецепты пользователя. Рецепт даёт кнопку «Рецепт» в строке.
+   */
+  const planDishes: PlanDish[] = useMemo(() => {
+    const fromPlan = (aiNutritionPlan || []).map(item => ({
+      id: item.id,
+      name: item.dish,
+      protein: item.protein,
+      fat: item.fat,
+      carbs: item.carbs,
+      calories: item.calories,
+      recipeId: item.recipeId || undefined,
+    }));
+    const fromRecipes = recipes.map(r => ({
+      id: r.id,
+      name: r.name,
+      protein: r.perServing.protein,
+      fat: r.perServing.fat,
+      carbs: r.perServing.carbs,
+      calories: r.perServing.calories,
+      recipeId: r.id,
+    }));
+    // Рецепт, уже подставленный в план, не дублируем в списке выбора.
+    const seen = new Set(fromPlan.map(d => d.recipeId).filter(Boolean));
+    return [...fromPlan, ...fromRecipes.filter(d => !seen.has(d.id))];
+  }, [aiNutritionPlan, recipes]);
+
+  /** Короткая выжимка из анкеты — блок «Твои предпочтения». */
+  const preferencesSummary = useMemo(() => {
+    const p = nutritionProfile;
+    if (!p) return '';
+    const parts: string[] = [];
+    if (p.mealsPerDay) parts.push(`${p.mealsPerDay} приёма в день`);
+    if (p.conditions?.length) parts.push(p.conditions.join(', '));
+    if (p.intolerances?.length) parts.push(`не подходит: ${p.intolerances.join(', ')}`);
+    if (p.dietStyle) parts.push(p.dietStyle);
+    if (p.trainingTime) parts.push(`тренировки ${p.trainingTime}`);
+    if (p.dislikes) parts.push(`не ест: ${p.dislikes}`);
+    if (p.notes) parts.push(p.notes);
+    return parts.join(' · ');
+  }, [nutritionProfile]);
+
+  /** Рецепты для новой секции: в списке — КБЖУ на одну порцию. */
+  const recipeCards: RecipeCard[] = useMemo(() => recipes.map(r => ({
+    id: r.id,
+    name: r.name,
+    servings: r.servings,
+    // Время приготовления необязательное — если его нет, не выдумываем.
+    durationMinutes: (r as Recipe & { durationMinutes?: number }).durationMinutes ?? null,
+    ingredients: r.ingredients,
+    steps: r.steps,
+    perServing: r.perServing,
+  })), [recipes]);
+
+  /** Подпись под «Добавить 1 порцию»: в какой день уйдёт запись. */
+  const selectedDateText = useMemo(
+    () => selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+    [selectedDate],
+  );
+  /**
+   * Правка плана: выбор другого блюда или числа порций. План — это
+   * намерение, а не факт: записи в дневник не добавляются, дневные итоги и
+   * огонёк не меняются. Сохраняем в тот же кэш, откуда план читается при
+   * загрузке, чтобы правки пережили перезагрузку.
+   */
+  const updatePlanSlot = (index: number, patch: { dishId?: string; portions?: number }) => {
+    setAiNutritionPlan(prev => {
+      if (!prev) return prev;
+      const next = prev.map((item, i) => {
+        if (i !== index) return item;
+        const updated: PlanMeal = { ...item };
+        if (patch.portions !== undefined) updated.portions = patch.portions;
+        if (patch.dishId !== undefined && patch.dishId !== item.id) {
+          // Блюдо заменили на сохранённый рецепт: берём его название и
+          // КБЖУ одной порции, связь с рецептом даёт кнопку «Рецепт».
+          const recipe = recipes.find(r => r.id === patch.dishId);
+          if (recipe) {
+            updated.dish = recipe.name;
+            updated.recipeId = recipe.id;
+            updated.protein = recipe.perServing.protein;
+            updated.fat = recipe.perServing.fat;
+            updated.carbs = recipe.perServing.carbs;
+            updated.calories = recipe.perServing.calories;
+          } else {
+            // Вернули исходное предложение ИИ для этого приёма.
+            const original = prev.find(p => p.id === patch.dishId);
+            if (original) {
+              updated.dish = original.dish;
+              updated.recipeId = null;
+              updated.protein = original.protein;
+              updated.fat = original.fat;
+              updated.carbs = original.carbs;
+              updated.calories = original.calories;
+            }
+          }
+        }
+        return updated;
+      });
+      try {
+        const raw = JSON.parse(localStorage.getItem('fitness_ai_food_plan') || 'null');
+        if (raw && typeof raw === 'object') {
+          localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ ...raw, items: next }));
+        }
+      } catch { /* quota или битый кэш — план останется на этот сеанс */ }
+      return next;
+    });
+  };
+
+  // Тост «порция добавлена» живёт недолго и исчезает при смене дня:
+  // отменять добавление в другой день уже не имеет смысла.
+  useEffect(() => {
+    if (!recipeUndo) return;
+    if (recipeUndo.date !== dateKey) { setRecipeUndo(null); return; }
+    const t = setTimeout(() => setRecipeUndo(null), 7000);
+    return () => clearTimeout(t);
+  }, [recipeUndo, dateKey]);
+
+  /** Раскрыть/свернуть карточку рецепта в разделе «Рецепты». */
+  const toggleRecipeCard = (id: string) => {
+    setOpenRecipeCards(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  /**
+   * «Добавить 1 порцию»: ровно одна порция рецепта в дневник ВЫБРАННОГО дня.
+   * Пересчёт итогов и огонька делает сам дневник, карточка остаётся
+   * раскрытой, добавление можно отменить.
+   */
+  const addRecipePortion = (recipe: RecipeCard) => {
+    const operationId = `recipe-${recipe.id}-${Date.now()}`;
+    const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const meal: NutritionMeal = {
+      id: operationId,
+      time,
+      name: recipe.name,
+      protein: recipe.perServing.protein,
+      fat: recipe.perServing.fat,
+      carbs: recipe.perServing.carbs,
+      calories: recipe.perServing.calories,
+      sugar: recipe.perServing.sugar ?? null,
+      photoStamp: null,
+      portionGrams: null,
+      basePortion: null,
+    };
+    nutSaveMeal(meal, { date: dateKey, operationId });
+    setRecipeUndo({ meal, date: dateKey, name: recipe.name });
+  };
+
+  /** Отмена только что добавленной из рецепта порции. */
+  const undoRecipePortion = () => {
+    if (!recipeUndo) return;
+    nutDeleteMeal(recipeUndo.meal);
+    setRecipeUndo(null);
+  };
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     userMadeChangeRef.current = true;
     // Упражнение только что закрыли целиком («Отметить все» или последний
@@ -5119,296 +5344,44 @@ export default function FitnessPage() {
             onOpenProfile={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); }}
             onNavigateWorkout={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
             rhythmSlot={(
-              <div className="nutv2-legacy">
-            {/* Meal Timing Recommendations */}
-            <div style={{
-              marginTop: '24px',
-              background: 'var(--bg-card)',
-              borderRadius: '16px',
-              border: '1px solid var(--border)',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                padding: '16px',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                {/* Иконка по эталону питания: контурная, без цветной плашки */}
-                <Clock size={18} style={{ color: '#9a8771', flexShrink: 0 }} />
-                <span style={{ fontWeight: 700, fontSize: '15px', flex: 1 }}>
-                  {nutritionRecommendations ? 'Рекомендации тренера' : aiNutritionPlan ? (userSettings.language === 'ru' ? 'Когда и что есть — план от ИИ' : 'AI meal plan') : 'Когда есть'}
-                </span>
-                {!nutritionRecommendations && nutritionProfile && (
-                  <button
-                    onClick={openSurvey}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: '4px' }}
-                  >
-                    Обновить опрос
-                  </button>
-                )}
-              </div>
-              <div style={{ padding: '16px' }}>
-                {/* Без анкеты рекомендации — общие. Опрос делает их персональными
-                    (например, при инсулинорезистентности ИИ уберёт перекусы). */}
-                {!nutritionRecommendations && !nutritionProfile && (
-                  <div style={{
-                    padding: '14px', marginBottom: '12px',
-                    background: 'var(--yellow-dim)', border: '1px solid var(--yellow-glow)',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Brain size={15} style={{ color: 'var(--yellow)' }} />
-                      Сделаем рекомендации твоими
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
-                      Короткий опрос (1 минута): здоровье, непереносимости, привычки.
-                      ИИ построит план и продукты под тебя — например, при
-                      инсулинорезистентности уберёт перекусы и быстрые углеводы.
-                    </div>
-                    <button
-                      onClick={openSurvey}
-                      style={{
-                        padding: '11px 16px', background: 'var(--yellow)', border: 'none',
-                        borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '13px', cursor: 'pointer'
-                      }}
-                    >
-                      Пройти опрос
-                    </button>
-                  </div>
-                )}
-                {/* План показываем только от тренера или по анкете; пока ИИ думает — заглушка */}
-                {!nutritionRecommendations && nutritionProfile && !aiNutritionPlan && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', padding: '6px 0' }}>
-                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                    Составляю персональный план по твоей анкете…
-                  </div>
-                )}
-                {(nutritionRecommendations || (nutritionProfile && aiNutritionPlan)) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {(nutritionRecommendations || aiNutritionPlan || []).map(rec => (
-                    <div key={rec.id} style={{
-                      display: 'flex',
-                      gap: '12px',
-                      padding: '12px',
-                      background: 'var(--bg-elevated)',
-                      borderRadius: '12px'
-                    }}>
-                      <div style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        background: RECOMMENDATION_COLORS[rec.color]?.bg || 'var(--yellow-dim)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        <span style={{ fontSize: '16px' }}>{rec.emoji}</span>
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '2px' }}>{rec.title}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          {rec.description}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                )}
-              </div>
-            </div>
-
-            {/* Food Products List — показываем только после опроса: список
-                логически следует из персонального плана */}
-            {nutritionProfile && (
-            <div style={{
-              marginTop: '24px',
-              background: 'var(--bg-card)',
-              borderRadius: '16px',
-              border: '1px solid var(--border)',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                padding: '16px',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  background: 'var(--green-dim)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Apple size={16} style={{ color: 'var(--green)' }} />
-                </div>
-                <span style={{ fontWeight: 700, fontSize: '15px' }}>{aiFoodProducts ? 'Разрешённые продукты — от ИИ под цель' : 'Разрешённые продукты'}</span>
-              </div>
-              <div style={{ padding: '16px' }}>
-                {Object.entries(FOOD_CATEGORIES).map(([key, cat]) => {
-                  const products = (aiFoodProducts ?? []).filter(p => p.category === key);
-                  if (products.length === 0) return null;
-                  return (
-                    <div key={key} style={{ marginBottom: '16px' }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginBottom: '10px'
-                      }}>
-                        <div style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '2px',
-                          background: cat.color
-                        }} />
-                        <span style={{
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          color: cat.color
-                        }}>
-                          {cat.name}
-                        </span>
-                      </div>
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '6px'
-                      }}>
-                        {products.map(product => (
-                          <span
-                            key={product.id}
-                            style={{
-                              padding: '6px 10px',
-                              background: cat.bg,
-                              borderRadius: '8px',
-                              fontSize: '12px',
-                              color: 'var(--text-primary)',
-                              fontWeight: 500
-                            }}
-                          >
-                            {product.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-                {!aiFoodProducts && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                    Подбираю продукты под твою анкету…
-                  </div>
-                )}
-              </div>
-            </div>
+              <NutritionPlanSection
+                slots={planSlots}
+                dishes={planDishes}
+                preferencesText={preferencesSummary}
+                loading={!aiNutritionPlan && !!nutritionProfile}
+                onChangeSlot={updatePlanSlot}
+                onOpenSurvey={openSurvey}
+                onOpenRecipe={id => {
+                  // «Рецепт» в плане раскрывает карточку в разделе ниже и
+                  // подводит к ней — как в эталоне, без отдельного экрана.
+                  setOpenRecipeCards(prev => prev.includes(id) ? prev : [...prev, id]);
+                  requestAnimationFrame(() => {
+                    document.querySelector(`[data-recipe="${id}"]`)
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  });
+                }}
+              />
             )}
-
-            {/* Рецепты: свои + импорт с фото (ИИ разбирает страницу рецепта) */}
-            <div style={{
-              marginTop: '24px',
-              background: 'var(--bg-card)',
-              borderRadius: '16px',
-              border: '1px solid var(--border)',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                padding: '16px',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                {/* Иконка по эталону питания: контурная, без цветной плашки */}
-                <BookOpen size={18} style={{ color: '#9a8771', flexShrink: 0 }} />
-                <span style={{ fontWeight: 700, fontSize: '15px', flex: 1 }}>Рецепты</span>
-                <input ref={recipePhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleRecipePhoto} />
-                <button
-                  onClick={() => recipePhotoRef.current?.click()}
-                  disabled={recipeParsing}
-                  title="Сфотографировать рецепт — ИИ разберёт"
-                  style={{
-                    padding: '9px 12px', background: 'var(--yellow-dim)', border: '1px solid var(--yellow-glow)',
-                    borderRadius: '10px', color: 'var(--yellow)', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
-                    display: 'flex', alignItems: 'center', gap: '6px', opacity: recipeParsing ? 0.6 : 1
-                  }}
-                >
-                  {recipeParsing ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={14} />}
-                  {recipeParsing ? 'Разбираю…' : 'Скан'}
-                </button>
-                <button
-                  onClick={() => setShowRecipeForm(true)}
-                  title="Добавить свой рецепт"
-                  style={{
-                    padding: '9px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                    borderRadius: '10px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
-                    display: 'flex', alignItems: 'center', gap: '4px'
-                  }}
-                >
-                  <Plus size={14} /> Свой
-                </button>
-              </div>
-              <div style={{ padding: recipes.length ? '10px 16px 16px' : '16px' }}>
-                {recipeParseError && (
-                  <div style={{ fontSize: '12px', color: 'var(--red)', marginBottom: '10px' }}>{recipeParseError}</div>
-                )}
-                {/* Навигация по категориям */}
-                {recipes.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginTop: '4px' }}>
-                    {['all', ...RECIPE_CATEGORIES.filter(c => recipes.some(r => (r.category || 'другое') === c))].map(c => (
-                      <button
-                        key={c}
-                        onClick={() => setRecipeFilter(c)}
-                        style={{
-                          flexShrink: 0, padding: '7px 12px', borderRadius: '16px', cursor: 'pointer',
-                          fontSize: '12px', fontWeight: recipeFilter === c ? 700 : 500,
-                          background: recipeFilter === c ? 'var(--yellow)' : 'var(--bg-elevated)',
-                          border: '1px solid ' + (recipeFilter === c ? 'var(--yellow)' : 'var(--border)'),
-                          color: recipeFilter === c ? '#fff' : 'var(--text-secondary)',
-                          textTransform: 'capitalize'
-                        }}
-                      >
-                        {c === 'all' ? 'Все' : c}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {recipes.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    Пока пусто. Сфотографируй страницу купленного рецепта («Скан») — ИИ вытащит
-                    ингредиенты, шаги и посчитает КБЖУ. Или добавь свой вручную («Свой»).
-                  </div>
-                ) : recipes.filter(r => recipeFilter === 'all' || (r.category || 'другое') === recipeFilter).map(r => (
-                  <button
-                    key={r.id}
-                    onClick={() => setOpenRecipeId(r.id)}
-                    style={{
-                      width: '100%', textAlign: 'left', cursor: 'pointer',
-                      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                      borderRadius: '12px', padding: '12px 14px', marginTop: '8px',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px'
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {r.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {r.category && r.category !== 'другое' ? r.category + ' · ' : ''}{r.perServing.calories} ккал · Б{r.perServing.protein} Ж{r.perServing.fat} У{r.perServing.carbs} · {r.ingredients.length} ингр.
-                      </div>
-                    </div>
-                    <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                  </button>
-                ))}
-              </div>
-            </div>
-              </div>
+            recipesSlot={(
+              <>
+                {/* Скрытый input «Скан»: фото страницы рецепта → разбор ИИ. */}
+                <input
+                  ref={recipePhotoRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleRecipePhoto}
+                />
+                <NutritionRecipesSection
+                  recipes={recipeCards}
+                  selectedDateText={selectedDateText}
+                  openIds={openRecipeCards}
+                  onToggle={toggleRecipeCard}
+                  onAddPortion={addRecipePortion}
+                  onScan={() => recipePhotoRef.current?.click()}
+                  onCreate={() => setShowRecipeForm(true)}
+                />
+              </>
             )}
           />
 
@@ -5417,6 +5390,16 @@ export default function FitnessPage() {
             <div className="nutv2-toast is-visible" role="status">
               <span>Приём пищи удалён</span>
               <button type="button" onClick={nutRestoreMeal}>Отменить</button>
+            </div>
+          )}
+
+          {/* Порция добавлена из рецепта — можно сразу отменить.
+              Показываем, только пока нет тоста удаления: два тоста
+              наложились бы друг на друга. */}
+          {recipeUndo && !nutUndo && (
+            <div className="nutv2-toast is-visible" role="status">
+              <span>{recipeUndo.name}: 1 порция в дневнике</span>
+              <button type="button" onClick={undoRecipePortion}>Отменить</button>
             </div>
           )}
 

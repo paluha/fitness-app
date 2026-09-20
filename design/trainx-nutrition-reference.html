@@ -168,8 +168,35 @@
     .rhythm-copy { font-size:12px; line-height:1.55; color:var(--muted); margin:10px 0 9px; max-width:34ch; }
     .survey-link { font-size:12px; font-weight:550; color:var(--secondary); min-height:35px; display:flex; align-items:center; gap:8px; }.survey-link svg { width:15px; height:15px; }
     .preferences-form { border-top:1px solid var(--line); margin-top:12px; padding-top:15px; }
-    .schedule { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin:12px 0 5px; }
-    .schedule div { padding:8px 9px; background:var(--soft); border-radius:8px; font-size:11px; color:var(--muted); display:flex; justify-content:space-between; gap:5px; }.schedule b { font-weight:500; color:var(--secondary); }
+    .rhythm,.recipes { scroll-margin-top:18px; }
+    .schedule { display:grid; gap:0; margin:13px 0 8px; }
+    .schedule-slot { display:grid; grid-template-columns:49px minmax(0,1fr); gap:11px; padding:15px 0 8px; border-top:1px solid var(--line); }
+    .schedule-slot:first-child { border-top:0; padding-top:0; }
+    .schedule-slot > time { display:grid; place-items:center; align-self:start; min-height:35px; border-radius:9px; background:var(--soft); font-size:13px; font-weight:600; letter-spacing:-.3px; font-variant-numeric:tabular-nums; }
+    .plan-meal { min-width:0; }
+    .plan-meal-type { display:block; font-size:10px; color:var(--muted); margin-bottom:4px; }
+    .plan-meal h3 { font-size:13px; line-height:1.45; font-weight:600; letter-spacing:-.15px; overflow-wrap:anywhere; }
+    .plan-portion { font-size:10px; color:var(--muted); margin-top:5px; }
+    .plan-macros { display:flex; flex-wrap:wrap; align-items:center; gap:4px 9px; margin-top:7px; font-size:10px; color:var(--secondary); font-variant-numeric:tabular-nums; }
+    .plan-macros b { font-weight:600; color:var(--ink); }
+    .plan-actions { display:flex; flex-wrap:wrap; align-items:center; gap:13px; margin-top:2px; }
+    .plan-actions .text-btn { min-height:38px; font-size:11px; color:var(--secondary); }
+    .plan-actions .text-btn:last-child { color:#ad563b; }
+    .plan-picker { grid-column:1/-1; padding:13px 11px; margin:0 0 5px; background:var(--soft); border-radius:10px; }
+    .plan-picker .fields-2 { grid-template-columns:minmax(0,1fr) 90px; }
+    .plan-picker .field { margin-bottom:10px; }
+    .plan-picker .primary { min-height:42px; }
+    .plan-picker .form-hint { margin:0; }
+    .plan-empty { color:var(--muted); font-size:12px; }
+    .plan-total { padding:12px; margin:3px 0 15px; background:var(--soft); border-radius:10px; }
+    .plan-total-top { display:flex; flex-wrap:wrap; justify-content:space-between; gap:5px 10px; font-size:11px; color:var(--secondary); }
+    .plan-total-top strong { font-size:13px; color:var(--ink); }
+    .plan-total-macros { font-size:11px; color:var(--muted); margin-top:5px; }
+    .plan-note { margin-top:8px; font-size:10px; color:var(--muted); line-height:1.5; }
+    .saved-preferences { padding:0 0 11px; border-bottom:1px solid var(--line); margin-bottom:5px; }
+    .saved-preferences h3 { font-size:10px; font-weight:500; color:var(--muted); margin-bottom:5px; }
+    .saved-preferences p { font-size:12px; color:var(--secondary); line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .rhythm .survey-link { min-height:40px; }
     .recipes { margin-top:20px; padding:16px; }
     .recipe-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .recipe-buttons { display:flex; align-items:center; gap:12px; }.recipe-buttons .text-btn { font-size:11px; min-height:36px; color:var(--secondary); }
@@ -178,10 +205,36 @@
     .recipe-form { margin-top:12px; padding-top:14px; border-top:1px solid var(--line); }
     .recipe-photo { display:flex; align-items:center; gap:11px; margin-bottom:14px; border:1px solid var(--line); padding:10px; border-radius:10px; }
     .recipe-photo img { width:64px; height:75px; object-fit:cover; border-radius:6px; }.recipe-photo p { font-size:11px; color:var(--muted); line-height:1.5; }
-    .saved-recipe { border-top:1px solid var(--line); padding-top:13px; margin-top:12px; }
-    .recipe-expand { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:left; min-height:48px; }
-    .recipe-expand strong { font-size:13px; font-weight:550; }.recipe-expand small { display:block; margin-top:4px; color:var(--muted); font-size:10px; }.recipe-expand svg { width:15px; height:15px; }
-    .recipe-details { font-size:12px; color:var(--secondary); padding-top:14px; }.recipe-details h4 { margin:12px 0 5px; font-size:11px; }.recipe-details p { white-space:pre-wrap; line-height:1.6; }.recipe-details .primary { width:100%; margin-top:15px; }
+    .recipes-caption { font-size:11px; color:var(--muted); line-height:1.5; margin:4px 0 13px; }
+    .recipe-count { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; margin-left:6px; border-radius:6px; background:var(--soft); font-size:10px; font-weight:500; color:var(--muted); vertical-align:middle; }
+    .saved-recipe { border:1px solid var(--line); border-radius:12px; margin-top:10px; overflow:hidden; }
+    .recipe-expand { width:100%; display:flex; align-items:flex-start; justify-content:space-between; gap:9px; text-align:left; min-height:48px; padding:13px 12px; }
+    .recipe-expand > span { min-width:0; flex:1; }
+    .recipe-expand strong { display:block; font-size:13px; font-weight:600; line-height:1.4; overflow-wrap:anywhere; }
+    .recipe-meta { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:6px; color:var(--muted); font-size:10px; line-height:1.4; }
+    .recipe-meta svg { width:12px; height:12px; }
+    .recipe-expand > svg { flex:none; width:15px; height:15px; margin-top:2px; color:var(--muted); transition:transform .18s; }
+    .recipe-expand[aria-expanded=true] > svg { transform:rotate(180deg); }
+    .recipe-nutrition { display:flex; align-items:center; flex-wrap:wrap; column-gap:10px; row-gap:5px; margin-top:11px; font-size:10px; color:var(--secondary); font-variant-numeric:tabular-nums; }
+    .recipe-nutrition .recipe-kcal { font-size:11px; font-weight:600; color:var(--ink); }
+    .recipe-nutrition i { font-style:normal; color:var(--muted); margin-right:3px; }
+    .recipe-details { font-size:12px; color:var(--secondary); padding:0 12px 13px; }
+    .recipe-detail-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:5px; padding-top:13px; border-top:1px solid var(--line); margin:0 0 9px; }
+    .recipe-detail-heading h4,.recipe-details > h4 { font-size:12px; font-weight:600; color:var(--ink); }
+    .recipe-detail-heading h4 { margin:0; }
+    .recipe-detail-heading span { font-size:10px; color:var(--muted); }
+    .recipe-ingredients { list-style:none; margin:0; padding:0; }
+    .recipe-ingredients li { display:flex; justify-content:space-between; gap:12px; line-height:1.55; padding:4px 0; font-size:11px; overflow-wrap:anywhere; }
+    .recipe-ingredients li span:first-child { min-width:0; }
+    .recipe-ingredients li span:last-child:not(:first-child) { color:var(--muted); flex-shrink:0; max-width:48%; text-align:right; }
+    .recipe-details > h4 { margin:15px 0 8px; }
+    .recipe-steps { counter-reset:recipe-step; list-style:none; padding:0; margin:0; display:grid; gap:9px; }
+    .recipe-steps li { counter-increment:recipe-step; display:flex; align-items:flex-start; gap:8px; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+    .recipe-steps li::before { content:counter(recipe-step); display:grid; place-items:center; flex:0 0 19px; height:19px; margin-top:1px; border-radius:6px; background:var(--soft); color:var(--muted); font-size:10px; }
+    .recipe-details .primary { width:100%; margin-top:16px; min-height:44px; font-size:12px; }
+    .recipe-destination { margin-top:7px; text-align:center; font-size:10px; line-height:1.5; color:var(--muted); }
+    .saved-recipe-photo { display:block; max-width:100%; max-height:220px; object-fit:contain; border-radius:9px; margin:12px auto 0; }
+    @media(max-width:359px) { .schedule-slot { grid-template-columns:43px minmax(0,1fr); gap:9px; }.schedule-slot > time { font-size:12px; }.plan-macros { column-gap:7px; }.recipe-nutrition { column-gap:7px; }.recipe-ingredients li { gap:7px; } }
     .demo-note { font-size:10px; color:var(--faint); text-align:center; margin:23px 0 0; }
     .photo-origin { display:flex; align-items:center; gap:5px; margin-top:7px; font-size:10px; color:var(--muted); font-weight:400; }
     .photo-origin svg { width:12px; height:12px; }
@@ -335,10 +388,12 @@
       <div class="quick-list" id="quickList" aria-label="Продукты для быстрого добавления"></div>
       <div class="meal-list" id="mealList"></div>
     </section>
-    <section class="card rhythm" aria-labelledby="rhythmTitle">
-      <div class="support-head"><div class="support-title"><svg aria-hidden="true"><use href="#i-clock"/></svg><h2 id="rhythmTitle">Когда есть</h2></div><span class="subtle-tag" id="rhythmTag">Под тебя</span></div>
-      <p class="rhythm-copy" id="rhythmCopy">Удобное время, привычки и продукты, которые тебе подходят.</p>
+    <section class="card rhythm" id="meal-rhythm" aria-labelledby="rhythmTitle">
+      <div class="support-head"><div class="support-title"><svg aria-hidden="true"><use href="#i-clock"/></svg><h2 id="rhythmTitle">Когда и что есть</h2></div><span class="subtle-tag" id="rhythmTag">Под тебя</span></div>
+      <p class="rhythm-copy" id="rhythmCopy">Время, блюда и порции с учётом твоих привычек.</p>
       <div class="schedule" id="schedule" hidden></div>
+      <div class="plan-total" id="planTotal" hidden></div>
+      <div class="saved-preferences" id="savedPreferences" hidden><h3>Твои предпочтения</h3><p id="preferencesSummary"></p></div>
       <button class="survey-link" type="button" id="surveyToggle" aria-expanded="false" aria-controls="preferencesForm"><span id="surveyLabel">Пройти короткий опрос</span><svg aria-hidden="true"><use href="#i-chevron"/></svg></button>
       <form class="preferences-form" id="preferencesForm" hidden>
         <label class="field"><span>Сколько приёмов пищи тебе удобно?</span><select name="count" id="scheduleCount"><option value="3">3 приёма</option><option value="4" selected>4 приёма</option><option value="5">5 приёмов</option></select></label>
@@ -346,15 +401,16 @@
         <div class="form-actions"><button type="submit" class="primary">Сохранить предпочтения</button><button type="button" class="text-btn" data-action="cancel-survey">Отмена</button></div>
       </form>
     </section>
-    <section class="card recipes" aria-labelledby="recipesTitle">
-      <div class="recipe-heading"><div class="support-title"><svg aria-hidden="true"><use href="#i-book"/></svg><h2 id="recipesTitle">Рецепты</h2></div><div class="recipe-buttons"><button class="text-btn" type="button" id="scanRecipe"><svg aria-hidden="true"><use href="#i-camera"/></svg>Скан</button><button class="text-btn" type="button" id="newRecipe"><svg aria-hidden="true"><use href="#i-plus"/></svg>Свой</button></div></div>
+    <section class="card recipes" id="saved-recipes" aria-labelledby="recipesTitle">
+      <div class="recipe-heading"><div class="support-title"><svg aria-hidden="true"><use href="#i-book"/></svg><h2 id="recipesTitle">Рецепты<span class="recipe-count" id="recipeCount" hidden></span></h2></div><div class="recipe-buttons"><button class="text-btn" type="button" id="scanRecipe"><svg aria-hidden="true"><use href="#i-camera"/></svg>Скан</button><button class="text-btn" type="button" id="newRecipe"><svg aria-hidden="true"><use href="#i-plus"/></svg>Свой</button></div></div>
+      <p class="recipes-caption" id="recipesCaption" hidden>Сохранённые блюда · КБЖУ на 1 порцию</p>
       <input type="file" id="recipeFile" accept="image/*" capture="environment" hidden>
       <div id="recipeList"></div>
       <form class="recipe-form" id="recipeForm" hidden>
         <div class="form-top"><h3>Свой рецепт</h3><button class="icon-btn" type="button" data-action="cancel-recipe" aria-label="Закрыть рецепт"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
         <div class="recipe-photo" id="recipePhoto" hidden><img id="recipeImage" alt="Фото рецепта"><p>Фото добавлено. Автораспознавание в этом макете недоступно — заполни рецепт вручную.</p></div>
         <label class="field"><span>Название</span><input type="text" name="name" maxlength="180" required placeholder="Как называется блюдо?"></label><label class="field"><span>Ингредиенты</span><textarea name="ingredients" maxlength="3000" required placeholder="Продукты и количество"></textarea></label><label class="field"><span>Как приготовить</span><textarea name="steps" maxlength="5000" required placeholder="Шаги приготовления"></textarea></label>
-        <label class="field"><span>Количество порций</span><input type="number" name="servings" min="1" max="100" value="1" required></label><p class="form-hint">Укажи КБЖУ на одну готовую порцию.</p>
+        <div class="fields-2"><label class="field"><span>Количество порций</span><input type="number" name="servings" min="1" max="100" value="1" required></label><label class="field"><span>Время, мин · необязательно</span><input type="number" name="durationMinutes" min="1" max="1440" step="1" placeholder="25"></label></div><p class="form-hint">Укажи КБЖУ на одну готовую порцию.</p>
         <div class="fields-3"><label class="field"><span>Белки, г</span><input type="number" name="protein" min="0" max="1000" step="0.1" required></label><label class="field"><span>Жиры, г</span><input type="number" name="fat" min="0" max="1000" step="0.1" required></label><label class="field"><span>Углеводы, г</span><input type="number" name="carbs" min="0" max="2000" step="0.1" required></label></div>
         <div class="fields-2"><label class="field"><span>Калории, ккал</span><input type="number" name="kcal" min="0" max="20000" step="1" required></label><label class="field"><span>Сахар, г · необязательно</span><input type="number" name="sugar" min="0" max="2000" step="0.1" placeholder="Не указан"></label></div>
         <div class="form-actions"><button type="submit" class="primary">Сохранить рецепт</button><button type="button" class="text-btn" data-action="cancel-recipe">Отмена</button></div>
@@ -456,6 +512,24 @@
   const numbers=['protein','fat','carbs','kcal','sugar'];
   const GOAL_FLAME_PERCENT=90;
   const COMPLETED_DEMO_DATE='2026-09-18',COMPLETED_DEMO_VERSION='sep18-complete-v1';
+  const SUPPORT_DEMO_VERSION='rhythm-recipes-filled-v1';
+  const MEAL_PLAN_DEMO_VERSION='when-and-what-v1';
+  const demoPlanSnack={id:'demo-plan-snack',name:'Протеиновый коктейль, банан и миндаль',protein:35,fat:15,carbs:25,kcal:375,sugar:14};
+  function demoPreferences(){return {
+    times:[{label:'Завтрак',time:'08:30',dishId:'demo-recipe-turkey',portions:1},{label:'Обед',time:'13:10',dishId:'demo-recipe-chicken',portions:1.25},{label:'Перекус',time:'16:40',dishId:'demo-plan-snack',portions:1},{label:'Ужин',time:'19:30',dishId:'demo-recipe-beef',portions:1.5}],
+    text:'Готовлю на 2 дня. Люблю гречку, картофель и блюда с индейкой.'
+  };}
+  function demoRecipes(){return [
+    {id:'demo-recipe-turkey',name:'Индейка с гречкой и овощами',durationMinutes:25,servings:2,protein:42,fat:16,carbs:52,kcal:520,sugar:5,
+      ingredients:'Филе индейки — 320 г\nГречка, сухая — 110 г\nКабачок и морковь — 250 г\nОливковое масло — 20 г\nСоль, перец — по вкусу',
+      steps:'Отвари гречку по инструкции на упаковке.\nНарежь индейку и овощи. Обжарь на масле, затем потуши под крышкой до готовности.\nСмешай с гречкой и раздели на 2 порции.'},
+    {id:'demo-recipe-chicken',name:'Курица с запечённым картофелем',durationMinutes:40,servings:2,protein:46,fat:16,carbs:55,kcal:548,sugar:4,
+      ingredients:'Куриное филе — 360 г\nКартофель — 500 г\nПомидоры и огурцы — 200 г\nОливковое масло — 20 г\nПаприка, соль — по вкусу',
+      steps:'Нарежь картофель дольками, смешай с половиной масла и паприкой.\nВыложи картофель и курицу в форму. Запекай при 200 °C до полной готовности курицы и мягкости картофеля.\nНарежь салат, добавь оставшееся масло. Раздели всё на 2 порции.'},
+    {id:'demo-recipe-beef',name:'Говядина с рисом и овощами',durationMinutes:30,servings:2,protein:40,fat:20,carbs:55,kcal:560,sugar:5,
+      ingredients:'Говядина — 340 г\nРис, сухой — 120 г\nСладкий перец и морковь — 250 г\nРастительное масло — 15 г\nСоль, перец — по вкусу',
+      steps:'Отвари рис по инструкции на упаковке.\nНарежь говядину тонкими полосками, овощи — соломкой. Обжарь на масле и потуши до готовности.\nДобавь рис, перемешай и раздели на 2 порции.'}
+  ];}
   const presets=[
     {name:'Овсянка на молоке, банан, миндаль',short:'Овсянка с бананом',type:'Завтрак',time:'08:30',protein:22,fat:14,carbs:68,kcal:498,sugar:17},
     {name:'Куриная грудка, рис, овощной салат',short:'Курица с рисом',type:'Обед',time:'13:10',protein:52,fat:12,carbs:64,kcal:572,sugar:6},
@@ -483,15 +557,33 @@
     const days={},goals={protein:200,fat:90,carbs:200,kcal:2410};
     for(let d=14;d<=19;d++) days[`2026-09-${d}`]=presets.slice(0,3).map((m,i)=>({...m,id:`seed-${d}-${i}`}));
     days[COMPLETED_DEMO_DATE]=completedDemoMeals(goals);
-    return {version:1,completedDemoVersion:COMPLETED_DEMO_VERSION,selected:COMPLETED_DEMO_DATE,goals,days,favorites:[],recipes:[],preferences:null};
+    return {version:1,completedDemoVersion:COMPLETED_DEMO_VERSION,supportDemoVersion:SUPPORT_DEMO_VERSION,mealPlanDemoVersion:MEAL_PLAN_DEMO_VERSION,selected:COMPLETED_DEMO_DATE,goals,days,favorites:[],recipes:demoRecipes(),preferences:demoPreferences()};
   }
-  let state=seed(),completedDemoUpdated=false;
+  let state=seed(),completedDemoUpdated=false,supportDemoUpdated=false,mealPlanDemoUpdated=false;
   try {const saved=JSON.parse(localStorage.getItem(STORE));if(saved?.version===1&&saved.days&&saved.goals&&Array.isArray(saved.favorites)&&Array.isArray(saved.recipes))state=saved;}catch{}
   // Apply the requested demo once to September 18, preserving the other days,
   // saved goals, recipes and favorites. Later edits to this demo day persist.
   if(state.completedDemoVersion!==COMPLETED_DEMO_VERSION){
     state.days[COMPLETED_DEMO_DATE]=completedDemoMeals(state.goals);state.selected=COMPLETED_DEMO_DATE;state.completedDemoVersion=COMPLETED_DEMO_VERSION;completedDemoUpdated=true;
   }
+  // Populate only empty supporting sections in older copies of this demo.
+  // Keep saved recipes, preferences and subsequent edits intact.
+  if(state.supportDemoVersion!==SUPPORT_DEMO_VERSION){
+    if(!state.preferences)state.preferences=demoPreferences();
+    if(!state.recipes.length)state.recipes=demoRecipes();
+    state.supportDemoVersion=SUPPORT_DEMO_VERSION;supportDemoUpdated=true;
+  }
+  // Add food choices to the old demo schedule without changing its saved times,
+  // preferences, actual diary entries or custom recipe collection.
+  if(state.mealPlanDemoVersion!==MEAL_PLAN_DEMO_VERSION){
+    for(const slot of state.preferences?.times||[]){
+      const sample=demoPreferences().times.find(t=>t.label===slot.label);
+      if(!Object.hasOwn(slot,'dishId')&&sample&&(sample.dishId===demoPlanSnack.id||state.recipes.some(r=>r.id===sample.dishId))){slot.dishId=sample.dishId;slot.portions=sample.portions;}
+    }
+    state.mealPlanDemoVersion=MEAL_PLAN_DEMO_VERSION;mealPlanDemoUpdated=true;
+  }
+  const openedRecipes=new Set(state.recipes.some(r=>r.id==='demo-recipe-turkey')?['demo-recipe-turkey']:[]);
+  let planEditingIndex=null;
   let selected=state.selected,weekStart=monday(selected),monthCursor=new Date(asDate(selected).getFullYear(),asDate(selected).getMonth(),1),quickTab='frequent',openedMeal=null,editingId=null,formDate=selected,photoData=null,toastTimer,undoAction=null;
   let captureFile=null,captureStamp=null,captureUrl=null,captureRun=0,captureAbort=null,captureResultId=null,previousOverflow='',captureMode='food',captureHint='';
   let lastFlameDay=null,lastFlameLit=false;
@@ -567,11 +659,63 @@
     </article>`).join(''):`<div class="card empty-day">${icon('food')}<h3>Дневник этого дня пока пуст</h3><p>Добавь первый приём пищи.</p><button type="button" class="secondary" data-action="empty-add">${icon('camera')}Добавить еду</button></div>`;
   }
   function renderRhythm(){
-    const pref=state.preferences;$('schedule').hidden=!pref;$('rhythmCopy').textContent=pref?'Твой график и предпочтения сохранены.':'Удобное время, привычки и продукты, которые тебе подходят.';$('rhythmTag').textContent=pref?`${pref.times.length} приёма`:'Под тебя';$('surveyLabel').textContent=pref?'Изменить предпочтения':'Пройти короткий опрос';
-    if(pref)$('schedule').innerHTML=pref.times.map(t=>`<div><span>${escapeHTML(t.label)}</span><b>${escapeHTML(t.time)}</b></div>`).join('');
+    const pref=state.preferences;
+    $('schedule').hidden=!pref;
+    $('rhythmCopy').textContent=pref?'Пример меню на обычный день. Блюда и порции можно менять.':'Время, блюда и порции с учётом твоих привычек.';
+    $('rhythmTag').textContent=pref?`${pref.times.length} ${pref.times.length===5?'приёмов':'приёма'}`:'Под тебя';
+    $('surveyLabel').textContent=pref?'Изменить расписание и предпочтения':'Пройти короткий опрос';
+    const choices=planChoices(),totals={protein:0,fat:0,carbs:0,kcal:0};let planned=0;
+    $('schedule').innerHTML=pref?pref.times.map((t,index)=>{
+      const dish=choices.find(r=>r.id===t.dishId),portions=Number(t.portions)>0?Number(t.portions):1;
+      if(dish){planned++;for(const key of Object.keys(totals))totals[key]+=Number(dish[key]||0)*portions;}
+      const recipe=dish&&state.recipes.find(r=>r.id===dish.id);
+      return `<article class="schedule-slot"><time>${escapeHTML(t.time)}</time><div class="plan-meal">
+        <span class="plan-meal-type">${escapeHTML(t.label)}</span>
+        ${dish?`<h3>${escapeHTML(dish.name)}</h3><p class="plan-portion">${portionsText(portions)}${recipe?.durationMinutes?` · ${num(recipe.durationMinutes)} мин на приготовление`:''}</p>
+          <div class="plan-macros"><b>${num(dish.kcal*portions)} ккал</b><span>Б ${num(dish.protein*portions)} г</span><span>Ж ${num(dish.fat*portions)} г</span><span>У ${num(dish.carbs*portions)} г</span></div>`:'<p class="plan-empty">Выбери, что будешь есть</p>'}
+        <div class="plan-actions">${recipe?`<button type="button" class="text-btn" data-plan-recipe="${escapeHTML(recipe.id)}">${icon('book')}Рецепт</button>`:''}<button type="button" class="text-btn" data-plan-edit="${index}" aria-expanded="${planEditingIndex===index}" aria-controls="plan-picker-${index}">${dish?'Заменить':'Выбрать блюдо'}</button></div>
+      </div>
+      ${planEditingIndex===index?`<form class="plan-picker" id="plan-picker-${index}" data-plan-form="${index}">
+        <label class="field"><span>Что есть</span><select name="dishId" required><option value="" disabled ${dish?'':'selected'}>Выбери блюдо</option>${choices.map(r=>`<option value="${escapeHTML(r.id)}" ${r.id===dish?.id?'selected':''}>${escapeHTML(r.name)}</option>`).join('')}</select></label>
+        <div class="fields-2"><p class="form-hint">КБЖУ пересчитываются на выбранное количество порций.</p><label class="field"><span>Порций</span><input type="number" name="portions" min="0.25" max="10" step="0.25" value="${portions}" required></label></div>
+        <div class="form-actions"><button class="primary" type="submit">Сохранить в плане</button><button class="text-btn" type="button" data-plan-cancel="${index}">Отмена</button></div>
+      </form>`:''}</article>`;
+    }).join(''):'';
+    $('planTotal').hidden=!pref||!planned;
+    $('planTotal').innerHTML=pref&&planned?`<div class="plan-total-top"><span>${planned===pref.times.length?'Итого по плану':`Выбрано ${planned} из ${pref.times.length} приёмов`}</span><strong>${num(totals.kcal)} ккал</strong></div><p class="plan-total-macros">Б ${num(totals.protein)} г · Ж ${num(totals.fat)} г · У ${num(totals.carbs)} г</p><p class="plan-note">Съеденное отмечай отдельно в дневнике.</p>`:'';
+    $('savedPreferences').hidden=!pref?.text;
+    $('preferencesSummary').textContent=pref?.text||'';
   }
+  function planChoices(){return [...state.recipes,demoPlanSnack];}
+  function portionsText(count){const form=new Intl.PluralRules('ru').select(count),value=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(count);return `${value} ${form==='one'?'порция':form==='few'||form==='other'?'порции':'порций'}`;}
   function renderRecipes(){
-    $('recipeList').innerHTML=state.recipes.length?state.recipes.map(r=>`<article class="saved-recipe"><button class="recipe-expand" type="button" data-recipe-toggle="${escapeHTML(r.id)}" aria-expanded="false" aria-controls="recipe-${escapeHTML(r.id)}"><span><strong>${escapeHTML(r.name)}</strong><small>${num(r.kcal)} ккал на порцию · Б ${num(r.protein)} / Ж ${num(r.fat)} / У ${num(r.carbs)}</small></span>${icon('down')}</button><div class="recipe-details" id="recipe-${escapeHTML(r.id)}" hidden><p>${num(r.servings)} порц.</p><h4>Ингредиенты</h4><p>${escapeHTML(r.ingredients)}</p><h4>Приготовление</h4><p>${escapeHTML(r.steps)}</p>${r.photo?`<img src="${r.photo}" alt="Фото рецепта ${escapeHTML(r.name)}" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:9px;margin-top:12px">`:''}<button type="button" class="primary" data-use-recipe="${escapeHTML(r.id)}">${icon('plus')}Добавить порцию в дневник</button></div></article>`).join(''):'<div class="recipes-empty"><strong>Любимые рецепты — под рукой</strong><p>Добавь свой рецепт или фото страницы. Ингредиенты и приготовление будут здесь.</p></div>';
+    $('recipeCount').hidden=!state.recipes.length;$('recipeCount').textContent=state.recipes.length;
+    $('recipesCaption').hidden=!state.recipes.length;
+    const selectedDateText=asDate(selected).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+    $('recipeList').innerHTML=state.recipes.length?state.recipes.map(r=>{
+      const isOpen=openedRecipes.has(r.id);
+      const ingredients=String(r.ingredients||'').split(/\n+/).filter(line=>line.trim()).map(line=>{
+        const split=line.lastIndexOf(' — ');
+        return split<0?`<li><span>${escapeHTML(line)}</span></li>`:`<li><span>${escapeHTML(line.slice(0,split))}</span><span>${escapeHTML(line.slice(split+3))}</span></li>`;
+      }).join('');
+      const steps=String(r.steps||'').split(/\n+/).filter(line=>line.trim()).map(line=>`<li><span>${escapeHTML(line.replace(/^\s*\d+[.)]\s*/,''))}</span></li>`).join('');
+      return `<article class="saved-recipe">
+        <button class="recipe-expand" type="button" data-recipe-toggle="${escapeHTML(r.id)}" aria-expanded="${isOpen}" aria-controls="recipe-${escapeHTML(r.id)}">
+          <span><strong>${escapeHTML(r.name)}</strong>
+            <span class="recipe-meta">${Number(r.durationMinutes)>0?`${icon('clock')}<span>${num(r.durationMinutes)} мин</span><span aria-hidden="true">·</span>`:''}<span>${portionsText(r.servings)}</span></span>
+            <span class="recipe-nutrition"><span class="recipe-kcal">${num(r.kcal)} ккал</span><span><i>Б</i>${num(r.protein)} г</span><span><i>Ж</i>${num(r.fat)} г</span><span><i>У</i>${num(r.carbs)} г</span></span>
+          </span>${icon('down')}
+        </button>
+        <div class="recipe-details" id="recipe-${escapeHTML(r.id)}" ${isOpen?'':'hidden'}>
+          <div class="recipe-detail-heading"><h4>Ингредиенты</h4><span>На весь рецепт · ${portionsText(r.servings)}</span></div>
+          <ul class="recipe-ingredients">${ingredients}</ul>
+          <h4>Как приготовить</h4><ol class="recipe-steps">${steps}</ol>
+          ${r.photo?`<img class="saved-recipe-photo" src="${escapeHTML(r.photo)}" alt="Фото рецепта ${escapeHTML(r.name)}">`:''}
+          <button type="button" class="primary" data-use-recipe="${escapeHTML(r.id)}">${icon('plus')}Добавить 1 порцию</button>
+          <p class="recipe-destination">В дневник за ${escapeHTML(selectedDateText)} · ${num(r.kcal)} ккал</p>
+        </div>
+      </article>`;
+    }).join(''):'<div class="recipes-empty"><strong>Любимые рецепты — под рукой</strong><p>Добавь свой рецепт или фото страницы. Ингредиенты и приготовление будут здесь.</p></div>';
   }
   function render(){renderDates();renderBalance();renderQuick();renderMeals();renderRhythm();renderRecipes();}
   function setPanel(id,button,open){$(id).hidden=!open;if(button)$(button).setAttribute('aria-expanded',String(open));}
@@ -590,7 +734,7 @@
   }
   function closeMealForm(){editingId=null;if($('photoDialog').open)$('photoDialog').close();}
   function guessType(time=nowTime()){const h=Number(time.slice(0,2));return h<11?'Завтрак':h<16?'Обед':h<22?'Ужин':'Перекус';}
-  function addQuick(m){const added={...m,id:uid(),time:nowTime(),type:guessType()};for(const key of ['photo','ingredients','steps','photoStamp','source','captureKind','analysisHint'])delete added[key];(state.days[selected]??=[]).push(added);const key=selected;commit('Приём пищи добавлен',()=>{state.days[key]=state.days[key].filter(x=>x.id!==added.id);commit('Добавление отменено');});return added;}
+  function addQuick(m,message='Приём пищи добавлен'){const added={...m,id:uid(),time:nowTime(),type:guessType()};for(const key of ['photo','ingredients','steps','servings','durationMinutes','photoStamp','source','captureKind','analysisHint'])delete added[key];(state.days[selected]??=[]).push(added);const key=selected;commit(message,()=>{state.days[key]=state.days[key].filter(x=>x.id!==added.id);commit('Добавление отменено');});return added;}
   function formNutrition(f){const out={};for(const key of numbers){const raw=f.elements.namedItem(key).value;out[key]=key==='sugar'&&raw===''?null:Number(raw);}return out;}
   $('mealForm').addEventListener('submit',e=>{
     e.preventDefault();const f=e.currentTarget,name=f.elements.namedItem('name').value.trim();if(!name){$('mealError').textContent='Укажи название блюда.';$('mealError').hidden=false;return;}
@@ -714,12 +858,18 @@
   function scheduleFields(saved){const count=Number($('scheduleCount').value),defaults=count===3?['08:30','13:10','19:00']:count===4?['08:30','13:10','16:40','19:00']:['08:30','11:00','13:10','16:40','19:00'];$('scheduleFields').innerHTML=scheduleLabels(count).map((label,i)=>`<label class="field"><span>${label}</span><input type="time" name="schedule-${i}" value="${escapeHTML(saved?.[i]?.time||defaults[i])}" required></label>`).join('');}
   $('scheduleCount').addEventListener('change',()=>scheduleFields());
   $('surveyToggle').addEventListener('click',()=>{const open=$('preferencesForm').hidden;if(open){$('scheduleCount').value=state.preferences?.times.length||4;$('preferencesForm').elements.namedItem('preferences').value=state.preferences?.text||'';scheduleFields(state.preferences?.times);}setPanel('preferencesForm','surveyToggle',open);});
-  $('preferencesForm').addEventListener('submit',e=>{e.preventDefault();const count=Number($('scheduleCount').value);state.preferences={text:e.currentTarget.elements.namedItem('preferences').value.trim(),times:scheduleLabels(count).map((label,i)=>({label,time:e.currentTarget.elements.namedItem(`schedule-${i}`).value}))};setPanel('preferencesForm','surveyToggle',false);commit('Предпочтения сохранены');});
+  $('preferencesForm').addEventListener('submit',e=>{e.preventDefault();const count=Number($('scheduleCount').value),previous=[...(state.preferences?.times||[])];state.preferences={text:e.currentTarget.elements.namedItem('preferences').value.trim(),times:scheduleLabels(count).map((label,i)=>{const index=previous.findIndex(t=>t.label===label),existing=index>=0?previous.splice(index,1)[0]:{};return {...existing,label,time:e.currentTarget.elements.namedItem(`schedule-${i}`).value};})};planEditingIndex=null;setPanel('preferencesForm','surveyToggle',false);commit('Предпочтения сохранены');});
+  $('schedule').addEventListener('submit',e=>{
+    const f=e.target.closest('[data-plan-form]');if(!f)return;e.preventDefault();
+    const index=Number(f.dataset.planForm),slot=state.preferences?.times[index],dishId=f.elements.namedItem('dishId').value,portions=Number(f.elements.namedItem('portions').value);
+    if(!slot||!planChoices().some(r=>r.id===dishId)||!Number.isFinite(portions)||portions<.25||portions>10)return;
+    slot.dishId=dishId;slot.portions=portions;planEditingIndex=null;commit('Блюдо и порция сохранены в плане');document.querySelector(`[data-plan-edit="${index}"]`)?.focus({preventScroll:true});
+  });
   function openRecipe(photo=null){const f=$('recipeForm');f.reset();photoData=photo;$('recipePhoto').hidden=!photo;if(photo)$('recipeImage').src=photo;else $('recipeImage').removeAttribute('src');f.hidden=false;reveal(f);}
   $('newRecipe').addEventListener('click',()=>openRecipe());
   $('scanRecipe').addEventListener('click',()=>$('recipeFile').click());
   $('recipeFile').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(!file.type.startsWith('image/')){notify('Выбери изображение рецепта.');return;}if(file.size>3*1024*1024){notify('Для макета выбери фото до 3 МБ.');e.target.value='';return;}const reader=new FileReader();reader.onload=()=>openRecipe(reader.result);reader.onerror=()=>notify('Фото не удалось открыть. Попробуй другое.');reader.readAsDataURL(file);e.target.value='';});
-  $('recipeForm').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget;const name=f.elements.namedItem('name').value.trim(),ingredients=f.elements.namedItem('ingredients').value.trim(),steps=f.elements.namedItem('steps').value.trim();if(!name||!ingredients||!steps){notify('Заполни название, ингредиенты и приготовление.');return;}state.recipes.push({id:uid(),name,ingredients,steps,servings:Number(f.elements.namedItem('servings').value),photo:photoData,...formNutrition(f)});f.hidden=true;photoData=null;commit('Рецепт сохранён');});
+  $('recipeForm').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget;const name=f.elements.namedItem('name').value.trim(),ingredients=f.elements.namedItem('ingredients').value.trim(),steps=f.elements.namedItem('steps').value.trim();if(!name||!ingredients||!steps){notify('Заполни название, ингредиенты и приготовление.');return;}const id=uid();state.recipes.push({id,name,ingredients,steps,servings:Number(f.elements.namedItem('servings').value),durationMinutes:Number(f.elements.namedItem('durationMinutes').value)||null,photo:photoData,...formNutrition(f)});openedRecipes.add(id);f.hidden=true;photoData=null;commit('Рецепт сохранён');});
   $('toastUndo').addEventListener('click',()=>{if(undoAction){const action=undoAction;undoAction=null;action();}});
   document.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
@@ -733,12 +883,15 @@
     if(b.dataset.favorite){const m=meals().find(x=>x.id===b.dataset.favorite);if(!m)return;const index=state.favorites.findIndex(f=>f.name===m.name);if(index>=0)state.favorites.splice(index,1);else state.favorites.push({...m});commit(index>=0?'Убрано из избранного':'Добавлено в избранное');return;}
     if(b.dataset.edit){openMealForm(meals().find(x=>x.id===b.dataset.edit));return;}
     if(b.dataset.delete){const key=selected,index=meals().findIndex(m=>m.id===b.dataset.delete);if(index<0)return;const [removed]=state.days[key].splice(index,1);commit('Приём пищи удалён',()=>{state.days[key].splice(index,0,removed);commit('Приём пищи восстановлен');});return;}
-    if(b.dataset.recipeToggle){const el=$(`recipe-${b.dataset.recipeToggle}`);el.hidden=!el.hidden;b.setAttribute('aria-expanded',String(!el.hidden));return;}
-    if(b.dataset.useRecipe){const r=state.recipes.find(x=>x.id===b.dataset.useRecipe);if(r)addQuick(r);return;}
+    if(b.dataset.planEdit!==undefined){const index=Number(b.dataset.planEdit);planEditingIndex=planEditingIndex===index?null:index;renderRhythm();if(planEditingIndex!==null)$(`plan-picker-${index}`).querySelector('select')?.focus({preventScroll:true});else document.querySelector(`[data-plan-edit="${index}"]`)?.focus({preventScroll:true});return;}
+    if(b.dataset.planCancel!==undefined){const index=Number(b.dataset.planCancel);planEditingIndex=null;renderRhythm();document.querySelector(`[data-plan-edit="${index}"]`)?.focus({preventScroll:true});return;}
+    if(b.dataset.planRecipe){const id=b.dataset.planRecipe;openedRecipes.add(id);renderRecipes();const recipeButton=document.querySelector(`[data-recipe-toggle="${CSS.escape(id)}"]`);recipeButton?.focus({preventScroll:true});recipeButton?.closest('article').scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(b.dataset.recipeToggle){const id=b.dataset.recipeToggle,el=$(`recipe-${id}`);el.hidden=!el.hidden;if(el.hidden)openedRecipes.delete(id);else openedRecipes.add(id);b.setAttribute('aria-expanded',String(!el.hidden));return;}
+    if(b.dataset.useRecipe){const r=state.recipes.find(x=>x.id===b.dataset.useRecipe);if(r)addQuick(r,`Порция добавлена · ${photoDateText(selected)}`);return;}
     if(b.dataset.nav){const key=b.dataset.nav;if(key==='home')window.scrollTo({top:0,behavior:'smooth'});else notify(key==='planner'?'Планер открывается в приложении TrainX.':key==='ai'?'ИИ-помощник доступен в приложении TrainX.':'Анализы открываются в приложении TrainX.');return;}
     switch(b.dataset.action){case'cancel-goals':setPanel('goalEditor','goalsToggle',false);break;case'cancel-meal':closeMealForm();$('addMeal').focus({preventScroll:true});break;case'empty-add':openPhotoDialog();break;case'cancel-survey':setPanel('preferencesForm','surveyToggle',false);break;case'cancel-recipe':$('recipeForm').hidden=true;photoData=null;break;case'profile':notify('Профиль открывается в приложении TrainX.');break;}
   });
-  if(completedDemoUpdated)persist();
+  if(completedDemoUpdated||supportDemoUpdated||mealPlanDemoUpdated)persist();
   render();requestAnimationFrame(renderBalance);
 })();
 </script>
