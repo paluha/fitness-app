@@ -41,3 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Временные файлы проверки дизайна (тестовый пользователь и его пароль)
+.mkuser.cjs
+.rmuser.cjs
+.preview-creds
+.check-sections.cjs
+shots/
