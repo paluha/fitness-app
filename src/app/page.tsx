@@ -5840,8 +5840,6 @@ export default function FitnessPage() {
             <PlannerView
               events={plannerEvents}
               onEventsChange={setPlannerEvents}
-              habits={habits}
-              onHabitsChange={(h) => { userMadeChangeRef.current = true; setHabits(h); }}
               todayStr={todayStr}
               lang={userSettings.language === 'ru' ? 'ru' : 'en'}
               timezone={userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
