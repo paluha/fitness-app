@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f3ee">
+  <title>TrainX — Питание</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;550;600;650;700;750&display=swap">
+  <style>
+    /* TrainX nutrition concept. All visual tokens are grouped here for app integration. */
+    :root {
+      --bg:#f6f3ee; --paper:#fff; --soft:#f4f0ea; --ink:#1a1712; --secondary:#57534c;
+      --muted:#82796d; --faint:#a3998b; --line:#e8e1d7; --accent:#ff5c35;
+      --accent-soft:#fff1ea; --green:#5d936c; --protein:#64859b; --fat:#bd9570;
+      --carbs:#75977a; --danger:#b84435; --radius:18px; --width:460px;
+    }
+    * { box-sizing:border-box; }
+    html { background:var(--bg); color:var(--ink); -webkit-text-size-adjust:100%; }
+    body { margin:0; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+    button,input,select,textarea { font:inherit; color:inherit; }
+    button { cursor:pointer; border:0; background:none; padding:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    button:not(:disabled):active { transform:translateY(1px); }
+    button,a,input,select,textarea { outline-offset:4px; }
+    :focus-visible { outline:2px solid var(--accent); }
+    svg { width:20px; height:20px; flex-shrink:0; stroke:currentColor; stroke-width:1.7; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    h1,h2,h3,p { margin:0; }
+    h1 { font-size:29px; font-weight:700; letter-spacing:-1px; line-height:1.15; }
+    h2 { font-size:18px; font-weight:650; letter-spacing:-.4px; }
+    h3 { font-size:15px; font-weight:650; }
+    [hidden] { display:none!important; }
+    .app { max-width:var(--width); margin:0 auto; min-height:100svh; }
+    .welcome { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:calc(18px + env(safe-area-inset-top,0px)) 22px 18px; }
+    .welcome-text { font-size:15px; letter-spacing:-.3px; white-space:nowrap; }
+    .wordmark { font-weight:750; }.wordmark span { color:var(--accent); }
+    .avatar { border:1px solid #e1d9ce; border-radius:50%; background:var(--paper); width:36px; height:36px; flex:0 0 36px; font-weight:650; position:relative; }
+    .avatar::after { content:""; width:6px; height:6px; position:absolute; right:1px; bottom:1px; background:var(--green); border:2px solid var(--bg); border-radius:50%; }
+    main { padding:0 20px calc(108px + env(safe-area-inset-bottom,0px)); }
+    .section-switch { display:flex; gap:3px; padding:3px; margin:0 0 22px; background:#eee8df; border-radius:10px; }
+    .section-switch button { display:flex; align-items:center; justify-content:center; flex:1; min-height:40px; border-radius:7px; color:var(--muted); font-size:12px; font-weight:600; }
+    .section-switch button[aria-current=page] { background:var(--paper); color:var(--ink); box-shadow:0 1px 4px #1422350b; }
+    .section-switch button:not([aria-current=page]):hover { color:var(--ink); background:#e5ddd2; }
+    .title-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .date-subtitle { font-size:12px; color:var(--muted); margin-top:5px; }
+    .icon-btn { width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; flex-shrink:0; }
+    .icon-btn:hover { background:var(--soft); }.calendar-toggle svg { width:23px; height:23px; }
+    .calendar-toggle[aria-expanded=true] { color:var(--accent); }
+    .week-heading { display:flex; align-items:center; justify-content:space-between; height:34px; margin:1px 0 3px; }
+    .week-caption { color:var(--muted); font-size:11px; }
+    .week-controls { display:flex; align-items:center; gap:3px; }
+    .week-controls .icon-btn { width:34px; height:34px; }.week-controls svg { width:15px; height:15px; }
+    .today-link { font-size:11px; color:var(--secondary); padding:8px; min-height:34px; }
+    .week { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .day { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-width:0; padding:5px 0; }
+    .day-weekday { font-size:10px; color:var(--muted); }
+    .day-number { display:flex; align-items:center; justify-content:center; border-radius:50%; width:37px; height:37px; font-size:15px; font-weight:600; }
+    .day[aria-pressed=true] .day-number { background:#302b25; color:#fff; box-shadow:0 3px 7px #302b2515; }
+    .day:not([aria-pressed=true]):hover .day-number { background:#eae4da; }
+    .day.is-today .day-weekday { color:var(--ink); font-weight:650; }
+    .day-status { width:5px; height:5px; border-radius:50%; background:var(--green); }
+    .day-status.empty { height:1px; width:7px; background:#c4baac; }
+    .day-marker { display:flex; align-items:center; justify-content:center; width:16px; height:15px; flex-shrink:0; }
+    .flame-icon { fill:currentColor; stroke:none; color:var(--accent); }
+    .day-marker .flame-icon { width:14px; height:15px; }
+    .calendar-foot { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px 12px; margin:7px 2px 15px; font-size:10px; color:var(--muted); }
+    .legend { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; }.legend span { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+    .legend .flame-icon { width:12px; height:13px; }.calendar-foot > span { white-space:nowrap; }
+    .month-panel { padding:16px; background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); margin:12px 0; }
+    .month-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .month-title { font-size:14px; font-weight:650; text-transform:capitalize; }
+    .month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+    .month-dow { font-size:10px; text-align:center; color:var(--muted); padding:3px 0 7px; }
+    .month-day { min-height:42px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; font-size:12px; }
+    .month-day.has-record { background:var(--soft); }
+    .month-day[aria-pressed=true] { background:#302b25; color:white; }
+    .month-day.is-today { box-shadow:inset 0 0 0 1px #b2a696; }
+    .card { background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); }
+    .balance { padding:12px 18px 0; overflow:hidden; }
+    .balance-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .balance-heading h2 { font-size:14px; letter-spacing:-.2px; }
+    .balance-title { display:flex; align-items:center; gap:8px; }
+    .goal-flame { display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:4px 6px; border-radius:7px; background:var(--accent-soft); color:#b74929; font-size:10px; font-weight:600; line-height:1.2; white-space:nowrap; }
+    .goal-flame .flame-icon { width:15px; height:17px; transform-origin:50% 90%; }
+    .goal-flame.is-igniting .flame-icon { animation:flameIgnite .65s cubic-bezier(.2,.7,.2,1); }
+    @keyframes flameIgnite { 0% { transform:translateY(3px) scale(.55); opacity:.4; } 48% { transform:translateY(-1px) scale(1.2); opacity:1; } 100% { transform:translateY(0) scale(1); opacity:1; } }
+    .balance-heading .text-btn { min-height:32px; }
+    .text-btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:40px; color:var(--muted); font-size:12px; font-weight:500; }
+    .text-btn svg { width:14px; height:14px; }
+    .energy { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin:6px 0 14px; }
+    .energy-label { color:var(--muted); font-size:11px; margin-bottom:1px; }
+    .energy-value { font-size:39px; letter-spacing:-1.6px; font-weight:650; line-height:1.15; font-variant-numeric:tabular-nums; }
+    .energy-unit { font-size:12px; font-weight:400; letter-spacing:0; margin-left:3px; color:var(--muted); }
+    .energy-left { text-align:right; padding-bottom:2px; }
+    .energy-left strong { font-size:21px; font-weight:600; letter-spacing:-.5px; font-variant-numeric:tabular-nums; }
+    .energy-progress { height:6px; border-radius:5px; background:#f1eae2; overflow:hidden; }
+    .energy-progress > span { display:block; height:100%; width:0; background:var(--accent); border-radius:5px; transition:width .65s cubic-bezier(.2,.7,.2,1); }
+    .energy-track-labels { display:flex; align-items:center; justify-content:space-between; margin-top:7px; color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+    .macros { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:17px; margin:16px 0 14px; }
+    .macro-name { color:var(--secondary); display:flex; align-items:center; gap:5px; font-size:11px; margin-bottom:5px; }
+    .macro-dot { display:inline-block; border-radius:50%; width:5px; height:5px; background:var(--macro); }
+    .macro-value { font-size:18px; font-weight:600; letter-spacing:-.4px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .macro-value small { font-size:10px; font-weight:400; letter-spacing:0; color:var(--muted); }
+    .macro-progress { height:3px; border-radius:3px; background:#f1ede7; overflow:hidden; margin-top:9px; }
+    .macro-progress span { display:block; width:0; height:100%; background:var(--macro); border-radius:3px; transition:width .6s ease; }
+    .sugar { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid #f0ebe4; padding:12px 0; color:var(--muted); font-size:11px; }
+    .sugar strong { color:var(--secondary); font-size:12px; font-weight:500; }
+    .section-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:23px 0 12px; }
+    .heading-count { font-size:11px; color:var(--muted); font-weight:500; margin-left:7px; letter-spacing:0; }
+    .primary { min-height:42px; padding:10px 15px; background:var(--accent); color:#fff; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; }
+    .primary svg { width:15px; height:15px; }.primary:hover { background:#ee4f2a; }
+    .secondary { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:42px; padding:9px 13px; border-radius:10px; border:1px solid var(--line); color:var(--secondary); font-size:12px; background:var(--paper); }
+    .secondary svg { width:15px; height:15px; }.secondary:hover { background:var(--soft); }
+    .quick-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
+    .quick-title { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:5px; }.quick-title svg { width:12px; height:12px; }
+    .quick-tabs { display:flex; align-items:center; gap:11px; }
+    .quick-tabs button { font-size:10px; min-height:32px; color:var(--faint); position:relative; }
+    .quick-tabs button[aria-pressed=true] { color:var(--secondary); }
+    .quick-tabs button[aria-pressed=true]::after { content:""; position:absolute; bottom:2px; left:0; right:0; height:1px; background:#938370; }
+    .quick-list { display:flex; gap:7px; overflow-x:auto; scrollbar-width:none; padding:1px 0 5px; overscroll-behavior-x:contain; scroll-snap-type:x proximity; }
+    .quick-list::-webkit-scrollbar { display:none; }
+    .quick-item { flex:0 0 153px; scroll-snap-align:start; border:1px solid #e5ddd1; background:#f1ede6; border-radius:11px; padding:10px 10px 9px; text-align:left; position:relative; }
+    .quick-name { font-size:11px; font-weight:550; line-height:1.35; display:block; padding-right:21px; min-height:30px; }
+    .quick-info { display:block; font-size:10px; color:var(--muted); margin-top:4px; }
+    .quick-plus { position:absolute; right:8px; top:8px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; color:#978371; }.quick-plus svg { width:14px; height:14px; }
+    .quick-empty { font-size:11px; padding:9px 0; color:var(--muted); }
+    .meal-list { display:grid; gap:9px; margin-top:11px; }
+    .meal { overflow:hidden; }
+    .meal-toggle { display:block; width:100%; text-align:left; padding:13px 15px; }
+    .meal-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; color:var(--muted); font-size:10px; }
+    .meal-meta-left { display:flex; align-items:center; gap:7px; }.meal-meta-left .separator { color:#c4b8a9; }
+    .favorite-mini { width:11px; height:11px; color:#c16448; fill:#fff0e9; }
+    .meal-calories { color:var(--secondary); font-size:11px; font-variant-numeric:tabular-nums; }.meal-calories b { font-size:12px; font-weight:600; }
+    .meal-name { font-size:14px; font-weight:600; letter-spacing:-.2px; line-height:1.4; }
+    .meal-bottom { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:9px; }
+    .meal-macros { display:flex; gap:13px; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .meal-macros b { font-weight:500; color:var(--secondary); margin-left:3px; }
+    .meal-chevron { width:14px; height:14px; color:#9e9282; transition:transform .2s; }
+    .meal-toggle[aria-expanded=true] .meal-chevron { transform:rotate(180deg); }
+    .meal-actions { display:flex; align-items:center; justify-content:space-between; gap:9px; margin:0 15px; padding:4px 0; border-top:1px solid #eee7df; }
+    .meal-actions .text-btn { font-size:11px; min-height:42px; }.meal-actions .text-btn svg { width:16px; height:16px; }
+    .favorite.is-favorite { color:#c16448; }.favorite.is-favorite svg { fill:#fff0e9; }
+    .delete-btn { color:#ae8a7c; width:38px; height:42px; }.delete-btn svg { width:16px; height:16px; }
+    .empty-day { text-align:center; padding:27px 20px; }.empty-day svg { width:26px; height:26px; color:#b8a793; margin-bottom:10px; }
+    .empty-day p { font-size:12px; color:var(--muted); margin:6px 0 14px; }
+    .composer { padding:17px; margin:12px 0; scroll-margin-top:14px; }
+    .form-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:11px; }
+    .form-top .icon-btn { width:32px; height:32px; }.form-top svg { width:16px; height:16px; }
+    .field { display:flex; flex-direction:column; gap:5px; min-width:0; margin-bottom:12px; }
+    .field > span { font-size:11px; font-weight:500; color:var(--secondary); }
+    input,select,textarea { display:block; width:100%; max-width:100%; min-width:0; border:1px solid #e6dfd5; border-radius:9px; padding:10px 11px; font-size:16px; line-height:1.35; background:#fcfaf7; outline-offset:2px; }
+    input,select { min-height:43px; }textarea { resize:vertical; min-height:65px; }
+    input::placeholder,textarea::placeholder { color:#aaa092; }
+    input[type=number] { appearance:textfield; -moz-appearance:textfield; }
+    input::-webkit-inner-spin-button,input::-webkit-outer-spin-button { appearance:none; margin:0; }
+    .fields-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .fields-3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .fields-3 input { padding:10px 8px; }
+    .form-actions { display:flex; align-items:center; gap:10px; margin-top:5px; }.form-actions .primary { flex:1; }
+    .form-hint { font-size:11px; color:var(--muted); margin-bottom:13px; line-height:1.5; }
+    .form-error { color:var(--danger); font-size:12px; margin:0 0 10px; }
+    .goal-editor { border-top:1px solid var(--line); padding:15px 0 17px; }
+    .goal-editor h3 { margin-bottom:12px; }
+    .rhythm { margin-top:22px; padding:16px; }
+    .support-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .support-title { display:flex; align-items:center; gap:9px; }.support-title h2 { font-size:16px; }.support-title svg { width:18px; height:18px; color:#9a8771; }
+    .subtle-tag { font-size:10px; color:var(--muted); padding:4px 7px; background:var(--soft); border-radius:5px; white-space:nowrap; }
+    .rhythm-copy { font-size:12px; line-height:1.55; color:var(--muted); margin:10px 0 9px; max-width:34ch; }
+    .survey-link { font-size:12px; font-weight:550; color:var(--secondary); min-height:35px; display:flex; align-items:center; gap:8px; }.survey-link svg { width:15px; height:15px; }
+    .preferences-form { border-top:1px solid var(--line); margin-top:12px; padding-top:15px; }
+    .schedule { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin:12px 0 5px; }
+    .schedule div { padding:8px 9px; background:var(--soft); border-radius:8px; font-size:11px; color:var(--muted); display:flex; justify-content:space-between; gap:5px; }.schedule b { font-weight:500; color:var(--secondary); }
+    .recipes { margin-top:20px; padding:16px; }
+    .recipe-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .recipe-buttons { display:flex; align-items:center; gap:12px; }.recipe-buttons .text-btn { font-size:11px; min-height:36px; color:var(--secondary); }
+    .recipes-empty { border-top:1px solid #eee7df; margin-top:9px; padding:17px 0 4px; }
+    .recipes-empty strong { font-size:12px; font-weight:550; }.recipes-empty p { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.55; max-width:32ch; }
+    .recipe-form { margin-top:12px; padding-top:14px; border-top:1px solid var(--line); }
+    .recipe-photo { display:flex; align-items:center; gap:11px; margin-bottom:14px; border:1px solid var(--line); padding:10px; border-radius:10px; }
+    .recipe-photo img { width:64px; height:75px; object-fit:cover; border-radius:6px; }.recipe-photo p { font-size:11px; color:var(--muted); line-height:1.5; }
+    .saved-recipe { border-top:1px solid var(--line); padding-top:13px; margin-top:12px; }
+    .recipe-expand { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:left; min-height:48px; }
+    .recipe-expand strong { font-size:13px; font-weight:550; }.recipe-expand small { display:block; margin-top:4px; color:var(--muted); font-size:10px; }.recipe-expand svg { width:15px; height:15px; }
+    .recipe-details { font-size:12px; color:var(--secondary); padding-top:14px; }.recipe-details h4 { margin:12px 0 5px; font-size:11px; }.recipe-details p { white-space:pre-wrap; line-height:1.6; }.recipe-details .primary { width:100%; margin-top:15px; }
+    .demo-note { font-size:10px; color:var(--faint); text-align:center; margin:23px 0 0; }
+    .photo-origin { display:flex; align-items:center; gap:5px; margin-top:7px; font-size:10px; color:var(--muted); font-weight:400; }
+    .photo-origin svg { width:12px; height:12px; }
+    .photo-dialog { border:1px solid var(--line); border-radius:23px; background:#fdfcfa; color:var(--ink); width:calc(100% - 28px); max-width:420px; max-height:calc(100dvh - 28px); padding:0; margin:auto; box-shadow:0 22px 80px #21190f30; overflow:auto; }
+    .photo-dialog::backdrop { background:#241d174f; backdrop-filter:blur(4px); }
+    .photo-sheet { padding:16px 18px 10px; }
+    .sheet-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:3px; }
+    .sheet-top h2 { font-size:20px; letter-spacing:-.55px; }
+    .sheet-top .icon-btn { width:44px; height:44px; color:var(--muted); margin-right:-5px; }
+    .sheet-copy { font-size:12px; color:var(--muted); line-height:1.5; margin:0 0 20px; }
+    .dialog-quick-section { border-top:1px solid var(--line); margin-top:18px; padding-top:16px; }
+    .dialog-quick-heading { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; color:var(--secondary); margin-bottom:10px; }
+    .dialog-quick-heading svg { width:14px; height:14px; }
+    .dialog-quick { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 5px; margin:0 -2px 12px; scroll-padding:2px; }
+    .dialog-quick::-webkit-scrollbar { display:none; }
+    .dialog-quick-item { flex:0 0 154px; min-height:58px; background:var(--soft); border:1px solid #ebe4da; border-radius:11px; padding:10px 11px; text-align:left; }
+    .dialog-quick-item:hover { background:#ece5db; }
+    .dialog-quick-item strong { display:block; font-size:12px; font-weight:550; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dialog-quick-item span { display:block; font-size:10px; color:var(--muted); margin-top:4px; white-space:nowrap; }
+    .hint-label-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 5px; }
+    .hint-label-row label { display:flex; justify-content:space-between; gap:8px; width:100%; font-size:11px; color:var(--secondary); }.hint-label-row label span { color:var(--muted); font-weight:400; font-size:10px; }
+    .ai-hint { font-size:16px; min-height:46px; margin-bottom:8px; background:var(--soft); }
+    .scan-buttons { display:grid; grid-template-columns:1.12fr 1fr; gap:9px; }
+    .scan-button { min-height:60px; border:1px solid var(--line); border-radius:13px; background:var(--paper); font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:9px; }
+    .scan-button svg { width:21px; height:21px; }.scan-button.label-scan svg { color:var(--protein); }
+    .scan-button:hover { background:var(--soft); }
+    .scan-button.food-scan { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 4px 12px #ff5c351c; }
+    .scan-button.food-scan:hover { background:#ee4f2a; border-color:#ee4f2a; }
+    .scan-source-note { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:8px 0 18px; font-size:10px; color:var(--muted); }
+    .portion-hint { display:flex; align-items:flex-start; gap:6px; color:var(--muted); font-size:10px; line-height:1.5; }
+    .portion-hint svg { width:13px; height:13px; margin-top:1px; color:#998a78; }
+    .manual-entry { border-top:1px solid var(--line); }
+    .manual-toggle { display:flex; align-items:center; gap:10px; width:100%; min-height:60px; text-align:left; font-size:13px; font-weight:550; }
+    .manual-toggle .manual-icon { display:flex; align-items:center; justify-content:center; width:33px; height:33px; border-radius:10px; color:var(--secondary); background:var(--soft); }
+    .manual-icon svg { width:16px; height:16px; }
+    .manual-toggle > svg { width:16px; height:16px; margin-left:auto; color:var(--muted); transition:transform .18s; }
+    .manual-toggle[aria-expanded=true] > svg { transform:rotate(180deg); }
+    .modal-meal-form { padding-top:6px; padding-bottom:7px; }
+    .photo-demo-footer { display:flex; align-items:center; justify-content:center; border-top:1px solid var(--line); }
+    .photo-demo-footer .text-btn { min-height:44px; font-size:11px; }
+    .modal-meal-form .field { margin-bottom:11px; }.modal-meal-form .field > span { font-size:10px; }
+    .modal-meal-form input { min-height:43px; background:#f7f4ef; padding:9px 10px; }
+    .meal-name-fields { display:grid; grid-template-columns:120px minmax(0,1fr); gap:10px; }
+    .modal-meal-form input[type=time] { padding-left:7px; padding-right:5px; }
+    .manual-macros { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
+    .manual-macros input { text-align:center; padding:9px 3px; }
+    .manual-extras { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.65fr); gap:10px; }
+    .modal-meal-form .form-actions { border-top:1px solid var(--line); padding-top:13px; margin-top:3px; }
+    .modal-meal-form .form-actions button { min-height:44px; font-size:13px; }
+    .modal-meal-form .form-actions .secondary { flex:.7; }.modal-meal-form .form-actions .primary { flex:1; }
+    .manual-portion-note { font-size:9px; color:var(--faint); margin:-4px 0 10px; }
+    .camera-frame { border:1px dashed #d9cdbf; background:var(--soft); border-radius:15px; min-height:132px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; color:#9d8771; margin-bottom:17px; }
+    .camera-frame svg { width:34px; height:34px; stroke-width:1.3; }
+    .camera-frame span { font-size:11px; color:var(--muted); }
+    .capture-actions { display:grid; gap:8px; }.capture-actions button { width:100%; min-height:46px; font-size:13px; }
+    .capture-footer { display:flex; justify-content:space-between; align-items:center; gap:9px; border-top:1px solid var(--line); margin-top:17px; padding-top:7px; }
+    .capture-footer .text-btn { font-size:11px; }
+    .photo-review-image { display:block; width:100%; height:172px; object-fit:cover; border-radius:13px; margin:11px 0 13px; background:var(--soft); }
+    .photo-time { background:var(--soft); padding:11px 12px; border-radius:11px; font-size:12px; margin-bottom:13px; }
+    .photo-time-line { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .photo-time-line span { color:var(--muted); font-size:11px; }.photo-time-line strong { font-size:12px; font-weight:550; }
+    .photo-time-note { font-size:10px; color:var(--muted); line-height:1.5; margin:6px 0 0; }
+    .photo-time details { margin-top:7px; }.photo-time summary { cursor:pointer; color:var(--secondary); font-size:11px; padding:5px 0; }
+    .photo-time .fields-2 { margin-top:9px; }.photo-time .field { margin-bottom:0; }.photo-time input { background:var(--paper); }
+    .analysis-status { display:flex; gap:11px; align-items:center; padding:16px 0 4px; font-size:13px; font-weight:550; }
+    .analysis-status p { font-size:11px; font-weight:400; color:var(--muted); margin-top:4px; }
+    .analysis-spinner { width:22px; height:22px; border:2px solid #eadcd0; border-top-color:var(--accent); border-radius:50%; flex-shrink:0; animation:photoSpin 1s linear infinite; }
+    @keyframes photoSpin { to { transform:rotate(360deg); } }
+    .capture-note { padding:12px; background:var(--accent-soft); border-radius:10px; color:#886c5a; font-size:11px; line-height:1.55; margin:12px 0; }
+    .result-status { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:550; color:var(--green); margin:12px 0; }
+    .result-status svg { width:17px; height:17px; }.result-status .subtle-tag { margin-left:auto; }
+    .result-food { padding:16px; border:1px solid var(--line); border-radius:15px; background:var(--paper); }
+    .result-food-heading { display:flex; align-items:center; gap:12px; }
+    .result-food-heading > div { min-width:0; }
+    .result-thumb { width:64px; height:64px; object-fit:cover; border-radius:11px; flex-shrink:0; background:var(--soft); }
+    .result-food h3 { font-size:16px; font-weight:600; line-height:1.4; margin-bottom:8px; }
+    .result-time { color:var(--muted); font-size:11px; display:flex; align-items:center; gap:5px; }.result-time svg { width:13px; height:13px; }
+    .result-kcal { margin-top:17px; font-size:29px; font-weight:600; letter-spacing:-.8px; }.result-kcal small { font-size:11px; letter-spacing:0; font-weight:400; color:var(--muted); }
+    .result-macros { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; border-top:1px solid var(--line); margin-top:12px; padding-top:12px; }
+    .result-macros span { color:var(--muted); font-size:10px; }.result-macros b { display:block; font-size:17px; font-weight:550; color:var(--secondary); margin-top:3px; }
+    .result-footnote { margin:12px 0 17px; color:var(--muted); font-size:11px; line-height:1.5; }
+    .result-buttons { display:flex; gap:9px; }.result-buttons .primary { flex:1; min-height:45px; }
+    @media(max-width:520px) { .photo-dialog { width:calc(100% - 24px); max-height:calc(100dvh - 28px); border-radius:22px; margin:auto; } }
+    @media(max-width:370px) { .photo-sheet { padding:14px 14px 8px; }.sheet-top h2 { font-size:18px; }.sheet-top { gap:4px; }.meal-name-fields { grid-template-columns:120px minmax(0,1fr); gap:8px; }.dialog-quick-item { flex-basis:144px; }.scan-button { font-size:13px; gap:7px; } }
+    .tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:var(--width); padding:8px 10px calc(13px + env(safe-area-inset-bottom,0px)); display:flex; gap:0; background:#fdfcfaf5; backdrop-filter:blur(14px); border-top:1px solid #e5ddd1; z-index:30; }
+    .tab { flex:1; min-height:45px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-size:9px; color:#948876; position:relative; }
+    .tab svg { width:21px; height:21px; }.tab[aria-current=page] { color:#bd5939; font-weight:600; }
+    .tab[aria-current=page]::before { content:""; position:absolute; top:-9px; width:22px; height:2px; border-radius:2px; background:var(--accent); }
+    .toast { position:fixed; z-index:50; left:50%; transform:translate(-50%,10px); bottom:calc(83px + env(safe-area-inset-bottom,0px)); width:max-content; max-width:calc(min(100vw,460px) - 36px); background:#302b25; color:#fff; box-shadow:0 5px 20px #302b2520; padding:11px 14px; border-radius:11px; display:flex; align-items:center; gap:14px; opacity:0; pointer-events:none; transition:opacity .18s,transform .18s; font-size:12px; }
+    .toast.is-visible { transform:translate(-50%,0); opacity:1; pointer-events:auto; }.toast button { color:#ffba9f; font-size:12px; padding:5px 0; font-weight:550; }
+    .sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media(min-width:600px) { .app { margin-top:18px; margin-bottom:20px; }.welcome { padding-top:22px; }.tabbar { border-left:1px solid var(--line); border-right:1px solid var(--line); border-radius:15px 15px 0 0; } }
+    @media(max-width:370px) { main { padding-left:15px; padding-right:15px; }.welcome { padding-left:17px; padding-right:17px; }.welcome-text { font-size:14px; }.balance { padding-left:14px; padding-right:14px; }.macros { gap:10px; }.macro-value { font-size:17px; }.macro-value small { font-size:9px; }.quick-tabs { gap:8px; }h2 { font-size:17px; }.recipe-buttons { gap:9px; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+  </style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden"><defs>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 10h16M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01M16 17h.01"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 5 7 7-7 7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h5m4 0h7M4 17h9m4 0h3M9 4v6m4 4v6"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 11a9 9 0 1 1 2.7 7M3 5v6h6M12 7v5l3 2"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="m16 3 5 5M4 20l1-6L16 3a2 2 0 0 1 5 5L10 19l-6 1Z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5C9 3 5 3 2 5v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Zm0 0v15"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M8 5 9.5 3h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3M7 9h10M7 12h10M7 15h6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 5c0-4-6-3-6 1-4 0-5 6-2 8-2 3 1 6 4 5 0 3 4 3 4 0V5Zm0 0c0-4 6-3 6 1 4 0 5 6 2 8 2 3-1 6-4 5 0 3-4 3-4 0M7 8c2 0 2 3 1 4m9-4c-2 0-2 3-1 4M8 16c2-1 4 1 4 3m4-3c-2-1-4 1-4 3"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6m-5 0v6L4 19a1.5 1.5 0 0 0 1.5 2h13A1.5 1.5 0 0 0 20 19L14 9V3M7 15h10"/></symbol>
+  <symbol id="i-food" viewBox="0 0 24 24"><path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18M20 3c-4 3-5 7-4 10h4m0-10v18"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M13 2c.5 4.6-3.9 5.6-3.9 9.5C7.7 10.6 7.2 9.4 7 8c-2.2 2.3-3 4.6-3 7a8 8 0 0 0 16 0c0-5-3.8-9.9-7-13Z"/><path d="M12.4 12c.2 2.4-2.3 3.1-2.3 5.2a2.5 2.5 0 0 0 5 0c0-1.9-1.3-3.7-2.7-5.2Z" fill="#ffc49f"/></symbol>
+</defs></svg>
+<div class="app">
+  <header class="welcome">
+    <div class="welcome-text">Welcome to <b class="wordmark">Train<span>X</span></b>, Pavel</div>
+    <button type="button" class="avatar" aria-label="Профиль Павла" data-action="profile">P</button>
+  </header>
+  <main>
+    <nav class="section-switch" aria-label="Разделы главного экрана"><button type="button" id="trainingTab">Тренировки</button><button type="button" id="nutritionTab" aria-current="page">Питание</button></nav>
+    <div class="title-row"><div><h1>Питание</h1><p class="date-subtitle" id="dateSubtitle"></p></div><button type="button" class="icon-btn calendar-toggle" id="calendarToggle" aria-label="Открыть календарь" aria-expanded="false" aria-controls="monthPanel"><svg aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+    <section aria-label="Выбор дня">
+      <div class="week-heading"><span class="week-caption" id="weekCaption"></span><div class="week-controls"><button class="today-link" type="button" id="todayButton">Сегодня</button><button class="icon-btn" type="button" data-week="-1" aria-label="Предыдущая неделя"><svg aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-chevron"/></svg></button><button class="icon-btn" type="button" data-week="1" aria-label="Следующая неделя"><svg aria-hidden="true"><use href="#i-chevron"/></svg></button></div></div>
+      <div class="week" id="week"></div>
+      <div class="month-panel" id="monthPanel" hidden><div class="month-top"><span class="month-title" id="monthTitle"></span><div class="week-controls"><button class="icon-btn" type="button" data-month="-1" aria-label="Предыдущий месяц"><svg aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-chevron"/></svg></button><button class="icon-btn" type="button" data-month="1" aria-label="Следующий месяц"><svg aria-hidden="true"><use href="#i-chevron"/></svg></button></div></div><div class="month-grid" id="monthGrid"></div></div>
+      <div class="calendar-foot"><div class="legend"><span><svg class="flame-icon" aria-hidden="true"><use href="#i-flame"/></svg>≥ 90% калорий</span><span><i class="day-status"></i>Есть записи</span><span><i class="day-status empty"></i>Нет записей</span></div><span id="weekCount"></span></div>
+    </section>
+    <section class="card balance" aria-labelledby="balanceTitle">
+      <div class="balance-heading"><div class="balance-title"><h2 id="balanceTitle">Баланс дня</h2><span class="goal-flame" id="goalFlame" title="Набрано не менее 90% дневной цели по калориям" aria-label="Набрано не менее 90% дневной цели по калориям" hidden><svg class="flame-icon" aria-hidden="true"><use href="#i-flame"/></svg><span aria-hidden="true">90%+</span></span></div><button class="text-btn" type="button" id="goalsToggle" aria-expanded="false" aria-controls="goalEditor"><svg aria-hidden="true"><use href="#i-sliders"/></svg>Цели</button></div>
+      <span class="sr-only" id="goalFlameAnnouncement" role="status" aria-live="polite"></span>
+      <div class="energy"><div><div class="energy-label">Съедено</div><div class="energy-value"><span id="energyValue">1 258</span><span class="energy-unit">ккал</span></div></div><div class="energy-left"><div class="energy-label" id="remainingLabel">Осталось</div><strong id="energyRemaining">1 152</strong></div></div>
+      <div class="energy-progress" role="progressbar" id="energyProgress" aria-label="Калории относительно цели" aria-valuemin="0" aria-valuemax="2410" aria-valuenow="1258"><span id="energyFill"></span></div>
+      <div class="energy-track-labels"><span id="energyPercent"></span><span id="energyGoal"></span></div>
+      <div class="macros">
+        <div style="--macro:var(--protein)"><div class="macro-name"><i class="macro-dot"></i>Белки</div><div class="macro-value"><span id="proteinValue"></span><small id="proteinGoal"></small></div><div class="macro-progress"><span id="proteinFill"></span></div></div>
+        <div style="--macro:var(--fat)"><div class="macro-name"><i class="macro-dot"></i>Жиры</div><div class="macro-value"><span id="fatValue"></span><small id="fatGoal"></small></div><div class="macro-progress"><span id="fatFill"></span></div></div>
+        <div style="--macro:var(--carbs)"><div class="macro-name"><i class="macro-dot"></i>Углеводы</div><div class="macro-value"><span id="carbsValue"></span><small id="carbsGoal"></small></div><div class="macro-progress"><span id="carbsFill"></span></div></div>
+      </div>
+      <div class="sugar"><span>Сахар за день</span><strong id="sugarValue">28 г</strong></div>
+      <form class="goal-editor" id="goalEditor" hidden><h3>Дневные цели</h3><div class="fields-3"><label class="field"><span>Белки, г</span><input name="protein" type="number" min="1" max="1000" step="1" required></label><label class="field"><span>Жиры, г</span><input name="fat" type="number" min="1" max="1000" step="1" required></label><label class="field"><span>Углеводы, г</span><input name="carbs" type="number" min="1" max="2000" step="1" required></label></div><label class="field"><span>Калории, ккал</span><input name="kcal" type="number" min="1" max="20000" step="1" required></label><div class="form-actions"><button type="submit" class="primary">Сохранить цели</button><button type="button" class="text-btn" data-action="cancel-goals">Отмена</button></div></form>
+    </section>
+    <section aria-labelledby="mealsTitle">
+      <div class="section-heading"><h2 id="mealsTitle">Приёмы пищи<span class="heading-count" id="mealCount">3</span></h2><button class="primary" type="button" id="addMeal" aria-haspopup="dialog"><svg aria-hidden="true"><use href="#i-camera"/></svg>Добавить</button></div>
+      <div class="quick-head"><span class="quick-title"><svg aria-hidden="true"><use href="#i-history"/></svg>Быстро добавить</span><div class="quick-tabs" aria-label="Источник быстрого добавления"><button type="button" data-quick-tab="frequent" aria-pressed="true">Частые</button><button type="button" data-quick-tab="favorites" aria-pressed="false">Избранное</button></div></div>
+      <div class="quick-list" id="quickList" aria-label="Продукты для быстрого добавления"></div>
+      <div class="meal-list" id="mealList"></div>
+    </section>
+    <section class="card rhythm" aria-labelledby="rhythmTitle">
+      <div class="support-head"><div class="support-title"><svg aria-hidden="true"><use href="#i-clock"/></svg><h2 id="rhythmTitle">Когда есть</h2></div><span class="subtle-tag" id="rhythmTag">Под тебя</span></div>
+      <p class="rhythm-copy" id="rhythmCopy">Удобное время, привычки и продукты, которые тебе подходят.</p>
+      <div class="schedule" id="schedule" hidden></div>
+      <button class="survey-link" type="button" id="surveyToggle" aria-expanded="false" aria-controls="preferencesForm"><span id="surveyLabel">Пройти короткий опрос</span><svg aria-hidden="true"><use href="#i-chevron"/></svg></button>
+      <form class="preferences-form" id="preferencesForm" hidden>
+        <label class="field"><span>Сколько приёмов пищи тебе удобно?</span><select name="count" id="scheduleCount"><option value="3">3 приёма</option><option value="4" selected>4 приёма</option><option value="5">5 приёмов</option></select></label>
+        <div class="fields-2" id="scheduleFields"></div><label class="field"><span>Что учесть?</span><textarea name="preferences" maxlength="1000" placeholder="Нелюбимые продукты, непереносимости, привычки"></textarea></label>
+        <div class="form-actions"><button type="submit" class="primary">Сохранить предпочтения</button><button type="button" class="text-btn" data-action="cancel-survey">Отмена</button></div>
+      </form>
+    </section>
+    <section class="card recipes" aria-labelledby="recipesTitle">
+      <div class="recipe-heading"><div class="support-title"><svg aria-hidden="true"><use href="#i-book"/></svg><h2 id="recipesTitle">Рецепты</h2></div><div class="recipe-buttons"><button class="text-btn" type="button" id="scanRecipe"><svg aria-hidden="true"><use href="#i-camera"/></svg>Скан</button><button class="text-btn" type="button" id="newRecipe"><svg aria-hidden="true"><use href="#i-plus"/></svg>Свой</button></div></div>
+      <input type="file" id="recipeFile" accept="image/*" capture="environment" hidden>
+      <div id="recipeList"></div>
+      <form class="recipe-form" id="recipeForm" hidden>
+        <div class="form-top"><h3>Свой рецепт</h3><button class="icon-btn" type="button" data-action="cancel-recipe" aria-label="Закрыть рецепт"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
+        <div class="recipe-photo" id="recipePhoto" hidden><img id="recipeImage" alt="Фото рецепта"><p>Фото добавлено. Автораспознавание в этом макете недоступно — заполни рецепт вручную.</p></div>
+        <label class="field"><span>Название</span><input type="text" name="name" maxlength="180" required placeholder="Как называется блюдо?"></label><label class="field"><span>Ингредиенты</span><textarea name="ingredients" maxlength="3000" required placeholder="Продукты и количество"></textarea></label><label class="field"><span>Как приготовить</span><textarea name="steps" maxlength="5000" required placeholder="Шаги приготовления"></textarea></label>
+        <label class="field"><span>Количество порций</span><input type="number" name="servings" min="1" max="100" value="1" required></label><p class="form-hint">Укажи КБЖУ на одну готовую порцию.</p>
+        <div class="fields-3"><label class="field"><span>Белки, г</span><input type="number" name="protein" min="0" max="1000" step="0.1" required></label><label class="field"><span>Жиры, г</span><input type="number" name="fat" min="0" max="1000" step="0.1" required></label><label class="field"><span>Углеводы, г</span><input type="number" name="carbs" min="0" max="2000" step="0.1" required></label></div>
+        <div class="fields-2"><label class="field"><span>Калории, ккал</span><input type="number" name="kcal" min="0" max="20000" step="1" required></label><label class="field"><span>Сахар, г · необязательно</span><input type="number" name="sugar" min="0" max="2000" step="0.1" placeholder="Не указан"></label></div>
+        <div class="form-actions"><button type="submit" class="primary">Сохранить рецепт</button><button type="button" class="text-btn" data-action="cancel-recipe">Отмена</button></div>
+      </form>
+    </section>
+    <p class="demo-note">Интерактивный макет · демонстрационные данные</p>
+  </main>
+  <nav class="tabbar" aria-label="Основное меню">
+    <button class="tab" type="button" aria-current="page" data-nav="home"><svg aria-hidden="true"><use href="#i-home"/></svg><span>Главная</span></button>
+    <button class="tab" type="button" data-nav="planner"><svg aria-hidden="true"><use href="#i-calendar"/></svg><span>Планер</span></button>
+    <button class="tab" type="button" data-nav="ai"><svg aria-hidden="true"><use href="#i-brain"/></svg><span>ИИ</span></button>
+    <button class="tab" type="button" data-nav="labs"><svg aria-hidden="true"><use href="#i-flask"/></svg><span>Анализы</span></button>
+  </nav>
+</div>
+<dialog class="photo-dialog" id="photoDialog" aria-labelledby="photoDialogTitle" aria-describedby="photoDialogCopy">
+  <div class="photo-sheet">
+    <div class="sheet-top"><h2 id="photoDialogTitle">Добавить приём пищи</h2><button class="icon-btn" type="button" id="closePhoto" aria-label="Закрыть окно"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p class="sheet-copy" id="photoDialogCopy">По фото, этикетке или вручную.</p>
+    <p class="capture-note" id="photoInputError" role="alert" hidden></p>
+    <div id="captureStart">
+      <div id="photoEntryOptions">
+        <div class="scan-buttons"><button class="scan-button food-scan" type="button" id="takeFoodPhoto" aria-label="Добавить по фото еды"><svg aria-hidden="true"><use href="#i-camera"/></svg>Фото еды</button><button class="scan-button label-scan" type="button" id="scanFoodLabel" aria-label="Добавить по фото этикетки"><svg aria-hidden="true"><use href="#i-scan"/></svg>Этикетка</button></div>
+        <div class="scan-source-note"><span>Камера или фото из галереи</span><span id="captureModeLabel"></span></div>
+        <div class="hint-label-row"><label for="aiHint">Уточнение к фото <span>Необязательно</span></label></div>
+        <input class="ai-hint" id="aiHint" type="text" maxlength="400" placeholder="Без масла, порция около 200 г" aria-describedby="portionHint">
+        <p class="portion-hint"><svg aria-hidden="true"><use href="#i-info"/></svg><span id="portionHint">Вес порции поможет точнее оценить КБЖУ.</span></p>
+        <div class="dialog-quick-section"><div class="dialog-quick-heading"><svg aria-hidden="true"><use href="#i-history"/></svg>Быстрое добавление</div><div class="dialog-quick" id="dialogQuick" aria-label="Быстрые продукты"></div></div>
+      </div>
+      <div class="manual-entry" id="manualDivider"><button class="manual-toggle" type="button" id="manualToggle" aria-expanded="false" aria-controls="mealForm"><span class="manual-icon"><svg aria-hidden="true"><use href="#i-edit"/></svg></span>Ввести вручную<svg aria-hidden="true"><use href="#i-down"/></svg></button></div>
+      <form class="modal-meal-form" id="mealForm" hidden>
+        <h3 class="sr-only" id="mealFormTitle">Новый приём пищи</h3>
+        <input type="hidden" name="type" value="Обед">
+        <div class="meal-name-fields"><label class="field"><span>Время</span><input type="time" name="time" required></label><label class="field"><span>Название</span><input type="text" name="name" maxlength="180" placeholder="Например, курица с рисом" required></label></div>
+        <div class="manual-macros"><label class="field"><span style="color:var(--protein)">Белки, г</span><input type="number" name="protein" min="0" max="1000" step="0.1" placeholder="0" required></label><label class="field"><span style="color:var(--fat)">Жиры, г</span><input type="number" name="fat" min="0" max="1000" step="0.1" placeholder="0" required></label><label class="field"><span style="color:var(--carbs)">Углев., г</span><input type="number" name="carbs" min="0" max="2000" step="0.1" placeholder="0" required></label><label class="field"><span style="color:var(--accent)">Ккал</span><input type="number" name="kcal" min="0" max="20000" step="1" placeholder="0" required></label></div>
+        <p class="manual-portion-note">На съеденную порцию</p>
+        <div class="manual-extras"><label class="field"><span>Сахар, г</span><input type="number" name="sugar" min="0" max="2000" step="0.1" placeholder="—" aria-label="Сахар в граммах, необязательно"></label><label class="field"><span>Дата</span><input type="date" name="date" required></label></div>
+        <p class="form-error" id="mealError" hidden></p><div class="form-actions"><button type="button" class="secondary" data-action="cancel-meal">Отмена</button><button type="submit" class="primary" id="mealSubmit">Добавить</button></div>
+      </form>
+      <div class="photo-demo-footer" id="photoDemoFooter"><button type="button" class="text-btn" id="showPhotoDemo">Посмотреть демопример</button></div>
+    </div>
+    <div id="captureReview" hidden>
+      <img class="photo-review-image" id="foodPhotoPreview" alt="Выбранное фото блюда">
+      <div class="photo-time"><div class="photo-time-line"><span id="photoTimeLabel">Время снимка</span><strong id="photoTimeValue"></strong></div><p class="photo-time-note" id="photoTimeNote"></p><details id="photoTimeDetails"><summary>Изменить дату и время</summary><div class="fields-2"><label class="field"><span>Дата</span><input id="photoDate" type="date" required></label><label class="field"><span>Время</span><input id="photoTime" type="time" required></label></div></details></div>
+      <div class="analysis-status" id="photoAnalyzing" role="status" hidden><i class="analysis-spinner" aria-hidden="true"></i><div><span id="photoAnalyzingText">Определяем состав и БЖУ</span><p>После ответа запись появится в дневнике.</p></div></div>
+      <div id="photoUnavailable" hidden><p class="capture-note" id="photoUnavailableText"></p><div class="capture-actions"><button type="button" class="secondary" id="manualFromPhoto">Ввести данные этого блюда</button><button type="button" class="text-btn" id="demoFromPhoto">Посмотреть отдельный демопример</button></div></div>
+      <button type="button" class="text-btn" id="replaceFoodPhoto">Выбрать другое фото</button>
+    </div>
+    <div id="captureResult" hidden aria-live="polite"></div>
+    <input type="file" id="foodCameraFile" accept="image/*" capture="environment" hidden>
+    <input type="file" id="foodGalleryFile" accept="image/*" hidden>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastText"></span><button type="button" id="toastUndo" hidden>Отменить</button></div>
+<noscript><p style="padding:20px;text-align:center">Для календаря и дневника включи JavaScript.</p></noscript>
+<script>
+/*
+  STANDALONE DESIGN PROTOTYPE, not production application code.
+  Preserved source features: macro goals, date history, daily calories/macros/sugar,
+  meals, frequent foods, favorites/edit/delete, eating-preferences questionnaire,
+  recipe scan entry and manual recipes, profile and all four navigation items.
+  Original HTML had no script/handlers. This file adds local demo state only.
+  App integration: replace load/persist with app stores, onNav with the router,
+  recipe upload with the existing OCR service, and preferences with the existing AI flow.
+  Main Add flow: native photo dialog -> capture/gallery -> automatic AI analysis ->
+  one diary record dated from photo metadata (editable), with no extra Save step.
+  Integration hook: window.trainxAnalyzeMealPhoto({file,mode,hint,capturedDate,
+  capturedTime,timeSource,signal}) -> Promise<{name,protein,fat,carbs,kcal,sugar?}>.
+  mode is 'food' or 'label'; hint is the optional user description. The existing
+  app service must return values for the consumed portion, not silently for 100g.
+  The original popup's quick foods, AI hint, label scan and manual fields all
+  remain in the same dialog; manual fields expand inline. Photo is the primary
+  action and quick foods show calories per saved serving without invented weights.
+  Both image buttons use the system camera/gallery picker.
+  Without that hook, uploaded photos are NOT assigned invented recognition results.
+  The explicitly labeled demo uses a fixed sample meal and is stored as demo-photo.
+  JPEG DateTimeOriginal is read locally. File.lastModified is not a capture timestamp.
+  Other images or missing EXIF use a clearly labeled, editable upload timestamp.
+  No AI results or OCR results are fabricated. Journal data never leaves the file;
+  the optional Google Fonts stylesheet matches the source page's font dependency.
+  The three original meals and goals are kept. Individual sugar splits below are
+  sample values totaling the original 28g. Historical dates are sample records.
+*/
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const icon = (name,cls='') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const escapeHTML = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num = n => new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(n);
+  const dateKey = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const asDate = key => new Date(`${key}T12:00:00`);
+  const plusDays = (key,days) => {const d=asDate(key);d.setDate(d.getDate()+days);return dateKey(d)};
+  const monday = key => {const d=asDate(key);return plusDays(key,-((d.getDay()+6)%7))};
+  const today = dateKey(new Date());
+  const nowTime = () => new Date().toTimeString().slice(0,5);
+  const photoDateText = key => asDate(key).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:asDate(key).getFullYear()!==new Date().getFullYear()?'numeric':undefined});
+  const photoStampText = stamp => `${photoDateText(stamp.date)} · ${stamp.time}`;
+  const uid = () => typeof crypto.randomUUID==='function'?crypto.randomUUID():`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const STORE='trainx-nutrition-design-v1';
+  const numbers=['protein','fat','carbs','kcal','sugar'];
+  const GOAL_FLAME_PERCENT=90;
+  const COMPLETED_DEMO_DATE='2026-09-18',COMPLETED_DEMO_VERSION='sep18-complete-v1';
+  const presets=[
+    {name:'Овсянка на молоке, банан, миндаль',short:'Овсянка с бананом',type:'Завтрак',time:'08:30',protein:22,fat:14,carbs:68,kcal:498,sugar:17},
+    {name:'Куриная грудка, рис, овощной салат',short:'Курица с рисом',type:'Обед',time:'13:10',protein:52,fat:12,carbs:64,kcal:572,sugar:6},
+    {name:'Протеиновый коктейль',short:'Протеиновый коктейль',type:'Перекус',time:'16:40',protein:30,fat:3,carbs:9,kcal:188,sugar:5},
+    {name:'Лосось, киноа, брокколи',short:'Лосось с киноа',type:'Ужин',time:'19:30',protein:44,fat:16,carbs:30,kcal:440,sugar:3}
+  ];
+  function completedDemoMeals(goals){
+    const base=[
+      {name:'Гречка с индейкой и овощами',type:'Завтрак',time:'08:30',protein:40,fat:25,carbs:60,kcal:625,sugar:4},
+      {name:'Куриная грудка, картофель, салат',type:'Обед',time:'13:10',protein:60,fat:20,carbs:70,kcal:700,sugar:5},
+      {name:'Протеиновый коктейль, банан, орехи',type:'Перекус',time:'16:40',protein:35,fat:15,carbs:25,kcal:375,sugar:14},
+      {name:'Говядина с рисом и овощами',type:'Ужин',time:'19:30',protein:65,fat:30,carbs:45,kcal:710,sugar:5}
+    ];
+    const baseline={protein:200,fat:90,carbs:200,kcal:2410},used={protein:0,fat:0,carbs:0,kcal:0};
+    return base.map((meal,index)=>{
+      const out={...meal,id:`demo-18-${index}`,source:'demo-day'};
+      for(const key of ['protein','fat','carbs','kcal']){
+        const goal=Number(goals[key])>0?Number(goals[key]):baseline[key],scale=key==='kcal'?1:10;
+        out[key]=Math.round((index===base.length-1?goal-used[key]:meal[key]/baseline[key]*goal)*scale)/scale;used[key]+=out[key];
+      }
+      out.sugar=Math.min(out.carbs,Math.round(meal.sugar*out.carbs/meal.carbs*10)/10);return out;
+    });
+  }
+  function seed(){
+    const days={},goals={protein:200,fat:90,carbs:200,kcal:2410};
+    for(let d=14;d<=19;d++) days[`2026-09-${d}`]=presets.slice(0,3).map((m,i)=>({...m,id:`seed-${d}-${i}`}));
+    days[COMPLETED_DEMO_DATE]=completedDemoMeals(goals);
+    return {version:1,completedDemoVersion:COMPLETED_DEMO_VERSION,selected:COMPLETED_DEMO_DATE,goals,days,favorites:[],recipes:[],preferences:null};
+  }
+  let state=seed(),completedDemoUpdated=false;
+  try {const saved=JSON.parse(localStorage.getItem(STORE));if(saved?.version===1&&saved.days&&saved.goals&&Array.isArray(saved.favorites)&&Array.isArray(saved.recipes))state=saved;}catch{}
+  // Apply the requested demo once to September 18, preserving the other days,
+  // saved goals, recipes and favorites. Later edits to this demo day persist.
+  if(state.completedDemoVersion!==COMPLETED_DEMO_VERSION){
+    state.days[COMPLETED_DEMO_DATE]=completedDemoMeals(state.goals);state.selected=COMPLETED_DEMO_DATE;state.completedDemoVersion=COMPLETED_DEMO_VERSION;completedDemoUpdated=true;
+  }
+  let selected=state.selected,weekStart=monday(selected),monthCursor=new Date(asDate(selected).getFullYear(),asDate(selected).getMonth(),1),quickTab='frequent',openedMeal=null,editingId=null,formDate=selected,photoData=null,toastTimer,undoAction=null;
+  let captureFile=null,captureStamp=null,captureUrl=null,captureRun=0,captureAbort=null,captureResultId=null,previousOverflow='',captureMode='food',captureHint='';
+  let lastFlameDay=null,lastFlameLit=false;
+  const meals = () => state.days[selected]||[];
+  function notify(message,undo){clearTimeout(toastTimer);undoAction=undo||null;$('toastText').textContent=message;$('toastUndo').hidden=!undo;$('toast').classList.add('is-visible');toastTimer=setTimeout(()=>{$('toast').classList.remove('is-visible');undoAction=null;},undo?9000:3400);}
+  function persist(){state.selected=selected;try{localStorage.setItem(STORE,JSON.stringify(state));return true;}catch{notify('Не удалось сохранить в браузере. Изменения доступны до закрытия страницы.');return false;}}
+  function commit(message,undo){const saved=persist();render();if(saved&&message)notify(message,undo);}
+  function sum(){return meals().reduce((a,m)=>{for(const key of numbers)a[key]+=Number(m[key]||0);if(m.sugar===null||m.sugar===undefined)a.unknownSugar++;return a;},{protein:0,fat:0,carbs:0,kcal:0,sugar:0,unknownSugar:0});}
+  function dayGoalStatus(key){
+    const entries=state.days[key]||[],goal=Number(state.goals.kcal),kcal=entries.reduce((total,m)=>total+Number(m.kcal||0),0);
+    const valid=Number.isFinite(goal)&&goal>0&&Number.isFinite(kcal);
+    return {has:entries.length>0,kcal,ratio:valid?kcal/goal:0,lit:valid&&entries.length>0&&kcal*100>=goal*GOAL_FLAME_PERCENT};
+  }
+  function dayMarker(status){return `<span class="day-marker" aria-hidden="true">${status.lit?icon('flame','flame-icon'):`<i class="day-status ${status.has?'':'empty'}"></i>`}</span>`;}
+  function renderGoalFlame(status){
+    const badge=$('goalFlame'),gained=lastFlameDay===selected&&!lastFlameLit&&status.lit;
+    badge.hidden=!status.lit;
+    if(!status.lit||lastFlameDay!==selected){badge.classList.remove('is-igniting');$('goalFlameAnnouncement').textContent='';}
+    if(gained){badge.classList.add('is-igniting');$('goalFlameAnnouncement').textContent='Огонёк! Набрано не менее 90% дневной цели по калориям.';}
+    lastFlameDay=selected;lastFlameLit=status.lit;
+  }
+  $('goalFlame').addEventListener('animationend',()=>{$('goalFlame').classList.remove('is-igniting');});
+  function renderBalance(){
+    const t=sum(),goal=state.goals.kcal,status=dayGoalStatus(selected),percentage=Math.floor(status.ratio*100);
+    renderGoalFlame(status);
+    $('energyValue').textContent=num(t.kcal);$('energyRemaining').textContent=num(Math.abs(goal-t.kcal));$('remainingLabel').textContent=t.kcal>goal?'Сверх цели':'Осталось';
+    $('energyFill').style.width=`${Math.min(100,status.ratio*100)}%`;$('energyPercent').textContent=`${percentage}% от цели`;$('energyGoal').textContent=`Цель ${num(goal)} ккал`;
+    $('energyProgress').setAttribute('aria-valuemax',goal);$('energyProgress').setAttribute('aria-valuenow',Math.min(goal,t.kcal));$('energyProgress').setAttribute('aria-valuetext',`${num(t.kcal)} из ${num(goal)} ккал`);
+    for(const key of ['protein','fat','carbs']){$(`${key}Value`).textContent=num(t[key]);$(`${key}Goal`).textContent=` / ${num(state.goals[key])} г`;$(`${key}Fill`).style.width=`${Math.min(100,t[key]/state.goals[key]*100)}%`;}
+    const sugarKnown=meals().length-t.unknownSugar;
+    $('sugarValue').textContent=!meals().length?'Нет записей':!sugarKnown?'Не указан':`${num(t.sugar)} г${t.unknownSugar?' · не все записи':''}`;
+    $('mealCount').textContent=meals().length;
+  }
+  function dateAria(key){const status=dayGoalStatus(key);return asDate(key).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})+(status.lit?', огонёк: набрано не менее 90% цели по калориям':status.has?', есть записи':', нет записей');}
+  function renderDates(){
+    const d=asDate(selected);$('dateSubtitle').textContent=d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})+' · '+d.toLocaleDateString('ru-RU',{weekday:'long'});
+    const end=asDate(plusDays(weekStart,6)),start=asDate(weekStart);$('weekCaption').textContent=start.getMonth()===end.getMonth()?`${start.getDate()}–${end.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}`:`${start.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} — ${end.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}`;
+    $('todayButton').hidden=selected===today;
+    let recorded=0;
+    $('week').innerHTML=Array.from({length:7},(_,i)=>{const key=plusDays(weekStart,i),date=asDate(key),status=dayGoalStatus(key);if(status.has)recorded++;return `<button type="button" class="day ${key===today?'is-today':''}" data-date="${key}" aria-label="${dateAria(key)}" aria-pressed="${key===selected}"><span class="day-weekday">${date.toLocaleDateString('ru-RU',{weekday:'short'})}</span><span class="day-number">${date.getDate()}</span>${dayMarker(status)}</button>`}).join('');
+    $('weekCount').textContent=`${recorded} из 7 дней`;
+    renderMonth();
+  }
+  function renderMonth(){
+    $('monthTitle').textContent=monthCursor.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}).replace(' г.','');
+    let out=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(x=>`<span class="month-dow">${x}</span>`).join('');
+    const offset=(monthCursor.getDay()+6)%7,count=new Date(monthCursor.getFullYear(),monthCursor.getMonth()+1,0).getDate();out+='<span></span>'.repeat(offset);
+    for(let n=1;n<=count;n++){const key=dateKey(new Date(monthCursor.getFullYear(),monthCursor.getMonth(),n)),status=dayGoalStatus(key);out+=`<button type="button" class="month-day ${status.has?'has-record':''} ${key===today?'is-today':''}" data-date="${key}" aria-label="${dateAria(key)}" aria-pressed="${key===selected}">${n}${dayMarker(status)}</button>`;}
+    $('monthGrid').innerHTML=out;
+  }
+  function selectDate(key){selected=key;weekStart=monday(key);monthCursor=new Date(asDate(key).getFullYear(),asDate(key).getMonth(),1);openedMeal=null;closeMealForm();persist();render();}
+  function isFavorite(meal){return state.favorites.some(f=>f.name===meal.name);}
+  function quickItems(){return quickTab==='favorites'?state.favorites:presets;}
+  function dialogQuickItems(){return [...state.favorites,...presets].filter((m,i,all)=>all.findIndex(x=>x.name===m.name)===i).slice(0,8);}
+  function renderDialogQuick(){
+    $('dialogQuick').innerHTML=dialogQuickItems().map((m,i)=>`<button class="dialog-quick-item" type="button" data-dialog-quick="${i}" aria-label="Добавить: ${escapeHTML(m.name)}, ${escapeHTML(m.portionLabel||'1 порция')}, ${num(m.kcal)} ккал" title="${escapeHTML(m.name)}"><strong>${escapeHTML(m.short||m.name)}</strong><span>${escapeHTML(m.portionLabel||'1 порция')} · ${num(m.kcal)} ккал</span></button>`).join('');
+  }
+  function renderQuick(){
+    document.querySelectorAll('[data-quick-tab]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.quickTab===quickTab));
+    const items=quickItems();$('quickList').innerHTML=items.length?items.map((m,i)=>`<button type="button" class="quick-item" data-quick="${i}" aria-label="Добавить: ${escapeHTML(m.name)}, ${num(m.kcal)} ккал"><span class="quick-name">${escapeHTML(m.short||m.name)}</span><span class="quick-info">${num(m.kcal)} ккал · ${num(m.protein)} г белка</span><span class="quick-plus">${icon('plus')}</span></button>`).join(''):'<p class="quick-empty">Отметь сердечком блюдо в дневнике — оно появится здесь.</p>';
+    renderDialogQuick();
+  }
+  function renderMeals(){
+    const sorted=[...meals()].sort((a,b)=>a.time.localeCompare(b.time));
+    $('mealList').innerHTML=sorted.length?sorted.map(m=>`<article class="card meal" data-meal-card="${escapeHTML(m.id)}">
+      <button type="button" class="meal-toggle" data-meal-toggle="${escapeHTML(m.id)}" aria-expanded="${openedMeal===m.id}" aria-controls="actions-${escapeHTML(m.id)}">
+        <div class="meal-meta"><span class="meal-meta-left"><span>${escapeHTML(m.type)}</span><span class="separator">·</span><time>${escapeHTML(m.time)}</time>${isFavorite(m)?icon('heart','favorite-mini'):''}</span><span class="meal-calories"><b>${num(m.kcal)}</b> ккал</span></div>
+        <h3 class="meal-name">${escapeHTML(m.name)}</h3>
+        ${m.photoStamp?`<span class="photo-origin">${icon(m.captureKind==='label'?'scan':'camera')}${m.source==='demo-photo'?'Демопример · ':''}${m.photoStamp.source==='upload'?'Добавлено':m.captureKind==='label'?'Этикетка':'Фото'} ${escapeHTML(photoStampText(m.photoStamp))}</span>`:''}
+        <div class="meal-bottom"><div class="meal-macros"><span>Б <b>${num(m.protein)} г</b></span><span>Ж <b>${num(m.fat)} г</b></span><span>У <b>${num(m.carbs)} г</b></span></div>${icon('down','meal-chevron')}</div>
+      </button>
+      <div class="meal-actions" id="actions-${escapeHTML(m.id)}" ${openedMeal===m.id?'':'hidden'}><button type="button" class="text-btn favorite ${isFavorite(m)?'is-favorite':''}" data-favorite="${escapeHTML(m.id)}" aria-pressed="${isFavorite(m)}">${icon('heart')}${isFavorite(m)?'В избранном':'В избранное'}</button><button type="button" class="text-btn" data-edit="${escapeHTML(m.id)}">${icon('edit')}Изменить</button><button type="button" class="icon-btn delete-btn" data-delete="${escapeHTML(m.id)}" aria-label="Удалить: ${escapeHTML(m.name)}">${icon('trash')}</button></div>
+    </article>`).join(''):`<div class="card empty-day">${icon('food')}<h3>Дневник этого дня пока пуст</h3><p>Добавь первый приём пищи.</p><button type="button" class="secondary" data-action="empty-add">${icon('camera')}Добавить еду</button></div>`;
+  }
+  function renderRhythm(){
+    const pref=state.preferences;$('schedule').hidden=!pref;$('rhythmCopy').textContent=pref?'Твой график и предпочтения сохранены.':'Удобное время, привычки и продукты, которые тебе подходят.';$('rhythmTag').textContent=pref?`${pref.times.length} приёма`:'Под тебя';$('surveyLabel').textContent=pref?'Изменить предпочтения':'Пройти короткий опрос';
+    if(pref)$('schedule').innerHTML=pref.times.map(t=>`<div><span>${escapeHTML(t.label)}</span><b>${escapeHTML(t.time)}</b></div>`).join('');
+  }
+  function renderRecipes(){
+    $('recipeList').innerHTML=state.recipes.length?state.recipes.map(r=>`<article class="saved-recipe"><button class="recipe-expand" type="button" data-recipe-toggle="${escapeHTML(r.id)}" aria-expanded="false" aria-controls="recipe-${escapeHTML(r.id)}"><span><strong>${escapeHTML(r.name)}</strong><small>${num(r.kcal)} ккал на порцию · Б ${num(r.protein)} / Ж ${num(r.fat)} / У ${num(r.carbs)}</small></span>${icon('down')}</button><div class="recipe-details" id="recipe-${escapeHTML(r.id)}" hidden><p>${num(r.servings)} порц.</p><h4>Ингредиенты</h4><p>${escapeHTML(r.ingredients)}</p><h4>Приготовление</h4><p>${escapeHTML(r.steps)}</p>${r.photo?`<img src="${r.photo}" alt="Фото рецепта ${escapeHTML(r.name)}" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:9px;margin-top:12px">`:''}<button type="button" class="primary" data-use-recipe="${escapeHTML(r.id)}">${icon('plus')}Добавить порцию в дневник</button></div></article>`).join(''):'<div class="recipes-empty"><strong>Любимые рецепты — под рукой</strong><p>Добавь свой рецепт или фото страницы. Ингредиенты и приготовление будут здесь.</p></div>';
+  }
+  function render(){renderDates();renderBalance();renderQuick();renderMeals();renderRhythm();renderRecipes();}
+  function setPanel(id,button,open){$(id).hidden=!open;if(button)$(button).setAttribute('aria-expanded',String(open));}
+  function reveal(element){if(element.getBoundingClientRect().top<0||element.getBoundingClientRect().bottom>innerHeight-100)element.scrollIntoView({behavior:'smooth',block:'start'});}
+  function prepareMealForm(meal=null,stamp=null){
+    editingId=meal?.id||null;formDate=selected;const f=$('mealForm');f.reset();$('mealError').hidden=true;
+    const values=meal||{name:'',type:guessType(),time:nowTime(),protein:'',fat:'',carbs:'',kcal:'',sugar:''};
+    for(const key of ['name','type','time',...numbers])f.elements.namedItem(key).value=values[key]??'';
+    f.elements.namedItem('date').value=stamp?.date||selected;if(stamp)f.elements.namedItem('time').value=stamp.time;
+    $('mealFormTitle').textContent=meal?'Изменить приём пищи':'Новый приём пищи';$('mealSubmit').textContent=meal?'Сохранить':'Добавить';f.hidden=false;
+  }
+  function ensurePhotoDialog(){if(!$('photoDialog').open){previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';$('photoDialog').showModal();}$('photoDialog').scrollTop=0;}
+  function openMealForm(meal=null,stamp=null){
+    clearCapture();captureView('start');prepareMealForm(meal,stamp);$('photoEntryOptions').hidden=true;$('manualDivider').hidden=true;$('photoDemoFooter').hidden=true;
+    $('photoDialogTitle').textContent=meal?'Изменить приём пищи':'Добавить вручную';$('photoDialogCopy').textContent='Данные на съеденную порцию.';ensurePhotoDialog();$('mealForm').elements.namedItem('name').focus({preventScroll:true});
+  }
+  function closeMealForm(){editingId=null;if($('photoDialog').open)$('photoDialog').close();}
+  function guessType(time=nowTime()){const h=Number(time.slice(0,2));return h<11?'Завтрак':h<16?'Обед':h<22?'Ужин':'Перекус';}
+  function addQuick(m){const added={...m,id:uid(),time:nowTime(),type:guessType()};for(const key of ['photo','ingredients','steps','photoStamp','source','captureKind','analysisHint'])delete added[key];(state.days[selected]??=[]).push(added);const key=selected;commit('Приём пищи добавлен',()=>{state.days[key]=state.days[key].filter(x=>x.id!==added.id);commit('Добавление отменено');});return added;}
+  function formNutrition(f){const out={};for(const key of numbers){const raw=f.elements.namedItem(key).value;out[key]=key==='sugar'&&raw===''?null:Number(raw);}return out;}
+  $('mealForm').addEventListener('submit',e=>{
+    e.preventDefault();const f=e.currentTarget,name=f.elements.namedItem('name').value.trim();if(!name){$('mealError').textContent='Укажи название блюда.';$('mealError').hidden=false;return;}
+    const targetDate=f.elements.namedItem('date').value;const entries=state.days[formDate]??=[];const index=entries.findIndex(x=>x.id===editingId);const previous=index>=0?entries[index]:null;const previousName=previous?.name;
+    const record={...previous,id:editingId||uid(),name,type:guessType(f.elements.namedItem('time').value),time:f.elements.namedItem('time').value,...formNutrition(f)};
+    if(index>=0)entries.splice(index,1);(state.days[targetDate]??=[]).push(record);
+    const fav=state.favorites.findIndex(x=>x.name===previousName);if(fav>=0)state.favorites[fav]={...record};
+    closeMealForm();selected=targetDate;weekStart=monday(selected);monthCursor=new Date(asDate(selected).getFullYear(),asDate(selected).getMonth(),1);commit(index<0?'Приём пищи добавлен':'Изменения сохранены');$('addMeal').focus({preventScroll:true});
+  });
+  function validPhotoStamp(date,time){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return false;
+    const parsed=asDate(date);return Number.isFinite(parsed.getTime())&&dateKey(parsed)===date;
+  }
+  function readJpegCaptureTime(buffer){
+    // EXIF/TIFF DateTimeOriginal (0x9003), never modification time (0x0132).
+    try {
+      const v=new DataView(buffer),n=v.byteLength;
+      if(n<4||v.getUint16(0)!==0xffd8)return null;
+      for(let p=2;p+4<n;){
+        if(v.getUint8(p)!==0xff)break;while(p+1<n&&v.getUint8(p+1)===0xff)p++;
+        const marker=v.getUint8(p+1);if(marker===0xda||marker===0xd9)break;
+        const size=v.getUint16(p+2),end=p+2+size;if(size<2||end>n)break;
+        const start=p+4;
+        if(marker===0xe1&&size>16&&v.getUint32(start)===0x45786966&&v.getUint16(start+4)===0){
+          const t=start+6,order=v.getUint16(t),little=order===0x4949;
+          if(order!==0x4949&&order!==0x4d4d)return null;if(v.getUint16(t+2,little)!==42)return null;
+          const find=(offset,tag)=>{const at=t+offset;if(at<t||at+2>end)return null;const count=v.getUint16(at,little);if(at+2+count*12>end)return null;for(let i=0;i<count;i++){const e=at+2+i*12;if(v.getUint16(e,little)===tag)return e;}return null;};
+          const first=v.getUint32(t+4,little),pointer=find(first,0x8769);
+          if(pointer===null)return null;const exif=v.getUint32(pointer+8,little),entry=find(exif,0x9003);
+          if(entry===null||v.getUint16(entry+2,little)!==2)return null;
+          const length=v.getUint32(entry+4,little);if(length<19||length>100)return null;
+          const at=t+v.getUint32(entry+8,little);if(at<t||at+length>end)return null;
+          const text=String.fromCharCode(...new Uint8Array(buffer,at,19));
+          const m=/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):\d{2}$/.exec(text);
+          if(!m)return null;const date=`${m[1]}-${m[2]}-${m[3]}`,time=`${m[4]}:${m[5]}`;
+          return validPhotoStamp(date,time)?{date,time,source:'exif'}:null;
+        }
+        p=end;
+      }
+    }catch{}
+    return null;
+  }
+  function captureView(view){
+    $('captureStart').hidden=view!=='start';$('captureReview').hidden=view!=='review';$('captureResult').hidden=view!=='result';$('photoInputError').hidden=true;
+  }
+  function updatePhotoTime(){
+    if(!captureStamp)return;$('photoDate').value=captureStamp.date;$('photoTime').value=captureStamp.time;
+    $('photoTimeValue').textContent=photoStampText(captureStamp);
+    $('photoTimeLabel').textContent=captureStamp.source==='upload'?'Время добавления':'Снимок сделан';
+    $('photoTimeNote').textContent=captureStamp.source==='exif'?'Дата и время взяты из данных фотографии.':captureStamp.source==='upload'?'Время съёмки не найдено. Указано время загрузки — при необходимости исправь.':captureStamp.source==='demo'?'Дата и время демонстрационного примера.':'Дата и время указаны тобой.';
+  }
+  function clearCapture(){
+    captureRun++;captureAbort?.abort();captureAbort=null;captureFile=null;captureStamp=null;captureResultId=null;
+    if(captureUrl){URL.revokeObjectURL(captureUrl);captureUrl=null;}$('foodPhotoPreview').removeAttribute('src');
+  }
+  function openPhotoDialog(){
+    clearCapture();prepareMealForm();captureView('start');$('photoEntryOptions').hidden=false;$('manualDivider').hidden=false;$('photoDemoFooter').hidden=false;$('mealForm').hidden=true;$('manualToggle').setAttribute('aria-expanded','false');$('aiHint').value='';setCaptureMode('food',false);$('photoDialogTitle').textContent='Добавить приём пищи';$('photoDialogCopy').textContent='По фото, этикетке или вручную.';
+    $('photoTimeDetails').open=false;$('photoTimeDetails').hidden=false;$('foodPhotoPreview').hidden=false;
+    ensurePhotoDialog();$('closePhoto').focus({preventScroll:true});
+  }
+  function setCaptureMode(mode,show=true){captureMode=mode;$('captureModeLabel').textContent=show?(mode==='label'?'Этикетка':'Фото еды'):'';$('portionHint').textContent=mode==='label'?'Укажи съеденную порцию: например, 150 г или полпачки.':'Вес порции поможет точнее оценить КБЖУ.';}
+  function captureMessage(message){$('photoInputError').textContent=message;$('photoInputError').hidden=false;}
+  function showPhotoUnavailable(message){$('photoAnalyzing').hidden=true;$('photoUnavailable').hidden=false;$('photoUnavailableText').textContent=message;for(const id of ['photoDate','photoTime'])$(id).disabled=false;$('replaceFoodPhoto').disabled=false;}
+  async function loadFoodPhoto(file){
+    if(!file)return;
+    if(!file.type.startsWith('image/')){captureMessage('Выбери фотографию блюда.');return;}
+    if(file.size>15*1024*1024){captureMessage('Выбери фото размером до 15 МБ.');return;}
+    clearCapture();const run=captureRun;captureFile=file;captureHint=$('aiHint').value.trim();
+    const captured=readJpegCaptureTime(await file.arrayBuffer());if(run!==captureRun||!$('photoDialog').open)return;
+    captureStamp=captured||{date:dateKey(new Date()),time:nowTime(),source:'upload'};
+    captureUrl=URL.createObjectURL(file);$('foodPhotoPreview').src=captureUrl;$('foodPhotoPreview').hidden=false;
+    $('photoDialogTitle').textContent=captureMode==='label'?'По этикетке':'Еда по фото';$('photoDialogCopy').textContent=captureMode==='label'?'Прочитаем состав и КБЖУ для указанной порции.':'Фото выбрано. Определим блюдо и добавим его в дневник.';
+    $('photoTimeDetails').hidden=false;captureView('review');updatePhotoTime();$('photoUnavailable').hidden=true;$('photoAnalyzing').hidden=true;
+    if(typeof window.trainxAnalyzeMealPhoto!=='function'){
+      showPhotoUnavailable('Распознавание ИИ в этом HTML не подключено. Фото не анализировалось. Можно заполнить запись вручную или посмотреть отдельный демопример.');return;
+    }
+    $('photoAnalyzing').hidden=false;$('photoAnalyzingText').textContent=captureMode==='label'?'Читаем этикетку и КБЖУ':'Определяем состав и БЖУ';
+    for(const id of ['photoDate','photoTime'])$(id).disabled=true;$('replaceFoodPhoto').disabled=true;captureAbort=new AbortController();
+    try {
+      const result=await window.trainxAnalyzeMealPhoto({file,mode:captureMode,hint:captureHint,capturedDate:captureStamp.date,capturedTime:captureStamp.time,timeSource:captureStamp.source,signal:captureAbort.signal});
+      if(run!==captureRun||!$('photoDialog').open)return;finishPhotoAnalysis(result,false);
+    }catch(error){if(run!==captureRun||!$('photoDialog').open)return;showPhotoUnavailable('Не удалось распознать блюдо. Попробуй другое фото или введи данные вручную.');}
+  }
+  function finishPhotoAnalysis(result,isDemo){
+    if(!result||typeof result.name!=='string'||!result.name.trim()||!captureStamp||!validPhotoStamp(captureStamp.date,captureStamp.time))throw new Error('Incomplete recognition result');
+    const nutrition={};for(const key of ['protein','fat','carbs','kcal']){if(result[key]===null||result[key]===undefined||!Number.isFinite(Number(result[key]))||Number(result[key])<0)throw new Error('Invalid nutrition value');nutrition[key]=Number(result[key]);}
+    nutrition.sugar=result.sugar===null||result.sugar===undefined?null:Number(result.sugar);if(nutrition.sugar!==null&&(!Number.isFinite(nutrition.sugar)||nutrition.sugar<0))throw new Error('Invalid sugar');
+    const meal={id:uid(),name:result.name.trim().slice(0,180),type:guessType(captureStamp.time),time:captureStamp.time,...nutrition,photoStamp:{...captureStamp},source:isDemo?'demo-photo':'ai-photo',captureKind:captureMode,analysisHint:isDemo?undefined:captureHint||undefined};
+    const key=captureStamp.date;(state.days[key]??=[]).push(meal);selected=key;weekStart=monday(key);monthCursor=new Date(asDate(key).getFullYear(),asDate(key).getMonth(),1);openedMeal=meal.id;captureResultId=meal.id;
+    const saved=persist();render();captureView('result');$('photoDialogTitle').textContent='Готово';$('photoDialogCopy').textContent='Блюдо уже в дневнике. Калории и БЖУ пересчитаны.';
+    $('captureResult').innerHTML=`<div class="result-status"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Добавлено в дневник${isDemo?'<span class="subtle-tag">Демопример</span>':''}</div><div class="result-food"><div class="result-food-heading">${captureUrl&&!isDemo&&!$('foodPhotoPreview').hidden?`<img class="result-thumb" src="${escapeHTML(captureUrl)}" alt="Фото добавленного блюда">`:""}<div><h3>${escapeHTML(meal.name)}</h3><p class="result-time">${icon(captureMode==='label'?'scan':'camera')}${captureStamp.source==='upload'?'Добавлено':captureMode==='label'?'Этикетка':'Фото'} ${escapeHTML(photoStampText(captureStamp))}</p></div></div><div class="result-kcal">${num(meal.kcal)} <small>ккал</small></div><div class="result-macros"><div><span>Белки</span><b>${num(meal.protein)} г</b></div><div><span>Жиры</span><b>${num(meal.fat)} г</b></div><div><span>Углеводы</span><b>${num(meal.carbs)} г</b></div></div></div><p class="result-footnote">${!saved?'Изменения доступны до закрытия страницы: браузер не смог их сохранить.':isDemo?'Это пример ответа, а не распознавание загруженного фото.':captureMode==='label'?'Проверь размер порции. Данные можно поправить.':'КБЖУ по фото — оценка. Данные можно поправить.'}</p><div class="result-buttons"><button class="primary" type="button" data-photo-result-action="view">Посмотреть в дневнике</button><button class="secondary" type="button" data-photo-result-action="edit">Исправить</button></div>`;
+    $('photoDialog').scrollTop=0;
+  }
+  function showPhotoDemo(){
+    clearCapture();captureStamp={date:selected,time:'13:10',source:'demo'};captureView('review');$('foodPhotoPreview').hidden=true;$('photoTimeDetails').hidden=true;const demoMeal=captureMode==='label'?presets[2]:presets[1];
+    $('photoDialogTitle').textContent='Демопример';$('photoDialogCopy').textContent=captureMode==='label'?'Пример ответа по этикетке протеинового коктейля. Загруженное фото не используется.':'Пример ответа для блюда «Курица с рисом». Загруженное фото не используется.';
+    $('photoUnavailable').hidden=true;$('photoAnalyzing').hidden=false;$('photoAnalyzingText').textContent='Демонстрация ответа ИИ';$('replaceFoodPhoto').disabled=true;updatePhotoTime();const run=captureRun;
+    setTimeout(()=>{if(run===captureRun&&$('photoDialog').open)finishPhotoAnalysis(demoMeal,true);},750);
+  }
+  $('closePhoto').addEventListener('click',()=>$('photoDialog').close());
+  $('manualToggle').addEventListener('click',()=>{const open=$('mealForm').hidden;$('mealForm').hidden=!open;$('manualToggle').setAttribute('aria-expanded',String(open));if(open)requestAnimationFrame(()=>$('mealForm').scrollIntoView({block:'nearest',behavior:'smooth'}));});
+  $('photoDialog').addEventListener('close',()=>{document.body.style.overflow=previousOverflow;clearCapture();});
+  $('photoDialog').addEventListener('click',e=>{if(e.target===$('photoDialog')){const r=$('photoDialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('photoDialog').close();}});
+  $('takeFoodPhoto').addEventListener('click',()=>{setCaptureMode('food');$('foodGalleryFile').click();});$('scanFoodLabel').addEventListener('click',()=>{setCaptureMode('label');$('foodGalleryFile').click();});
+  for(const id of ['foodCameraFile','foodGalleryFile'])$(id).addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';loadFoodPhoto(file).catch(()=>captureMessage('Не удалось открыть фото. Попробуй другой файл.'));});
+  $('foodPhotoPreview').addEventListener('error',()=>{if(captureUrl){$('foodPhotoPreview').hidden=true;captureMessage('Браузер не может показать этот формат. Для предпросмотра выбери JPEG или PNG.');}});
+  for(const id of ['photoDate','photoTime'])$(id).addEventListener('change',()=>{const date=$('photoDate').value,time=$('photoTime').value;if(validPhotoStamp(date,time)){captureStamp={date,time,source:'manual'};updatePhotoTime();}});
+  $('manualFromPhoto').addEventListener('click',()=>{const stamp=captureStamp?{...captureStamp}:null;openMealForm(null,stamp);});
+  $('replaceFoodPhoto').addEventListener('click',openPhotoDialog);
+  $('showPhotoDemo').addEventListener('click',showPhotoDemo);$('demoFromPhoto').addEventListener('click',showPhotoDemo);
+  $('captureResult').addEventListener('click',e=>{const b=e.target.closest('[data-photo-result-action]');if(!b)return;const id=captureResultId,meal=meals().find(m=>m.id===id);if(!meal)return;if(b.dataset.photoResultAction==='edit')openMealForm(meal);else{$('photoDialog').close();requestAnimationFrame(()=>document.querySelector(`[data-meal-card="${CSS.escape(id)}"]`)?.scrollIntoView({block:'center',behavior:'smooth'}));}});
+  $('addMeal').addEventListener('click',openPhotoDialog);
+  // The live application connects this shared header switch to its existing router.
+  $('trainingTab').addEventListener('click',()=>{if(typeof window.trainxNavigateSection==='function')window.trainxNavigateSection('training');else notify('Тренировки открываются в приложении TrainX.');});
+  $('nutritionTab').addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+  $('calendarToggle').addEventListener('click',()=>{setPanel('monthPanel','calendarToggle',$('monthPanel').hidden);$('calendarToggle').setAttribute('aria-label',$('monthPanel').hidden?'Открыть календарь':'Скрыть календарь');});
+  $('todayButton').addEventListener('click',()=>selectDate(today));
+  $('goalsToggle').addEventListener('click',()=>{const open=$('goalEditor').hidden;for(const key of ['protein','fat','carbs','kcal'])$('goalEditor').elements.namedItem(key).value=state.goals[key];setPanel('goalEditor','goalsToggle',open);});
+  $('goalEditor').addEventListener('submit',e=>{e.preventDefault();for(const key of ['protein','fat','carbs','kcal'])state.goals[key]=Number(e.currentTarget.elements.namedItem(key).value);setPanel('goalEditor','goalsToggle',false);commit('Цели сохранены');});
+  function scheduleLabels(count){return count===3?['Завтрак','Обед','Ужин']:count===4?['Завтрак','Обед','Перекус','Ужин']:['Завтрак','Перекус','Обед','Полдник','Ужин'];}
+  function scheduleFields(saved){const count=Number($('scheduleCount').value),defaults=count===3?['08:30','13:10','19:00']:count===4?['08:30','13:10','16:40','19:00']:['08:30','11:00','13:10','16:40','19:00'];$('scheduleFields').innerHTML=scheduleLabels(count).map((label,i)=>`<label class="field"><span>${label}</span><input type="time" name="schedule-${i}" value="${escapeHTML(saved?.[i]?.time||defaults[i])}" required></label>`).join('');}
+  $('scheduleCount').addEventListener('change',()=>scheduleFields());
+  $('surveyToggle').addEventListener('click',()=>{const open=$('preferencesForm').hidden;if(open){$('scheduleCount').value=state.preferences?.times.length||4;$('preferencesForm').elements.namedItem('preferences').value=state.preferences?.text||'';scheduleFields(state.preferences?.times);}setPanel('preferencesForm','surveyToggle',open);});
+  $('preferencesForm').addEventListener('submit',e=>{e.preventDefault();const count=Number($('scheduleCount').value);state.preferences={text:e.currentTarget.elements.namedItem('preferences').value.trim(),times:scheduleLabels(count).map((label,i)=>({label,time:e.currentTarget.elements.namedItem(`schedule-${i}`).value}))};setPanel('preferencesForm','surveyToggle',false);commit('Предпочтения сохранены');});
+  function openRecipe(photo=null){const f=$('recipeForm');f.reset();photoData=photo;$('recipePhoto').hidden=!photo;if(photo)$('recipeImage').src=photo;else $('recipeImage').removeAttribute('src');f.hidden=false;reveal(f);}
+  $('newRecipe').addEventListener('click',()=>openRecipe());
+  $('scanRecipe').addEventListener('click',()=>$('recipeFile').click());
+  $('recipeFile').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(!file.type.startsWith('image/')){notify('Выбери изображение рецепта.');return;}if(file.size>3*1024*1024){notify('Для макета выбери фото до 3 МБ.');e.target.value='';return;}const reader=new FileReader();reader.onload=()=>openRecipe(reader.result);reader.onerror=()=>notify('Фото не удалось открыть. Попробуй другое.');reader.readAsDataURL(file);e.target.value='';});
+  $('recipeForm').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget;const name=f.elements.namedItem('name').value.trim(),ingredients=f.elements.namedItem('ingredients').value.trim(),steps=f.elements.namedItem('steps').value.trim();if(!name||!ingredients||!steps){notify('Заполни название, ингредиенты и приготовление.');return;}state.recipes.push({id:uid(),name,ingredients,steps,servings:Number(f.elements.namedItem('servings').value),photo:photoData,...formNutrition(f)});f.hidden=true;photoData=null;commit('Рецепт сохранён');});
+  $('toastUndo').addEventListener('click',()=>{if(undoAction){const action=undoAction;undoAction=null;action();}});
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.date){selectDate(b.dataset.date);return;}
+    if(b.dataset.week){weekStart=plusDays(weekStart,Number(b.dataset.week)*7);renderDates();return;}
+    if(b.dataset.month){monthCursor=new Date(monthCursor.getFullYear(),monthCursor.getMonth()+Number(b.dataset.month),1);renderMonth();return;}
+    if(b.dataset.quickTab){quickTab=b.dataset.quickTab;renderQuick();return;}
+    if(b.dataset.quick!==undefined){addQuick(quickItems()[Number(b.dataset.quick)]);return;}
+    if(b.dataset.dialogQuick!==undefined){const m=dialogQuickItems()[Number(b.dataset.dialogQuick)];$('photoDialog').close();const added=addQuick(m);requestAnimationFrame(()=>document.querySelector(`[data-meal-card="${CSS.escape(added.id)}"]`)?.scrollIntoView({block:'center',behavior:'smooth'}));return;}
+    if(b.dataset.mealToggle){openedMeal=openedMeal===b.dataset.mealToggle?null:b.dataset.mealToggle;renderMeals();if(openedMeal)requestAnimationFrame(()=>{const card=document.querySelector(`[data-meal-card="${CSS.escape(openedMeal)}"]`);if(!card)return;const safeBottom=document.querySelector('.tabbar').getBoundingClientRect().top-12;const extra=card.getBoundingClientRect().bottom-safeBottom;if(extra>0)window.scrollBy({top:extra,behavior:'instant'});});return;}
+    if(b.dataset.favorite){const m=meals().find(x=>x.id===b.dataset.favorite);if(!m)return;const index=state.favorites.findIndex(f=>f.name===m.name);if(index>=0)state.favorites.splice(index,1);else state.favorites.push({...m});commit(index>=0?'Убрано из избранного':'Добавлено в избранное');return;}
+    if(b.dataset.edit){openMealForm(meals().find(x=>x.id===b.dataset.edit));return;}
+    if(b.dataset.delete){const key=selected,index=meals().findIndex(m=>m.id===b.dataset.delete);if(index<0)return;const [removed]=state.days[key].splice(index,1);commit('Приём пищи удалён',()=>{state.days[key].splice(index,0,removed);commit('Приём пищи восстановлен');});return;}
+    if(b.dataset.recipeToggle){const el=$(`recipe-${b.dataset.recipeToggle}`);el.hidden=!el.hidden;b.setAttribute('aria-expanded',String(!el.hidden));return;}
+    if(b.dataset.useRecipe){const r=state.recipes.find(x=>x.id===b.dataset.useRecipe);if(r)addQuick(r);return;}
+    if(b.dataset.nav){const key=b.dataset.nav;if(key==='home')window.scrollTo({top:0,behavior:'smooth'});else notify(key==='planner'?'Планер открывается в приложении TrainX.':key==='ai'?'ИИ-помощник доступен в приложении TrainX.':'Анализы открываются в приложении TrainX.');return;}
+    switch(b.dataset.action){case'cancel-goals':setPanel('goalEditor','goalsToggle',false);break;case'cancel-meal':closeMealForm();$('addMeal').focus({preventScroll:true});break;case'empty-add':openPhotoDialog();break;case'cancel-survey':setPanel('preferencesForm','surveyToggle',false);break;case'cancel-recipe':$('recipeForm').hidden=true;photoData=null;break;case'profile':notify('Профиль открывается в приложении TrainX.');break;}
+  });
+  if(completedDemoUpdated)persist();
+  render();requestAnimationFrame(renderBalance);
+})();
+</script>
+</body>
+</html>
