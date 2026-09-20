@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Clock, Bell, Check, Lightbulb, ListTodo, CalendarDays, Archive, RotateCcw, Repeat } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, Trash2, Save, Bell, Check, Lightbulb, ListTodo, CalendarDays, Archive, RotateCcw, Repeat } from 'lucide-react';
+import PlannerChat from './PlannerChat';
 
 // ── Types ──
 export interface PlannerEvent {
@@ -93,9 +94,11 @@ interface PlannerViewProps {
   onHabitsChange: (habits: Habit[]) => void;
   todayStr: string;
   lang: 'ru' | 'en';
+  /** Часовой пояс пользователя — ИИ считает по нему «завтра» и «в среду». */
+  timezone: string;
 }
 
-export default function PlannerView({ events, onEventsChange, habits, onHabitsChange, todayStr, lang }: PlannerViewProps) {
+export default function PlannerView({ events, onEventsChange, habits, onHabitsChange, todayStr, lang, timezone }: PlannerViewProps) {
   const [tab, setTab] = useState<PlannerTab>('calendar');
   const [viewMonth, setViewMonth] = useState(() => {
     if (!todayStr) return new Date();
@@ -107,6 +110,13 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
   const [editingEvent, setEditingEvent] = useState<PlannerEvent | null>(null);
   const [addType, setAddType] = useState<'event' | 'todo' | 'idea'>('event');
   const [quickAddText, setQuickAddText] = useState('');
+  // Вид внутри календаря по эталону: день, месяц или ИИ-чат.
+  const [calMode, setCalMode] = useState<'day' | 'month' | 'ai'>('day');
+  const [dayFilter, setDayFilter] = useState<'all' | 'fitness' | 'health' | 'personal'>('all');
+  const [showDone, setShowDone] = useState(false);
+  // Чат создаём при первом открытии и дальше не размонтируем — иначе
+  // черновики и переписка терялись бы при переходе на «День».
+  const [aiEverOpened, setAiEverOpened] = useState(false);
 
   const isRu = lang === 'ru';
   const monthNames = isRu ? MONTH_NAMES_RU : MONTH_NAMES_EN;
@@ -160,13 +170,28 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
   }, [calendarEvents]);
 
   const todayEvents = useMemo(() => (eventsByDate[todayStr] || []).filter(e => !e.done), [eventsByDate, todayStr]);
-  const tomorrowStr = useMemo(() => {
-    if (!todayStr) return '';
-    const [y, m, d] = todayStr.split('-').map(Number);
-    return formatDate(new Date(y, m - 1, d + 1));
-  }, [todayStr]);
-  const tomorrowEvents = useMemo(() => eventsByDate[tomorrowStr] || [], [eventsByDate, tomorrowStr]);
   const selectedEvents = useMemo(() => eventsByDate[selectedDay] || [], [eventsByDate, selectedDay]);
+
+  // Заголовок дня: «Сегодня, 21 сентября» либо дата, снизу — день недели.
+  const dayHeadingText = useMemo(() => {
+    if (!selectedDay) return '';
+    const d = new Date(`${selectedDay}T12:00:00`);
+    const text = d.toLocaleDateString(isRu ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'long' });
+    if (selectedDay === todayStr) return isRu ? `Сегодня, ${text}` : `Today, ${text}`;
+    return text;
+  }, [selectedDay, todayStr, isRu]);
+  const daySubtitleText = useMemo(() => {
+    if (!selectedDay) return '';
+    const w = new Date(`${selectedDay}T12:00:00`).toLocaleDateString(isRu ? 'ru-RU' : 'en-US', { weekday: 'long' });
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }, [selectedDay, isRu]);
+  // Тренировки открытого месяца — список под календарём в режиме «Месяц».
+  const monthWorkouts = useMemo(() => {
+    const prefix = `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, '0')}`;
+    return calendarEvents
+      .filter(e => e.category === 'fitness' && e.date.startsWith(prefix))
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+  }, [calendarEvents, viewMonth]);
 
   const prevMonth = () => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1));
   const nextMonth = () => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1));
@@ -175,6 +200,7 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
     const [y, m] = todayStr.split('-').map(Number);
     setViewMonth(new Date(y, m - 1, 1));
     setSelectedDay(todayStr);
+    setCalMode('day');
   };
 
   const addEvent = (ev: PlannerEvent) => {
@@ -279,133 +305,192 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
 
       {/* ══════════ CALENDAR TAB ══════════ */}
       {tab === 'calendar' && (
-        <>
-          {/* Notification Bar */}
-          {(todayEvents.length > 0 || tomorrowEvents.length > 0) && (
-            <div style={{ marginBottom: '16px' }}>
-              {todayEvents.length > 0 && (
-                <div style={{ background: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.2)', borderRadius: '12px', padding: '12px 16px', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Bell size={14} style={{ color: 'var(--yellow)' }} />
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      {isRu ? 'Сегодня' : 'Today'}
-                    </span>
-                  </div>
-                  {todayEvents.map(ev => {
-                    const cat = getCategoryInfo(ev.category);
-                    return (
-                      <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', fontSize: '13px' }}>
-                        <span>{cat.emoji}</span>
-                        {ev.time && <span style={{ color: 'var(--text-muted)', fontWeight: 600, minWidth: '42px' }}>{ev.time}</span>}
-                        <span style={{ flex: 1 }}>{ev.title}</span>
-                        <button onClick={() => toggleDone(ev.id)} style={{ background: 'none', border: 'none', color: 'var(--green)', padding: '4px' }}>
-                          <Check size={16} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {tomorrowEvents.length > 0 && (
-                <div style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: '12px', padding: '12px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Clock size={14} style={{ color: '#3b82f6' }} />
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      {isRu ? 'Завтра' : 'Tomorrow'}
-                    </span>
-                  </div>
-                  {tomorrowEvents.map(ev => {
-                    const cat = getCategoryInfo(ev.category);
-                    return (
-                      <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
-                        <span>{cat.emoji}</span>
-                        {ev.time && <span style={{ fontWeight: 600, minWidth: '42px' }}>{ev.time}</span>}
-                        <span>{ev.title}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Calendar Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <button onClick={prevMonth} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '8px' }}><ChevronLeft size={20} /></button>
-            <div style={{ textAlign: 'center' }}>
-              <span style={{ fontSize: '18px', fontWeight: 700 }}>{monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}</span>
-              {selectedDay !== todayStr && (
-                <button onClick={goToToday} style={{ display: 'block', margin: '4px auto 0', background: 'none', border: 'none', color: 'var(--yellow)', fontSize: '11px', fontWeight: 600 }}>
-                  {isRu ? '← Сегодня' : '← Today'}
-                </button>
-              )}
-            </div>
-            <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', padding: '8px' }}><ChevronRight size={20} /></button>
-          </div>
-
-          {/* Day Names */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
-            {dayNames.map(d => (
-              <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, padding: '4px' }}>{d}</div>
+        <div className="plv2">
+          {/* Вид календаря: День / Месяц / ИИ-чат — по эталону */}
+          <div className="seg" aria-label="Вид календаря">
+            {([
+              ['day', isRu ? 'День' : 'Day'],
+              ['month', isRu ? 'Месяц' : 'Month'],
+              ['ai', isRu ? 'ИИ-чат' : 'AI chat'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={calMode === key}
+                onClick={() => { setCalMode(key); if (key === 'ai') setAiEverOpened(true); }}
+              >
+                {label}
+              </button>
             ))}
           </div>
 
-          {/* Calendar Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '20px' }}>
-            {calendarDays.map((day, i) => {
-              const dayEvents = eventsByDate[day.date] || [];
-              const isToday = day.date === todayStr;
-              const isSelected = day.date === selectedDay;
-              const isPast = day.date < todayStr;
-              return (
-                <button key={i} onClick={() => setSelectedDay(day.date)} style={{
-                  background: isSelected ? 'var(--yellow)' : isToday ? 'rgba(234, 179, 8, 0.1)' : 'transparent',
-                  border: isToday && !isSelected ? '1px solid rgba(234, 179, 8, 0.3)' : '1px solid transparent',
-                  borderRadius: '10px', padding: '6px 2px', minHeight: '48px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-                  opacity: day.isCurrentMonth ? 1 : 0.3,
-                  color: isSelected ? '#000' : isPast && !isToday ? 'var(--text-muted)' : 'var(--text-primary)',
-                  fontWeight: isToday ? 700 : 400, fontSize: '13px', cursor: 'pointer'
-                }}>
-                  <span>{day.day}</span>
-                  {dayEvents.length > 0 && (
-                    <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                      {dayEvents.slice(0, 3).map((ev, j) => (
-                        <span key={j} style={{ width: '5px', height: '5px', borderRadius: '50%', background: ev.done ? 'var(--green)' : getCategoryInfo(ev.category).color, opacity: ev.done ? 0.5 : 1 }} />
-                      ))}
+          {/* Месячный календарь виден сразу в режимах «День» и «Месяц» */}
+          {calMode !== 'ai' && (
+            <section>
+              <div className="date-tools">
+                <h2>{monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}</h2>
+                <div className="arrows">
+                  <button className="icon-btn" type="button" onClick={prevMonth} aria-label={isRu ? 'Предыдущий месяц' : 'Previous month'}>
+                    <ChevronLeft size={17} />
+                  </button>
+                  <button className="icon-btn" type="button" onClick={nextMonth} aria-label={isRu ? 'Следующий месяц' : 'Next month'}>
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
+              </div>
+              <div className="month-card">
+                <div className="week-labels">
+                  {dayNames.map(d => <span key={d}>{d.toUpperCase()}</span>)}
+                </div>
+                <div className="month-grid">
+                  {calendarDays.map((day, i) => {
+                    const dayEvents = eventsByDate[day.date] || [];
+                    const allDone = dayEvents.length > 0 && dayEvents.every(e => e.done);
+                    const hasWorkout = dayEvents.some(e => !e.done && e.category === 'fitness');
+                    const hasOther = dayEvents.some(e => !e.done && e.category !== 'fitness');
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        className={['month-day', day.isCurrentMonth ? '' : 'outside', day.date === todayStr ? 'today' : ''].filter(Boolean).join(' ')}
+                        aria-pressed={day.date === selectedDay}
+                        aria-label={`${day.day}, ${isRu ? 'дел' : 'events'}: ${dayEvents.length}`}
+                        onClick={() => { setSelectedDay(day.date); setCalMode('day'); }}
+                      >
+                        {day.day}
+                        <span className="dots">
+                          {allDone ? <i className="dot done" /> : (<>
+                            {hasWorkout && <i className="dot workout" />}
+                            {hasOther && <i className="dot" />}
+                          </>)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="month-legend">
+                  <span><i className="dot workout" />{isRu ? 'Тренировка' : 'Workout'}</span>
+                  <span><i className="dot" />{isRu ? 'Дела' : 'Tasks'}</span>
+                  <span><i className="dot done" />{isRu ? 'Выполнено' : 'Done'}</span>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* День: фильтры, дела выбранного дня, выполненные */}
+          {calMode === 'day' && (() => {
+            const list = selectedEvents.filter(e => dayFilter === 'all' || e.category === dayFilter);
+            const pending = list.filter(e => !e.done);
+            const done = list.filter(e => e.done);
+            return (
+              <section style={{ marginTop: 18 }}>
+                <div className="filters" aria-label={isRu ? 'Фильтр дел' : 'Filter'}>
+                  {([
+                    ['all', isRu ? 'Все дела' : 'All'],
+                    ['fitness', isRu ? 'Тренировки' : 'Workouts'],
+                    ['health', isRu ? 'Здоровье' : 'Health'],
+                    ['personal', isRu ? 'Личное' : 'Personal'],
+                  ] as const).map(([key, label]) => (
+                    <button key={key} type="button" aria-pressed={dayFilter === key} onClick={() => setDayFilter(key)}>{label}</button>
+                  ))}
+                </div>
+                <div className="day-heading">
+                  <div>
+                    <h2>{dayHeadingText}</h2>
+                    <p>{daySubtitleText}</p>
+                  </div>
+                  {selectedDay !== todayStr && (
+                    <button className="quiet" type="button" onClick={goToToday}>{isRu ? 'К сегодня' : 'Today'}</button>
+                  )}
+                </div>
+                <div className="agenda">
+                  {pending.length ? pending.map(ev => (
+                    <TaskRow
+                      key={ev.id}
+                      ev={ev}
+                      isRu={isRu}
+                      onToggle={toggleDone}
+                      onEdit={e => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }}
+                    />
+                  )) : (
+                    <div className="empty">
+                      <h3>{done.length ? (isRu ? 'Всё на этот день выполнено' : 'All done') : (isRu ? 'Пока свободно' : 'Nothing planned')}</h3>
+                      <p>{dayFilter === 'all'
+                        ? (isRu ? 'Можно оставить время для себя или добавить дело.' : 'Keep the time free or add something.')
+                        : (isRu ? 'В этой категории больше нет запланированных дел.' : 'Nothing left in this category.')}</p>
+                      <button className="quiet" type="button" onClick={() => openAddModal('event')}>{isRu ? 'Добавить дело' : 'Add task'}</button>
                     </div>
                   )}
-                </button>
-              );
-            })}
-          </div>
+                </div>
+                {done.length > 0 && (
+                  <>
+                    <button
+                      className="done-toggle"
+                      type="button"
+                      aria-expanded={showDone}
+                      onClick={() => setShowDone(v => !v)}
+                    >
+                      <ChevronRight size={12} />
+                      {isRu ? 'Выполнено' : 'Done'} <b>{done.length}</b>
+                    </button>
+                    {showDone && (
+                      <div className="agenda completed">
+                        {done.map(ev => (
+                          <TaskRow
+                            key={ev.id}
+                            ev={ev}
+                            isRu={isRu}
+                            onToggle={toggleDone}
+                            onEdit={e => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+            );
+          })()}
 
-          {/* Selected Day Events */}
-          <div style={{ background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontSize: '15px', fontWeight: 700 }}>
-                {selectedDay === todayStr ? (isRu ? 'Сегодня' : 'Today') :
-                  selectedDay === tomorrowStr ? (isRu ? 'Завтра' : 'Tomorrow') :
-                    (() => { const [y, m, d] = selectedDay.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(isRu ? 'ru-RU' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' }); })()}
-              </span>
-              <button onClick={() => openAddModal('event')} style={{
-                background: 'var(--yellow)', border: 'none', borderRadius: '10px', padding: '8px 14px',
-                color: '#000', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                <Plus size={14} /> {isRu ? 'Добавить' : 'Add'}
-              </button>
+          {/* Месяц: тренировки этого месяца списком */}
+          {calMode === 'month' && (
+            <section className="week-plan">
+              <h2>{isRu ? 'Тренировки в этом месяце' : 'Workouts this month'}</h2>
+              {monthWorkouts.length ? monthWorkouts.map(t => (
+                <button
+                  key={t.id}
+                  className="upcoming-row"
+                  type="button"
+                  onClick={() => { setSelectedDay(t.date); setCalMode('day'); }}
+                >
+                  <span className="upcoming-date">
+                    {new Date(`${t.date}T12:00:00`).toLocaleDateString(isRu ? 'ru-RU' : 'en-US', { weekday: 'short' })}
+                    <b>{new Date(`${t.date}T12:00:00`).getDate()}</b>
+                  </span>
+                  <span className="upcoming-title">{t.title}</span>
+                  <span>{t.done ? (isRu ? 'Выполнено' : 'Done') : (t.time || (isRu ? 'Без времени' : 'No time'))}</span>
+                </button>
+              )) : <p className="month-copy">{isRu ? 'Тренировок пока нет' : 'No workouts yet'}</p>}
+            </section>
+          )}
+
+          {/* ИИ-чат: черновики из настоящего ИИ */}
+          {/* Чат держим смонтированным и прячем стилем: при уходе на «День»
+              размонтирование стирало бы подготовленные черновики и переписку,
+              а пользователь как раз уходит проверить занятый день. */}
+          {aiEverOpened && (
+            <div hidden={calMode !== 'ai'}>
+              <PlannerChat
+                events={events}
+                selectedDate={selectedDay}
+                todayStr={todayStr}
+                timezone={timezone}
+                onAdd={fresh => onEventsChange([...events, ...fresh])}
+                onOpenDate={date => { setSelectedDay(date); setCalMode('day'); }}
+              />
             </div>
-            {selectedEvents.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                {isRu ? 'Нет дел на этот день' : 'No events for this day'}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {selectedEvents.map(ev => <EventCard key={ev.id} ev={ev} isRu={isRu} onToggle={toggleDone} onEdit={(e) => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }} onDelete={archiveEvent} />)}
-              </div>
-            )}
-          </div>
-        </>
+          )}
+        </div>
       )}
 
       {/* ══════════ TO-DO TAB ══════════ */}
@@ -638,6 +723,50 @@ export default function PlannerView({ events, onEventsChange, habits, onHabitsCh
 }
 
 // ── Event Card Component ──
+/**
+ * Строка дела по эталону: слева время и длительность, справа компактная
+ * карточка (мин. 56px) и область отметки 44x44. Длинный текст переносится
+ * и увеличивает высоту — фиксированной высоты у карточки нет.
+ */
+function TaskRow({ ev, isRu, onToggle, onEdit }: {
+  ev: PlannerEvent;
+  isRu: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (ev: PlannerEvent) => void;
+}) {
+  const cat = getCategoryInfo(ev.category);
+  return (
+    <div className="task-row">
+      <div className="task-time">
+        {ev.time || (isRu ? 'Любое' : 'Any')}
+      </div>
+      <div className="task-card">
+        <button
+          className="task-body"
+          type="button"
+          onClick={() => onEdit(ev)}
+          aria-label={`${ev.title}. ${isRu ? 'Открыть и изменить' : 'Open and edit'}`}
+        >
+          <h3>{ev.title}</h3>
+          <span className={`task-meta ${ev.category === 'fitness' ? 'category-workout' : ''}`}>
+            {isRu ? cat.label : cat.labelEn}
+            {ev.description ? (isRu ? ' · Есть заметка' : ' · Has note') : ''}
+          </span>
+        </button>
+        <button
+          className="task-check"
+          type="button"
+          aria-pressed={Boolean(ev.done)}
+          aria-label={`${ev.done ? (isRu ? 'Снять отметку' : 'Undo') : (isRu ? 'Выполнено' : 'Done')}: ${ev.title}`}
+          onClick={() => onToggle(ev.id)}
+        >
+          <span>{ev.done ? <Check size={14} /> : null}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EventCard({ ev, isRu, onToggle, onEdit, onDelete, onMoveToCalendar, showPriority }: {
   ev: PlannerEvent; isRu: boolean;
   onToggle: (id: string) => void;

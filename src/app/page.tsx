@@ -5844,6 +5844,7 @@ export default function FitnessPage() {
               onHabitsChange={(h) => { userMadeChangeRef.current = true; setHabits(h); }}
               todayStr={todayStr}
               lang={userSettings.language === 'ru' ? 'ru' : 'en'}
+              timezone={userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
             />
           </div>
         )}
