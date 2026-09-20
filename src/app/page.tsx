@@ -2143,6 +2143,26 @@ export default function FitnessPage() {
     peekTimerRef.current = setTimeout(() => { setPeekMealId(null); setPeekWrapId(null); }, 2600);
   };
   // Лента дат тренировок: при заходе в раздел прокручиваем к выбранному дню (сегодня)
+  // Ровный ряд кнопок T1..T7: ширину колонки считаем целыми пикселями.
+  // Через grid/flex с 1fr браузер раздаёт доли (39.70 / 39.71 / 39.72),
+  // и квадратики выглядят разной ширины. Остаток уходит в последний зазор.
+  const wselRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = wselRef.current;
+    if (!el) return;
+    const fit = () => {
+      const n = el.children.length;
+      if (!n) return;
+      const gap = 5;
+      const w = Math.floor((el.clientWidth - gap * (n - 1)) / n);
+      if (w > 0) el.style.setProperty('--tx-wcol', w + 'px');
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
   const workoutStripRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (view !== 'workout' || !todayStr) return;
@@ -4588,8 +4608,8 @@ export default function FitnessPage() {
               </div>
               <div className="tx-wsel">
                 <div
+                  ref={wselRef}
                   className="tx-wsel-grid"
-                  style={{ gridTemplateColumns: `repeat(${Math.min(workouts.length + (workouts.length < MAX_WORKOUTS ? 1 : 0), 8)}, 1fr)` }}
                 >
                   {workouts.map(w => {
                     const isEmpty = w.exercises.length === 0;

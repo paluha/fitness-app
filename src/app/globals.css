@@ -1042,3 +1042,9 @@ button:disabled {
 .tx-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .tx-photo svg { width: 20px; height: 20px; }
 .tx-ex:not(.is-open) .tx-photo { display: none; }
+
+/* Кнопки тренировок: ряд одинаковых квадратов. Ширину колонки задаёт
+   JS целым числом пикселей (--tx-wcol) — grid/flex с долями 1fr делил
+   остаток на 39.70/39.71/39.72, и квадратики выглядели неровными. */
+.tx-wsel-grid { display: flex; gap: 5px; }
+.tx-wsel-grid > * { flex: 0 0 auto; width: var(--tx-wcol, 40px); min-width: 0; }
