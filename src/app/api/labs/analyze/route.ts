@@ -143,13 +143,15 @@ export async function POST(request: Request) {
 
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: 'claude-sonnet-5',
+      // Разложить готовый текст бланка по схеме — простая задача, и
+      // генерация 40+ записей JSON упиралась в лимит платформы на более
+      // тяжёлой модели. Скан без текстового слоя всё ещё требует зрения,
+      // поэтому модель одна на оба пути.
+      model: 'claude-haiku-4-5',
       // Полная панель — это 40+ показателей: при 2000 токенов ответ
       // обрывался на середине JSON и разбор падал.
       max_tokens: 8000,
-      // Это извлечение текста по схеме, а не рассуждение: низкий effort
-      // заметно быстрее, а платформа рвёт функцию на 30 секундах.
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: LAB_SCHEMA } },
+      output_config: { format: { type: 'json_schema', schema: LAB_SCHEMA } },
       system: [{ type: 'text', text: LAB_SYSTEM, cache_control: { type: 'ephemeral' } }],
       messages: [
         {
