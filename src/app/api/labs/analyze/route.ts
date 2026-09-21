@@ -7,7 +7,9 @@ import Anthropic from '@anthropic-ai/sdk';
 // Анализ фото/скана результата анализа крови. Извлекаем показатели через
 // Claude vision и возвращаем структурированный JSON, который юзер подтверждает
 // перед сохранением. Паттерн как у /api/food/analyze.
-export const maxDuration = 40;
+// Платформа рвёт функцию на 30 секундах — держим то же значение,
+// чтобы не обещать больше, чем есть.
+export const maxDuration = 30;
 
 const LAB_SYSTEM = `You read laboratory blood/lab test result documents (photos, scans,
 or PDF pages rendered as images) and extract the measured markers.
@@ -122,10 +124,14 @@ export async function POST(request: Request) {
 
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
+      model: 'claude-sonnet-5',
+      // Полная панель — это 40+ показателей: при 2000 токенов ответ
+      // обрывался на середине JSON и разбор падал.
+      max_tokens: 8000,
+      // Это извлечение текста по схеме, а не рассуждение: низкий effort
+      // заметно быстрее, а платформа рвёт функцию на 30 секундах.
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: LAB_SCHEMA } },
       system: [{ type: 'text', text: LAB_SYSTEM, cache_control: { type: 'ephemeral' } }],
-      output_config: { format: { type: 'json_schema', schema: LAB_SCHEMA } },
       messages: [
         {
           role: 'user',
@@ -142,6 +148,13 @@ export async function POST(request: Request) {
     if (response.stop_reason === 'refusal') {
       await trackError({ route: '/api/labs/analyze', method: 'POST', error: 'Model refused image', userId: session.user.id });
       return NextResponse.json({ error: 'The image could not be analyzed.' }, { status: 422 });
+    }
+
+    if (response.stop_reason === 'max_tokens') {
+      return NextResponse.json(
+        { error: 'В бланке слишком много показателей для одного разбора. Загрузи страницы по отдельности.' },
+        { status: 422 }
+      );
     }
 
     const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');

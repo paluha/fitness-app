@@ -34,6 +34,14 @@ function markerKey(m: Marker) {
 /** Единицы сравниваем нестрого: «ммоль/л» и «ММОЛЬ/Л» — одно и то же. */
 const unitKey = (u: string) => u.trim().toLocaleLowerCase('ru').replace(/\s+/g, '');
 
+/**
+ * Платформа обрывает запрос тяжелее 4.5 МБ ещё до нашего кода: приходит
+ * HTML c 413, функция не выполняет ни строки. Держим запас: data-URL
+ * (base64) весит примерно на треть больше самого файла.
+ */
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_PDF_BYTES = 3 * 1024 * 1024;
+
 const dayKey = (iso: string) => {
   const d = new Date(iso);
   return Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : iso.slice(0, 10);
@@ -141,9 +149,11 @@ export function LabsView() {
       alert('Загрузите PDF или фото результата (JPG/PNG).');
       return;
     }
-    // Запрос уходит как data-URL в JSON, поэтому base64 раздувает вес ~на треть.
-    if (file.size > 20 * 1024 * 1024) {
-      alert('Файл больше 20 МБ. Сожми PDF или загрузи страницы по отдельности.');
+    // PDF уходит как есть, поэтому его размер проверяем сразу: base64
+    // раздувает вес на треть, а платформа рвёт запрос больше 4.5 МБ.
+    // Фото ниже ужимается через canvas, для него проверка после сжатия.
+    if (isPdf && file.size > MAX_PDF_BYTES) {
+      alert(`PDF весит ${(file.size / 1024 / 1024).toFixed(1)} МБ — это больше, чем можно отправить. Сожми файл (например, «Уменьшить размер» в просмотрщике) или сохрани страницы как фото: их приложение уменьшит само.`);
       return;
     }
     setParsing(true);
@@ -187,14 +197,29 @@ export function LabsView() {
             };
             img.src = url;
           });
+      // Тело запроса не должно превышать лимит платформы (4.5 МБ):
+      // иначе запрос обрывается ДО нашего кода и приходит HTML с 413,
+      // а не JSON — пользователь видел невнятное «Ошибка при разборе».
+      if (dataUrl.length > MAX_UPLOAD_BYTES) {
+        alert(isPdf
+          ? `PDF слишком большой (${(dataUrl.length / 1024 / 1024).toFixed(1)} МБ после кодирования). Сожми файл или сохрани страницы как фото — их приложение уменьшит само.`
+          : 'Фото слишком большое даже после сжатия. Сними бланк ещё раз или загрузи по одной странице.');
+        return;
+      }
       const r = await fetch('/api/labs/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl }),
       });
-      const d = await r.json();
-      if (!r.ok || !d.success) {
-        alert(d.error || 'Не удалось распознать анализ.');
+      // При 413 и других отказах платформы тело — HTML, а не JSON.
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d?.success) {
+        alert(
+          d?.error
+          || (r.status === 413 ? 'Файл слишком большой для загрузки. Сожми его и попробуй снова.' : '')
+          || (r.status === 504 ? 'Разбор занял слишком долго. Попробуй загрузить страницы по отдельности.' : '')
+          || `Не удалось распознать анализ (ошибка ${r.status}).`
+        );
         return;
       }
       // Открываем черновик на подтверждение
