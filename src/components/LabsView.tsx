@@ -136,18 +136,57 @@ export function LabsView() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('Загрузите фото результата (JPG/PNG). PDF — сделайте скриншот страницы.');
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (!isPdf && !file.type.startsWith('image/')) {
+      alert('Загрузите PDF или фото результата (JPG/PNG).');
+      return;
+    }
+    // Запрос уходит как data-URL в JSON, поэтому base64 раздувает вес ~на треть.
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Файл больше 20 МБ. Сожми PDF или загрузи страницы по отдельности.');
       return;
     }
     setParsing(true);
     try {
-      const dataUrl: string = await new Promise((res, rej) => {
+      const readAsDataUrl = (f: File) => new Promise<string>((res, rej) => {
         const reader = new FileReader();
         reader.onload = () => res(reader.result as string);
         reader.onerror = rej;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(f);
       });
+      // PDF отправляем как есть — модель читает его документом. Картинку
+      // прогоняем через canvas: это и уменьшает вес бланка, и переводит
+      // HEIC с айфона в JPEG, который модель принимает.
+      const dataUrl: string = isPdf
+        ? await readAsDataUrl(file)
+        : await new Promise<string>((res, rej) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+              URL.revokeObjectURL(url);
+              const maxSize = 2000; // мелкий шрифт бланка должен остаться читаемым
+              let { width, height } = img;
+              if (width > maxSize || height > maxSize) {
+                const ratio = Math.min(maxSize / width, maxSize / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) { rej(new Error('No canvas context')); return; }
+              ctx.drawImage(img, 0, 0, width, height);
+              res(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(url);
+              // HEIC иногда не декодируется в вебвью — отправляем оригинал,
+              // сервер ответит понятной ошибкой про формат.
+              readAsDataUrl(file).then(res, rej);
+            };
+            img.src = url;
+          });
       const r = await fetch('/api/labs/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -216,7 +255,17 @@ export function LabsView() {
         }}>
           {parsing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
           {parsing ? 'Распознаю…' : 'Загрузить'}
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} disabled={parsing} onChange={onPickFile} />
+          {/* accept без «image/*»: с ним iOS открывает галерею фото, и папки
+              iCloud Drive не видно. Перечисленные типы дают выбор
+              «Фото / Файлы», а из «Файлов» доступен iCloud. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf,.jpg,.jpeg,.png,.heic"
+            style={{ display: 'none' }}
+            disabled={parsing}
+            onChange={onPickFile}
+          />
         </label>
       </div>
 
@@ -266,7 +315,7 @@ export function LabsView() {
       ) : !current && !draft ? (
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px', fontSize: 14, lineHeight: 1.6 }}>
           <FlaskConical size={32} style={{ opacity: 0.4, marginBottom: 8 }} /><br />
-          Загрузи фото результата анализа —<br />AI извлечёт показатели и сохранит динамику.
+          Загрузи PDF или фото результата анализа —<br />AI извлечёт показатели и сохранит динамику.
         </div>
       ) : current ? (
         <>

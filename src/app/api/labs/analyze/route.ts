@@ -67,21 +67,31 @@ const LAB_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-type AllowedMime = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+type AllowedImage = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+const PDF_MIME = 'application/pdf';
 
-function detectMime(image: string): { mime: AllowedMime; data: string } | null {
+type Decoded =
+  | { kind: 'image'; mime: AllowedImage; data: string }
+  | { kind: 'pdf'; data: string };
+
+/**
+ * Бланки из лаборатории чаще приходят PDF, а не фото: модель читает их
+ * напрямую документом, конвертировать в картинку не нужно.
+ */
+function detectSource(input: string): Decoded | null {
   let mime = 'image/jpeg';
-  let data = image;
-  if (image.startsWith('data:')) {
-    const m = image.match(/^data:([^;]+);base64,(.+)$/);
+  let data = input;
+  if (input.startsWith('data:')) {
+    const m = input.match(/^data:([^;]+);base64,(.+)$/);
     if (!m) return null;
     mime = m[1];
     data = m[2];
   }
-  if (mime !== 'image/jpeg' && mime !== 'image/png' && mime !== 'image/gif' && mime !== 'image/webp') {
-    return null;
+  if (mime === PDF_MIME) return { kind: 'pdf', data };
+  if (mime === 'image/jpeg' || mime === 'image/png' || mime === 'image/gif' || mime === 'image/webp') {
+    return { kind: 'image', mime, data };
   }
-  return { mime: mime as AllowedMime, data };
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -102,10 +112,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Anthropic API key not configured' }, { status: 500 });
     }
 
-    const decoded = detectMime(image);
+    const decoded = detectSource(image);
     if (!decoded) {
       return NextResponse.json(
-        { error: 'Unsupported image format. Use JPEG, PNG, GIF, or WebP.' },
+        { error: 'Поддерживаются PDF и фото JPEG, PNG, GIF или WebP.' },
         { status: 400 }
       );
     }
@@ -120,7 +130,9 @@ export async function POST(request: Request) {
         {
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: decoded.mime, data: decoded.data } },
+            decoded.kind === 'pdf'
+              ? { type: 'document' as const, source: { type: 'base64' as const, media_type: PDF_MIME as 'application/pdf', data: decoded.data } }
+              : { type: 'image' as const, source: { type: 'base64' as const, media_type: decoded.mime, data: decoded.data } },
             { type: 'text', text: 'Извлеки все показатели из этого результата анализа.' },
           ],
         },
