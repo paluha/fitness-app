@@ -126,8 +126,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { image } = await request.json();
-    if (!image) {
+    const body = await request.json();
+    const image: string | undefined = typeof body.image === 'string' ? body.image : undefined;
+    // Клиент умеет сам достать текст из PDF и прислать только его: тогда
+    // тяжёлый файл не идёт по сети и не упирается в лимит запроса.
+    const clientText: string | undefined = typeof body.pdfText === 'string' ? body.pdfText : undefined;
+
+    if (!image && !clientText) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
@@ -136,30 +141,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Anthropic API key not configured' }, { status: 500 });
     }
 
-    const decoded = detectSource(image);
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Поддерживаются PDF и фото JPEG, PNG, GIF или WebP.' },
-        { status: 400 }
-      );
-    }
-
-    // У PDF из лаборатории почти всегда есть текстовый слой. Вытащить его
-    // — это десятки миллисекунд против десятков секунд на зрение, и
-    // страницы перестают упираться в 30-секундный лимит платформы.
-    // Зрение остаётся для сканов и фото, где текста в файле нет.
+    // Текст пришёл готовым — файл разбирать не нужно.
+    let decoded: Decoded | null = null;
     let pdfText: string | null = null;
-    if (decoded.kind === 'pdf') {
-      try {
-        const { extractText, getDocumentProxy } = await import('unpdf');
-        const bytes = new Uint8Array(Buffer.from(decoded.data, 'base64'));
-        const doc = await getDocumentProxy(bytes);
-        const { text } = await extractText(doc, { mergePages: true });
-        const clean = String(text || '').replace(/\u0000/g, '').trim();
-        // Короткий результат — признак скана: там текста нет, только картинка.
-        if (clean.length >= 200) pdfText = clean.slice(0, 120_000);
-      } catch (e) {
-        console.warn('[labs] не удалось извлечь текст из PDF, читаем зрением:', e instanceof Error ? e.message : e);
+
+    if (clientText) {
+      const clean = clientText.replace(/\u0000/g, '').trim();
+      if (clean.length < 20) {
+        return NextResponse.json(
+          { error: 'В присланном тексте бланка почти ничего нет. Попробуй загрузить файл ещё раз.' },
+          { status: 400 },
+        );
+      }
+      pdfText = clean.slice(0, 200_000);
+    } else {
+      decoded = detectSource(image as string);
+      if (!decoded) {
+        return NextResponse.json(
+          { error: 'Поддерживаются PDF и фото JPEG, PNG, GIF или WebP.' },
+          { status: 400 }
+        );
+      }
+
+      // Запасной путь для старых клиентов: PDF пришёл файлом, текст
+      // достаём здесь. Это всё равно на порядки быстрее зрения.
+      if (decoded.kind === 'pdf') {
+        try {
+          const { extractText, getDocumentProxy } = await import('unpdf');
+          const bytes = new Uint8Array(Buffer.from(decoded.data, 'base64'));
+          const doc = await getDocumentProxy(bytes);
+          const { text } = await extractText(doc, { mergePages: true });
+          const clean = String(text || '').replace(/\u0000/g, '').trim();
+          // Короткий результат — признак скана: текста нет, только картинка.
+          if (clean.length >= 200) pdfText = clean.slice(0, 200_000);
+        } catch (e) {
+          console.warn('[labs] не удалось извлечь текст из PDF, читаем зрением:', e instanceof Error ? e.message : e);
+        }
       }
     }
 
@@ -281,9 +298,9 @@ export async function POST(request: Request) {
         // Текст из PDF: модели не нужно «смотреть» страницы.
         ? [{ type: 'text' as const, text: `Текст бланка анализов:\n\n${pdfText}\n\nИзвлеки все показатели из этого результата анализа.` }]
         : [
-            decoded.kind === 'pdf'
+            decoded && decoded.kind === 'pdf'
               ? { type: 'document' as const, source: { type: 'base64' as const, media_type: PDF_MIME as 'application/pdf', data: decoded.data } }
-              : { type: 'image' as const, source: { type: 'base64' as const, media_type: decoded.mime, data: decoded.data } },
+              : { type: 'image' as const, source: { type: 'base64' as const, media_type: (decoded as Extract<Decoded, { kind: 'image' }>).mime, data: (decoded as Decoded).data } },
             { type: 'text' as const, text: 'Извлеки все показатели из этого результата анализа.' },
           ]);
 
@@ -312,7 +329,7 @@ export async function POST(request: Request) {
     }
 
     const duration = await trackLatency('/api/labs/analyze', startTime);
-    console.log(`[MONITOR] /api/labs/analyze OK ${duration}ms user=${session.user.id} markers=${markers.length} src=${pdfText ? 'pdf-text' : decoded.kind} chunks=${chunks}`);
+    console.log(`[MONITOR] /api/labs/analyze OK ${duration}ms user=${session.user.id} markers=${markers.length} src=${clientText ? 'client-text' : pdfText ? 'pdf-text' : decoded?.kind} chunks=${chunks}`);
 
     return NextResponse.json({
       success: true,

@@ -190,13 +190,6 @@ export function LabsView() {
       alert('Загрузите PDF или фото результата (JPG/PNG).');
       return;
     }
-    // PDF уходит как есть, поэтому его размер проверяем сразу: base64
-    // раздувает вес на треть, а платформа рвёт запрос больше 4.5 МБ.
-    // Фото ниже ужимается через canvas, для него проверка после сжатия.
-    if (isPdf && file.size > MAX_PDF_BYTES) {
-      alert(`PDF весит ${(file.size / 1024 / 1024).toFixed(1)} МБ — это больше, чем можно отправить. Сожми файл (например, «Уменьшить размер» в просмотрщике) или сохрани страницы как фото: их приложение уменьшит само.`);
-      return;
-    }
     setParsing(true);
     try {
       const readAsDataUrl = (f: File) => new Promise<string>((res, rej) => {
@@ -205,9 +198,61 @@ export function LabsView() {
         reader.onerror = rej;
         reader.readAsDataURL(f);
       });
-      // PDF отправляем как есть — модель читает его документом. Картинку
-      // прогоняем через canvas: это и уменьшает вес бланка, и переводит
-      // HEIC с айфона в JPEG, который модель принимает.
+
+      /**
+       * Текст из PDF достаём ПРЯМО В БРАУЗЕРЕ.
+       *
+       * Так вес файла перестаёт иметь значение: по сети уходит несколько
+       * килобайт текста вместо многомегабайтного PDF, и лимит платформы
+       * в 4.5 МБ на запрос больше не мешает. Раньше бланк тяжелее 3 МБ
+       * приходилось сжимать вручную.
+       *
+       * Не получилось (скан без текстового слоя или сбой разбора) —
+       * отправляем файл как раньше, там его прочитает зрение.
+       */
+      let pdfText: string | null = null;
+      if (isPdf) {
+        try {
+          const { extractText, getDocumentProxy } = await import('unpdf');
+          const doc = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
+          const { text } = await extractText(doc, { mergePages: true });
+          const clean = String(text || '').replace(/\u0000/g, '').trim();
+          // Мало текста — это скан: там только картинка, нужно зрение.
+          if (clean.length >= 200) pdfText = clean.slice(0, 200_000);
+        } catch {
+          // Разбор не удался — ниже уйдёт сам файл.
+        }
+      }
+
+      // Текстовый PDF: файл по сети не отправляем вовсе.
+      if (pdfText) {
+        const r = await fetch('/api/labs/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdfText, filename: file.name }),
+        });
+        const d = await r.json().catch(() => null);
+        if (!r.ok || !d?.success) {
+          alert(d?.error || `Не удалось распознать анализ (ошибка ${r.status}).`);
+          return;
+        }
+        setDraft({
+          panelName: d.data.panelName || '',
+          lab: d.data.lab || '',
+          collectedAt: d.data.collectedAt || new Date().toISOString().slice(0, 10),
+          markers: d.data.markers || [],
+        });
+        return;
+      }
+
+      // Скан или фото: отправляем сам файл, читать будет зрение. Такой
+      // PDF всё ещё ограничен размером запроса.
+      if (isPdf && file.size > MAX_PDF_BYTES) {
+        alert(`В этом PDF нет текстового слоя — его нужно читать как картинку, а файл весит ${(file.size / 1024 / 1024).toFixed(1)} МБ. Сожми его или сохрани страницы как фото: их приложение уменьшит само.`);
+        return;
+      }
+      // Картинку прогоняем через canvas: это и уменьшает вес бланка, и
+      // переводит HEIC с айфона в JPEG, который модель принимает.
       const dataUrl: string = isPdf
         ? await readAsDataUrl(file)
         : await new Promise<string>((res, rej) => {
