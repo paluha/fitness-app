@@ -164,62 +164,142 @@ export async function POST(request: Request) {
     }
 
     const client = new Anthropic({ apiKey });
-    // Стрим обязателен: при большом max_tokens SDK отказывается делать
-    // обычный запрос («Streaming is required…») и падает ещё до модели.
-    // Сам ответ собираем целиком — снаружи ничего не меняется.
-    const stream = client.messages.stream({
-      // Разложить готовый текст бланка по схеме — простая задача, и
-      // генерация 40+ записей JSON упиралась в лимит платформы на более
-      // тяжёлой модели. Скан без текстового слоя всё ещё требует зрения,
-      // поэтому модель одна на оба пути.
-      model: 'claude-haiku-4-5',
-      // Потолок держим в пределах того, что успевает платформа.
-      // Замеры на проде: ~280 токенов/с, то есть за 30 секунд около
-      // 8000 токенов ≈ 100 показателей. Просить 32000 бессмысленно —
-      // функция всё равно будет убита по таймауту на середине ответа.
-      // Упёрлись в потолок — ниже говорим об этом прямо, а не режем молча.
-      max_tokens: 8000,
-      output_config: { format: { type: 'json_schema', schema: LAB_SCHEMA } },
-      system: [{ type: 'text', text: LAB_SYSTEM, cache_control: { type: 'ephemeral' } }],
-      messages: [
-        {
-          role: 'user',
-          content: pdfText
-            // Текст из PDF: модели не нужно «смотреть» страницы.
-            ? [{ type: 'text' as const, text: `Текст бланка анализов:\n\n${pdfText}\n\nИзвлеки все показатели из этого результата анализа.` }]
-            : [
-                decoded.kind === 'pdf'
-                  ? { type: 'document' as const, source: { type: 'base64' as const, media_type: PDF_MIME as 'application/pdf', data: decoded.data } }
-                  : { type: 'image' as const, source: { type: 'base64' as const, media_type: decoded.mime, data: decoded.data } },
-                { type: 'text' as const, text: 'Извлеки все показатели из этого результата анализа.' },
-              ],
-        },
-      ],
-    });
-    const response = await stream.finalMessage();
 
-    if (response.stop_reason === 'refusal') {
-      await trackError({ route: '/api/labs/analyze', method: 'POST', error: 'Model refused image', userId: session.user.id });
-      return NextResponse.json({ error: 'The image could not be analyzed.' }, { status: 422 });
-    }
+    /**
+     * Один запрос к модели. Стрим обязателен: при большом max_tokens SDK
+     * отказывается делать обычный запрос и падает ещё до обращения к модели.
+     */
+    const askModel = async (content: Anthropic.MessageParam['content']) => {
+      const stream = client.messages.stream({
+        model: 'claude-haiku-4-5',
+        // Потолок на ОДИН запрос. Замеры на проде: ~280 токенов/с, то есть
+        // за 30 секунд платформы успевает около 8000 токенов ≈ 100
+        // показателей. Большой бланк ниже режется на части, поэтому в один
+        // запрос столько и не попадает.
+        max_tokens: 8000,
+        output_config: { format: { type: 'json_schema', schema: LAB_SCHEMA } },
+        system: [{ type: 'text', text: LAB_SYSTEM, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content }],
+      });
+      return stream.finalMessage();
+    };
 
-    if (response.stop_reason === 'max_tokens') {
-      return NextResponse.json(
-        { error: 'В бланке слишком много показателей для одного разбора. Загрузи страницы по отдельности.' },
-        { status: 422 }
-      );
-    }
+    type Parsed = { panelName?: string; lab?: string; collectedAt?: string; markers?: unknown[] };
+    const readJson = (r: Anthropic.Message): Parsed | null => {
+      const block = r.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+      if (!block) return null;
+      try { return JSON.parse(block.text) as Parsed; } catch { return null; }
+    };
 
-    const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-    if (!textBlock) {
-      return NextResponse.json({ error: 'No response from AI' }, { status: 500 });
-    }
+    /**
+     * Длинный бланк режем на части по строкам и разбираем их параллельно.
+     *
+     * Раньше такой бланк не укладывался в 30 секунд платформы, и
+     * пользователю предлагали «загрузить страницы по отдельности» — то есть
+     * делать руками то, что должно делаться само. Части идут одновременно,
+     * поэтому общее время примерно равно самой долгой из них.
+     *
+     * Шапку (название, лаборатория, дата) повторяем в каждой части: без неё
+     * модель не увидит контекст, а строки показателей ничего о бланке не
+     * говорят.
+     */
+    // 3000 символов — это максимум ~84 строки показателей, что заведомо
+    // укладывается в 8000 токенов ответа. При 5000 в часть попадало до 139
+    // показателей, и ответ обрывался на середине.
+    const CHUNK_CHARS = 3000;
+    const splitText = (text: string) => {
+      if (text.length <= CHUNK_CHARS) return [text];
+      const all = text.split(String.fromCharCode(10));
+      // Первые строки бланка — почти всегда шапка с датой и лабораторией.
+      const head = all.slice(0, 8).join(String.fromCharCode(10));
+      const parts: string[] = [];
+      let buf: string[] = [];
+      let size = 0;
+      for (const line of all) {
+        buf.push(line);
+        size += line.length + 1;
+        if (size >= CHUNK_CHARS) {
+          parts.push(buf.join(String.fromCharCode(10)));
+          buf = [];
+          size = 0;
+        }
+      }
+      if (buf.length) parts.push(buf.join(String.fromCharCode(10)));
+      // Со второй части добавляем шапку, чтобы дата и лаборатория читались.
+      return parts.map((p, i) => i === 0 ? p : `${head}${String.fromCharCode(10)}${String.fromCharCode(10)}${p}`);
+    };
 
-    let parsed: { panelName?: string; lab?: string; collectedAt?: string; markers?: unknown[] };
-    try {
-      parsed = JSON.parse(textBlock.text);
-    } catch {
-      return NextResponse.json({ error: 'Failed to parse AI response', raw: textBlock.text }, { status: 500 });
+    let parsed: Parsed | null = null;
+    let chunks = 1;
+
+    if (pdfText && pdfText.length > CHUNK_CHARS) {
+      const parts = splitText(pdfText);
+      chunks = parts.length;
+      const results = await Promise.all(parts.map((part, i) => askModel([{
+        type: 'text' as const,
+        text: `Текст бланка анализов (часть ${i + 1} из ${parts.length}):\n\n${part}\n\nИзвлеки все показатели из этой части.`,
+      }])));
+      // Отказ или обрыв хотя бы в одной части — честно сообщаем, а не
+      // отдаём половину бланка как полный результат.
+      const refused = results.find(r => r.stop_reason === 'refusal');
+      if (refused) {
+        await trackError({ route: '/api/labs/analyze', method: 'POST', error: 'Model refused image', userId: session.user.id });
+        return NextResponse.json({ error: 'The image could not be analyzed.' }, { status: 422 });
+      }
+      if (results.some(r => r.stop_reason === 'max_tokens')) {
+        return NextResponse.json(
+          { error: 'В бланке слишком много показателей для одного разбора. Загрузи страницы по отдельности.' },
+          { status: 422 },
+        );
+      }
+      const pieces = results.map(readJson).filter((x): x is Parsed => !!x);
+      if (!pieces.length) {
+        return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+      }
+      // Один и тот же показатель мог попасть в стык двух частей.
+      const seen = new Set<string>();
+      const merged: unknown[] = [];
+      for (const piece of pieces) {
+        for (const m of (piece.markers || [])) {
+          const mm = m as { key?: string; name?: string; unit?: string; value?: number };
+          const id = `${mm.key || mm.name}|${mm.unit}|${mm.value}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          merged.push(m);
+        }
+      }
+      // Шапку берём из первой части, где она заведомо есть.
+      parsed = {
+        panelName: pieces.find(p => p.panelName)?.panelName || '',
+        lab: pieces.find(p => p.lab)?.lab || '',
+        collectedAt: pieces.find(p => p.collectedAt)?.collectedAt || '',
+        markers: merged,
+      };
+    } else {
+      const response = await askModel(pdfText
+        // Текст из PDF: модели не нужно «смотреть» страницы.
+        ? [{ type: 'text' as const, text: `Текст бланка анализов:\n\n${pdfText}\n\nИзвлеки все показатели из этого результата анализа.` }]
+        : [
+            decoded.kind === 'pdf'
+              ? { type: 'document' as const, source: { type: 'base64' as const, media_type: PDF_MIME as 'application/pdf', data: decoded.data } }
+              : { type: 'image' as const, source: { type: 'base64' as const, media_type: decoded.mime, data: decoded.data } },
+            { type: 'text' as const, text: 'Извлеки все показатели из этого результата анализа.' },
+          ]);
+
+      if (response.stop_reason === 'refusal') {
+        await trackError({ route: '/api/labs/analyze', method: 'POST', error: 'Model refused image', userId: session.user.id });
+        return NextResponse.json({ error: 'The image could not be analyzed.' }, { status: 422 });
+      }
+      if (response.stop_reason === 'max_tokens') {
+        return NextResponse.json(
+          { error: 'В бланке слишком много показателей для одного разбора. Загрузи страницы по отдельности.' },
+          { status: 422 },
+        );
+      }
+      parsed = readJson(response);
+      if (!parsed) {
+        return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+      }
     }
 
     const markers = Array.isArray(parsed.markers) ? parsed.markers : [];
@@ -231,7 +311,7 @@ export async function POST(request: Request) {
     }
 
     const duration = await trackLatency('/api/labs/analyze', startTime);
-    console.log(`[MONITOR] /api/labs/analyze OK ${duration}ms user=${session.user.id} markers=${markers.length} src=${pdfText ? 'pdf-text' : decoded.kind}`);
+    console.log(`[MONITOR] /api/labs/analyze OK ${duration}ms user=${session.user.id} markers=${markers.length} src=${pdfText ? 'pdf-text' : decoded.kind} chunks=${chunks}`);
 
     return NextResponse.json({
       success: true,
