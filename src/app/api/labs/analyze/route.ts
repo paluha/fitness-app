@@ -164,16 +164,21 @@ export async function POST(request: Request) {
     }
 
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
+    // Стрим обязателен: при большом max_tokens SDK отказывается делать
+    // обычный запрос («Streaming is required…») и падает ещё до модели.
+    // Сам ответ собираем целиком — снаружи ничего не меняется.
+    const stream = client.messages.stream({
       // Разложить готовый текст бланка по схеме — простая задача, и
       // генерация 40+ записей JSON упиралась в лимит платформы на более
       // тяжёлой модели. Скан без текстового слоя всё ещё требует зрения,
       // поэтому модель одна на оба пути.
       model: 'claude-haiku-4-5',
-      // Бланк на 130-500 показателей с полями сопоставления — это
-      // десятки тысяч токенов. Берём с запасом; если ответ всё же
-      // упрётся в потолок, ниже показываем это явно, а не режем молча.
-      max_tokens: 32000,
+      // Потолок держим в пределах того, что успевает платформа.
+      // Замеры на проде: ~280 токенов/с, то есть за 30 секунд около
+      // 8000 токенов ≈ 100 показателей. Просить 32000 бессмысленно —
+      // функция всё равно будет убита по таймауту на середине ответа.
+      // Упёрлись в потолок — ниже говорим об этом прямо, а не режем молча.
+      max_tokens: 8000,
       output_config: { format: { type: 'json_schema', schema: LAB_SCHEMA } },
       system: [{ type: 'text', text: LAB_SYSTEM, cache_control: { type: 'ephemeral' } }],
       messages: [
@@ -191,6 +196,7 @@ export async function POST(request: Request) {
         },
       ],
     });
+    const response = await stream.finalMessage();
 
     if (response.stop_reason === 'refusal') {
       await trackError({ route: '/api/labs/analyze', method: 'POST', error: 'Model refused image', userId: session.user.id });
