@@ -22,6 +22,8 @@ export interface LabMarkerPoint {
   refHigh?: number | null;
   optimalLow?: number | null;
   optimalHigh?: number | null;
+  /** Лаборатория этого замера — у разных бланков она может отличаться. */
+  lab?: string;
 }
 
 export interface LabMarkerRow {
@@ -42,6 +44,20 @@ export interface LabMarkerRow {
   optimalHigh?: number | null;
   /** История этого же показателя в совместимых единицах, по возрастанию даты. */
   history: LabMarkerPoint[];
+  /** Биоматериал и методика: без них один аналит из разных бланков сливать нельзя. */
+  specimen?: string;
+  method?: string;
+  /** Значение как напечатано в бланке: «<5», «5,9», «Not detected». */
+  rawValue?: string | null;
+  /** «<5» — это не точная пятёрка, а граница определения. */
+  bound?: 'exact' | 'below' | 'above';
+  /** Распознано неуверенно — просим пользователя сверить с оригиналом. */
+  needsReview?: boolean;
+  /** Раздел бланка: липиды, гормоны, ОАК. */
+  group?: string;
+  /** Откуда взята строка в режиме «Последние значения». */
+  sourceDate?: string;
+  sourceLab?: string;
 }
 
 export type LabStatus = 'out' | 'normal' | 'optimal' | 'unknown';
@@ -51,11 +67,22 @@ export const LAB_TONES: Record<LabStatus, { ink: string; fill: string; label: st
   out: { ink: '#c86246', fill: '#f9e2d9', label: 'Вне диапазона' },
   normal: { ink: '#9a7b26', fill: '#f4ecd1', label: 'В диапазоне' },
   optimal: { ink: '#438564', fill: '#dfeee4', label: 'Оптимально' },
-  unknown: { ink: '#918777', fill: '#efebe5', label: 'Нет референса' },
+  unknown: { ink: '#918777', fill: '#efebe5', label: 'Без диапазона' },
 };
 
 const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 const num = (n: number) => nf.format(n);
+
+/**
+ * Значение так, как его напечатала лаборатория. «<5» и «>100» — границы
+ * определения, а не точные числа: превращать их в 5 и 100 нельзя.
+ */
+export function reading(m: { value: number; rawValue?: string | null; bound?: 'exact' | 'below' | 'above' }) {
+  if (m.rawValue && m.rawValue.trim()) return m.rawValue.trim();
+  if (m.bound === 'below') return `< ${num(m.value)}`;
+  if (m.bound === 'above') return `> ${num(m.value)}`;
+  return num(m.value);
+}
 
 export function hasRef(m: { refLow?: number | null; refHigh?: number | null }) {
   return m.refLow != null || m.refHigh != null;
@@ -159,7 +186,7 @@ function MiniChart({ row, status, index }: { row: LabMarkerRow; status: LabStatu
                 показатель выходил за референс, а не только где он сейчас. */}
             {ps.map((p, i) => (
               <circle
-                key={p.date}
+                key={`${p.date}-${i}`}
                 cx={geom.x(i)}
                 cy={geom.y(p.value)}
                 r={i === ps.length - 1 ? 3.1 : 2.1}
@@ -204,20 +231,30 @@ export default function LabMarkerList({
               className="marker"
               type="button"
               data-status={status}
+              aria-haspopup="dialog"
               aria-pressed={m.key === selectedKey}
-              aria-label={`${m.name}, ${num(m.value)} ${m.unit}. ${tone.label}. Открыть динамику`}
+              aria-label={`${m.name}, ${reading(m)} ${m.unit}. ${tone.label}. Открыть подробности`}
               onClick={() => onSelect(m)}
             >
               <div className="marker-top"><h3>{m.name}</h3></div>
               <div className="marker-reading">
-                <span className="marker-value">{num(m.value)}</span>
+                {/* Показываем значение как в бланке: «<5» — граница, а не 5. */}
+                <span className="marker-value">{reading(m)}</span>
                 <span className="marker-unit">{m.unit}</span>
               </div>
               <MiniChart row={m} status={status} index={i} />
               <div className="marker-bottom">
                 <span className="marker-ref">Реф. {refText(m)}</span>
                 <span className="marker-state" style={{ color: tone.ink }}>{tone.label}</span>
+                {m.needsReview && <span className="marker-review">Проверь</span>}
               </div>
+              {/* В сводке у каждой строки своя дата: значения из разных дней. */}
+              {m.sourceDate && (
+                <span className="marker-date">
+                  {new Date(`${m.sourceDate}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                  {m.sourceLab ? ` · ${m.sourceLab}` : ''}
+                </span>
+              )}
             </button>
           );
         })}

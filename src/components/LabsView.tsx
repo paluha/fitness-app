@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FlaskConical, Upload, Loader2, Trash2, Check, X, Search, FileText } from 'lucide-react';
-import LabMarkerList, { labStatus, hasRef, isOutOfRange, refText, LAB_TONES } from './LabMarkerList';
-import type { LabMarkerRow, LabMarkerPoint } from './LabMarkerList';
+import LabMarkerList, { hasRef, isOutOfRange, reading } from './LabMarkerList';
+import type { LabMarkerRow } from './LabMarkerList';
+import LabMarkerDetail from './LabMarkerDetail';
+import { latestByMarker, historyFor, groupOf, dayKey as dayOf } from './labMatching';
+import type { RawReport } from './labMatching';
 
 type Marker = {
   /** Стабильный идентификатор аналита — по нему собирается история. */
@@ -17,22 +20,21 @@ type Marker = {
   optimalLow?: number | null;
   optimalHigh?: number | null;
   flag: 'low' | 'normal' | 'high';
+  /** Значение как напечатано: «<5», «5,9». Не нормализуем. */
+  rawValue?: string | null;
+  bound?: 'exact' | 'below' | 'above';
+  /** Биоматериал и методика: часть признака сопоставимости. */
+  specimen?: string;
+  method?: string;
+  /** Распознано неуверенно — показываем на проверку. */
+  needsReview?: boolean;
+  /** Раздел бланка для группировки. */
+  group?: string;
+  page?: number | null;
 };
 type LabResult = { id: string; panelName: string | null; lab: string | null; collectedAt: string; markers: Marker[] };
 type Draft = { panelName: string; lab: string; collectedAt: string; markers: Marker[] };
 
-/**
- * Ключ аналита. Для новых разборов его даёт ИИ; для записей, сохранённых до
- * появления поля, выводим из названия — иначе один и тот же показатель из
- * разных бланков не собрался бы в одну историю.
- */
-function markerKey(m: Marker) {
-  if (m.key) return m.key;
-  return m.name.trim().toLocaleLowerCase('ru').replace(/\s+/g, ' ');
-}
-
-/** Единицы сравниваем нестрого: «ммоль/л» и «ММОЛЬ/Л» — одно и то же. */
-const unitKey = (u: string) => u.trim().toLocaleLowerCase('ru').replace(/\s+/g, '');
 
 /**
  * Платформа обрывает запрос тяжелее 4.5 МБ ещё до нашего кода: приходит
@@ -42,10 +44,6 @@ const unitKey = (u: string) => u.trim().toLocaleLowerCase('ru').replace(/\s+/g, 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
 
-const dayKey = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : iso.slice(0, 10);
-};
 
 // Раздел «Анализы»: загрузка фото/скана результата → AI извлекает показатели →
 // пользователь подтверждает → сохранение и просмотр динамики. Данные также
@@ -57,11 +55,19 @@ export function LabsView() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [tab, setTab] = useState<'markers' | 'documents'>('markers');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'flagged'>('all');
+  const [filter, setFilter] = useState<'all' | 'flagged' | 'unknown'>('all');
+  // «Один бланк» показывает выбранный документ, «Последние значения» —
+  // самое свежее измерение каждого показателя из разных дат.
+  const [scope, setScope] = useState<'report' | 'latest'>('report');
+  const [group, setGroup] = useState<string>('all');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Индекс открытого показателя в текущем отфильтрованном списке.
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
+  const [pointIndex, setPointIndex] = useState(0);
+  const [aiOpen, setAiOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const trendRef = useRef<HTMLDivElement>(null);
+  // Позиция списка: после закрытия деталей возвращаемся точно на неё.
+  const listScrollRef = useRef(0);
 
   const load = useCallback(async () => {
     try {
@@ -75,8 +81,9 @@ export function LabsView() {
   useEffect(() => { load(); }, [load]);
 
   // Самый свежий бланк — он и открыт по умолчанию.
+  // Бланки от новых к старым: первый открыт по умолчанию.
   const sorted = useMemo(
-    () => [...results].sort((a, b) => dayKey(b.collectedAt).localeCompare(dayKey(a.collectedAt))),
+    () => [...results].sort((a, b) => dayOf(b.collectedAt).localeCompare(dayOf(a.collectedAt))),
     [results],
   );
   const current = useMemo(
@@ -84,60 +91,94 @@ export function LabsView() {
     [sorted, selectedReportId],
   );
 
+  /** Записи в форме, понятной правилам сопоставления. */
+  const asRaw: RawReport[] = useMemo(() => results.map(r => ({
+    id: r.id,
+    panelName: r.panelName,
+    lab: r.lab,
+    collectedAt: r.collectedAt,
+    createdAt: (r as LabResult & { createdAt?: string }).createdAt ?? null,
+    markers: r.markers,
+  })), [results]);
+
   /**
-   * Показатели выбранного бланка с историей: каждая точка — тот же аналит
-   * (совпадает key) в совместимых единицах из более ранних бланков.
+   * Показатели текущего режима.
+   *
+   * «Один бланк» — строки выбранного документа. «Последние значения» —
+   * самое свежее сопоставимое измерение каждого показателя, у каждой
+   * строки видна своя дата и лаборатория.
    */
   const rows: LabMarkerRow[] = useMemo(() => {
-    if (!current) return [];
-    const currentDay = dayKey(current.collectedAt);
-    return current.markers.map(m => {
-      const k = markerKey(m);
-      const u = unitKey(m.unit);
-      const history: LabMarkerPoint[] = results
-        .filter(r => dayKey(r.collectedAt) <= currentDay)
-        .flatMap(r => r.markers
-          .filter(x => markerKey(x) === k && unitKey(x.unit) === u)
-          .map(x => ({
-            date: dayKey(r.collectedAt),
-            value: x.value,
-            // Референсы берём из ТОГО бланка, откуда точка: лаборатории
-            // печатают разные пределы, и статус на дату считается по ним.
-            refLow: x.refLow ?? null,
-            refHigh: x.refHigh ?? null,
-            optimalLow: x.optimalLow ?? null,
-            optimalHigh: x.optimalHigh ?? null,
-          })))
-        .sort((a, b) => a.date.localeCompare(b.date));
+    const build = (m: typeof results[number]['markers'][number], r: RawReport, withSource: boolean, conflict?: string) => {
+      const history = historyFor(m, asRaw, withSource ? undefined : r.collectedAt);
       return {
-        key: k,
+        key: `${r.id}|${m.key || m.name}|${m.unit}|${m.specimen || ''}|${m.method || ''}`,
         name: m.name,
         value: m.value,
         unit: m.unit,
         refLow: m.refLow ?? null,
         refHigh: m.refHigh ?? null,
-        // Оптимальный диапазон переносится как есть: сам по себе он нигде
-        // не выдумывается, демозначения макета в приложение не попадают.
+        // Оптимум переносится как есть: сам он нигде не выдумывается.
         optimalLow: m.optimalLow ?? null,
         optimalHigh: m.optimalHigh ?? null,
-        history: history.length ? history : [{ date: currentDay, value: m.value }],
-      };
-    });
-  }, [current, results]);
+        specimen: m.specimen,
+        method: m.method,
+        rawValue: m.rawValue ?? null,
+        bound: m.bound,
+        // Конфликт двух бланков за день — тоже повод свериться с оригиналом.
+        needsReview: m.needsReview || !!conflict,
+        group: groupOf(m),
+        sourceDate: withSource ? dayOf(r.collectedAt) : undefined,
+        sourceLab: withSource ? (conflict || r.lab || undefined) : undefined,
+        history: history.length ? history : [{
+          date: dayOf(r.collectedAt),
+          value: m.value,
+          refLow: m.refLow ?? null,
+          refHigh: m.refHigh ?? null,
+          lab: r.lab || undefined,
+        }],
+      } as LabMarkerRow;
+    };
+
+    if (scope === 'latest') {
+      return latestByMarker(asRaw).map(({ marker, report, conflict }) => build(
+        marker as typeof results[number]['markers'][number],
+        report,
+        true,
+        conflict ? `${conflict.count} результата за день: ${conflict.labs.join(', ')}` : undefined,
+      ));
+    }
+    if (!current) return [];
+    const raw = asRaw.find(r => r.id === current.id);
+    if (!raw) return [];
+    return current.markers.map(m => build(m, raw, false));
+  }, [scope, current, asRaw]);
+
+  /** Разделы бланка для выпадающего списка групп. */
+  const groups = useMemo(() => [...new Set(rows.map(m => m.group || 'Другое'))], [rows]);
 
   const visibleRows = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('ru');
     return rows.filter(m =>
-      (filter !== 'flagged' || isOutOfRange(m)) &&
-      (!q || m.name.toLocaleLowerCase('ru').includes(q)));
-  }, [rows, search, filter]);
+      (filter === 'all'
+        || (filter === 'flagged' && hasRef(m) && isOutOfRange(m))
+        || (filter === 'unknown' && !hasRef(m)))
+      && (group === 'all' || (m.group || 'Другое') === group)
+      && (!q || m.name.toLocaleLowerCase('ru').includes(q)));
+  }, [rows, search, filter, group]);
 
-  const selected = useMemo(
-    () => rows.find(m => m.key === selectedKey) ?? null,
-    [rows, selectedKey],
+  // Открытый показатель берём из отфильтрованного списка: «предыдущий» и
+  // «следующий» ходят по тому, что пользователь видит.
+  const detail = detailIndex != null ? visibleRows[detailIndex] ?? null : null;
+
+  /** Выход за референс считаем только там, где референс есть. */
+  const outsideCount = rows.filter(m => hasRef(m) && isOutOfRange(m)).length;
+  const unknownCount = rows.filter(m => !hasRef(m)).length;
+  /** До трёх отклонений в блоке внимания; порядок — не срочность. */
+  const attention = useMemo(
+    () => rows.map((m, i) => ({ m, i })).filter(({ m }) => hasRef(m) && isOutOfRange(m)),
+    [rows],
   );
-
-  const outsideCount = rows.filter(m => isOutOfRange(m)).length;
 
   // Конвертируем выбранный файл в data-URL (фото) и шлём на парсинг.
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,7 +288,6 @@ export function LabsView() {
       if (!r.ok) { alert('Не удалось сохранить.'); return; }
       setDraft(null);
       setSelectedReportId(null);
-      setSelectedKey(null);
       await load();
     } catch { alert('Ошибка сохранения.'); }
   };
@@ -256,9 +296,42 @@ export function LabsView() {
     if (!confirm('Удалить этот анализ?')) return;
     await fetch(`/api/labs?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (selectedReportId === id) setSelectedReportId(null);
-    setSelectedKey(null);
     await load();
   };
+
+  /**
+   * Открыть показатель. Запоминаем позицию списка: после закрытия
+   * возвращаемся ровно туда, а не к началу.
+   */
+  const openDetailFor = (m: LabMarkerRow) => {
+    const i = visibleRows.findIndex(x => x.key === m.key);
+    if (i < 0) return;
+    listScrollRef.current = window.scrollY;
+    setDetailIndex(i);
+    setPointIndex(Math.max(0, (visibleRows[i].history.length || 1) - 1));
+  };
+
+  const closeDetail = () => {
+    setDetailIndex(null);
+    // Возврат на прежнее место после того, как список снова отрисован.
+    requestAnimationFrame(() => window.scrollTo(0, listScrollRef.current));
+  };
+
+  const stepDetail = (delta: number) => {
+    setDetailIndex(prev => {
+      if (prev == null) return prev;
+      const next = prev + delta;
+      if (next < 0 || next >= visibleRows.length) return prev;
+      setPointIndex(Math.max(0, (visibleRows[next].history.length || 1) - 1));
+      return next;
+    });
+  };
+
+  const refTextOf = (m: { refLow?: number | null; refHigh?: number | null }) =>
+    m.refLow != null && m.refHigh != null ? `${num(m.refLow)}–${num(m.refHigh)}`
+      : m.refLow != null ? `от ${num(m.refLow)}`
+        : m.refHigh != null ? `до ${num(m.refHigh)}`
+          : 'не указан';
 
   const flagColor = (f: string) => f === 'high' ? '#ef4444' : f === 'low' ? '#3b82f6' : 'var(--green)';
   const fmtDate = (s: string) => { try { return new Date(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return s; } };
@@ -344,46 +417,88 @@ export function LabsView() {
         </div>
       ) : current ? (
         <>
-          {/* Шапка выбранного бланка: название, дата, лаборатория, сводка */}
+          {/* Режим: один бланк или последние значения из разных дат */}
+          <div className="labv2">
+            <div className="scope-switch" aria-label="Какие результаты показывать">
+              {([['report', 'Один бланк'], ['latest', 'Последние значения']] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={scope === id}
+                  onClick={() => { setScope(id); setFilter('all'); setGroup('all'); setSearch(''); }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Шапка: дата сдачи крупно, выбор бланка, сводка */}
           <section style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 18, padding: '15px 16px', marginBottom: 4,
+            borderRadius: 18, padding: '12px 14px', marginBottom: 4,
           }}>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '.25px' }}>Результат лаборатории</span>
-            <h3 style={{ fontSize: 16, fontWeight: 650, letterSpacing: '-.35px', margin: '8px 0 4px' }}>
-              {current.panelName || 'Анализ'}
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '.25px' }}>
+              {scope === 'report' ? 'Сейчас показан один бланк' : 'Сводка из нескольких бланков'}
+            </span>
+            <h3 style={{ fontSize: 18, fontWeight: 650, letterSpacing: '-.35px', margin: '7px 0' }}>
+              {scope === 'report' ? fmtDate(current.collectedAt) : 'Последние значения'}
             </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 11 }}>
+            {scope === 'report' && (
               <select
                 aria-label="Выбрать результат по дате"
                 value={current.id}
-                onChange={e => { setSelectedReportId(e.target.value); setSelectedKey(null); }}
+                onChange={e => { setSelectedReportId(e.target.value); setGroup('all'); setFilter('all'); setSearch(''); }}
                 style={{
-                  minWidth: 0, maxWidth: '100%', fontSize: 11, minHeight: 32, border: 0,
-                  padding: '0 3px 0 0', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+                  width: '100%', minHeight: 44, fontSize: 12, border: '1px solid var(--border)',
+                  padding: 9, borderRadius: 8, background: 'var(--bg-card)', color: 'var(--text-primary)',
                 }}
               >
-                {sorted.map(r => <option key={r.id} value={r.id}>{fmtDate(r.collectedAt)}</option>)}
+                {sorted.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {(r.panelName || 'Анализ')} · {shortDate(dayOf(r.collectedAt))}
+                  </option>
+                ))}
               </select>
-              {current.lab ? <span>· {current.lab}</span> : null}
-            </div>
+            )}
+            <span style={{ display: 'block', marginTop: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+              {scope === 'report'
+                ? (current.lab || 'Лаборатория не указана')
+                : `${new Set(rows.map(m => m.sourceDate)).size} даты · дата указана у каждого результата`}
+            </span>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5, lineHeight: 1.55 }}>
+              {scope === 'report'
+                ? 'Показатели только из этого бланка. Дата сдачи, не дата загрузки.'
+                : 'Самые свежие доступные измерения. Даты могут отличаться.'}
+            </p>
             <div style={{
-              borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'center',
-              flexWrap: 'wrap', marginTop: 12, paddingTop: 12, fontSize: 10, color: 'var(--text-muted)',
+              borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center',
+              flexWrap: 'wrap', marginTop: 8, paddingTop: 7, fontSize: 11, color: 'var(--text-muted)',
             }}>
-              <span>{indicatorCount(current.markers.length)}</span>
-              {outsideCount > 0
-                ? <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, padding: '4px 7px',
-                    borderRadius: 6, background: '#fff0e8', color: '#ad593d', fontWeight: 550,
-                  }}>{outsideCount} вне референса</span>
-                : <span style={{ color: 'var(--green)' }}>Нет отмеченных отклонений</span>}
+              <span>{indicatorCount(rows.length)}</span>
+              <button
+                type="button"
+                onClick={() => { setFilter('flagged'); setTab('markers'); }}
+                style={{
+                  minHeight: 32, fontSize: 11, padding: '4px 7px', borderRadius: 6, border: 0,
+                  background: '#fff0e8', color: '#ad593d', fontWeight: 550, cursor: 'pointer',
+                }}
+              >
+                {outsideCount} вне референса
+              </button>
+              <button
+                type="button"
+                onClick={() => { setFilter('unknown'); setTab('markers'); }}
+                style={{ minHeight: 32, fontSize: 11, border: 0, background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                {unknownCount} без диапазона
+              </button>
             </div>
           </section>
 
           {/* Переключатель «Показатели / Документы» */}
           <div role="tablist" aria-label="Раздел анализов" style={{
-            display: 'flex', gap: 3, background: '#eee8df', padding: 3, borderRadius: 10, margin: '20px 0 14px',
+            display: 'flex', gap: 3, background: '#eee8df', padding: 3, borderRadius: 10, margin: '15px 0 12px',
           }}>
             {(['markers', 'documents'] as const).map(id => (
               <button
@@ -406,7 +521,49 @@ export function LabsView() {
           </div>
 
           {tab === 'markers' ? (
-            <>
+            <div className="labv2">
+              {/* На что обратить внимание: до трёх выходов за референс. */}
+              <section className="attention">
+                <div className="attention-head">
+                  <h2>На что обратить внимание</h2>
+                  <span>{attention.length ? `${attention.length} вне референса` : 'Отклонений не отмечено'}</span>
+                </div>
+                <div className="attention-list">
+                  {attention.length ? attention.slice(0, 3).map(({ m, i }) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      className="attention-item"
+                      onClick={() => openDetailFor(m)}
+                    >
+                      <em>{reading(m)} {m.unit}</em>
+                      <strong>{m.name}</strong>
+                      <small>
+                        {m.refHigh != null && m.value > m.refHigh ? 'Выше' : 'Ниже'} референса {refTextOf(m)}
+                        {m.sourceDate ? ` · ${shortDate(m.sourceDate)}` : ''}
+                      </small>
+                      <span hidden>{i}</span>
+                    </button>
+                  )) : (
+                    <div className="attention-item">
+                      <strong>Выходов за указанные диапазоны нет</strong>
+                      <small>Результаты без диапазона проверяются отдельно.</small>
+                    </div>
+                  )}
+                </div>
+                <p className="attention-foot">
+                  {attention.length > 3
+                    ? 'Первые 3 отклонения. Все доступны в фильтре «Вне референса». Порядок не означает медицинскую срочность.'
+                    : 'Выход за референс ≠ медицинская срочность.'}
+                </p>
+              </section>
+
+              <button type="button" className="ai-report" onClick={() => setAiOpen(true)}>
+                Разобрать с ИИ <span>Источники и правила →</span>
+              </button>
+
+              <div style={{ height: 16 }} />
+
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 9, minHeight: 44,
                 border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-card)', padding: '0 12px',
@@ -425,15 +582,16 @@ export function LabsView() {
                 />
               </label>
 
-              <div aria-label="Фильтр показателей" style={{ display: 'flex', gap: 7, margin: '11px 0 12px' }}>
-                {([['all', 'Все', rows.length], ['flagged', 'Вне референса', outsideCount]] as const).map(([id, label, count]) => (
+              {/* Счётчики считаем из того, что реально показано. */}
+              <div aria-label="Фильтр показателей" style={{ display: 'flex', gap: 3, flexWrap: 'wrap', margin: '11px 0 12px' }}>
+                {([['all', 'Все', rows.length], ['flagged', 'Вне референса', outsideCount], ['unknown', 'Без диапазона', unknownCount]] as const).map(([id, label, count]) => (
                   <button
                     key={id}
                     type="button"
                     aria-pressed={filter === id}
                     onClick={() => setFilter(id)}
                     style={{
-                      fontSize: 10, borderRadius: 7, padding: '8px 10px', minHeight: 34, cursor: 'pointer',
+                      fontSize: 10, borderRadius: 7, padding: '7px 8px', minHeight: 34, cursor: 'pointer',
                       border: 'none',
                       background: filter === id ? '#eae4da' : 'transparent',
                       color: filter === id ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -445,79 +603,25 @@ export function LabsView() {
                 ))}
               </div>
 
+              <div className="group-row">
+                <select value={group} onChange={e => setGroup(e.target.value)} aria-label="Группа показателей">
+                  <option value="all">Все группы</option>
+                  {groups.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <span>Показано {visibleRows.length} из {rows.length}</span>
+              </div>
+
               <LabMarkerList
                 markers={visibleRows}
-                selectedKey={selectedKey}
-                onSelect={m => {
-                  setSelectedKey(m.key);
-                  requestAnimationFrame(() => trendRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-                }}
+                selectedKey={detail?.key ?? null}
+                onSelect={m => openDetailFor(m)}
+                emptyText="Нет показателей по этому фильтру. Попробуй другую группу или поиск."
               />
 
-              <p style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 10, color: 'var(--text-muted)', margin: '10px 2px 0' }}>
-                Референсы указаны из выбранного бланка
+              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '10px 2px 0', lineHeight: 1.5 }}>
+                Диапазон и дата взяты из бланка каждого показателя. Выход за диапазон сам по себе не определяет срочность.
               </p>
-
-              {/* Подробная динамика выбранного показателя */}
-              {selected && (
-                <section ref={trendRef} style={{
-                  marginTop: 22, padding: 16, background: 'var(--bg-card)',
-                  border: '1px solid var(--border)', borderRadius: 18, scrollMarginTop: 15,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 650, letterSpacing: '-.35px' }}>Динамика</h3>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedKey(null)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--text-muted)' }}
-                    >
-                      Свернуть
-                    </button>
-                  </div>
-                  <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 550 }}>{selected.name}</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline', margin: '6px 0 1px' }}>
-                    <div style={{ fontSize: 31, fontWeight: 650, letterSpacing: '-1px', fontVariantNumeric: 'tabular-nums' }}>
-                      {num(selected.value)} <small style={{ fontSize: 11, letterSpacing: 0, fontWeight: 400, color: 'var(--text-muted)' }}>{selected.unit}</small>
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', lineHeight: 1.6 }}>
-                      {selected.history.length > 1 ? (() => {
-                        const first = selected.history[0];
-                        const delta = selected.value - first.value;
-                        return (
-                          <>
-                            <b style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 550 }}>
-                              {delta > 0 ? '+' : ''}{num(delta)} {selected.unit}
-                            </b>
-                            с {shortDate(first.date)}
-                          </>
-                        );
-                      })() : 'Первое измерение'}
-                    </div>
-                  </div>
-                  <p style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 10 }}>
-                    {hasRef(selected)
-                      ? `Референс выбранного бланка: ${refText(selected)} ${selected.unit}`
-                      : 'Референс в бланке не указан'}
-                  </p>
-                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {selected.history.slice().reverse().map(p => (
-                      <div key={p.date} style={{
-                        display: 'flex', justifyContent: 'space-between', gap: 10,
-                        fontSize: 11, color: 'var(--text-secondary)',
-                        padding: '6px 0', borderTop: '1px solid var(--border)',
-                        fontVariantNumeric: 'tabular-nums',
-                      }}>
-                        <span>{shortDate(p.date)}</span>
-                        <span style={{ fontWeight: 600 }}>{num(p.value)} {selected.unit}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p style={{ marginTop: 10, fontSize: 10, color: LAB_TONES[labStatus(selected)].ink }}>
-                    {LAB_TONES[labStatus(selected)].label}
-                  </p>
-                </section>
-              )}
-            </>
+            </div>
           ) : (
             /* Документы: сохранённые бланки */
             <div style={{ display: 'grid', gap: 10 }}>
@@ -548,7 +652,7 @@ export function LabsView() {
                   }}>
                     <button
                       type="button"
-                      onClick={() => { setSelectedReportId(r.id); setSelectedKey(null); setTab('markers'); }}
+                      onClick={() => { setSelectedReportId(r.id); setTab('markers'); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', minHeight: 34, fontSize: 11, color: 'var(--text-secondary)' }}
                     >
                       Показатели →
@@ -574,6 +678,90 @@ export function LabsView() {
       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
         Образовательная информация, не диагноз. Для интерпретации — обратись к врачу.
       </div>
+
+      {/* Отдельный экран показателя поверх списка */}
+      {detail && detailIndex != null && (
+        <LabMarkerDetail
+          key={detail.key}
+          marker={detail}
+          source={{
+            date: detail.sourceDate || (current ? dayOf(current.collectedAt) : ''),
+            lab: detail.sourceLab || current?.lab || '',
+            panelName: current?.panelName || '',
+            hasFile: false,
+          }}
+          position={detailIndex + 1}
+          total={visibleRows.length}
+          selectedPoint={pointIndex}
+          onClose={closeDetail}
+          onPrev={() => stepDetail(-1)}
+          onNext={() => stepDetail(1)}
+          onSelectPoint={setPointIndex}
+          onOpenSource={() => alert('Исходный файл бланка пока не сохраняется в приложении. Сейчас доступны распознанные значения.')}
+          onDiscuss={() => { closeDetail(); setAiOpen(true); }}
+        />
+      )}
+
+      {/* Что должно стоять за ИИ-разбором. Сам разбор не подключён —
+          показываем это прямо, а не подставляем демоответ. */}
+      {aiOpen && (
+        <div
+          onClick={() => setAiOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: '#241d1755', backdropFilter: 'blur(3px)',
+            display: 'grid', placeItems: 'center', zIndex: 60, padding: 12,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fdfcfa', color: '#1a1712', borderRadius: 21, padding: 17,
+              width: '100%', maxWidth: 420, maxHeight: 'calc(100dvh - 28px)', overflow: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+              <h2 style={{ fontSize: 19, fontWeight: 650, margin: 0 }}>Разбор с ИИ</h2>
+              <button
+                type="button"
+                aria-label="Закрыть"
+                onClick={() => setAiOpen(false)}
+                style={{ width: 44, height: 44, border: 0, background: 'none', cursor: 'pointer', fontSize: 20 }}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: '#82796d', lineHeight: 1.55 }}>
+              {scope === 'report'
+                ? `${current?.panelName || 'Бланк'} · ${current ? fmtDate(current.collectedAt) : ''}`
+                : `Последние значения · ${rows.length} показателей из разных дат`}
+            </p>
+            <div style={{ padding: 12, background: '#f4f0ea', borderRadius: 10, fontSize: 12, lineHeight: 1.6, margin: '12px 0' }}>
+              ИИ-разбор ещё не подключён. Сейчас доступны результаты из бланков и их история.
+              Медицинские выводы и подбор добавок здесь не сгенерированы.
+            </div>
+            <h3 style={{ fontSize: 13, fontWeight: 600 }}>На чём должен основываться разбор</h3>
+            <ul style={{ paddingLeft: 19, fontSize: 12, lineHeight: 1.8, color: '#57534c' }}>
+              <li>Клинические рекомендации и систематические обзоры.</li>
+              <li>
+                <a href="https://ods.od.nih.gov/factsheets/list-all/" target="_blank" rel="noopener noreferrer" style={{ color: '#8c5e47' }}>
+                  NIH: сведения о добавках
+                </a>.
+              </li>
+              <li>
+                Проверки конкретного продукта в{' '}
+                <a href="https://www.usp.org/verification-services/dietary-supplements-verification-program" target="_blank" rel="noopener noreferrer" style={{ color: '#8c5e47' }}>USP</a>
+                {' / '}
+                <a href="https://www.nsfsport.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#8c5e47' }}>NSF</a>.
+              </li>
+            </ul>
+            <p style={{ fontSize: 12, lineHeight: 1.65, color: '#57534c', margin: '12px 0' }}>
+              Сначала — значение результатов, ограничения и вопросы врачу. Продукты — только при
+              обоснованной необходимости. Проверка состава не гарантирует лечебный эффект или
+              отсутствие побочных реакций.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,9 +27,24 @@ Rules:
   "TSH" -> "tsh"; "HbA1c" -> "hba1c". Use a descriptive snake_case key when the
   analyte is not in this list. Different assays of the same substance get
   different keys (e.g. "insulin_fasting" vs "insulin_2h").
-- value: numeric only (no unit). If a value is a "<" or ">" bound, use the number.
+- value: numeric only (no unit). Decimal comma means decimal point: "5,9" -> 5.9.
+- rawValue: the value EXACTLY as printed, including "<", ">", comma, or text
+  ("<5", "5,9", "Negative", "Not detected"). Never normalise it.
+- bound: "below" for "<5", "above" for ">100", otherwise "exact". A bound is NOT
+  an exact measurement - value carries the number, bound carries the relation.
 - unit: as printed (e.g. "mg/dL", "ng/mL", "%", "mIU/L"). Empty string if none.
 - refLow / refHigh: numbers from the reference range if present, else null.
+  One-sided ranges are normal: "> 39" -> refLow 39, refHigh null; "< 90" ->
+  refLow null, refHigh 90. Never invent the missing side.
+- specimen: the biomaterial if stated ("serum", "plasma", "whole blood", "urine"),
+  else "". Do not guess it from the analyte name.
+- method: the assay/method if printed ("LC-MS/MS", "immunoassay", "calculated"),
+  else "". The same substance measured by different methods is not interchangeable.
+- page: 1-based page number the value was read from, or null if unclear.
+- group: the section heading it appears under ("Lipids", "Thyroid", "CBC"), or "".
+- needsReview: true when you are NOT confident - blurred or cut-off text, an
+  ambiguous unit, a date you had to infer, or a value you could not read cleanly.
+  Prefer flagging over guessing. A flagged value is shown to the user for checking.
 - flag: "low" if value < refLow, "high" if value > refHigh, else "normal".
   If no reference range, use "normal".
 - panelName: the panel/test name if shown (e.g. "Comprehensive Metabolic Panel",
@@ -59,8 +74,15 @@ const LAB_SCHEMA = {
           refLow: { type: ['number', 'null'] },
           refHigh: { type: ['number', 'null'] },
           flag: { type: 'string', enum: ['low', 'normal', 'high'] },
+          rawValue: { type: 'string' },
+          specimen: { type: 'string' },
+          method: { type: 'string' },
+          bound: { type: 'string', enum: ['exact', 'below', 'above'] },
+          page: { type: ['number', 'null'] },
+          group: { type: 'string' },
+          needsReview: { type: 'boolean' },
         },
-        required: ['key', 'name', 'value', 'unit', 'flag'],
+        required: ['key', 'name', 'value', 'unit', 'flag', 'rawValue', 'specimen', 'method', 'bound', 'page', 'group', 'needsReview'],
         additionalProperties: false,
       },
     },
@@ -148,9 +170,10 @@ export async function POST(request: Request) {
       // тяжёлой модели. Скан без текстового слоя всё ещё требует зрения,
       // поэтому модель одна на оба пути.
       model: 'claude-haiku-4-5',
-      // Полная панель — это 40+ показателей: при 2000 токенов ответ
-      // обрывался на середине JSON и разбор падал.
-      max_tokens: 8000,
+      // Бланк на 130-500 показателей с полями сопоставления — это
+      // десятки тысяч токенов. Берём с запасом; если ответ всё же
+      // упрётся в потолок, ниже показываем это явно, а не режем молча.
+      max_tokens: 32000,
       output_config: { format: { type: 'json_schema', schema: LAB_SCHEMA } },
       system: [{ type: 'text', text: LAB_SYSTEM, cache_control: { type: 'ephemeral' } }],
       messages: [
