@@ -209,24 +209,25 @@ export async function POST(request: Request) {
     const CHUNK_CHARS = 3000;
     const splitText = (text: string) => {
       if (text.length <= CHUNK_CHARS) return [text];
-      const all = text.split(String.fromCharCode(10));
+      const NL = String.fromCharCode(10);
+      const all = text.split(NL);
       // Первые строки бланка — почти всегда шапка с датой и лабораторией.
-      const head = all.slice(0, 8).join(String.fromCharCode(10));
+      const head = all.slice(0, 8).join(NL);
+
+      // Части делаем РАВНЫМИ, а не «по CHUNK_CHARS подряд».
+      //
+      // При нарезке подряд почти весь бланк попадал в первую часть, а во
+      // вторую — хвост в пару строк. Части идут параллельно, поэтому общее
+      // время равно самой долгой: перекос сводил всю выгоду на нет
+      // (82 показателя — 23 секунды при лимите 30).
+      const count = Math.ceil(text.length / CHUNK_CHARS);
+      const perPart = Math.ceil(all.length / count);
       const parts: string[] = [];
-      let buf: string[] = [];
-      let size = 0;
-      for (const line of all) {
-        buf.push(line);
-        size += line.length + 1;
-        if (size >= CHUNK_CHARS) {
-          parts.push(buf.join(String.fromCharCode(10)));
-          buf = [];
-          size = 0;
-        }
+      for (let i = 0; i < all.length; i += perPart) {
+        parts.push(all.slice(i, i + perPart).join(NL));
       }
-      if (buf.length) parts.push(buf.join(String.fromCharCode(10)));
       // Со второй части добавляем шапку, чтобы дата и лаборатория читались.
-      return parts.map((p, i) => i === 0 ? p : `${head}${String.fromCharCode(10)}${String.fromCharCode(10)}${p}`);
+      return parts.map((p, i) => i === 0 ? p : `${head}${NL}${NL}${p}`);
     };
 
     let parsed: Parsed | null = null;
