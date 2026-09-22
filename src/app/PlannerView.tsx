@@ -110,6 +110,8 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang, ti
   const [calMode, setCalMode] = useState<'day' | 'month' | 'ai'>('day');
   const [dayFilter, setDayFilter] = useState<'all' | 'fitness' | 'health' | 'personal'>('all');
   const [showDone, setShowDone] = useState(false);
+  // Блок «Без даты» держим свёрнутым: он длинный и не про текущий день.
+  const [showUndated, setShowUndated] = useState(false);
   // Чат создаём при первом открытии и дальше не размонтируем — иначе
   // черновики и переписка терялись бы при переходе на «День».
   const [aiEverOpened, setAiEverOpened] = useState(false);
@@ -159,6 +161,19 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang, ti
     }
     return map;
   }, [calendarEvents]);
+
+  /**
+   * Дела без даты («Когда-нибудь») живут в старых записях типа todo: они
+   * создавались во вкладке «Дела», которой больше нет. Без этого списка
+   * они были бы недоступны вовсе — календарь показывает только даты.
+   *
+   * Показываем их отдельным блоком под сегодняшним днём: привязывать их к
+   * произвольной дате нельзя, пользователь этой даты не выбирал.
+   */
+  const undatedEvents = useMemo(
+    () => active.filter(e => !e.date && e.type !== 'idea'),
+    [active],
+  );
 
   const selectedEvents = useMemo(() => eventsByDate[selectedDay] || [], [eventsByDate, selectedDay]);
 
@@ -366,6 +381,56 @@ export default function PlannerView({ events, onEventsChange, todayStr, lang, ti
                     )}
                   </>
                 )}
+
+                {/* Дела без даты: видны в любой день, иначе до них никак
+                    не добраться — календарь показывает только даты. */}
+                {undatedEvents.length > 0 && (() => {
+                  const list = undatedEvents.filter(e => dayFilter === 'all' || e.category === dayFilter);
+                  if (!list.length) return null;
+                  const pendingUndated = list.filter(e => !e.done);
+                  const doneUndated = list.filter(e => e.done);
+                  return (
+                    <>
+                      <button
+                        className="done-toggle"
+                        type="button"
+                        aria-expanded={showUndated}
+                        onClick={() => setShowUndated(v => !v)}
+                      >
+                        <ChevronRight size={12} />
+                        {isRu ? 'Без даты' : 'No date'} <b>{list.length}</b>
+                      </button>
+                      {showUndated && (
+                        <>
+                          <div className="agenda">
+                            {pendingUndated.map(ev => (
+                              <TaskRow
+                                key={ev.id}
+                                ev={ev}
+                                isRu={isRu}
+                                onToggle={toggleDone}
+                                onEdit={e => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }}
+                              />
+                            ))}
+                          </div>
+                          {doneUndated.length > 0 && (
+                            <div className="agenda completed">
+                              {doneUndated.map(ev => (
+                                <TaskRow
+                                  key={ev.id}
+                                  ev={ev}
+                                  isRu={isRu}
+                                  onToggle={toggleDone}
+                                  onEdit={e => { setEditingEvent(e); setAddType(e.type || 'event'); setShowAddModal(true); }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </section>
             );
           })()}
