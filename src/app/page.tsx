@@ -459,11 +459,100 @@ interface ProgressHistory {
 const MAX_WORKOUTS = 7;
 
 /**
- * Ключ упражнения для истории. По названию, а НЕ по id: id вида «1»..7
+ * Разбор названия упражнения: ОСНОВА (само движение) + УТОЧНЕНИЯ по осям.
+ *
+ * История берётся по названию, а не по id: id вида «1».."7"
  * переиспользуются во всех тренировках программы, и один id означает
  * разные движения в T1, T2 и T3.
+ *
+ * Названия со временем правят, и уточнение добавляется или исчезает:
+ * «Вертикальная тяга к груди» → «Вертикальная тяга к груди широким
+ * хватом», «Протяжка со штангой» → «…к подбородку». Для пользователя это
+ * то же движение, история должна сохраняться.
+ *
+ * Но просто выбросить уточнения нельзя: «тяга к груди широким хватом» и
+ * «тяга обратным хватом» — разные упражнения, смешивать их веса нельзя.
+ * Поэтому уточнения не отбрасываются, а сравниваются по осям: указанное
+ * против указанного. Не написанное уточнение совместимо с любым.
  */
-const exerciseNameKey = (n: string) => n.toLowerCase().trim().replace(/s+/g, ' ');
+const SPEC_AXES: Record<string, string[]> = {
+  grip: ['широким хватом', 'узким хватом', 'обратным хватом', 'прямым хватом',
+         'нейтральным хватом', 'параллельным хватом'],
+  target: ['к подбородку', 'к груди', 'за голову', 'из-за головы', 'над головой'],
+  pose: ['стоя', 'сидя', 'лежа', 'в наклоне', 'в висе', 'на коленях'],
+  gear: ['со штангой', 'с гантелями', 'с гантелей', 'в тренажере', 'в блоке',
+         'в кроссовере', 'на брусьях', 'в смите'],
+};
+
+/**
+ * Уточнения без «противоположности»: их наличие или отсутствие никогда не
+ * делает движение другим, поэтому в основу они не входят вовсе.
+ */
+const SPEC_FREE = [
+  'горизонтально', 'бабочка', 'канат', 'наклонной скамье', 'скамье скотта',
+  'на месте', 'по одной руке', 'одной рукой', 'поочередно',
+];
+
+const normName = (s: string) => (s || '').toLowerCase().replace(/ё/g, 'е')
+  // Скобки и то, что в них: «(бабочка)», «(канат)» — уточнение.
+  .replace(/\([^)]*\)/g, ' ')
+  // «или» и «/» перечисляют варианты: упражнение допускает оба.
+  .replace(/\s+или\s+/g, ' ')
+  .replace(/[\/,]+/g, ' ')
+  // Цифры и градусы («30°», «45») — уточнение, а не другое движение.
+  .replace(/\d+\s*°?/g, ' ')
+  .replace(/[^а-яa-z\s]/g, ' ')
+  .replace(/\s+/g, ' ').trim();
+
+type ParsedName = { base: string; specs: Record<string, string[]> };
+
+const parseExerciseName = (raw: string): ParsedName => {
+  let k = normName(raw);
+  const specs: Record<string, string[]> = {};
+  for (const axis of Object.keys(SPEC_AXES)) {
+    // Длинные варианты сначала, иначе «широким хватом» распадётся.
+    const values = [...SPEC_AXES[axis]].sort((a, b) => b.length - a.length);
+    const hits: string[] = [];
+    for (const v of values) {
+      if (k.includes(v)) { hits.push(v); k = k.split(v).join(' '); }
+    }
+    if (hits.length) specs[axis] = hits;
+  }
+  for (const free of SPEC_FREE) k = k.split(free).join(' ');
+  const base = k.replace(/\s+/g, ' ').trim();
+  // Если от названия осталась пустота («Стоя», «С гантелями»), основой
+  // считаем название целиком — иначе такие записи слиплись бы в одну.
+  return { base: base || normName(raw), specs };
+};
+
+/** Одно ли это упражнение: основа совпала и уточнения не расходятся. */
+const sameExercise = (a: ParsedName, b: ParsedName) => {
+  if (a.base !== b.base) return false;
+  for (const axis of Object.keys(SPEC_AXES)) {
+    const p = a.specs[axis];
+    const q = b.specs[axis];
+    if (p && q && !p.some((v) => q.includes(v))) return false;
+  }
+  return true;
+};
+
+/**
+ * По скольким осям уточнения названы одинаково.
+ *
+ * Нужно, когда на старую запись без уточнения претендуют два упражнения:
+ * «Вертикальная тяга к груди» ближе к «…к груди широким хватом» (совпала
+ * ось «к груди»), чем к «Вертикальная тяга обратным хватом» (не совпало
+ * ничего). Это не догадка о технике, а то, что написано в названиях.
+ */
+const specOverlap = (a: ParsedName, b: ParsedName) => {
+  let n = 0;
+  for (const axis of Object.keys(SPEC_AXES)) {
+    const p = a.specs[axis];
+    const q = b.specs[axis];
+    if (p && q && p.some((v) => q.includes(v))) n++;
+  }
+  return n;
+};
 
 // Translations
 const translations = {
@@ -4595,26 +4684,88 @@ export default function FitnessPage() {
    * упражнения показывался у всех остальных с тем же номером.
    */
   const weightHistoryByName = useMemo(() => {
-    const map: Record<string, { date: string; weight: number }[]> = {};
+    // Группируем по основе движения, а уточнения храним рядом: на чтении
+    // отберём только записи, совместимые с текущим названием.
+    const map: Record<string, { date: string; weight: number; parsed: ParsedName }[]> = {};
     const dates = Object.keys(dayLogs).sort(); // старые сверху
     for (const d of dates) {
-      const perDay: Record<string, number> = {}; // название → макс вес за день
+      // название из журнала → макс вес за день
+      const perDay: Record<string, { weight: number; parsed: ParsedName }> = {};
       for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
         if (!candidate?.exercises) continue;
         for (const e of candidate.exercises) {
           const sets = (e as { sets?: ExerciseSet[] }).sets;
           if (!Array.isArray(sets) || sets.length === 0) continue;
           const maxW = Math.max(0, ...sets.map(st => st.weight || 0));
-          const k = exerciseNameKey(e.name || '');
-          if (maxW > 0 && k) perDay[k] = Math.max(perDay[k] || 0, maxW);
+          if (maxW <= 0) continue;
+          const parsed = parseExerciseName(e.name || '');
+          if (!parsed.base) continue;
+          const id = parsed.base + '|' + JSON.stringify(parsed.specs);
+          const prev = perDay[id];
+          if (!prev || maxW > prev.weight) perDay[id] = { weight: maxW, parsed };
         }
       }
-      for (const [k, w] of Object.entries(perDay)) {
-        (map[k] ??= []).push({ date: d, weight: w });
+      for (const { weight, parsed } of Object.values(perDay)) {
+        (map[parsed.base] ??= []).push({ date: d, weight, parsed });
       }
     }
     return map;
   }, [dayLogs]);
+
+  /**
+   * Сколько упражнений программы претендуют на одну основу.
+   *
+   * «Вертикальная тяга к груди широким хватом» и «Вертикальная тяга
+   * обратным хватом» — одна основа, разный хват. В журнале же есть старая
+   * запись без хвата, «Вертикальная тяга к груди». Она подходит обоим, и
+   * отдать её обоим значит показать двум упражнениям один и тот же чужой
+   * график. Такие споры решает weightHistoryFor.
+   */
+  const rivalsByBase = useMemo(() => {
+    const map: Record<string, ParsedName[]> = {};
+    const seen = new Set<string>();
+    for (const w of workouts) {
+      for (const e of w.exercises || []) {
+        const nm = (e.name || '').trim();
+        if (!nm || seen.has(nm)) continue;
+        seen.add(nm);
+        const p = parseExerciseName(nm);
+        if (p.base) (map[p.base] ??= []).push(p);
+      }
+    }
+    return map;
+  }, [workouts]);
+
+  /**
+   * История для конкретного названия: берём группу по основе и оставляем
+   * записи, чьи уточнения не противоречат. Запись, подходящую сразу
+   * нескольким упражнениям программы, пропускаем — лучше не показать
+   * тренд, чем показать чужой. Если за день осталось несколько записей,
+   * берём максимальный вес.
+   */
+  const weightHistoryFor = useCallback((name: string) => {
+    const want = parseExerciseName(name);
+    const group = weightHistoryByName[want.base];
+    if (!group) return undefined;
+    const rivals = rivalsByBase[want.base] || [];
+    const perDate: Record<string, number> = {};
+    for (const row of group) {
+      if (!sameExercise(want, row.parsed)) continue;
+      // Запись подошла и другому упражнению программы. Отдаём её тому, у
+      // кого больше совпавших осей уточнений; при равном счёте — никому,
+      // лучше не показать тренд, чем показать чужой.
+      const mine = specOverlap(want, row.parsed);
+      const contested = rivals.some(r =>
+        JSON.stringify(r) !== JSON.stringify(want) &&
+        sameExercise(r, row.parsed) &&
+        specOverlap(r, row.parsed) >= mine);
+      if (contested) continue;
+      perDate[row.date] = Math.max(perDate[row.date] || 0, row.weight);
+    }
+    const dates = Object.keys(perDate).sort();
+    if (dates.length === 0) return undefined;
+    return dates.map(d => ({ date: d, weight: perDate[d] }));
+  }, [weightHistoryByName, rivalsByBase]);
 
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
@@ -5141,7 +5292,7 @@ export default function FitnessPage() {
                       onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
-                      weightHistory={weightHistoryByName[exerciseNameKey(ex.name)]}
+                      weightHistory={weightHistoryFor(ex.name)}
                       lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
