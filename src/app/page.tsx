@@ -213,12 +213,15 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
   // Идёт отдых — оранжевая с обратным отсчётом, закончился — зелёная.
   return (
     <div className={['exercise-rest', 'tx-rest', isRunning ? 'is-running' : '', isFinished ? 'is-done' : ''].filter(Boolean).join(' ')}>
+      {/* Время — отдельной крупной строкой: таймер смотрят с пола, когда
+          телефон лежит рядом, и 11px там не прочитать. */}
       <span className="rest-state" role="status">
-        {isFinished
-          ? 'Отдых закончен — можно начинать подход'
-          : isRunning
-            ? `Отдых · ${formatTime(timeLeft)}`
-            : `Отдых после подхода · ${formatTime(totalSeconds)}`}
+        <span className="rest-label">
+          {isFinished ? 'Отдых закончен' : isRunning ? 'Отдых' : 'Отдых после подхода'}
+        </span>
+        <span className="rest-time">
+          {isFinished ? 'Можно начинать' : formatTime(isRunning ? timeLeft : totalSeconds)}
+        </span>
       </span>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
         {isRunning && (
@@ -454,6 +457,13 @@ interface ProgressHistory {
 
 // Maximum workouts allowed
 const MAX_WORKOUTS = 7;
+
+/**
+ * Ключ упражнения для истории. По названию, а НЕ по id: id вида «1»..7
+ * переиспользуются во всех тренировках программы, и один id означает
+ * разные движения в T1, T2 и T3.
+ */
+const exerciseNameKey = (n: string) => n.toLowerCase().trim().replace(/s+/g, ' ');
 
 // Translations
 const translations = {
@@ -4576,41 +4586,35 @@ export default function FitnessPage() {
   // даты, где упражнение делалось (в ЛЮБОЙ тренировке), берём МАКСИМАЛЬНЫЙ вес
   // среди подходов. Не привязываемся к workoutId — история строится с первого
   // дня, когда появился вес. Один день = одна точка (макс. по draft/snapshot).
-  const weightHistoryByExerciseId = useMemo(() => {
-    // Сопоставление по НАЗВАНИЮ (id переиспользуются между программами —
-    // график чужого упражнения попадал в новое после смены программы).
-    const norm = (n: string) => n.toLowerCase().trim();
-    const idsByName = new Map<string, string[]>();
-    for (const w of workouts) {
-      for (const e of w.exercises) {
-        const k = norm(e.name);
-        if (!k) continue;
-        if (!idsByName.has(k)) idsByName.set(k, []);
-        idsByName.get(k)!.push(e.id);
-      }
-    }
+  /**
+   * История рабочего веса по НАЗВАНИЮ упражнения.
+   *
+   * Раскладывать её по ex.id нельзя: id вида "1".."7" переиспользуются во
+   * всех тренировках программы, поэтому "1" — это одновременно «Жим
+   * гантелей» в T1, «Тяга штанги» в T2 и «Жим ногами» в T3. График одного
+   * упражнения показывался у всех остальных с тем же номером.
+   */
+  const weightHistoryByName = useMemo(() => {
     const map: Record<string, { date: string; weight: number }[]> = {};
     const dates = Object.keys(dayLogs).sort(); // старые сверху
     for (const d of dates) {
-      const perDay: Record<string, number> = {}; // nameKey → макс вес за день
+      const perDay: Record<string, number> = {}; // название → макс вес за день
       for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
         if (!candidate?.exercises) continue;
         for (const e of candidate.exercises) {
           const sets = (e as { sets?: ExerciseSet[] }).sets;
           if (!Array.isArray(sets) || sets.length === 0) continue;
           const maxW = Math.max(0, ...sets.map(st => st.weight || 0));
-          const k = norm(e.name || '');
+          const k = exerciseNameKey(e.name || '');
           if (maxW > 0 && k) perDay[k] = Math.max(perDay[k] || 0, maxW);
         }
       }
       for (const [k, w] of Object.entries(perDay)) {
-        for (const id of idsByName.get(k) ?? []) {
-          (map[id] ??= []).push({ date: d, weight: w });
-        }
+        (map[k] ??= []).push({ date: d, weight: w });
       }
     }
     return map;
-  }, [dayLogs, workouts]);
+  }, [dayLogs]);
 
   const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
@@ -5137,7 +5141,7 @@ export default function FitnessPage() {
                       onToggle={() => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, { completed: !ex.completed })}
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
-                      weightHistory={weightHistoryByExerciseId[ex.id]}
+                      weightHistory={weightHistoryByName[exerciseNameKey(ex.name)]}
                       lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
