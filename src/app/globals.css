@@ -929,28 +929,36 @@ button:disabled {
 
 /* Нижнее меню по макету: плоская панель, активная вкладка оранжевая
    с полоской-индикатором сверху. Раньше была плавающая капсула с тенью. */
+/* Меню-капсула, как было раньше: скруглённая панель с тенью и отступом
+   от краёв вместо плоской полосы во всю ширину. Состав и порядок
+   пунктов не меняются — только оформление. */
 .tx-tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
   display: flex; gap: 0;
   max-width: 600px; margin: 0 auto;
-  background: #fdfcfa; border-top: 1px solid #e4ddd2;
-  padding: 8px 10px 20px;
-  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  /* Фон и рамка теперь на самой капсуле, а не на всей полосе. */
+  background: transparent; border-top: 0;
+  padding: 0 12px 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+/* Сама капсула: обёртка вокруг кнопок. */
+.tx-tabbar > .tx-tabcap {
+  flex: 1; display: flex;
+  background: #fdfcfa; border: 1px solid #e4ddd2;
+  border-radius: 27px; padding: 6px 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18);
 }
 .tx-tab {
   flex: 1; min-height: 47px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 5px; padding: 5px 0;
+  gap: 3px; padding: 8px 4px;
   background: transparent; border: 0; cursor: pointer;
-  font-size: 9px; font-weight: 500; color: #a19789; position: relative;
-  font-family: inherit;
+  font-size: 11px; font-weight: 500; color: #b3b3b3; position: relative;
+  font-family: inherit; transition: color .15s ease;
 }
-.tx-tab.is-active { color: #bd5939; font-weight: 650; }
-.tx-tab.is-active:before {
-  content: ''; position: absolute; top: -8px;
-  width: 24px; height: 2px; border-radius: 2px; background: var(--yellow);
-}
-.tx-tab svg { width: 21px; height: 21px; }
+.tx-tab.is-active { color: #222222; font-weight: 700; }
+/* Активный пункт раньше выделялся цветом и насыщенностью, без чёрточки. */
+.tx-tab svg { width: 22px; height: 22px; }
 
 /* Месячный календарь и «Мой прогресс» — карточки как в макете */
 .tx-card { border-radius: 16px; padding: 15px; background: #fff; border: 1px solid #e8e1d7; margin-top: 20px; }
@@ -1539,7 +1547,7 @@ button:disabled {
    тёмный фон ночной темы просвечивает вокруг карточек. */
 body:has(.nutv2) { background: #f6f3ee !important; }
 body:has(.nutv2) main { background: #f6f3ee !important; }
-body:has(.nutv2) .tx-tabbar { background: #fdfcfa !important; border-top-color: #e5ddd1 !important; }
+body:has(.nutv2) .tx-tabbar > .tx-tabcap { background: #fdfcfa !important; border-color: #e5ddd1 !important; }
 
 /* Заголовки и текст макета не должны наследовать цвета ночной темы. */
 body:has(.nutv2) .nutv2 h1,

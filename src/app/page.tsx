@@ -8142,6 +8142,8 @@ export default function FitnessPage() {
           ИИ раньше жила ОТДЕЛЬНОЙ кнопкой вне flex-контейнера и забирала
           всю свободную ширину — 205px против 50px у соседей. */}
       <nav className="tx-tabbar">
+        {/* Капсула: скруглённая панель с тенью, как было раньше. */}
+        <div className="tx-tabcap">
         {([
           { key: 'workout' as typeof view,   icon: <Home size={21} />,          label: userSettings.language === 'ru' ? 'Главная' : 'Home' },
           { key: 'planner' as typeof view,   icon: <CalendarDays size={21} />,  label: userSettings.language === 'ru' ? 'Планер' : 'Plan' },
@@ -8165,6 +8167,7 @@ export default function FitnessPage() {
             </button>
           );
         })}
+        </div>
       </nav>
     </main>
   );
