@@ -65,11 +65,31 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
   onSecondsChange?: (sec: number) => void;
 } = { restTime: '' }) {
   const totalSeconds = parseRestTime(restTime);
-  const [timeLeft, setTimeLeft] = useState(totalSeconds);
-  const [isRunning, setIsRunning] = useState(false);
+  /**
+   * Отсчёт идёт по ЧАСАМ, а не по тикам.
+   *
+   * deadline — момент, когда отдых закончится (Date.now() + остаток).
+   * Интервал лишь перерисовывает цифры; сколько именно раз он успел
+   * сработать, на результат не влияет. Это важно, потому что в свёрнутом
+   * приложении и в фоновой вкладке браузер душит таймеры: setInterval на
+   * секунду начинает приходить раз в минуту или не приходить вовсе, и
+   * счётчик «минус один за тик» замирал посреди отдыха.
+   *
+   * null означает «не идёт»: на паузе и до старта остаток фиксирован и
+   * лежит в timeLeft, часы на него не влияют.
+   */
+  const [deadline, setDeadline] = useState<number | null>(null);
   const [isFinished, setIsFinished] = useState(false);
+  /**
+   * Показываемый остаток. Пересчитывается из deadline в эффекте, а не при
+   * рендере: Date.now() в рендере — нечистая функция, два рендера подряд
+   * дали бы разные числа. Пока таймер стоит, здесь лежит остаток с паузы.
+   */
+  const [timeLeft, setTimeLeft] = useState(totalSeconds);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  const isRunning = deadline !== null;
 
   // Приятный «фитнесовый» сигнал: мягкий двухнотный колокольчик (E5→A5)
   // с обертоном и длинным затуханием, повторяется дважды.
@@ -133,27 +153,50 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
     };
   }, [isRunning]);
 
+  /**
+   * Завершение отдыха. Вызывается и тиком, и возвратом на экран: если
+   * приложение было свёрнуто дольше, чем шёл отдых, время вышло ещё в
+   * фоне, и показать это надо сразу, не дожидаясь тиков.
+   */
+  const finish = useCallback((withSound: boolean) => {
+    setDeadline(null);
+    setTimeLeft(0);
+    setIsFinished(true);
+    if (withSound) playBeep();
+  }, [playBeep]);
+
   useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            setIsFinished(true);
-            playBeep();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+    if (deadline === null) return;
+
+    const check = (withSound: boolean) => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      if (left === 0) finish(withSound);
+      else setTimeLeft(left);
+    };
+
+    // Сверяемся с часами сразу: первый тик придёт только через интервал,
+    // а цифры должны встать на место немедленно.
+    check(false);
+
+    // Раз в 250мс: цифры не «проскакивают» секунду, когда тик приходит
+    // с задержкой, а нагрузка остаётся незаметной.
+    intervalRef.current = setInterval(() => check(true), 250);
+
+    // Вернулись на экран — сверяемся с часами немедленно, не дожидаясь
+    // тика: в фоне он мог не приходить вовсе. Если время вышло, пока
+    // приложение было свёрнуто, звук прозвучит сейчас — в фоне браузер
+    // его всё равно глушит, а услышать сигнал нужно. Прозвучит один раз:
+    // finish() снимает deadline, и эффект больше не висит.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [isRunning, timeLeft, playBeep]);
+  }, [deadline, finish]);
 
   // Реакция на сигналы родителя: отметили подход — отдых пошёл, закрыли
   // упражнение — погас. Сигнал приходит извне как счётчик, поэтому это
@@ -165,9 +208,9 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
     if (sig === prevStartRef.current || sig === 0) return;
     prevStartRef.current = sig;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- внешнее событие: подход отмечен
-    setTimeLeft(totalSeconds);
     setIsFinished(false);
-    setIsRunning(true);
+    setTimeLeft(totalSeconds);
+    setDeadline(Date.now() + totalSeconds * 1000);
   }, [startSignal, totalSeconds]);
 
   const prevStopRef = useRef(stopSignal ?? 0);
@@ -176,7 +219,7 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
     if (sig === prevStopRef.current || sig === 0) return;
     prevStopRef.current = sig;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- внешнее событие: упражнение закрыто
-    setIsRunning(false);
+    setDeadline(null);
     setIsFinished(false);
     setTimeLeft(totalSeconds);
   }, [stopSignal, totalSeconds]);
@@ -192,18 +235,25 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
 
   const toggleTimer = () => {
     if (isFinished) {
-      // Reset
-      setTimeLeft(totalSeconds);
+      // «Заново» — полный круг отдыха с нуля.
       setIsFinished(false);
-      setIsRunning(true);
+      setTimeLeft(totalSeconds);
+      setDeadline(Date.now() + totalSeconds * 1000);
+    } else if (isRunning) {
+      // Пауза: остаток уже посчитан тиком, достаточно убрать deadline —
+      // дальше timeLeft не меняется, сколько бы времени ни прошло.
+      setDeadline(null);
     } else {
-      setIsRunning(!isRunning);
+      // Старт/продолжение от показанного остатка.
+      const left = timeLeft > 0 ? timeLeft : totalSeconds;
+      setTimeLeft(left);
+      setDeadline(Date.now() + left * 1000);
     }
   };
 
   const resetTimer = () => {
+    setDeadline(null);
     setTimeLeft(totalSeconds);
-    setIsRunning(false);
     setIsFinished(false);
   };
 
