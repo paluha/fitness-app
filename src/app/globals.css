@@ -896,6 +896,27 @@ button:disabled {
 .tx-row.is-current .tx-check { border-color: #e6bda9; background: #fff6f0; color: #d95731; }
 .tx-row.is-filled .tx-input { background: #f4f9f5; border-color: #e1eadf; color: #486454; }
 
+/* Похоже на опечатку в цифрах: подсвечиваем поле и подписываем строкой
+   под ним. Ввод не блокируем — бывает, что вес действительно сброшен,
+   поэтому цвет предупреждающий (янтарь), а не ошибочный (красный).
+   Подсказка перебивает и is-current, и is-filled: заметить её важнее. */
+.tx-input.is-warn,
+.tx-row.is-current .tx-input.is-warn,
+.tx-row.is-filled .tx-input.is-warn {
+  border-color: #e0a33c; background: #fff8ec; color: #8a5a12;
+}
+.tx-row.has-warn { margin-bottom: 2px; }
+.tx-warn {
+  display: flex; align-items: flex-start; gap: 5px;
+  /* Выравниваем под поля ввода: пропускаем колонки «№» и «прошлый раз». */
+  margin: 0 0 7px calc(18px + 61px + 12px);
+  font-size: 10px; line-height: 1.3; font-weight: 500; color: #8a5a12;
+}
+.tx-warn svg { flex: none; margin-top: 1px; color: #c8841f; }
+@media (max-width: 359px) {
+  .tx-warn { margin-left: 0; }
+}
+
 /* Кнопки под таблицей */
 .tx-actions { margin-top: 10px; }
 .tx-trend, .tx-addset {

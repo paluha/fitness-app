@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -290,6 +290,97 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
   );
 }
 
+/**
+ * Проверка подхода на опечатку в цифрах.
+ *
+ * Набирая вес на телефоне, легко потерять последнюю цифру: 70 уходит
+ * как 7. В журнале такие записи уже есть — «160,160,160,16»,
+ * «150,15,15», «140,40,40» — и после закрытия дня они портят и
+ * статистику, и тренд.
+ *
+ * Сравниваем с МАКСИМУМОМ соседних подходов, а не со средним:
+ * потерянная цифра всегда уменьшает число, поэтому максимум от неё не
+ * страдает, а медиана — страдает (при «150,15,15» она уезжает к 15, и
+ * жалоба полетела бы на правильный подход).
+ *
+ * Ввод НЕ блокируем: бывает, что вес действительно сброшен.
+ */
+const SET_RATIO = 3;    // во столько раз вес должен выбиваться из соседей
+const PREV_RATIO = 3;   // ...или из прошлой тренировки
+const MAX_REPS = 40;    // больше — похоже, что вес попал в поле повторов
+
+/** Выглядит ли число как target с потерянной цифрой: 7↔70, 15↔150. */
+const looksTruncated = (value: number, target: number) => {
+  if (value <= 0 || target <= 0) return false;
+  const v = Math.round(value);
+  const t = Math.round(target);
+  // Не дописан нуль. Строго, без допуска: «9 при 100» — не потерянная
+  // цифра, и предлагать 100 было бы выдумкой.
+  if (v * 10 === t) return true;
+  // Потеряна первая цифра: 40 вместо 140, 15 вместо 150.
+  const str = String(t);
+  if (str.length > 1 && Number(str.slice(1)) === v) return true;
+  return false;
+};
+
+type SetWarning = { field: 'weight' | 'reps'; text: string };
+
+const checkSetSanity = (
+  set: ExerciseSet,
+  i: number,
+  sets: ExerciseSet[],
+  prevMax: number,
+): SetWarning | null => {
+  const w = set.weight || 0;
+  const reps = set.reps || 0;
+
+  if (reps > MAX_REPS) {
+    return { field: 'reps', text: `${reps} повторов — это вес?` };
+  }
+
+  if (w > 0) {
+    const others = sets
+      .filter((_, j) => j !== i)
+      .map(x => x.weight || 0)
+      .filter(x => x > 0);
+
+    if (others.length >= 1) {
+      const top = Math.max(...others);
+      // Плавно меняющийся вес — не опечатка, а техника: разминка
+      // «70→140→210» или дропсет «150→100→50». Отличие в размере ШАГА:
+      // при потерянной цифре вес обрывается разом втрое и больше.
+      const filled = sets.map(x => x.weight || 0).filter(x => x > 0);
+      const steps = filled.slice(1).map((x, j) => {
+        const prev = filled[j];
+        return prev > 0 ? Math.max(x / prev, prev / x) : 1;
+      });
+      const smooth = filled.length >= 2 && steps.every(r => r < SET_RATIO);
+      const monotone = smooth && (
+        filled.every((x, j) => j === 0 || x >= filled[j - 1]) ||
+        filled.every((x, j) => j === 0 || x <= filled[j - 1])
+      );
+      if (top > 0 && w * SET_RATIO <= top && !monotone) {
+        // Когда видно потерянную цифру, не повторяем число дважды:
+        // «Может, 70?» вместо «В других подходах 70. Может, 70?».
+        return {
+          field: 'weight',
+          text: looksTruncated(w, top) ? `Может, ${top}?` : `В других подходах ${top}`,
+        };
+      }
+    }
+
+    // Сравнивать внутри упражнения не с чем — смотрим на прошлый раз.
+    if (others.length === 0 && prevMax > 0) {
+      if (w * PREV_RATIO <= prevMax || w >= prevMax * PREV_RATIO) {
+        return {
+          field: 'weight',
+          text: looksTruncated(w, prevMax) ? `Может, ${prevMax}?` : `В прошлый раз ${prevMax}`,
+        };
+      }
+    }
+  }
+  return null;
+};
 // Types
 // One row in the new per-set table view. `completed` is per-set so the
 // outer `completed` flag below can be derived (all sets done → exercise done).
@@ -1250,6 +1341,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               exercise completed when every set is checked. */}
           {(() => {
             const sets: ExerciseSet[] = ex.sets ?? makeInitialSets(ex.plannedSets);
+            // Рабочий вес прошлой тренировки: с ним сверяем первый подход,
+            // когда внутри упражнения сравнивать ещё не с чем.
+            const prevMaxWeight = Math.max(0, ...(lastSets ?? []).map(x => x.weight || 0));
             const updateSet = (i: number, patch: Partial<ExerciseSet>) => {
               const next = sets.map((s, j) => j === i ? { ...s, ...patch } : s);
               const allDone = next.length > 0 && next.every(s => s.completed);
@@ -1314,17 +1408,19 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 </div>
                 {sets.map((s, i) => {
                   const last = lastSets?.[i];
+                  // Похоже на опечатку в цифрах — подсказываем, но не мешаем.
+                  const warn = checkSetSanity(s, i, sets, prevMaxWeight);
                   return (
+                  <React.Fragment key={i}>
                   <div
-                    key={i}
-                    className={['tx-grid', 'tx-row', i === currentIdx ? 'is-current' : '', s.completed ? 'is-filled' : ''].filter(Boolean).join(' ')}
+                    className={['tx-grid', 'tx-row', i === currentIdx ? 'is-current' : '', s.completed ? 'is-filled' : '', warn ? 'has-warn' : ''].filter(Boolean).join(' ')}
                   >
                     <span className={['tx-setn', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}>{i + 1}</span>
                     <span className="tx-last">
                       {last && (last.reps > 0 || last.weight > 0) ? `${last.reps}×${last.weight}` : '—'}
                     </span>
                     <input
-                      className="tx-input"
+                      className={['tx-input', warn?.field === 'reps' ? 'is-warn' : ''].filter(Boolean).join(' ')}
                       type="number"
                       inputMode="numeric"
                       value={s.reps || ''}
@@ -1332,7 +1428,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       placeholder="0"
                     />
                     <input
-                      className="tx-input"
+                      className={['tx-input', warn?.field === 'weight' ? 'is-warn' : ''].filter(Boolean).join(' ')}
                       type="number"
                       inputMode="numeric"
                       value={s.weight || ''}
@@ -1348,6 +1444,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       {s.completed ? <Check size={16} strokeWidth={3} /> : <Check size={16} strokeWidth={2} />}
                     </button>
                   </div>
+                  {warn && (
+                    <div className="tx-warn" role="status">
+                      <AlertTriangle size={11} />
+                      <span>{warn.text}</span>
+                    </div>
+                  )}
+                  </React.Fragment>
                   );
                 })}
                 {/* Ряд действий по макету: тренд и «+ Подход» в одну строку,
