@@ -3875,6 +3875,14 @@ export default function FitnessPage() {
     setProgramProposal(null);
     setShowProgramModal(false);
     await applyProposedProgram(proposal);
+    // Отмечаем решение в переписке: иначе ассистент видит только «собрал
+    // программу, пользователь решает» и при следующем вопросе предлагает
+    // составить её заново, хотя она уже принята.
+    fetch('/api/chat', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accepted: true, days: proposal.workouts.length }),
+    }).catch(() => { /* отметка не критична — программа уже заменена */ });
     // Предложение могло прийти из чата, а там нижнее меню скрыто —
     // после замены показываем главную, где и лежит новая программа.
     if (view === 'chat') {
@@ -7591,7 +7599,16 @@ export default function FitnessPage() {
                 ))}
                 <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                   <button
-                    onClick={() => setProgramProposal(null)}
+                    onClick={() => {
+                      setProgramProposal(null);
+                      // Отклонение тоже отмечаем: иначе ассистент решит,
+                      // что предложение всё ещё ждёт ответа.
+                      fetch('/api/chat', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accepted: false }),
+                      }).catch(() => { /* отметка не критична */ });
+                    }}
                     style={{
                       flex: 1, padding: '13px', background: 'var(--bg-elevated)',
                       border: '1px solid var(--border)', borderRadius: '12px',

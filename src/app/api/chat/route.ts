@@ -38,6 +38,7 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - Программа применяется НЕ сразу. Как только ты её соберёшь, откроется экран с полным списком упражнений и кнопками «Принять программу» и «Отклонить» — решает пользователь. Старая при этом уйдёт в историю программ, её можно вернуть. Так и говори: «сейчас откроется экран, посмотри и подтверди» — не обещай, что уже всё поменял.
 - Перед вызовом спроси ОДНИМ вопросом, нужен ли продвинутый режим (суперсеты, дропсеты, работа до отказа) или стандартный — если пользователь этого ещё не сказал. Это единственное, что обязательно уточнить: остальное бери из его данных выше.
 - Опирайся на его рабочие веса, частоту тренировок и цель. Не пересказывай получившуюся программу текстом — она и так будет показана списком; напиши только, что в ней изменилось и почему.
+- В истории переписки есть отметки «Программа принята и уже действует» и «Программа отклонена». Читай их: если программа принята, она УЖЕ РАБОТАЕТ — не предлагай составить её снова и не говори «сейчас составлю». На вопросы про неё («она на сколько дней?», «что в ней?») отвечай по разделу ШАБЛОНЫ ТРЕНИРОВОК ниже — это и есть действующая программа.
 
 КАК ВЕСТИ ДИАЛОГ:
 - НЕ переспрашивай то, что пользователь уже сказал в этом разговоре или что есть в его данных выше. Перед вопросом проверь историю переписки и данные: ответ часто уже есть.
@@ -150,6 +151,30 @@ type Meal = { name?: string; time?: string; calories?: number; protein?: number;
 
 // Читаемая сводка ЕДЫ по последним дням: дата, блюда с макросами и дневные
 // итоги. Надёжнее, чем сырой JSON дня — модель не теряет еду из-за обрезки.
+/**
+ * Действующая программа человекочитаемым списком.
+ *
+ * Раньше сюда шёл сырой JSON с лимитом 2000 символов — программа на
+ * пятнадцать упражнений обрезалась на середине, и модель не могла
+ * ответить даже на «сколько дней в программе».
+ */
+function buildProgramText(workouts: unknown): string {
+  if (!Array.isArray(workouts)) return '—';
+  const days = (workouts as { id?: string; name?: string; exercises?: { name?: string; plannedSets?: string; restTime?: string; notes?: string; supersetId?: string }[] }[])
+    .filter(w => Array.isArray(w?.exercises) && w.exercises.length > 0);
+  if (days.length === 0) return 'Программа не задана.';
+
+  const blocks = days.map((w, i) => {
+    const lines = (w.exercises || []).map((e, j) => {
+      const sup = e.supersetId ? ` [суперсет ${e.supersetId}]` : '';
+      const note = e.notes ? ` — ${e.notes}` : '';
+      return `  ${j + 1}. ${e.name || '?'} — ${e.plannedSets || 'план не указан'}${sup}${note}`;
+    });
+    return `${w.name || 'Тренировка ' + (i + 1)} (${w.id || 't' + (i + 1)}):\n${lines.join('\n')}`;
+  });
+  return `Всего тренировок в программе: ${days.length}.\n\n${blocks.join('\n\n')}`;
+}
+
 function buildFoodLog(dayLogs: unknown, days = 7): string {
   if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
   const entries = Object.entries(dayLogs as Record<string, { meals?: unknown; steps?: number | null }>);
@@ -365,8 +390,8 @@ export async function POST(request: Request) {
 🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал; у свежих дней — рабочие подходы «вес×повторы», веса пользователь вводит в колонке весов):
 ${buildWorkoutHistory(mergedDayLogs, 60)}
 
-📋 ШАБЛОНЫ ТРЕНИРОВОК (план T1–T7):
-${compactJson(fitness?.workouts, 2000)}
+📋 ДЕЙСТВУЮЩАЯ ПРОГРАММА (это текущие тренировки пользователя — на вопросы «сколько дней», «что в программе» отвечай по ней):
+${buildProgramText(fitness?.workouts)}
 
 🍽️ ЕДА (дневник по дням, новые сверху; если сегодняшней даты нет — за сегодня еда не записана):
 ${buildFoodLog(mergedDayLogs, 7)}
@@ -502,6 +527,26 @@ const PROGRAM_TOOL: Anthropic.Tool = {
 
   const stream = new ReadableStream({
     async start(controller) {
+      /**
+       * Отправка в поток, переживающая уход пользователя.
+       *
+       * Закрыл экран или свернул приложение — соединение рвётся, и
+       * enqueue бросает ошибку. Раньше она уводила выполнение в catch, и
+       * ответ не дописывался и не сохранялся: вернувшись, пользователь
+       * не находил ни ответа, ни собранной программы. Теперь обрыв
+       * просто прекращает отправку, а работа идёт до конца — результат
+       * всё равно ляжет в историю.
+       */
+      let clientGone = false;
+      const push = (text: string) => {
+        if (clientGone) return;
+        try {
+          controller.enqueue(encoder.encode(text));
+        } catch {
+          clientGone = true;
+        }
+      };
+
       try {
         const llmStream = client.messages.stream({
           model: 'claude-sonnet-4-6',
@@ -517,13 +562,13 @@ const PROGRAM_TOOL: Anthropic.Tool = {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
             const chunk = event.delta.text;
             assistantText += chunk;
-            controller.enqueue(encoder.encode(chunk));
+            push(chunk);
           }
           // Модель начала собирать программу. Сообщаем сразу: сборка
           // занимает секунд пятнадцать, и всё это время клиенту нечего
           // показать — без сигнала экран выглядит зависшим.
           if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
-            controller.enqueue(encoder.encode(STAGE_MARKER + 'Собираю программу' + STAGE_END));
+            push(STAGE_MARKER + 'Собираю программу' + STAGE_END);
           }
         }
 
@@ -536,7 +581,7 @@ const PROGRAM_TOOL: Anthropic.Tool = {
         );
         if (toolUse) {
           const payload = JSON.stringify({ type: 'program_proposal', data: toolUse.input });
-          controller.enqueue(encoder.encode(PROPOSAL_MARKER + payload));
+          push(PROPOSAL_MARKER + payload);
           // В историю кладём пометку: сама программа туда не нужна
           // (длинная), но без следа модель в следующем сообщении не
           // вспомнит, что уже составила её и ждёт решения.
@@ -548,7 +593,7 @@ const PROGRAM_TOOL: Anthropic.Tool = {
         if (final.stop_reason === 'refusal') {
           const note = '\n\n(Не могу ответить на этот запрос.)';
           assistantText += note;
-          controller.enqueue(encoder.encode(note));
+          push(note);
         }
       } catch (err) {
         await trackError({
@@ -559,13 +604,13 @@ const PROGRAM_TOOL: Anthropic.Tool = {
         });
         const note = '\n\n(Произошла ошибка, попробуйте ещё раз.)';
         assistantText += note;
-        controller.enqueue(encoder.encode(note));
+        push(note);
       } finally {
         // Сохраняем ответ ассистента в историю.
         if (assistantText.trim()) {
           await prisma.chatMessage.create({ data: { userId, role: 'assistant', content: assistantText } });
         }
-        controller.close();
+        try { controller.close(); } catch { /* клиент уже ушёл */ }
       }
     },
   });
@@ -576,6 +621,33 @@ const PROGRAM_TOOL: Anthropic.Tool = {
 }
 
 // Загрузка истории чата для UI.
+/**
+ * Отметка о решении пользователя по предложенной программе.
+ *
+ * Без неё модель видела в истории только «собрал программу, пользователь
+ * решает» и при следующем вопросе предлагала составить ещё раз — хотя
+ * программа уже была принята и работает.
+ */
+export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+
+  const body = await request.json().catch(() => ({}));
+  const accepted = body?.accepted === true;
+  const days = Number(body?.days) || 0;
+
+  // Отметку видит и пользователь в чате, и модель в истории — поэтому
+  // пишем её обычными словами, а не служебной строкой в скобках.
+  const note = accepted
+    ? `Программа принята и уже действует${days ? ` — ${days} ${days === 1 ? 'тренировка' : days < 5 ? 'тренировки' : 'тренировок'} в неделю` : ''}. Старая ушла в историю программ, её можно вернуть.`
+    : 'Программа отклонена — осталась прежняя.';
+
+  await prisma.chatMessage.create({
+    data: { userId: session.user.id, role: 'assistant', content: note },
+  });
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
