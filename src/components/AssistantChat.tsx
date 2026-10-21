@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Send, Paperclip, X, Home } from 'lucide-react';
+import { Send, Paperclip, X, Home, FileText } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -45,9 +45,10 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  // Прикреплённые фото как data-URL. Их может быть несколько: одним
-  // сообщением удобно прислать, например, этикетку и состав продукта.
-  const [images, setImages] = useState<string[]>([]);
+  // Прикреплённые файлы как data-URL вместе с именем. Их может быть
+  // несколько: одним сообщением удобно прислать, например, этикетку и
+  // состав продукта или PDF с анализами.
+  const [images, setImages] = useState<{ name: string; data: string }[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null); // данные для карточек
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -75,18 +76,37 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // Не больше четырёх фото за сообщение — столько же принимает сервер.
-  const MAX_IMAGES = 4;
+  // Не больше четырёх вложений за сообщение — столько же принимает сервер.
+  const MAX_FILES = 4;
   // Vercel рубит запросы тяжелее 4.5 МБ, причём HTML-ошибкой ещё до кода.
   // Держим запас: base64 раздувает данные примерно на треть.
   const MAX_TOTAL_BYTES = 3_200_000;
 
-  // Одно фото: читаем, сжимаем по ширине, отдаём data-URL.
-  const compress = (file: File) => new Promise<string | null>((resolve) => {
+  /**
+   * Что модель может прочитать. Остальное не отправляем вовсе.
+   *
+   * Браузер не всегда определяет тип: у части файлов (в том числе .zip
+   * на некоторых системах) f.type приходит пустым, и проверки по нему
+   * мало — тогда смотрим на расширение.
+   */
+  const READABLE_EXT = /\.(png|jpe?g|webp|gif|heic|heif|pdf|txt|md|csv|json|log)$/i;
+  const isReadable = (f: File) => {
+    if (f.type) {
+      return f.type.startsWith('image/')
+        || f.type === 'application/pdf'
+        || f.type.startsWith('text/')
+        || f.type === 'application/json';
+    }
+    return READABLE_EXT.test(f.name || '');
+  };
+
+  // Картинку сжимаем по ширине, остальное читаем как есть.
+  const toDataUrl = (file: File) => new Promise<string | null>((resolve) => {
     const reader = new FileReader();
     reader.onerror = () => resolve(null);
     reader.onload = () => {
       const src = reader.result as string;
+      if (!file.type.startsWith('image/')) { resolve(src); return; }
       const img = new Image();
       img.onload = () => {
         const maxW = 1024;
@@ -105,35 +125,47 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
     reader.readAsDataURL(file);
   });
 
-  // Выбор фото: можно отметить сразу несколько, добавляются к уже выбранным.
+  // Выбор файлов: можно отметить сразу несколько, добавляются к уже выбранным.
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(e.target.files ?? []).filter(f => f.type.startsWith('image/'));
+    const all = Array.from(e.target.files ?? []);
     e.target.value = ''; // позволяем выбрать тот же файл повторно
-    if (picked.length === 0) return;
+    if (all.length === 0) return;
     setAttachError(null);
 
-    const free = MAX_IMAGES - images.length;
-    if (free <= 0) { setAttachError(`Можно прикрепить не больше ${MAX_IMAGES} фото.`); return; }
+    // Формат, который модель не прочитает, лучше отсечь здесь и сказать
+    // об этом, чем отправить и получить ошибку вместо ответа.
+    const picked = all.filter(isReadable);
+    const unreadable = all.filter((f) => !isReadable(f));
+
+    const free = MAX_FILES - images.length;
+    if (free <= 0) { setAttachError(`Можно прикрепить не больше ${MAX_FILES} файлов.`); return; }
 
     const take = picked.slice(0, free);
-    const compressed = (await Promise.all(take.map(compress))).filter((x): x is string => !!x);
+    const read = await Promise.all(take.map(async (f) => {
+      const data = await toDataUrl(f);
+      return data ? { name: f.name, data } : null;
+    }));
 
     setImages((prev) => {
       const next = [...prev];
-      let total = next.reduce((a, s) => a + s.length, 0);
-      let skipped = picked.length - take.length;
-      for (const src of compressed) {
+      let total = next.reduce((a, x) => a + x.data.length, 0);
+      let tooBig = 0;
+      const overLimit = picked.length - take.length;
+      for (const item of read) {
+        if (!item) continue;
         // Не превышаем общий вес: иначе запрос упрётся в лимит Vercel и
         // вернёт HTML-ошибку, которую чат показать не сможет.
-        if (total + src.length > MAX_TOTAL_BYTES) { skipped++; continue; }
-        next.push(src);
-        total += src.length;
+        if (total + item.data.length > MAX_TOTAL_BYTES) { tooBig++; continue; }
+        next.push(item);
+        total += item.data.length;
       }
-      if (skipped > 0) {
-        setAttachError(next.length >= MAX_IMAGES
-          ? `Можно прикрепить не больше ${MAX_IMAGES} фото.`
-          : 'Часть фото не поместилась — слишком большой общий размер.');
+      const problems: string[] = [];
+      if (unreadable.length) {
+        problems.push(`Не поддерживается: ${unreadable.map((f) => f.name).join(', ')}. Подойдут фото, PDF или текстовый файл.`);
       }
+      if (overLimit > 0) problems.push(`Можно прикрепить не больше ${MAX_FILES} файлов.`);
+      if (tooBig > 0) problems.push('Часть файлов не поместилась — слишком большой общий размер.');
+      setAttachError(problems.length ? problems.join(' ') : null);
       return next;
     });
   };
@@ -151,7 +183,7 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
     setImages([]);
     setAttachError(null);
     setBusy(true);
-    const note = imgs.length === 0 ? '' : imgs.length === 1 ? '\n📎 [фото]' : `\n📎 [фото: ${imgs.length}]`;
+    const note = imgs.length === 0 ? '' : imgs.length === 1 ? '\n📎 [вложение]' : `\n📎 [вложений: ${imgs.length}]`;
     setMessages((m) => [
       ...m,
       { role: 'user', content: (text || '') + note, createdAt: new Date().toISOString() },
@@ -162,8 +194,35 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, images: imgs }),
+        body: JSON.stringify({ message: text, files: imgs }),
       });
+      // Формат, который не прочитать, объясняем словами: «Ошибка,
+      // попробуйте ещё раз» тут бесполезна — повтор не поможет.
+      if (res.status === 415) {
+        const info = await res.json().catch(() => null);
+        const names = Array.isArray(info?.files) && info.files.length ? `: ${info.files.join(', ')}` : '';
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            ...copy[copy.length - 1],
+            content: `Такой формат файла я прочитать не могу${names}. Подойдут фото, PDF или текстовый файл.`,
+          };
+          return copy;
+        });
+        return;
+      }
+      // Запрос тяжелее лимита Vercel не доходит до кода и возвращает HTML.
+      if (res.status === 413) {
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            ...copy[copy.length - 1],
+            content: 'Файлы слишком тяжёлые. Пришли их по одному или сделай фото меньше.',
+          };
+          return copy;
+        });
+        return;
+      }
       if (!res.ok || !res.body) throw new Error('chat failed');
 
       const reader = res.body.getReader();
@@ -274,10 +333,28 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
           minWidth у картинки — чтобы узкое фото не схлопнулось в полоску. */}
       {images.length > 0 && (
         <div style={{ paddingTop: 18, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-          {images.map((src, i) => (
+          {images.map((f, i) => (
             <div key={i} style={{ position: 'relative', display: 'inline-block' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={`вложение ${i + 1}`} style={{ height: 84, minWidth: 48, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', display: 'block' }} />
+              {f.data.startsWith('data:image/') ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={f.data} alt={`вложение ${i + 1}`} style={{ height: 84, minWidth: 48, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', display: 'block' }} />
+              ) : (
+                /* У PDF и текста превью нет — показываем плашку с именем,
+                   чтобы было видно, что именно прикреплено. */
+                <div style={{
+                  height: 84, minWidth: 96, maxWidth: 150, boxSizing: 'border-box',
+                  borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-elevated)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, padding: '8px 10px',
+                }}>
+                  <FileText size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                  <span style={{
+                    fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.25, textAlign: 'center',
+                    overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    wordBreak: 'break-all',
+                  }}>{f.name}</span>
+                </div>
+              )}
               <button
                 onClick={() => removeImage(i)}
                 aria-label={`убрать фото ${i + 1}`}
@@ -307,7 +384,7 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
         borderTop: '1px solid var(--border)', flexShrink: 0,
         paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
       }}>
-        <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPickFile} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" multiple onChange={onPickFile} style={{ display: 'none' }} />
         {/* Возврат на главную: в чате нижнее меню скрыто, поэтому выход
             живёт здесь, рядом со скрепкой. */}
         {onGoHome && (

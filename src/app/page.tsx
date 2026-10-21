@@ -482,6 +482,102 @@ interface ArchivedProgram {
   workouts: Workout[];
 }
 
+/** Сводка по программе: когда по ней тренировались и сколько. */
+interface ProgramSpan {
+  from: string;
+  to: string;
+  count: number;
+  spanDays: number;
+  perWeek: number | null;
+  maxGap: number;
+}
+
+/** Набор названий упражнений программы — по нему узнаём её дни в журнале. */
+const programExerciseNames = (workouts: Workout[]) => {
+  const set = new Set<string>();
+  for (const w of workouts || []) {
+    for (const e of w.exercises || []) {
+      const n = (e.name || '').trim().toLowerCase();
+      if (n) set.add(n);
+    }
+  }
+  return set;
+};
+
+/**
+ * За какой период тренировались по этой программе и сколько раз.
+ *
+ * Считаем из журнала, а не из даты архивации: archivedAt — это момент
+ * замены в базе, а на телефоне старая программа могла жить ещё долго
+ * (так и было: программу заменили 22 августа, а тренировки по ней шли
+ * до 17 октября). Поэтому дни привязываем по НАЗВАНИЯМ упражнений:
+ * день засчитывается программе, чьих упражнений в нём больше.
+ */
+const programSpan = (
+  target: Workout[],
+  others: Workout[][],
+  dayLogs: Record<string, DayLog>,
+): ProgramSpan | null => {
+  const mine = programExerciseNames(target);
+  if (mine.size === 0) return null;
+  const rivals = others.map(programExerciseNames);
+
+  const days: string[] = [];
+  for (const d of Object.keys(dayLogs).sort()) {
+    const cand = dayLogs[d]?.workoutDraft ?? dayLogs[d]?.workoutSnapshot;
+    const exs = cand?.exercises;
+    if (!Array.isArray(exs)) continue;
+    // Только подходы с цифрами: открытая и брошенная тренировка в
+    // статистику попадать не должна.
+    const done = exs.filter(e => {
+      const sets = (e as { sets?: ExerciseSet[] }).sets;
+      return Array.isArray(sets) && sets.some(x => (x.weight || 0) > 0 || (x.reps || 0) > 0);
+    });
+    if (done.length === 0) continue;
+
+    const names = done.map(e => (e.name || '').trim().toLowerCase());
+    const score = names.filter(n => mine.has(n)).length;
+    if (score === 0) continue;
+    const best = rivals.reduce((mx, r) => Math.max(mx, names.filter(n => r.has(n)).length), 0);
+    if (score > best) days.push(d);
+  }
+  if (days.length === 0) return null;
+
+  // Дату разбираем по частям: new Date("2026-04-27") читается как
+  // UTC-полночь и при западном смещении даёт предыдущий день.
+  const asDate = (v: string) => {
+    const [y, m, d] = v.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const from = days[0];
+  const to = days[days.length - 1];
+  const spanDays = Math.round((asDate(to).getTime() - asDate(from).getTime()) / 86400000) + 1;
+
+  let maxGap = 0;
+  for (let i = 1; i < days.length; i++) {
+    const g = Math.round((asDate(days[i]).getTime() - asDate(days[i - 1]).getTime()) / 86400000);
+    if (g > maxGap) maxGap = g;
+  }
+
+  // Регулярность считаем только когда есть что усреднять: по одной
+  // тренировке за день «7 раз в неделю» — бессмысленная цифра.
+  const perWeek = spanDays >= 14 && days.length >= 3
+    ? Math.round((days.length / (spanDays / 7)) * 10) / 10
+    : null;
+
+  return { from, to, count: days.length, spanDays, perWeek, maxGap };
+};
+
+/** «27 апр 2026» — без сдвига на день, в отличие от new Date(строка). */
+const fmtSpanDate = (v: string) => {
+  try {
+    const [y, m, d] = v.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
+      .replace(/\s*г\.$/, '').replace(/\.$/, '');
+  } catch { return v; }
+};
+
 interface BodyMeasurement {
   id: string;
   date: string;
@@ -7336,7 +7432,16 @@ export default function FitnessPage() {
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '8px' }}>
                   История программ
                 </div>
-                {programArchive.map(p => (
+                {programArchive.map(p => {
+                  // Период и регулярность считаем из журнала: archivedAt —
+                  // это дата замены в базе, а тренироваться по программе
+                  // могли ещё долго после неё.
+                  const span = programSpan(
+                    p.workouts,
+                    [workouts, ...programArchive.filter(o => o.id !== p.id).map(o => o.workouts)],
+                    dayLogs,
+                  );
+                  return (
                   <div key={p.id} style={{
                     background: 'var(--bg-card)', border: '1px solid var(--border)',
                     borderRadius: '12px', padding: '12px 14px', marginBottom: '8px'
@@ -7346,11 +7451,21 @@ export default function FitnessPage() {
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: '8px' }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '13px' }}>{p.label}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {p.workouts.filter(w => w.exercises.length > 0).length} тренировок ·{' '}
-                          {new Date(p.archivedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                          {span
+                            ? `${fmtSpanDate(span.from)} — ${fmtSpanDate(span.to)}`
+                            : p.label}
                         </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {span
+                            ? `${span.count} ${span.count === 1 ? 'тренировка' : span.count < 5 ? 'тренировки' : 'тренировок'} · ${p.workouts.filter(w => w.exercises.length > 0).length} в программе`
+                            : `${p.workouts.filter(w => w.exercises.length > 0).length} тренировок · в архиве с ${fmtSpanDate(p.archivedAt.slice(0, 10))}`}
+                        </div>
+                        {span?.perWeek != null && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {span.perWeek} в неделю{span.maxGap >= 7 ? ` · перерыв до ${span.maxGap} дн.` : ''}
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); restoreProgram(p); }}
@@ -7379,7 +7494,8 @@ export default function FitnessPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

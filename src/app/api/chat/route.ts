@@ -184,34 +184,75 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: 'Anthropic API key not configured' }), { status: 500 });
   }
 
-  const { message, image, images } = await request.json();
+  const { message, image, images, files } = await request.json();
 
-  // Фото прикладываются опционально (vision), теперь их может быть
-  // несколько. Старое поле `image` продолжаем принимать: у пользователя
-  // может быть открыта вкладка со старой версией страницы.
-  const rawImages: unknown[] = Array.isArray(images)
-    ? images
-    : (typeof image === 'string' ? [image] : []);
-  const MAX_IMAGES = 4;   // больше четырёх фото в одном запросе не шлём
-  const incoming = rawImages
-    .filter((x): x is string => typeof x === 'string' && x.startsWith('data:image/'))
-    .slice(0, MAX_IMAGES);
+  // Вложения опциональны, их может быть несколько. Старые поля `image` и
+  // `images` продолжаем принимать: у пользователя может быть открыта
+  // вкладка со старой версией страницы.
+  type Attachment = { name?: string; data: string };
+  const incomingRaw: Attachment[] = Array.isArray(files)
+    ? (files as unknown[]).filter((f): f is Attachment =>
+        !!f && typeof f === 'object' && typeof (f as Attachment).data === 'string')
+    : (Array.isArray(images) ? images : (typeof image === 'string' ? [image] : []))
+        .filter((x): x is string => typeof x === 'string')
+        .map((data) => ({ data }));
 
-  if ((!message || typeof message !== 'string' || !message.trim()) && incoming.length === 0) {
+  const MAX_FILES = 4;
+  const incoming = incomingRaw.slice(0, MAX_FILES);
+
+  // Что модель умеет читать: картинки, PDF и обычный текст. Всё прочее
+  // отправлять бессмысленно — вместо ответа пришла бы ошибка API.
+  const attBlocks: Anthropic.ContentBlockParam[] = [];
+  const rejected: string[] = [];
+
+  for (const f of incoming) {
+    const src = f.data;
+    const label = (f.name || 'файл').slice(0, 80);
+
+    const img = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i.exec(src);
+    if (img) {
+      const mediaType = (img[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : img[1].toLowerCase()) as
+        'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
+      attBlocks.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: img[2] } });
+      continue;
+    }
+
+    const pdf = /^data:application\/pdf;base64,(.+)$/i.exec(src);
+    if (pdf) {
+      attBlocks.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: pdf[1] },
+        title: label,
+      });
+      continue;
+    }
+
+    // Текстовые файлы (csv, txt, json, md…) вставляем прямо в сообщение.
+    const txt = /^data:text\/[^;]+;base64,(.+)$/i.exec(src)
+      || /^data:application\/json;base64,(.+)$/i.exec(src);
+    if (txt) {
+      let decoded = '';
+      try { decoded = Buffer.from(txt[1], 'base64').toString('utf8').slice(0, 20000); } catch { decoded = ''; }
+      if (decoded.trim()) {
+        attBlocks.push({ type: 'text', text: `Содержимое файла «${label}»:\n\n${decoded}` });
+        continue;
+      }
+    }
+
+    rejected.push(label);
+  }
+
+  if ((!message || typeof message !== 'string' || !message.trim()) && attBlocks.length === 0) {
+    // Файлы прислали, но прочитать нечего — объясняем, а не падаем.
+    if (rejected.length) {
+      return new Response(JSON.stringify({ error: 'unsupported_file', files: rejected }), { status: 415 });
+    }
     return new Response(JSON.stringify({ error: 'no_message' }), { status: 400 });
   }
-  const text = (typeof message === 'string' ? message.trim() : '')
-    || (incoming.length > 1 ? 'Посмотри на эти фото.' : incoming.length ? 'Посмотри на это фото.' : '');
 
-  // Разбираем data-URL каждой картинки на media_type + base64 для Claude.
-  const imgBlocks: Anthropic.ImageBlockParam[] = [];
-  for (const src of incoming) {
-    const m = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i.exec(src);
-    if (!m) continue;
-    const mediaType = (m[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : m[1].toLowerCase()) as
-      'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
-    imgBlocks.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: m[2] } });
-  }
+  const hasImg = attBlocks.some((b) => b.type === 'image');
+  const text = (typeof message === 'string' ? message.trim() : '')
+    || (attBlocks.length > 1 ? 'Посмотри на эти файлы.' : hasImg ? 'Посмотри на это фото.' : 'Посмотри на этот файл.');
 
   // --- собираем данные пользователя + историю чата + анализы ---
   const [user, fitness, history, labs, mergedDayLogs] = await Promise.all([
@@ -330,18 +371,23 @@ ${compactJson(user?.program?.nutritionRecommendations, 1500)}
 🩸 АНАЛИЗЫ (последние результаты; ↓ ниже нормы, ↑ выше нормы):
 ${buildLabSummary(labs as LabRow[])}`;
 
-  // Сохраняем сообщение пользователя сразу. Картинку в историю не пишем
-  // (тяжёлая), помечаем текстом, что было фото.
-  const photoNote = imgBlocks.length === 0 ? ''
-    : imgBlocks.length === 1 ? '\n📎 [фото]'
-    : `\n📎 [фото: ${imgBlocks.length}]`;
-  const savedContent = (text + photoNote).trim();
+  // Сохраняем сообщение пользователя сразу. Сами вложения в историю не
+  // пишем (тяжёлые), помечаем текстом, что они были.
+  const attNote = attBlocks.length === 0 ? ''
+    : attBlocks.length === 1 ? '\n📎 [вложение]'
+    : `\n📎 [вложений: ${attBlocks.length}]`;
+  const savedContent = (text + attNote).trim();
   await prisma.chatMessage.create({ data: { userId, role: 'user', content: savedContent } });
 
-  // Новое сообщение: фото (сколько прислали) + текст для vision.
+  // Новое сообщение: вложения (сколько прислали) + текст.
   const lastContent: Anthropic.ContentBlockParam[] = [];
-  for (const b of imgBlocks) lastContent.push(b);
-  lastContent.push({ type: 'text', text });
+  for (const b of attBlocks) lastContent.push(b);
+  // Про нечитаемые файлы говорим честно, чтобы модель не делала вид,
+  // будто видела их содержимое.
+  const note = rejected.length
+    ? `\n\n(Файлы, которые не удалось прочитать: ${rejected.join(', ')}. Скажи пользователю, что такой формат не поддерживается — подойдут фото, PDF или текстовый файл.)`
+    : '';
+  lastContent.push({ type: 'text', text: text + note });
 
   // Собираем messages: контекст данных + история + новое сообщение.
   // Кэшируем system; данные/история идут после, не инвалидируя кэш.
