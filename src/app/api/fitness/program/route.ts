@@ -40,8 +40,20 @@ const PROGRAM_SCHEMA = {
                 plannedSets: { type: 'string' as const, description: 'План: вес и подходы, например «40кг 3x10-12» или «3x15»; вес опирайся на текущие рабочие веса пользователя' },
                 restTime: { type: 'string' as const, description: 'Отдых, например «2-3 мин»' },
                 notes: { type: 'string' as const, description: 'Короткая приписка: группа мышц или техника' },
+                supersetId: {
+                  type: 'string' as const,
+                  description: 'Только в продвинутом режиме. Метка суперсета: у упражнений одной связки одинаковая метка («A», «B»…). Они идут подряд и выполняются без отдыха между собой. Обычное упражнение — пустая строка.',
+                },
+                toFailure: {
+                  type: 'boolean' as const,
+                  description: 'Только в продвинутом режиме. true — последний подход выполняется до отказа.',
+                },
+                dropSet: {
+                  type: 'boolean' as const,
+                  description: 'Только в продвинутом режиме. true — последний подход делается дропсетом (сбросы веса без отдыха).',
+                },
               },
-              required: ['name', 'plannedSets', 'restTime', 'notes'],
+              required: ['name', 'plannedSets', 'restTime', 'notes', 'supersetId', 'toFailure', 'dropSet'],
               additionalProperties: false,
             },
           },
@@ -70,6 +82,9 @@ export async function POST(request: Request) {
     const goal: string = typeof body.goal === 'string' ? body.goal : 'maintain';
     const wishes: string = typeof body.wishes === 'string' ? body.wishes.slice(0, 1500) : '';
     const daysPerWeek: number = Math.min(7, Math.max(2, Number(body.daysPerWeek) || 4));
+    // Продвинутый режим: суперсеты, дропсеты, работа до отказа. Выбор
+    // делает пользователь перед генерацией — молча их не добавляем.
+    const advanced: boolean = body.advanced === true;
     const currentProgram = Array.isArray(body.currentProgram) ? body.currentProgram : [];
     const stats: string[] = Array.isArray(body.stats)
       ? (body.stats as unknown[]).filter((x): x is string => typeof x === 'string').slice(0, 80)
@@ -93,7 +108,23 @@ export async function POST(request: Request) {
         'прогрессия от текущих рабочих весов (не сбрасывай и не завышай), разумный сплит под число дней, ' +
         'знакомые пользователю движения как база + 30-50% новых для свежего стимула, ' +
         'большие многосуставные в начале тренировки, изоляция после, реалистичный объём (5-8 упражнений на день). ' +
-        'Учитывай пожелания пользователя как приоритет. Названия упражнений — по-русски, как принято в зале.'
+        'Учитывай пожелания пользователя как приоритет. Названия упражнений — по-русски, как принято в зале.\n\n' +
+        (advanced
+          ? 'РЕЖИМ: ПРОДВИНУТЫЙ. Пользователь согласился на интенсивные техники — используй их осознанно, ' +
+            'а не ради галочки:\n' +
+            '- Суперсет (supersetId): два упражнения подряд без отдыха между ними, отдых после связки. ' +
+            'Ставь одинаковую метку («A», «B») ровно двум упражнениям, и они должны идти друг за другом. ' +
+            'Связывай мышцы-антагонисты (грудь+спина, бицепс+трицепс) или изоляцию — не два тяжёлых базовых.\n' +
+            '- Дропсет (dropSet): последний подход со сбросами веса без отдыха. Только на изоляции и в ' +
+            'тренажёрах, где сбросить вес безопасно и быстро. Не ставь на свободные веса и присед.\n' +
+            '- До отказа (toFailure): последний подход на пределе. Уместно на изоляции; на тяжёлой базе ' +
+            'отказ дорого стоит для восстановления — ставь редко.\n' +
+            'Мера: 1-2 суперсета, 1-2 дропсета и 2-3 упражнения до отказа на тренировку — не больше. ' +
+            'Эти техники дают нагрузку, которую надо восстанавливать; перегруз хуже, чем их отсутствие. ' +
+            'В notes коротко поясняй, зачем техника именно здесь.'
+          : 'РЕЖИМ: СТАНДАРТНЫЙ. Обычные прямые подходы с отдыхом между ними. ' +
+            'НЕ используй суперсеты, дропсеты и работу до отказа: supersetId оставляй пустой строкой, ' +
+            'toFailure и dropSet — false.')
       ),
       messages: [
         {
@@ -114,7 +145,7 @@ export async function POST(request: Request) {
     }
     const textBlock = response.content.find(b => b.type === 'text');
     const parsed = textBlock
-      ? JSON.parse(textBlock.text) as { rationale: string; workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string }[] }[] }
+      ? JSON.parse(textBlock.text) as { rationale: string; workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[] }
       : null;
     if (!parsed || !Array.isArray(parsed.workouts) || parsed.workouts.length === 0) {
       return NextResponse.json({ error: 'empty program' }, { status: 502 });
@@ -130,6 +161,11 @@ export async function POST(request: Request) {
           plannedSets: String(e.plannedSets || '').slice(0, 60),
           restTime: String(e.restTime || '2-3 мин').slice(0, 20),
           notes: String(e.notes || '').slice(0, 80),
+          // Техники отдаём только в продвинутом режиме: в стандартном
+          // модель могла бы их проставить вопреки инструкции.
+          supersetId: advanced ? String(e.supersetId || '').slice(0, 4) : '',
+          toFailure: advanced ? e.toFailure === true : false,
+          dropSet: advanced ? e.dropSet === true : false,
         })),
       })),
     });

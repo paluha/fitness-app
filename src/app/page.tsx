@@ -9,7 +9,7 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -384,10 +384,28 @@ const checkSetSanity = (
 // Types
 // One row in the new per-set table view. `completed` is per-set so the
 // outer `completed` flag below can be derived (all sets done → exercise done).
+/** Ступень дропсета: вес сбросили, отдыха не было. */
+export interface DropStep {
+  reps: number;
+  weight: number;
+}
+
 export interface ExerciseSet {
   reps: number;
   weight: number;   // pounds
   completed: boolean;
+  /**
+   * Подход сделан до отказа — последнее повторение далось на пределе.
+   * Нужно и для истории, и для ИИ: при работе до отказа прогрессия и
+   * восстановление планируются иначе.
+   */
+  toFailure?: boolean;
+  /**
+   * Дропсет: сбросы веса внутри ОДНОГО подхода, без отдыха между ними.
+   * «100×8 → 70×6 → 50×5» — это один подход с двумя ступенями, а не три
+   * подхода: иначе тренд видит падение рабочего веса, которого не было.
+   */
+  drops?: DropStep[];
 }
 
 interface Exercise {
@@ -405,6 +423,12 @@ interface Exercise {
   completed: boolean;
   videoUrl?: string;
   imageUrl?: string;
+  /**
+   * Метка суперсета: упражнения с одинаковой меткой выполняются по
+   * кругу без отдыха между ними, отдых — только после всей связки.
+   * Пустое значение — обычное упражнение.
+   */
+  supersetId?: string;
 }
 
 interface Workout {
@@ -1203,7 +1227,7 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
@@ -1228,6 +1252,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
   // Подпись колонки истории («В прошлый раз») — приходит из переводов
   // родителя: внутри карточки функции t() нет.
   lastLabel?: string;
+  /**
+   * Место упражнения в суперсете. 'inner' — за ним сразу идёт парное,
+   * поэтому отдых после подхода НЕ запускаем; 'last' — связка закончена,
+   * отдых обычный. Обычное упражнение — undefined.
+   */
+  supersetPos?: 'inner' | 'last';
 }) {
   const [expandedLocal, setExpandedLocal] = useState(false);
   const controlled = typeof expandedProp === 'boolean' && !!onToggleExpand;
@@ -1322,6 +1352,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             (свёрнутая) — как в макете. Порядкового номера нет. */}
         <div className="tx-exname" style={{ color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}>
           {ex.name}
+          {/* Суперсет: упражнения с одной меткой идут без отдыха между
+              собой — видно прямо в названии, чтобы не искать в заметке. */}
+          {ex.supersetId && (
+            <span className="tx-superset" title="Суперсет: без отдыха между упражнениями связки">
+              <Link2 size={9} />Суперсет {ex.supersetId}
+            </span>
+          )}
           {/* Подпись под названием есть ВСЕГДА и одной высоты: раскрытая —
               группа мышц, свёрнутая — итог по подходам. Если её убирать,
               название прыгает по вертикали при раскрытии карточки. */}
@@ -1445,8 +1482,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               const allDone = next.length > 0 && next.every(s => s.completed);
               // Отдых ведём только по отметке подхода (не по правке цифр):
               // отметили — пошёл отсчёт, закрыли последний — гасим.
+              //
+              // В суперсете отдыха между подходами нет: после упражнения
+              // сразу идёт парное, отдых — только после всей связки. Её
+              // последнее упражнение отдых запускает, остальные — нет.
               if (patch.completed === true) {
                 if (allDone) setRestStop(v => v + 1);
+                else if (supersetPos === 'inner') setRestStop(v => v + 1);
                 else setRestStart(v => v + 1);
               } else if (patch.completed === false) {
                 setRestStop(v => v + 1);
@@ -1463,6 +1505,28 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               const next = sets.filter((_, j) => j !== i);
               const allDone = next.length > 0 && next.every(s => s.completed);
               onUpdate({ sets: next, completed: allDone });
+            };
+            /**
+             * Сбросы внутри подхода. Дропсет — это ОДИН подход, в котором
+             * вес сбрасывают без отдыха, поэтому ступени живут внутри
+             * подхода, а не отдельными строками: иначе тренд увидит
+             * падение рабочего веса, которого не было.
+             */
+            const addDrop = (i: number) => {
+              const cur = sets[i];
+              const last = cur.drops?.[cur.drops.length - 1];
+              const base = last ?? { weight: cur.weight || 0, reps: cur.reps || 0 };
+              // Типичный сброс — примерно на четверть веса.
+              const step = { weight: Math.max(0, Math.round((base.weight * 0.75) / 2.5) * 2.5), reps: 0 };
+              updateSet(i, { drops: [...(cur.drops ?? []), step] });
+            };
+            const updateDrop = (i: number, di: number, patch: Partial<DropStep>) => {
+              const drops = (sets[i].drops ?? []).map((d, j) => j === di ? { ...d, ...patch } : d);
+              updateSet(i, { drops });
+            };
+            const removeDrop = (i: number, di: number) => {
+              const drops = (sets[i].drops ?? []).filter((_, j) => j !== di);
+              updateSet(i, { drops: drops.length ? drops : undefined });
             };
             const allSetsDone = sets.length > 0 && sets.every(s => s.completed);
             const markAllSets = () => {
@@ -1540,6 +1604,48 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       {s.completed ? <Check size={16} strokeWidth={3} /> : <Check size={16} strokeWidth={2} />}
                     </button>
                   </div>
+                  {/* Отметки техники: «до отказа» и дропсет. Висят под
+                      подходом, чтобы не ломать сетку из пяти колонок. */}
+                  {(s.completed || s.toFailure || (s.drops?.length ?? 0) > 0) && (
+                    <div className="tx-tech">
+                      <button
+                        type="button"
+                        className={['tx-techbtn', s.toFailure ? 'is-on' : ''].filter(Boolean).join(' ')}
+                        onClick={() => updateSet(i, { toFailure: !s.toFailure })}
+                        title="Подход до отказа"
+                      >
+                        <Flame size={11} /> до отказа
+                      </button>
+                      <button
+                        type="button"
+                        className={['tx-techbtn', (s.drops?.length ?? 0) > 0 ? 'is-on' : ''].filter(Boolean).join(' ')}
+                        onClick={() => addDrop(i)}
+                        title="Добавить сброс веса в этот подход"
+                      >
+                        <ChevronsDown size={11} /> дроп
+                      </button>
+                      {(s.drops ?? []).map((d, di) => (
+                        <span key={di} className="tx-drop">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            value={d.weight || ''}
+                            placeholder="вес"
+                            onChange={(ev) => updateDrop(i, di, { weight: parseInt(ev.target.value, 10) || 0 })}
+                          />
+                          <b>×</b>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            value={d.reps || ''}
+                            placeholder="повт"
+                            onChange={(ev) => updateDrop(i, di, { reps: parseInt(ev.target.value, 10) || 0 })}
+                          />
+                          <button type="button" onClick={() => removeDrop(i, di)} aria-label={`убрать сброс ${di + 1}`}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {warn && (
                     <div className="tx-warn" role="status">
                       <AlertTriangle size={11} />
@@ -2505,11 +2611,19 @@ export default function FitnessPage() {
   const [showProgramModal, setShowProgramModal] = useState(false);
   const [programWishes, setProgramWishes] = useState('');
   const [programDays, setProgramDays] = useState(4);
+  /**
+   * Продвинутый режим: суперсеты, дропсеты, работа до отказа.
+   *
+   * Выбор делается перед каждой генерацией и намеренно НЕ запоминается:
+   * готовность к такой нагрузке зависит от того, как идёт восстановление
+   * прямо сейчас, а не от прошлого решения.
+   */
+  const [programAdvanced, setProgramAdvanced] = useState(false);
   const [programLoading, setProgramLoading] = useState(false);
   const [programError, setProgramError] = useState<string | null>(null);
   const [programProposal, setProgramProposal] = useState<{
     rationale: string;
-    workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string }[] }[];
+    workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[];
   } | null>(null);
   const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(null);
 
@@ -3697,6 +3811,7 @@ export default function FitnessPage() {
           goal: userSettings.goalType ?? 'maintain',
           wishes: programWishes,
           daysPerWeek: programDays,
+          advanced: programAdvanced,
           currentProgram: active.map(w => ({
             name: w.name,
             exercises: w.exercises.map(e => ({ name: e.name, plannedSets: e.plannedSets })),
@@ -3730,10 +3845,19 @@ export default function FitnessPage() {
         plannedSets: e.plannedSets,
         actualSets: '',
         restTime: e.restTime,
-        notes: e.notes,
+        // Техники подхода («до отказа», дропсет) — это указание на
+        // тренировку, поэтому дописываем их в заметку упражнения: сами
+        // подходы создаются уже в зале, и пометить их можно там.
+        notes: [
+          e.notes,
+          e.toFailure ? 'последний подход до отказа' : '',
+          e.dropSet ? 'последний подход — дропсет' : '',
+        ].filter(Boolean).join(' · ').slice(0, 120),
         newWeight: '',
         feedback: '',
         completed: false,
+        // Метка суперсета живёт в самом упражнении.
+        ...(e.supersetId ? { supersetId: e.supersetId } : {}),
       })),
     }));
     setProgramProposal(null);
@@ -5546,6 +5670,11 @@ export default function FitnessPage() {
                 displayExercises.map((ex, idx) => {
                   const workoutId = viewingPastWorkout ? currentDayLog.workoutSnapshot!.workoutId : currentWorkout.id;
                   const exerciseKey = `${workoutId}-${ex.id}`;
+                  // Где упражнение стоит в связке: если следующее с той же
+                  // меткой — отдых после подхода не нужен, сразу идёт пара.
+                  const supersetPos = ex.supersetId
+                    ? (displayExercises[idx + 1]?.supersetId === ex.supersetId ? 'inner' as const : 'last' as const)
+                    : undefined;
                   return (
                     <ExerciseCard
                       key={ex.id}
@@ -5555,6 +5684,7 @@ export default function FitnessPage() {
                       onUpdate={(updates) => !viewingPastWorkout && updateExercise(currentWorkout.id, ex.id, updates)}
                       progressHistory={progressHistory[exerciseKey] || []}
                       weightHistory={weightHistoryFor(ex.name)}
+                      supersetPos={supersetPos}
                       lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
@@ -7356,6 +7486,35 @@ export default function FitnessPage() {
                         fontWeight: 700, cursor: 'pointer'
                       }}
                     >{n}</button>
+                  ))}
+                </div>
+                {/* Режим спрашиваем перед КАЖДОЙ генерацией: готовность к
+                    интенсивным техникам зависит от текущего состояния, а
+                    не от выбора, сделанного месяц назад. */}
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Режим программы
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+                  {([
+                    { on: false, title: 'Стандартный', sub: 'Обычные подходы с отдыхом между ними' },
+                    { on: true, title: 'Продвинутый', sub: 'Суперсеты, дропсеты, работа до отказа' },
+                  ]).map(m => (
+                    <button
+                      key={String(m.on)}
+                      onClick={() => setProgramAdvanced(m.on)}
+                      style={{
+                        textAlign: 'left', padding: '11px 13px',
+                        background: programAdvanced === m.on ? 'var(--yellow-dim)' : 'var(--bg-elevated)',
+                        border: `1px solid ${programAdvanced === m.on ? 'var(--yellow)' : 'var(--border)'}`,
+                        borderRadius: '10px', cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{
+                        fontSize: '13px', fontWeight: 700,
+                        color: programAdvanced === m.on ? 'var(--yellow)' : 'var(--text-primary)',
+                      }}>{m.title}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{m.sub}</div>
+                    </button>
                   ))}
                 </div>
                 <button

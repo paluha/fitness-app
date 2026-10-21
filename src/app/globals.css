@@ -917,6 +917,51 @@ button:disabled {
   .tx-warn { margin-left: 0; }
 }
 
+/* Отметки техники под подходом: «до отказа» и дропсет.
+   Отдельной строкой, чтобы не ломать сетку таблицы из пяти колонок. */
+.tx-tech {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 0 0 7px calc(18px + 61px + 12px);
+}
+.tx-techbtn {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 26px; padding: 0 9px; border-radius: 13px;
+  border: 1px solid #e6dfd5; background: #f6f3ee;
+  font-size: 10px; font-weight: 600; color: #8b8073;
+  font-family: inherit; cursor: pointer;
+}
+.tx-techbtn.is-on { border-color: #e0a33c; background: #fff8ec; color: #8a5a12; }
+.tx-techbtn svg { flex: none; }
+/* Ступень сброса: вес × повторы и крестик. */
+.tx-drop {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 4px 2px 6px; border-radius: 9px;
+  border: 1px solid #e6dfd5; background: #fffaf4;
+}
+.tx-drop input {
+  width: 42px; height: 26px; border: 0; background: transparent;
+  text-align: center; font-size: 12px; font-weight: 600; color: #302b24;
+  font-family: inherit; padding: 0; min-width: 0;
+}
+.tx-drop b { font-size: 10px; color: #a79b8c; font-weight: 500; }
+.tx-drop button {
+  width: 20px; height: 20px; border: 0; border-radius: 50%;
+  background: transparent; color: #a79b8c; font-size: 14px; line-height: 1;
+  cursor: pointer; font-family: inherit; padding: 0;
+}
+@media (max-width: 359px) {
+  .tx-tech { margin-left: 0; }
+}
+
+/* Метка суперсета в заголовке упражнения. */
+.tx-superset {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 9px; margin-left: 6px;
+  background: #eef3fb; border: 1px solid #d6e2f3;
+  font-size: 9px; font-weight: 700; color: #3f6292; letter-spacing: .2px;
+}
+.tx-superset svg { flex: none; }
+
 /* Кнопки строки ввода в чате ИИ: «домой», скрепка, отправка.
    На узком экране три кнопки по 46px оставляли полю ввода 114px —
    ужимаем их, чтобы текст оставался читаемым. */

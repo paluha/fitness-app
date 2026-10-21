@@ -74,8 +74,9 @@ function recentByDate(value: unknown, n: number): unknown {
   return value;
 }
 
-type ExSet = { weight?: number | string; reps?: number | string; completed?: boolean };
-type DayExercise = { name?: string; completed?: boolean; sets?: ExSet[]; actualSets?: string };
+type DropStep = { weight?: number | string; reps?: number | string };
+type ExSet = { weight?: number | string; reps?: number | string; completed?: boolean; toFailure?: boolean; drops?: DropStep[] };
+type DayExercise = { name?: string; completed?: boolean; sets?: ExSet[]; actualSets?: string; supersetId?: string };
 type DayEntry = { exercises?: DayExercise[] };
 
 // Рабочие подходы упражнения строкой «вес×повторы»: 60×10, 60×8, 65×6.
@@ -84,8 +85,22 @@ function exerciseSets(e: DayExercise): string {
   if (Array.isArray(e.sets) && e.sets.length) {
     const parts = e.sets
       .filter(s => s && (s.completed || s.reps || s.weight))
-      .map(s => `${s.weight ?? '?'}×${s.reps ?? '?'}`);
-    if (parts.length) return parts.join(', ');
+      .map(s => {
+        // Техники показываем прямо в подходе: без них ИИ не видит
+        // реальную нагрузку и планирует прогрессию как для обычных
+        // подходов. Дропсет — один подход со сбросами, а не три подхода.
+        let out = `${s.weight ?? '?'}×${s.reps ?? '?'}`;
+        const drops = Array.isArray(s.drops) ? s.drops : [];
+        if (drops.length) {
+          out += ' (дропсет: ' + drops.map(d => `${d.weight ?? '?'}×${d.reps ?? '?'}`).join(' → ') + ')';
+        }
+        if (s.toFailure) out += ' до отказа';
+        return out;
+      });
+    if (parts.length) {
+      const sup = e.supersetId ? ` [суперсет ${e.supersetId}]` : '';
+      return parts.join(', ') + sup;
+    }
   }
   if (typeof e.actualSets === 'string' && e.actualSets.trim()) return e.actualSets.trim();
   return '';
