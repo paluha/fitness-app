@@ -299,7 +299,14 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
       )}
 
       {/* ввод */}
-      <div style={{ display: 'flex', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border)', alignItems: 'flex-end' }}>
+      {/* Строка ввода. Нижний отступ — по безопасной зоне плюс запас:
+          у телефона там скруглённые углы и домашняя полоска, кнопки не
+          должны к ним прижиматься. */}
+      <div style={{
+        display: 'flex', gap: 8, paddingTop: 10, alignItems: 'flex-end',
+        borderTop: '1px solid var(--border)', flexShrink: 0,
+        paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+      }}>
         <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPickFile} style={{ display: 'none' }} />
         {/* Возврат на главную: в чате нижнее меню скрыто, поэтому выход
             живёт здесь, рядом со скрепкой. */}

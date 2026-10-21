@@ -4931,6 +4931,11 @@ export default function FitnessPage() {
       suppressHydrationWarning
       style={{
         minHeight: '100vh',
+        // В чате высота фиксированная, иначе height:100% у потомков не
+        // сработает и область сообщений схлопнется. dvh вместо vh: на
+        // телефоне vh не учитывает панели браузера, и при скролле строка
+        // ввода уезжала за край экрана.
+        ...(view === 'chat' ? { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' } : {}),
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--bg-primary)'
@@ -5207,15 +5212,23 @@ export default function FitnessPage() {
         />
       )}
 
-      {/* Content */}
+      {/* Content.
+          В чате внешнюю прокрутку выключаем: внутри чата своя область
+          скролла, а две вложенные на телефоне дёргались — при скролле
+          браузер прятал и показывал панели, 100vh менялась, и строка
+          ввода прыгала вверх-вниз. Нижний отступ там тоже свой: 92px
+          заложены под меню, которого в чате нет. */}
       <div className={view === 'nutrition' ? 'content-flush' : undefined} style={{
         flex: 1,
-        overflow: 'auto',
+        overflow: view === 'chat' ? 'hidden' : 'auto',
         padding: '4px 20px 16px',
-        paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: view === 'chat'
+          ? 'calc(12px + env(safe-area-inset-bottom, 0px))'
+          : 'calc(92px + env(safe-area-inset-bottom, 0px))',
         maxWidth: '600px',
         margin: '0 auto',
-        width: '100%'
+        width: '100%',
+        minHeight: 0,
       }}>
         {/* WORKOUT VIEW */}
         {view === 'workout' && (
@@ -6585,10 +6598,11 @@ export default function FitnessPage() {
         )}
 
         {/* CHAT VIEW — AI-ассистент как полноэкранная вкладка.
-            Меню здесь скрыто, поэтому высоты можно взять больше: раньше
-            вычиталось место под нижнюю панель. */}
+            Высоту берём от родителя (100%), а не как calc(100vh - …):
+            на телефоне 100vh меняется, когда браузер прячет свои панели
+            при скролле, и строка ввода из-за этого прыгала. */}
         {view === 'chat' && (
-          <div className="view-content" style={{ height: 'calc(100vh - 140px)' }}>
+          <div className="view-content" style={{ height: '100%', minHeight: 0 }}>
             <AssistantChat
               muscleGroups={muscleGroups}
               onGoHome={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
