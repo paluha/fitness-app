@@ -154,13 +154,63 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
       .catch(() => {});
   }, [loaded]);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((smooth = true) => {
     requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
     });
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  /**
+   * При открытии чата показываем конец переписки.
+   *
+   * Одной прокрутки после загрузки истории мало: высота в этот момент
+   * ещё не окончательная — сообщения доверстываются, карточки данных
+   * подставляются из снапшота, картинки подгружаются. Плавная анимация
+   * при этом стартует к старой высоте и замирает в середине, поэтому
+   * здесь прыгаем сразу (auto) и повторяем, пока высота не устоится.
+   */
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // Держим низ ~2.4 секунды после открытия: этого хватает, чтобы
+    // вёрстка устоялась. Дольше нельзя — иначе рывком вернёт вниз, если
+    // пользователь за это время сам отмотал переписку вверх.
+    let lastHeight = -1;
+    let tries = 0;
+    let timer = 0;
+    let stopped = false;
+
+    // Тронул прокрутку сам — больше не вмешиваемся.
+    const giveUp = () => { stopped = true; };
+    el.addEventListener('touchstart', giveUp, { passive: true });
+    el.addEventListener('wheel', giveUp, { passive: true });
+
+    const pin = () => {
+      if (stopped) return;
+      const h = el.scrollHeight;
+      if (h !== lastHeight) {
+        lastHeight = h;
+        el.scrollTop = h;            // без анимации: ничего не догоняем
+      }
+      if (++tries < 20) timer = window.setTimeout(pin, 120);
+    };
+    timer = window.setTimeout(pin, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      el.removeEventListener('touchstart', giveUp);
+      el.removeEventListener('wheel', giveUp);
+    };
+    // Только на первую загрузку истории: дальше работает scrollToBottom.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded && messages.length > 0]);
 
   // Не больше четырёх вложений за сообщение — столько же принимает сервер.
   const MAX_FILES = 4;
