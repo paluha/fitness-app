@@ -7,6 +7,12 @@ type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt
 
 /** Служебный хвост потока с готовой программой (см. /api/chat). */
 const PROPOSAL_MARKER = '\u0000PROPOSAL\u0000';
+/**
+ * Подпись к индикатору работы, приходит посреди потока в парных
+ * маркерах. Закрывающий обязателен: без него выражение «до конца
+ * строки» съедало бы и весь текст, идущий после подписи.
+ */
+const STAGE_RE = /\u0000STAGE\u0000([\s\S]*?)\u0000\/STAGE\u0000/g;
 
 export type ProposedExercise = {
   name: string;
@@ -81,6 +87,14 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
    */
   const [proposal, setProposal] = useState<ProgramProposal | null>(null);
   const [applying, setApplying] = useState(false);
+  /**
+   * Что ИИ делает прямо сейчас — подпись рядом с точками.
+   *
+   * Без неё долгие ответы выглядят зависанием: сборка программы идёт
+   * секунд пятнадцать уже ПОСЛЕ того, как текст дописан, и экран всё
+   * это время не подаёт признаков жизни.
+   */
+  const [stage, setStage] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null); // данные для карточек
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -283,6 +297,7 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
     setImages([]);
     setAttachError(null);
     setBusy(true);
+    setStage(imgs.length ? 'Читаю вложения' : 'Думаю');
     const note = imgs.length === 0 ? '' : imgs.length === 1 ? '\n📎 [вложение]' : `\n📎 [вложений: ${imgs.length}]`;
     setMessages((m) => [
       ...m,
@@ -337,14 +352,27 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
         const { done, value } = await reader.read();
         if (done) break;
         acc += decoder.decode(value, { stream: true });
-        const cut = acc.indexOf(PROPOSAL_MARKER);
-        const visible = cut >= 0 ? acc.slice(0, cut) : acc;
+
+        // Подпись к индикатору приходит посреди потока — вырезаем её из
+        // видимого текста и показываем рядом с точками.
+        const stages = [...acc.matchAll(STAGE_RE)];
+        const stageText = stages.length ? stages[stages.length - 1][1] : null;
+        const body = acc.replace(STAGE_RE, '');
+
+        const cut = body.indexOf(PROPOSAL_MARKER);
+        const visible = cut >= 0 ? body.slice(0, cut) : body;
+        // Пока модель пишет — «Печатает»; как только пошла сборка
+        // программы, серверная подпись перебивает её и остаётся.
+        if (stageText) setStage(stageText);
+        else if (visible) setStage('Печатает');
         setMessages((m) => {
           const copy = [...m];
           copy[copy.length - 1] = { ...copy[copy.length - 1], content: visible };
           return copy;
         });
       }
+      // Служебные маркеры стадий в итоговом тексте не нужны.
+      acc = acc.replace(STAGE_RE, '');
 
       // Программа пришла — показываем её карточкой с кнопкой замены.
       const cut = acc.indexOf(PROPOSAL_MARKER);
@@ -364,6 +392,7 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
       });
     } finally {
       setBusy(false);
+      setStage(null);
     }
   };
 
@@ -428,16 +457,28 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
                 fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word',
               }}
             >
-              {m.content
-                ? renderWithCards(m.content, snapshot, muscleGroups)
-                : busy && i === messages.length - 1
-                  ? (
-                    /* ИИ обрабатывает запрос — три пульсирующие точки */
-                    <span className="chat-typing" aria-label="ИИ печатает">
-                      <span className="chat-dot" /><span className="chat-dot" /><span className="chat-dot" />
+              {m.content ? renderWithCards(m.content, snapshot, muscleGroups) : null}
+              {/* Индикатор работы держим, пока идёт ответ, а не только
+                  пока сообщение пустое: текст может уже прийти, а ИИ всё
+                  ещё собирает программу — это занимает секунд пятнадцать,
+                  и без индикатора экран выглядит замершим. */}
+              {busy && i === messages.length - 1 && (
+                <span
+                  className="chat-typing"
+                  role="status"
+                  aria-label={stage || 'ИИ печатает'}
+                  style={m.content ? { marginTop: 4 } : undefined}
+                >
+                  <span className="chat-dot" /><span className="chat-dot" /><span className="chat-dot" />
+                  {/* Стиль инлайновый: CSS-класс однажды не доехал до
+                      прод-сборки, а подпись должна быть видна наверняка. */}
+                  {stage && (
+                    <span style={{ marginLeft: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                      {stage}
                     </span>
-                  )
-                  : null}
+                  )}
+                </span>
+              )}
             </div>
           );
         })}

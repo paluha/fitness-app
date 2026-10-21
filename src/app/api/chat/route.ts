@@ -490,6 +490,11 @@ const PROGRAM_TOOL: Anthropic.Tool = {
   // Разделитель между текстом ответа и данными предложения: текст
   // стримится как есть, а служебная часть идёт одной строкой в конце.
   const PROPOSAL_MARKER = '\u0000PROPOSAL\u0000';
+  // Подпись к индикатору «ИИ думает»: короткая строка о том, что сейчас
+  // происходит. Идёт в том же потоке, в парных маркерах — закрывающий
+  // обязателен, иначе подпись «съела» бы весь последующий текст.
+  const STAGE_MARKER = '\u0000STAGE\u0000';
+  const STAGE_END = '\u0000/STAGE\u0000';
 
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
@@ -513,6 +518,12 @@ const PROGRAM_TOOL: Anthropic.Tool = {
             const chunk = event.delta.text;
             assistantText += chunk;
             controller.enqueue(encoder.encode(chunk));
+          }
+          // Модель начала собирать программу. Сообщаем сразу: сборка
+          // занимает секунд пятнадцать, и всё это время клиенту нечего
+          // показать — без сигнала экран выглядит зависшим.
+          if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+            controller.enqueue(encoder.encode(STAGE_MARKER + 'Собираю программу' + STAGE_END));
           }
         }
 
