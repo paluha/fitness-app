@@ -41,7 +41,7 @@ const fmtFileDate = (iso: string) => {
     const sameYear = d.getFullYear() === new Date().getFullYear();
     return d.toLocaleDateString('ru-RU', {
       day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }),
-    }).replace(/\s*г\.$/, '');
+    }).replace(/\s*г\.$/, '').replace(/\.$/, '');
   } catch { return ''; }
 };
 
