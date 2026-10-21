@@ -1227,7 +1227,7 @@ function getDateLabel(date: Date, todayDateStr: string): string {
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup }: {
   ex: Exercise;
   idx: number;
   onToggle: () => void;
@@ -1258,6 +1258,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
    * отдых обычный. Обычное упражнение — undefined.
    */
   supersetPos?: 'inner' | 'last';
+  /** Названия всех упражнений связки по порядку — для подсказки. */
+  supersetGroup?: string[];
 }) {
   const [expandedLocal, setExpandedLocal] = useState(false);
   const controlled = typeof expandedProp === 'boolean' && !!onToggleExpand;
@@ -1539,10 +1541,34 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             const currentIdx = sets.findIndex(s => !s.completed);
             return (
               <div style={{ marginTop: '8px', marginBottom: '10px' }}>
+                {/* Суперсет: объясняем, что делать. Одной плашки с меткой
+                    мало — рядом стоит «отдых 2:00», и непонятно, отдыхать
+                    или сразу идти к парному упражнению. */}
+                {supersetGroup && supersetGroup.length > 1 && (
+                  <div
+                    className="tx-supnote"
+                    /* Стиль дублируем инлайново: класс из globals.css
+                       однажды не попал в прод-сборку, а подсказка должна
+                       быть видна наверняка. */
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 6,
+                      margin: '0 0 9px', padding: '9px 11px', borderRadius: 10,
+                      background: '#eef3fb', border: '1px solid #d6e2f3',
+                      fontSize: 11, lineHeight: 1.4, color: '#3f6292',
+                    }}
+                  >
+                    <Link2 size={12} style={{ flex: 'none', marginTop: 1 }} />
+                    <span>
+                      {supersetPos === 'inner'
+                        ? <>Без отдыха переходи к следующему: <b>{supersetGroup[supersetGroup.indexOf(ex.name) + 1] ?? supersetGroup[1]}</b></>
+                        : <>Это конец связки — после подхода отдыхай, потом снова <b>{supersetGroup[0]}</b></>}
+                    </span>
+                  </div>
+                )}
                 <div className="tx-restset">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Timer size={11} />
-                Отдых между подходами
+                {supersetPos === 'inner' ? 'Отдых после связки' : 'Отдых между подходами'}
                 </span>
                 <span className="tx-stepper">
                 <button
@@ -1558,7 +1584,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 >+</button>
                 </span>
                 </div>
-                <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
+                {/* Внутри связки таймер не показываем: отдыха там нет, а
+                    «2:00 Старт» под плашкой суперсета сбивает с толку —
+                    непонятно, отдыхать или идти к парному упражнению. */}
+                {supersetPos !== 'inner' && (
+                  <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
+                )}
                 <div className="tx-grid tx-head">
                   <span>№</span>
                   <span>{lastLabel ?? 'Last'}</span>
@@ -5701,6 +5732,12 @@ export default function FitnessPage() {
                   const supersetPos = ex.supersetId
                     ? (displayExercises[idx + 1]?.supersetId === ex.supersetId ? 'inner' as const : 'last' as const)
                     : undefined;
+                  // Вся связка целиком: нужна карточке, чтобы объяснить,
+                  // с чем чередовать и когда отдыхать. Без этого плашка
+                  // «Суперсет A» ничего не говорит о том, как тренить.
+                  const supersetGroup = ex.supersetId
+                    ? displayExercises.filter(e => e.supersetId === ex.supersetId).map(e => e.name)
+                    : undefined;
                   return (
                     <ExerciseCard
                       key={ex.id}
@@ -5711,6 +5748,7 @@ export default function FitnessPage() {
                       progressHistory={progressHistory[exerciseKey] || []}
                       weightHistory={weightHistoryFor(ex.name)}
                       supersetPos={supersetPos}
+                      supersetGroup={supersetGroup}
                       lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
                       onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}

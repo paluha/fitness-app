@@ -960,6 +960,18 @@ button:disabled {
   .tx-tech { margin-left: 0; }
 }
 
+/* Подсказка в суперсете: что делать после подхода. Одной метки мало —
+   рядом стоит время отдыха, и без пояснения непонятно, отдыхать или
+   сразу идти к парному упражнению. */
+.tx-supnote {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 0 0 9px; padding: 9px 11px; border-radius: 10px;
+  background: #eef3fb; border: 1px solid #d6e2f3;
+  font-size: 11px; line-height: 1.4; color: #3f6292;
+}
+.tx-supnote svg { flex: none; margin-top: 1px; }
+.tx-supnote b { font-weight: 700; }
+
 /* Метка суперсета в заголовке упражнения. */
 .tx-superset {
   display: inline-flex; align-items: center; gap: 3px;
