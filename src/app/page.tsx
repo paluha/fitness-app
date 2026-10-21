@@ -3832,11 +3832,17 @@ export default function FitnessPage() {
     }
   };
 
-  const acceptProgram = async () => {
-    if (!programProposal) return;
+  /**
+   * Заменить программу предложенной: старая уходит в архив, новая встаёт
+   * на её место. Общая дорога для кнопки на экране «Программа» и для
+   * предложения из чата — чтобы архив наполнялся одинаково.
+   */
+  const applyProposedProgram = async (proposal: {
+    workouts: { exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[];
+  }) => {
     const entry = snapshotCurrentProgram();
     const newArchive = [entry, ...programArchive].slice(0, 20);
-    const newWorkouts: Workout[] = programProposal.workouts.map((w, i) => ({
+    const newWorkouts: Workout[] = proposal.workouts.map((w, i) => ({
       id: 't' + (i + 1),
       name: 'Тренировка ' + (i + 1),
       exercises: w.exercises.map((e, j) => ({
@@ -3860,9 +3866,15 @@ export default function FitnessPage() {
         ...(e.supersetId ? { supersetId: e.supersetId } : {}),
       })),
     }));
+    await saveProgramChange(newWorkouts, newArchive);
+  };
+
+  const acceptProgram = async () => {
+    if (!programProposal) return;
+    const proposal = programProposal;
     setProgramProposal(null);
     setShowProgramModal(false);
-    await saveProgramChange(newWorkouts, newArchive);
+    await applyProposedProgram(proposal);
   };
 
   const restoreProgram = async (entry: ArchivedProgram) => {
@@ -6832,6 +6844,7 @@ export default function FitnessPage() {
             <AssistantChat
               muscleGroups={muscleGroups}
               onGoHome={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
+              onApplyProgram={applyProposedProgram}
             />
           </div>
         )}

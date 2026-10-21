@@ -1,9 +1,27 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Send, Paperclip, X, Home, FileText } from 'lucide-react';
+import { Send, Paperclip, X, Home, FileText, Dumbbell } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
+
+/** Служебный хвост потока с готовой программой (см. /api/chat). */
+const PROPOSAL_MARKER = '\u0000PROPOSAL\u0000';
+
+export type ProposedExercise = {
+  name: string;
+  plannedSets: string;
+  restTime: string;
+  notes: string;
+  supersetId?: string;
+  toFailure?: boolean;
+  dropSet?: boolean;
+};
+export type ProgramProposal = {
+  rationale: string;
+  advanced: boolean;
+  workouts: { focus: string; exercises: ProposedExercise[] }[];
+};
 
 type Eaten = { kcal: number; p: number; f: number; c: number };
 type Snapshot = {
@@ -35,11 +53,17 @@ function fmtWhen(iso?: string): string | null {
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 // Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
 // белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat({ muscleGroups, onGoHome }: {
+export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
   muscleGroups?: Record<string, string>;
   // Возврат на главную. В чате нижнее меню скрыто, поэтому выход даёт
   // кнопка в строке ввода. Без обработчика кнопка не показывается.
   onGoHome?: () => void;
+  /**
+   * Заменить программу предложенной. Старая уходит в архив — это делает
+   * родитель тем же кодом, что и кнопка «Принять программу» на экране
+   * «Программа»: одна дорога, один архив.
+   */
+  onApplyProgram?: (p: ProgramProposal) => Promise<void> | void;
 } = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -50,6 +74,13 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
   // состав продукта или PDF с анализами.
   const [images, setImages] = useState<{ name: string; data: string }[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
+  /**
+   * Программа, которую предложил ассистент. Сама она ничего не меняет:
+   * заменяет пользователь кнопкой, и тогда старая уходит в архив — тем
+   * же путём, что и при генерации с экрана «Программа».
+   */
+  const [proposal, setProposal] = useState<ProgramProposal | null>(null);
+  const [applying, setApplying] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null); // данные для карточек
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -298,15 +329,32 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
       const decoder = new TextDecoder();
       // дописываем последнее (assistant) сообщение по мере стрима
       // eslint-disable-next-line no-constant-condition
+      // Поток — это текст ответа, а в конце может прийти служебная часть
+      // с готовой программой, отделённая маркером. Копим целиком и режем
+      // по маркеру: он может разорваться между двумя кусками потока.
+      let acc = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
+        acc += decoder.decode(value, { stream: true });
+        const cut = acc.indexOf(PROPOSAL_MARKER);
+        const visible = cut >= 0 ? acc.slice(0, cut) : acc;
         setMessages((m) => {
           const copy = [...m];
-          copy[copy.length - 1] = { ...copy[copy.length - 1], content: copy[copy.length - 1].content + chunk };
+          copy[copy.length - 1] = { ...copy[copy.length - 1], content: visible };
           return copy;
         });
+      }
+
+      // Программа пришла — показываем её карточкой с кнопкой замены.
+      const cut = acc.indexOf(PROPOSAL_MARKER);
+      if (cut >= 0) {
+        try {
+          const parsed = JSON.parse(acc.slice(cut + PROPOSAL_MARKER.length));
+          if (parsed?.type === 'program_proposal' && Array.isArray(parsed.data?.workouts)) {
+            setProposal(parsed.data);
+          }
+        } catch { /* битый хвост — просто не показываем карточку */ }
       }
     } catch {
       setMessages((m) => {
@@ -394,6 +442,89 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
           );
         })}
       </div>
+
+      {/* Готовая программа от ассистента. Пока она здесь — ничего не
+          изменилось: замена происходит только по кнопке, и тогда старая
+          программа уходит в архив. */}
+      {proposal && (
+        <div style={{
+          marginTop: 12, padding: '13px 14px', borderRadius: 14,
+          background: 'var(--bg-card)', border: '1px solid var(--border-strong)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+            <Dumbbell size={14} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Новая программа</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto', flexShrink: 0 }}>
+              {proposal.workouts.length} трен. · {proposal.advanced ? 'продвинутая' : 'стандартная'}
+            </span>
+          </div>
+          {proposal.rationale && (
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 9 }}>
+              {proposal.rationale}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 11 }}>
+            {proposal.workouts.map((w, i) => (
+              <div key={i}>
+                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>
+                  Т{i + 1} · {w.focus}
+                </div>
+                {w.exercises.map((e, j) => (
+                  <div key={j} style={{
+                    display: 'flex', justifyContent: 'space-between', gap: 8,
+                    fontSize: 11, color: 'var(--text-secondary)', padding: '1px 0',
+                  }}>
+                    <span>
+                      {e.name}
+                      {e.supersetId ? ` · суперсет ${e.supersetId}` : ''}
+                      {e.toFailure ? ' · до отказа' : ''}
+                      {e.dropSet ? ' · дропсет' : ''}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{e.plannedSets}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 9 }}>
+            Текущая программа уйдёт в историю — её всегда можно вернуть.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setProposal(null)}
+              disabled={applying}
+              style={{
+                flex: 1, padding: '11px', borderRadius: 11, cursor: 'pointer',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+              }}
+            >Не сейчас</button>
+            <button
+              onClick={async () => {
+                if (!onApplyProgram || applying) return;
+                setApplying(true);
+                try {
+                  await onApplyProgram(proposal);
+                  setProposal(null);
+                  setMessages((m) => [...m, {
+                    role: 'assistant',
+                    content: 'Программа обновлена. Старая — в истории программ, её можно вернуть.',
+                  }]);
+                } finally {
+                  setApplying(false);
+                }
+              }}
+              disabled={applying || !onApplyProgram}
+              style={{
+                flex: 1.4, padding: '11px', borderRadius: 11,
+                cursor: applying ? 'not-allowed' : 'pointer',
+                background: 'var(--green)', border: 'none',
+                color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+              }}
+            >{applying ? 'Применяю…' : 'Заменить программу'}</button>
+          </div>
+        </div>
+      )}
 
       {/* Превью прикреплённых фото — лентой, каждое снимается крестиком.
           Крестик висит над углом картинки, поэтому между превью нужен
