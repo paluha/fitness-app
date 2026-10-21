@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Send, Paperclip, X, Home } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
@@ -195,6 +195,19 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  // Размер кнопок строки ввода. Три кнопки по 46px на узком экране
+  // оставляли полю ввода 114px, поэтому там ужимаем до 38px. Значение
+  // инлайновое, а не классом: класс в globals.css не попал в прод-сборку.
+  const [btnSize, setBtnSize] = useState(46);
+  useLayoutEffect(() => {
+    // useLayoutEffect, а не useEffect: иначе на узком экране кнопки
+    // мелькнули бы крупными до первой перерисовки.
+    const apply = () => setBtnSize(window.innerWidth <= 360 ? 38 : 46);
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  }, []);
+
   const canSend = !busy && (!!input.trim() || images.length > 0);
 
   return (
@@ -297,7 +310,7 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
             aria-label="на главную"
             title="На главную"
             style={{
-              borderRadius: 12, flexShrink: 0,
+              width: btnSize, height: btnSize, borderRadius: 12, flexShrink: 0,
               background: 'var(--bg-elevated)', border: '1px solid var(--border)',
               color: 'var(--text-secondary)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -313,7 +326,7 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
           className="chat-iconbtn"
           aria-label="прикрепить фото"
           style={{
-            borderRadius: 12, flexShrink: 0,
+            width: btnSize, height: btnSize, borderRadius: 12, flexShrink: 0,
             background: 'var(--bg-elevated)', border: '1px solid var(--border)',
             color: images.length ? 'var(--yellow)' : 'var(--text-secondary)',
             cursor: busy ? 'not-allowed' : 'pointer',
@@ -341,7 +354,7 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
           className="chat-iconbtn"
           aria-label="отправить"
           style={{
-            borderRadius: 12, border: 'none', flexShrink: 0,
+            width: btnSize, height: btnSize, borderRadius: 12, border: 'none', flexShrink: 0,
             cursor: canSend ? 'pointer' : 'not-allowed',
             background: canSend ? 'var(--text-primary)' : 'var(--bg-elevated)',
             color: canSend ? 'var(--bg-primary)' : 'var(--text-secondary)',
