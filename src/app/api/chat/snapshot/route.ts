@@ -36,13 +36,18 @@ export async function GET() {
   }
   const dayLogs = (mergedDayLogs as Record<string, { meals?: { name?: string; calories?: number; protein?: number; fat?: number; carbs?: number }[]; workoutSnapshot?: { workoutName?: string; exercises?: { name?: string; completed?: boolean }[] }; workoutDraft?: { workoutName?: string; exercises?: { name?: string; completed?: boolean }[] } }>) || {};
 
-  // Макросы по дням (последние 14) — чтобы карточка могла показать любой
-  // запрошенный день, а не только сегодня.
+  // Макросы по дням — чтобы карточка могла показать любой запрошенный день.
+  //
+  // Берём последние 14 дней С ЕДОЙ, а не последние 14 дней журнала: еду
+  // пишут нерегулярно, и при перерыве в пару недель в снимок не попадало
+  // НИ ОДНОГО дня с едой. Тогда любая карточка питания оказывалась пустой,
+  // а модель, не зная об этом, объявляла это «технической проблемой».
   const dates = Object.keys(dayLogs).sort().reverse();
   const macrosByDate: Record<string, { eaten: { kcal: number; p: number; f: number; c: number }; meals: number }> = {};
-  for (const d of dates.slice(0, 14)) {
+  for (const d of dates) {
     const meals = Array.isArray(dayLogs[d]?.meals) ? dayLogs[d]!.meals! : [];
     if (meals.length === 0) continue;
+    if (Object.keys(macrosByDate).length >= 14) break;
     macrosByDate[d] = {
       eaten: meals.reduce(
         (a, m) => ({ kcal: a.kcal + (m.calories || 0), p: a.p + (m.protein || 0), f: a.f + (m.fat || 0), c: a.c + (m.carbs || 0) }),

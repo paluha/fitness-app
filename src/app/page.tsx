@@ -6584,10 +6584,15 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* CHAT VIEW — AI-ассистент как полноэкранная вкладка */}
+        {/* CHAT VIEW — AI-ассистент как полноэкранная вкладка.
+            Меню здесь скрыто, поэтому высоты можно взять больше: раньше
+            вычиталось место под нижнюю панель. */}
         {view === 'chat' && (
-          <div className="view-content" style={{ height: 'calc(100vh - 200px)' }}>
-            <AssistantChat muscleGroups={muscleGroups} />
+          <div className="view-content" style={{ height: 'calc(100vh - 140px)' }}>
+            <AssistantChat
+              muscleGroups={muscleGroups}
+              onGoHome={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
+            />
           </div>
         )}
 
@@ -8444,7 +8449,12 @@ export default function FitnessPage() {
       {/* Нижняя навигация: основное меню-капсула + отдельная капсула AI-чата справа */}
       {/* Нижнее меню по макету: четыре равные вкладки в одной панели.
           ИИ раньше жила ОТДЕЛЬНОЙ кнопкой вне flex-контейнера и забирала
-          всю свободную ширину — 205px против 50px у соседей. */}
+          всю свободную ширину — 205px против 50px у соседей.
+
+          В чате меню скрыто: там внизу своя строка ввода, и две панели
+          друг над другом съедали экран. Вернуться на главную можно
+          кнопкой рядом со скрепкой. */}
+      {view !== 'chat' && (
       <nav className="tx-tabbar">
         {/* Капсула: скруглённая панель с тенью, как было раньше. */}
         <div className="tx-tabcap">
@@ -8473,6 +8483,7 @@ export default function FitnessPage() {
         })}
         </div>
       </nav>
+      )}
     </main>
   );
 }

@@ -917,6 +917,14 @@ button:disabled {
   .tx-warn { margin-left: 0; }
 }
 
+/* Кнопки строки ввода в чате ИИ: «домой», скрепка, отправка.
+   На узком экране три кнопки по 46px оставляли полю ввода 114px —
+   ужимаем их, чтобы текст оставался читаемым. */
+.chat-iconbtn { width: 46px; height: 46px; }
+@media (max-width: 360px) {
+  .chat-iconbtn { width: 38px; height: 38px; }
+}
+
 /* Кнопки под таблицей */
 .tx-actions { margin-top: 10px; }
 .tx-trend, .tx-addset {

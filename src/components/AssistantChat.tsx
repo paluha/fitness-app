@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, X } from 'lucide-react';
+import { Send, Paperclip, X, Home } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -35,12 +35,20 @@ function fmtWhen(iso?: string): string | null {
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 // Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
 // белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, string> } = {}) {
+export function AssistantChat({ muscleGroups, onGoHome }: {
+  muscleGroups?: Record<string, string>;
+  // Возврат на главную. В чате нижнее меню скрыто, поэтому выход даёт
+  // кнопка в строке ввода. Без обработчика кнопка не показывается.
+  onGoHome?: () => void;
+} = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [image, setImage] = useState<string | null>(null); // data-URL прикреплённого фото
+  // Прикреплённые фото как data-URL. Их может быть несколько: одним
+  // сообщением удобно прислать, например, этикетку и состав продукта.
+  const [images, setImages] = useState<string[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null); // данные для карточек
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -67,12 +75,16 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // Выбор фото: читаем в data-URL, сжимаем по ширине, чтобы не слать мегабайты.
-  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // позволяем выбрать тот же файл повторно
-    if (!file || !file.type.startsWith('image/')) return;
+  // Не больше четырёх фото за сообщение — столько же принимает сервер.
+  const MAX_IMAGES = 4;
+  // Vercel рубит запросы тяжелее 4.5 МБ, причём HTML-ошибкой ещё до кода.
+  // Держим запас: base64 раздувает данные примерно на треть.
+  const MAX_TOTAL_BYTES = 3_200_000;
+
+  // Одно фото: читаем, сжимаем по ширине, отдаём data-URL.
+  const compress = (file: File) => new Promise<string | null>((resolve) => {
     const reader = new FileReader();
+    reader.onerror = () => resolve(null);
     reader.onload = () => {
       const src = reader.result as string;
       const img = new Image();
@@ -83,26 +95,66 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
         const ctx = canvas.getContext('2d');
-        if (!ctx) { setImage(src); return; }
+        if (!ctx) { resolve(src); return; }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setImage(canvas.toDataURL('image/jpeg', 0.85));
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
-      img.onerror = () => setImage(src);
+      img.onerror = () => resolve(src);
       img.src = src;
     };
     reader.readAsDataURL(file);
+  });
+
+  // Выбор фото: можно отметить сразу несколько, добавляются к уже выбранным.
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []).filter(f => f.type.startsWith('image/'));
+    e.target.value = ''; // позволяем выбрать тот же файл повторно
+    if (picked.length === 0) return;
+    setAttachError(null);
+
+    const free = MAX_IMAGES - images.length;
+    if (free <= 0) { setAttachError(`Можно прикрепить не больше ${MAX_IMAGES} фото.`); return; }
+
+    const take = picked.slice(0, free);
+    const compressed = (await Promise.all(take.map(compress))).filter((x): x is string => !!x);
+
+    setImages((prev) => {
+      const next = [...prev];
+      let total = next.reduce((a, s) => a + s.length, 0);
+      let skipped = picked.length - take.length;
+      for (const src of compressed) {
+        // Не превышаем общий вес: иначе запрос упрётся в лимит Vercel и
+        // вернёт HTML-ошибку, которую чат показать не сможет.
+        if (total + src.length > MAX_TOTAL_BYTES) { skipped++; continue; }
+        next.push(src);
+        total += src.length;
+      }
+      if (skipped > 0) {
+        setAttachError(next.length >= MAX_IMAGES
+          ? `Можно прикрепить не больше ${MAX_IMAGES} фото.`
+          : 'Часть фото не поместилась — слишком большой общий размер.');
+      }
+      return next;
+    });
+  };
+
+  const removeImage = (i: number) => {
+    setAttachError(null);
+    setImages((prev) => prev.filter((_, j) => j !== i));
   };
 
   const send = async () => {
     const text = input.trim();
-    if ((!text && !image) || busy) return;
-    const img = image;
+    if ((!text && images.length === 0) || busy) return;
+    const imgs = images;
     setInput('');
-    setImage(null);
+    setImages([]);
+    setAttachError(null);
     setBusy(true);
+    const note = imgs.length === 0 ? '' : imgs.length === 1 ? '\n📎 [фото]' : `\n📎 [фото: ${imgs.length}]`;
     setMessages((m) => [
       ...m,
-      { role: 'user', content: (text || '') + (img ? '\n📎 [фото]' : ''), createdAt: new Date().toISOString() },
+      { role: 'user', content: (text || '') + note, createdAt: new Date().toISOString() },
       { role: 'assistant', content: '' },
     ]);
 
@@ -110,7 +162,7 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, image: img }),
+        body: JSON.stringify({ message: text, images: imgs }),
       });
       if (!res.ok || !res.body) throw new Error('chat failed');
 
@@ -143,7 +195,7 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const canSend = !busy && (!!input.trim() || !!image);
+  const canSend = !busy && (!!input.trim() || images.length > 0);
 
   return (
     // Чат лежит прямо на белой странице (фон страницы красит page.tsx,
@@ -202,40 +254,68 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
         })}
       </div>
 
-      {/* превью прикреплённого фото */}
-      {image && (
-        <div style={{ paddingTop: 10, display: 'flex' }}>
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt="вложение" style={{ maxHeight: 84, borderRadius: 10, border: '1px solid var(--border)' }} />
-            <button
-              onClick={() => setImage(null)}
-              aria-label="убрать фото"
-              style={{
-                position: 'absolute', top: -8, right: -8, width: 22, height: 22, borderRadius: '50%',
-                border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-              }}
-            >
-              <X size={14} />
-            </button>
-          </div>
+      {/* Превью прикреплённых фото — лентой, каждое снимается крестиком.
+          Крестик висит над углом картинки, поэтому между превью нужен
+          зазор шире него: иначе крестик соседа перекрывает кнопку и по ней
+          невозможно попасть. Отступ сверху — по той же причине.
+          minWidth у картинки — чтобы узкое фото не схлопнулось в полоску. */}
+      {images.length > 0 && (
+        <div style={{ paddingTop: 18, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          {images.map((src, i) => (
+            <div key={i} style={{ position: 'relative', display: 'inline-block' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`вложение ${i + 1}`} style={{ height: 84, minWidth: 48, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', display: 'block' }} />
+              <button
+                onClick={() => removeImage(i)}
+                aria-label={`убрать фото ${i + 1}`}
+                style={{
+                  position: 'absolute', top: -8, right: -8, width: 22, height: 22, borderRadius: '50%',
+                  border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)', zIndex: 1,
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
         </div>
+      )}
+      {attachError && (
+        <div style={{ paddingTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>{attachError}</div>
       )}
 
       {/* ввод */}
       <div style={{ display: 'flex', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border)', alignItems: 'flex-end' }}>
-        <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPickFile} style={{ display: 'none' }} />
+        {/* Возврат на главную: в чате нижнее меню скрыто, поэтому выход
+            живёт здесь, рядом со скрепкой. */}
+        {onGoHome && (
+          <button
+            onClick={onGoHome}
+            className="chat-iconbtn"
+            aria-label="на главную"
+            title="На главную"
+            style={{
+              borderRadius: 12, flexShrink: 0,
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              color: 'var(--text-secondary)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Home size={18} />
+          </button>
+        )}
         {/* attach: прикрепить фото */}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={busy}
+          className="chat-iconbtn"
           aria-label="прикрепить фото"
           style={{
-            width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+            borderRadius: 12, flexShrink: 0,
             background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-            color: image ? 'var(--yellow)' : 'var(--text-secondary)',
+            color: images.length ? 'var(--yellow)' : 'var(--text-secondary)',
             cursor: busy ? 'not-allowed' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -258,9 +338,10 @@ export function AssistantChat({ muscleGroups }: { muscleGroups?: Record<string, 
         <button
           onClick={send}
           disabled={!canSend}
+          className="chat-iconbtn"
           aria-label="отправить"
           style={{
-            width: 46, height: 46, borderRadius: 12, border: 'none', flexShrink: 0,
+            borderRadius: 12, border: 'none', flexShrink: 0,
             cursor: canSend ? 'pointer' : 'not-allowed',
             background: canSend ? 'var(--text-primary)' : 'var(--bg-elevated)',
             color: canSend ? 'var(--bg-primary)' : 'var(--text-secondary)',
@@ -314,10 +395,34 @@ function renderCard(kind: string, date: string | undefined, snap: Snapshot | nul
     // дата из плейсхолдера, иначе сегодня
     const d = date || snap.today;
     const dayData = snap.macros.byDate[d] ?? (d === snap.today ? { eaten: snap.macros.eaten, meals: snap.macros.meals } : null);
-    if (!dayData) return null; // за этот день еды нет — карточку не показываем
-    const { eaten, meals } = dayData;
     const isToday = d === snap.today;
-    const dateLabel = isToday ? 'сегодня' : (() => { try { return new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', ''); } catch { return d; } })();
+    // Разбираем дату по частям, а не через new Date('2026-09-22'): такую
+    // строку браузер читает как UTC-полночь, и при западном смещении
+    // подпись съезжала на день назад («22 сентября» → «21 сент»).
+    const fmtDay = (ds: string, opts: Intl.DateTimeFormatOptions) => {
+      try {
+        const [y, mo, dd] = ds.split('-').map(Number);
+        return new Date(y, mo - 1, dd).toLocaleDateString('ru-RU', opts).replace(/\.$/, '');
+      } catch { return ds; }
+    };
+    const dateLabel = isToday ? 'сегодня' : fmtDay(d, { day: 'numeric', month: 'short' });
+    // За этот день еды нет. Раньше карточка просто исчезала, и под текстом
+    // «Вот данные за вчера:» оставалась пустота — выглядело как поломка.
+    // Честнее сказать прямо, что записи нет.
+    if (!dayData || dayData.meals === 0) {
+      const known = Object.keys(snap.macros.byDate).sort().reverse();
+      const hint = known.length
+        ? `Последняя запись — ${fmtDay(known[0], { day: 'numeric', month: 'long' })}.`
+        : 'Еда пока не записывалась.';
+      return (
+        <CardShell title={`Питание · ${dateLabel}`}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            За этот день еда не записана. {hint}
+          </div>
+        </CardShell>
+      );
+    }
+    const { eaten, meals } = dayData;
     const mealsWord = meals === 1 ? 'приём' : meals >= 2 && meals <= 4 ? 'приёма' : 'приёмов';
     const row = (label: string, val: number, g: number | null, color: string) => {
       const pct = g ? Math.min(100, Math.round((val / g) * 100)) : 0;

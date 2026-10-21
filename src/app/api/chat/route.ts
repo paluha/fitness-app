@@ -27,6 +27,21 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - [[card:labs]] — последний анализ. ОБЯЗАТЕЛЬНО вставляй, когда говоришь про анализы пользователя.
 Правило: если ответ опирается на данные пользователя из этих трёх областей (еда за день, последняя тренировка, анализы) — соответствующая карточка ОБЯЗАТЕЛЬНА, а не опциональна; текстом её содержимое не пересказывай, дай выводы. Каждый плейсхолдер вставляй ОДИН раз, на отдельной строке. Не выдумывай других плейсхолдеров.
 
+ВАЖНО про карточку питания:
+- Ставь [[card:macros:ДАТА]] ТОЛЬКО на дату из списка «ДАТЫ С ЗАПИСАННОЙ ЕДОЙ» ниже. За остальные дни еды нет, и карточка скажет «за этот день еда не записана».
+- Если пользователь спрашивает про день, которого в этом списке нет, — не подставляй вместо него другую дату. Скажи прямо, что за тот день еды не записано, и назови ближайший день с записями.
+- Плейсхолдер — это разметка приложения, не показывай его пользователю как текст и не объясняй его устройство.
+- Если пользователь говорит, что не видит данных, — НЕ объявляй это технической проблемой приложения. Сначала проверь по списку выше, есть ли вообще еда за ту дату: скорее всего данных за этот день нет.
+
+КАК ВЕСТИ ДИАЛОГ:
+- НЕ переспрашивай то, что пользователь уже сказал в этом разговоре или что есть в его данных выше. Перед вопросом проверь историю переписки и данные: ответ часто уже есть.
+- Не задавай больше ОДНОГО вопроса за ответ. Список из пяти вопросов — это допрос, а не разговор.
+- Главное — дать ответ, а не собрать анкету. Отвечай на том, что известно сейчас, и сам укажи, на каких допущениях построен ответ. Спрашивай только тогда, когда без ответа рекомендация будет вредной или бессмысленной.
+- Если данных не хватает — не отказывайся и не жди. Дай конкретный план с оговоркой «если X иначе — скорректируем».
+- Конкретика значит цифры: вес, подходы, граммы, калории, дни недели. «Питайся правильно» и «работай над техникой» — это не ответ.
+- Не пересказывай то, что уже говорил в предыдущих сообщениях. Если разговор пошёл по кругу — скажи об этом прямо и предложи следующий шаг.
+- Если пользователь поправил тебя или сказал, что ты уходишь в сторону, — вернись к его исходному вопросу и ответь на него.
+
 ПРАВИЛА:
 - Пиши на языке пользователя (по умолчанию русский).
 - Будь конкретным и практичным. Без воды.
@@ -169,23 +184,33 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: 'Anthropic API key not configured' }), { status: 500 });
   }
 
-  const { message, image } = await request.json();
-  // Картинка прикладывается опционально (vision). Без неё нужен текст.
-  const hasImage = typeof image === 'string' && image.startsWith('data:image/');
-  if ((!message || typeof message !== 'string' || !message.trim()) && !hasImage) {
+  const { message, image, images } = await request.json();
+
+  // Фото прикладываются опционально (vision), теперь их может быть
+  // несколько. Старое поле `image` продолжаем принимать: у пользователя
+  // может быть открыта вкладка со старой версией страницы.
+  const rawImages: unknown[] = Array.isArray(images)
+    ? images
+    : (typeof image === 'string' ? [image] : []);
+  const MAX_IMAGES = 4;   // больше четырёх фото в одном запросе не шлём
+  const incoming = rawImages
+    .filter((x): x is string => typeof x === 'string' && x.startsWith('data:image/'))
+    .slice(0, MAX_IMAGES);
+
+  if ((!message || typeof message !== 'string' || !message.trim()) && incoming.length === 0) {
     return new Response(JSON.stringify({ error: 'no_message' }), { status: 400 });
   }
-  const text = (typeof message === 'string' ? message.trim() : '') || (hasImage ? 'Посмотри на это фото.' : '');
+  const text = (typeof message === 'string' ? message.trim() : '')
+    || (incoming.length > 1 ? 'Посмотри на эти фото.' : incoming.length ? 'Посмотри на это фото.' : '');
 
-  // Разбираем data-URL картинки на media_type + base64 для Claude.
-  let imgBlock: Anthropic.ImageBlockParam | null = null;
-  if (hasImage) {
-    const m = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i.exec(image);
-    if (m) {
-      const mediaType = (m[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : m[1].toLowerCase()) as
-        'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
-      imgBlock = { type: 'image', source: { type: 'base64', media_type: mediaType, data: m[2] } };
-    }
+  // Разбираем data-URL каждой картинки на media_type + base64 для Claude.
+  const imgBlocks: Anthropic.ImageBlockParam[] = [];
+  for (const src of incoming) {
+    const m = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i.exec(src);
+    if (!m) continue;
+    const mediaType = (m[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : m[1].toLowerCase()) as
+      'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
+    imgBlocks.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: m[2] } });
   }
 
   // --- собираем данные пользователя + историю чата + анализы ---
@@ -206,11 +231,16 @@ export async function POST(request: Request) {
         bodyMeasurements: true, habits: true,
       },
     }),
+    // ПОСЛЕДНИЕ сообщения диалога. Здесь был orderBy 'asc' + take, то есть
+    // брались ПЕРВЫЕ 30 сообщений за всю историю: при 134 сообщениях модель
+    // видела переписку трёхмесячной давности и ничего из текущего разговора.
+    // Отсюда и повторные вопросы о том, что пользователь уже ответил.
+    // Сортируем по убыванию, берём свежие, а порядок восстанавливаем ниже.
     prisma.chatMessage.findMany({
       where: { userId },
-      orderBy: { createdAt: 'asc' },
-      take: 30, // последние сообщения как контекст диалога
-      select: { role: true, content: true },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+      select: { role: true, content: true, createdAt: true },
     }),
     prisma.labResult.findMany({
       where: { userId },
@@ -241,6 +271,19 @@ export async function POST(request: Request) {
   const bms = Array.isArray(fitness?.bodyMeasurements) ? (fitness?.bodyMeasurements as { date?: string; weight?: number }[]) : [];
   const lastWeighIn = [...bms].reverse().find(b => b && typeof b.weight === 'number' && b.weight > 0);
 
+  // Даты, за которые еда реально записана. Нужны в промпте явным списком:
+  // модель ставила карточку на дату без записей (например, назвала «вчера»
+  // день из прошлого сезона), карточка выходила пустой, и модель объясняла
+  // это «технической проблемой приложения».
+  const foodDates = Object.entries(
+    (mergedDayLogs as Record<string, { meals?: unknown }>) || {}
+  )
+    .filter(([, day]) => Array.isArray(day?.meals) && (day.meals as unknown[]).length > 0)
+    .map(([date]) => date)
+    .sort()
+    .reverse()
+    .slice(0, 14);
+
   const userContext = `ДАННЫЕ ПОЛЬЗОВАТЕЛЯ (${displayName})
 СЕГОДНЯ: ${todayIso} (таймзона ${tz}; используй для подсчётов «сколько дней назад», «вчера», «на этой неделе»)
 
@@ -266,6 +309,9 @@ ${compactJson(fitness?.workouts, 2000)}
 🍽️ ЕДА (дневник по дням, новые сверху; если сегодняшней даты нет — за сегодня еда не записана):
 ${buildFoodLog(mergedDayLogs, 7)}
 
+ДАТЫ С ЗАПИСАННОЙ ЕДОЙ (только на них имеет смысл карточка [[card:macros:ДАТА]]):
+${foodDates.length ? foodDates.join(', ') : 'нет ни одной'}
+
 📅 ДЕТАЛИ ПОСЛЕДНИХ ДНЕЙ (шаги и пр.):
 ${compactJson(recentByDate(mergedDayLogs, 3), 2000)}
 
@@ -286,12 +332,15 @@ ${buildLabSummary(labs as LabRow[])}`;
 
   // Сохраняем сообщение пользователя сразу. Картинку в историю не пишем
   // (тяжёлая), помечаем текстом, что было фото.
-  const savedContent = hasImage ? (text + '\n📎 [фото]').trim() : text;
+  const photoNote = imgBlocks.length === 0 ? ''
+    : imgBlocks.length === 1 ? '\n📎 [фото]'
+    : `\n📎 [фото: ${imgBlocks.length}]`;
+  const savedContent = (text + photoNote).trim();
   await prisma.chatMessage.create({ data: { userId, role: 'user', content: savedContent } });
 
-  // Новое сообщение: текст + (опционально) картинка для vision.
+  // Новое сообщение: фото (сколько прислали) + текст для vision.
   const lastContent: Anthropic.ContentBlockParam[] = [];
-  if (imgBlock) lastContent.push(imgBlock);
+  for (const b of imgBlocks) lastContent.push(b);
   lastContent.push({ type: 'text', text });
 
   // Собираем messages: контекст данных + история + новое сообщение.
@@ -300,7 +349,15 @@ ${buildLabSummary(labs as LabRow[])}`;
     // Свежий контекст данных как первое user-сообщение (не кэшируем — меняется).
     { role: 'user', content: `[Контекст моих данных на сейчас]\n${userContext}` },
     { role: 'assistant', content: 'Понял, я вижу твои данные. Чем помочь?' },
-    ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    // История пришла новыми сверху — возвращаем хронологический порядок.
+    // Окно могло начаться с ответа ассистента (реплика пользователя не
+    // попала), а пустое содержимое API не принимает — отсекаем и то, и то.
+    ...(() => {
+      const ordered = [...history].reverse()
+        .filter((m) => (m.content || '').trim().length > 0);
+      while (ordered.length && ordered[0].role !== 'user') ordered.shift();
+      return ordered.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    })(),
     { role: 'user', content: lastContent },
   ];
 
