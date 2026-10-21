@@ -602,7 +602,14 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
                 {openedFile.mimeType.startsWith('image/') ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={openedFile.data} alt={openedFile.name}
-                       style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border)' }} />
+                       /* Ограничиваем высотой и вписываем по размеру:
+                          иначе картинка в один пиксель растягивается на
+                          весь экран. */
+                       style={{
+                         maxWidth: '100%', maxHeight: '58vh', objectFit: 'contain',
+                         borderRadius: 10, border: '1px solid var(--border)',
+                         background: 'var(--bg-elevated)',
+                       }} />
                 ) : (
                   /* PDF и текст открываем в новой вкладке: встроенный
                      просмотр на телефоне работает плохо. */
