@@ -564,13 +564,46 @@ ${compactJson(user?.program?.nutritionRecommendations, 1500)}
 🩸 АНАЛИЗЫ (последние результаты; ↓ ниже нормы, ↑ выше нормы):
 ${buildLabSummary(labs as LabRow[])}`;
 
-  // Сохраняем сообщение пользователя сразу. Сами вложения в историю не
-  // пишем (тяжёлые), помечаем текстом, что они были.
+  // Сохраняем сообщение пользователя сразу. В текст идёт только пометка,
+  // сами файлы — отдельной таблицей, чтобы к ним можно было вернуться.
   const attNote = attBlocks.length === 0 ? ''
     : attBlocks.length === 1 ? '\n📎 [вложение]'
     : `\n📎 [вложений: ${attBlocks.length}]`;
   const savedContent = (text + attNote).trim();
-  await prisma.chatMessage.create({ data: { userId, role: 'user', content: savedContent } });
+  const savedMessage = await prisma.chatMessage.create({
+    data: { userId, role: 'user', content: savedContent },
+  });
+
+  // Файлы кладём в хранилище чата: раньше они жили только в запросе к
+  // модели и после отправки исчезали — вернуться к присланному анализу
+  // было невозможно.
+  if (incoming.length > 0) {
+    const rows = incoming
+      .map((f) => {
+        const m = /^data:([^;,]+)[;,]/.exec(f.data);
+        const mimeType = m ? m[1] : 'application/octet-stream';
+        const comma = f.data.indexOf(',');
+        const size = comma >= 0 ? Math.floor((f.data.length - comma - 1) * 0.75) : 0;
+        return {
+          userId,
+          messageId: savedMessage.id,
+          name: (f.name || 'файл').slice(0, 200),
+          mimeType: mimeType.slice(0, 100),
+          size,
+          data: f.data,
+        };
+      });
+    // Падение записи не должно ронять ответ: сообщение уже сохранено,
+    // модель уже получила файлы — потеряем только возможность открыть их.
+    await prisma.chatAttachment.createMany({ data: rows }).catch(async (err) => {
+      await trackError({
+        route: '/api/chat', method: 'POST',
+        error: 'failed to store chat attachments',
+        details: err instanceof Error ? err.message : String(err),
+        userId,
+      });
+    });
+  }
 
   // Новое сообщение: вложения (сколько прислали) + текст.
   const lastContent: Anthropic.ContentBlockParam[] = [];

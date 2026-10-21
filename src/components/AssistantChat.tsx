@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Send, Paperclip, X, Home, FileText } from 'lucide-react';
+import { Send, Paperclip, X, Home, FileText, FolderOpen, Image as ImageIcon } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -29,6 +29,31 @@ export type ProposedExercise = {
   toFailure?: boolean;
   dropSet?: boolean;
 };
+const fmtSize = (bytes: number) =>
+  bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} МБ`
+    : bytes >= 1024 ? `${Math.round(bytes / 1024)} КБ`
+    : `${bytes} Б`;
+
+/** «22 окт» или «22 окт 2025», если год не текущий. */
+const fmtFileDate = (iso: string) => {
+  try {
+    const d = new Date(iso);
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }),
+    }).replace(/\s*г\.$/, '');
+  } catch { return ''; }
+};
+
+/** Файл в хранилище чата (список приходит без содержимого). */
+type SavedFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+};
+
 export type ProgramProposal = {
   rationale: string;
   advanced: boolean;
@@ -94,6 +119,23 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
    * это время не подаёт признаков жизни.
    */
   const [stage, setStage] = useState<string | null>(null);
+  /**
+   * Файлы, присланные в чат. К анализу или фото еды часто нужно
+   * вернуться позже, а в переписке остаётся только пометка «📎».
+   * Список грузим по запросу: в нём могут быть сотни килобайт.
+   */
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [savedFiles, setSavedFiles] = useState<SavedFile[] | null>(null);
+  const [openedFile, setOpenedFile] = useState<{ name: string; mimeType: string; data: string } | null>(null);
+
+  const openFiles = useCallback(() => {
+    setFilesOpen(true);
+    setSavedFiles(null);
+    fetch('/api/chat/files')
+      .then((r) => (r.ok ? r.json() : { files: [] }))
+      .then((d) => setSavedFiles(d.files ?? []))
+      .catch(() => setSavedFiles([]));
+  }, []);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null); // данные для карточек
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -408,7 +450,11 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
   useLayoutEffect(() => {
     // useLayoutEffect, а не useEffect: иначе на узком экране кнопки
     // мелькнули бы крупными до первой перерисовки.
-    const apply = () => setBtnSize(window.innerWidth <= 360 ? 38 : 46);
+    // Кнопок в строке четыре (домой, файлы, скрепка, отправка), поэтому
+    // на узких экранах ужимаем сильнее: иначе полю ввода остаётся ~96px.
+    const apply = () => setBtnSize(
+      window.innerWidth <= 340 ? 34 : window.innerWidth <= 380 ? 38 : 44,
+    );
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
@@ -500,6 +546,135 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
       </div>
 
 
+      {/* Хранилище файлов чата: всё, что присылали, с возможностью
+          открыть заново. Поверх чата, чтобы не занимать место в ленте. */}
+      {filesOpen && (
+        <div
+          onClick={() => { setFilesOpen(false); setOpenedFile(null); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 120,
+            background: 'rgba(26, 23, 18, 0.45)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 600, maxHeight: '82vh',
+              background: 'var(--bg-secondary)',
+              borderRadius: '18px 18px 0 0',
+              padding: '16px 18px',
+              paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+              display: 'flex', flexDirection: 'column', gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FolderOpen size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, fontWeight: 700 }}>Файлы из чата</span>
+              <button
+                onClick={() => { setFilesOpen(false); setOpenedFile(null); }}
+                aria-label="закрыть"
+                style={{
+                  marginLeft: 'auto', width: 30, height: 30, borderRadius: 9,
+                  border: '1px solid var(--border)', background: 'var(--bg-elevated)',
+                  color: 'var(--text-secondary)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {openedFile ? (
+              <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  onClick={() => setOpenedFile(null)}
+                  style={{
+                    alignSelf: 'flex-start', padding: '7px 11px', borderRadius: 9,
+                    border: '1px solid var(--border)', background: 'var(--bg-elevated)',
+                    color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >← К списку</button>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                  {openedFile.name}
+                </div>
+                {openedFile.mimeType.startsWith('image/') ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={openedFile.data} alt={openedFile.name}
+                       style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border)' }} />
+                ) : (
+                  /* PDF и текст открываем в новой вкладке: встроенный
+                     просмотр на телефоне работает плохо. */
+                  <a
+                    href={openedFile.data}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={openedFile.name}
+                    style={{
+                      padding: '12px', borderRadius: 11, textAlign: 'center',
+                      background: 'var(--text-primary)', color: 'var(--bg-primary)',
+                      fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                    }}
+                  >Открыть файл</a>
+                )}
+              </div>
+            ) : savedFiles === null ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '14px 0' }}>Загружаю…</div>
+            ) : savedFiles.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '14px 0', lineHeight: 1.5 }}>
+                Пока ничего не присылали. Файлы из чата — фото, PDF, документы — будут собираться здесь.
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {savedFiles.map((f) => (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 11,
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  }}>
+                    {f.mimeType.startsWith('image/')
+                      ? <ImageIcon size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      : <FileText size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+                    <button
+                      onClick={async () => {
+                        const r = await fetch(`/api/chat/files?id=${encodeURIComponent(f.id)}`);
+                        if (r.ok) setOpenedFile(await r.json());
+                      }}
+                      style={{
+                        flex: 1, minWidth: 0, textAlign: 'left', background: 'none',
+                        border: 0, padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {f.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                        {fmtSize(f.size)} · {fmtFileDate(f.createdAt)}
+                      </div>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await fetch(`/api/chat/files?id=${encodeURIComponent(f.id)}`, { method: 'DELETE' });
+                        setSavedFiles((prev) => (prev ?? []).filter((x) => x.id !== f.id));
+                      }}
+                      aria-label={`удалить ${f.name}`}
+                      style={{
+                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                        border: 0, background: 'none', color: 'var(--text-muted)',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Превью прикреплённых фото — лентой, каждое снимается крестиком.
           Крестик висит над углом картинки, поэтому между превью нужен
           зазор шире него: иначе крестик соседа перекрывает кнопку и по ней
@@ -554,7 +729,7 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
           у телефона там скруглённые углы и домашняя полоска, кнопки не
           должны к ним прижиматься. */}
       <div style={{
-        display: 'flex', gap: 8, paddingTop: 10, alignItems: 'flex-end',
+        display: 'flex', gap: 6, paddingTop: 10, alignItems: 'flex-end',
         borderTop: '1px solid var(--border)', flexShrink: 0,
         paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
       }}>
@@ -577,6 +752,22 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
             <Home size={18} />
           </button>
         )}
+        {/* Все присланные файлы: к анализу или фото еды часто нужно
+            вернуться позже, а в переписке остаётся только пометка. */}
+        <button
+          onClick={openFiles}
+          className="chat-iconbtn"
+          aria-label="мои файлы"
+          title="Файлы, присланные в чат"
+          style={{
+            width: btnSize, height: btnSize, borderRadius: 12, flexShrink: 0,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            color: 'var(--text-secondary)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <FolderOpen size={18} />
+        </button>
         {/* attach: прикрепить фото */}
         <button
           onClick={() => fileRef.current?.click()}
