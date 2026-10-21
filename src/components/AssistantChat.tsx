@@ -14,6 +14,12 @@ const PROPOSAL_MARKER = '\u0000PROPOSAL\u0000';
  */
 const STAGE_RE = /\u0000STAGE\u0000([\s\S]*?)\u0000\/STAGE\u0000/g;
 
+/**
+ * Служебная пометка, которую сервер кладёт в историю, чтобы модель
+ * помнила о собранной программе. В чате её показывать не нужно.
+ */
+const SERVICE_NOTE_RE = /\[Собрал новую программу:[^\]]*\]/g;
+
 export type ProposedExercise = {
   name: string;
   plannedSets: string;
@@ -427,6 +433,14 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
           </div>
         )}
         {messages.map((m, i) => {
+          // Сообщение, от которого после вычистки служебной пометки
+          // ничего не осталось, пропускаем целиком: иначе в ленте
+          // повисает пустой блок с отступами.
+          if (m.role === 'assistant'
+              && !m.content.replace(SERVICE_NOTE_RE, '').trim()
+              && !(busy && i === messages.length - 1)) {
+            return null;
+          }
           if (m.role === 'user') {
             const when = fmtWhen(m.createdAt);
             return (
@@ -457,7 +471,13 @@ export function AssistantChat({ muscleGroups, onGoHome, onApplyProgram }: {
                 fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word',
               }}
             >
-              {m.content ? renderWithCards(m.content, snapshot, muscleGroups) : null}
+              {(() => {
+                // Пометка о собранной программе нужна модели, чтобы в
+                // следующем сообщении помнить про неё, но пользователю
+                // показывать её незачем — он видел саму карточку.
+                const shown = m.content.replace(SERVICE_NOTE_RE, '').trim();
+                return shown ? renderWithCards(shown, snapshot, muscleGroups) : null;
+              })()}
               {/* Индикатор работы держим, пока идёт ответ, а не только
                   пока сообщение пустое: текст может уже прийти, а ИИ всё
                   ещё собирает программу — это занимает секунд пятнадцать,
