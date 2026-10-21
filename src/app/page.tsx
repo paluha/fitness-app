@@ -3875,6 +3875,12 @@ export default function FitnessPage() {
     setProgramProposal(null);
     setShowProgramModal(false);
     await applyProposedProgram(proposal);
+    // Предложение могло прийти из чата, а там нижнее меню скрыто —
+    // после замены показываем главную, где и лежит новая программа.
+    if (view === 'chat') {
+      setView('workout');
+      localStorage.setItem('fitness_view', 'workout');
+    }
   };
 
   const restoreProgram = async (entry: ArchivedProgram) => {
@@ -6844,7 +6850,13 @@ export default function FitnessPage() {
             <AssistantChat
               muscleGroups={muscleGroups}
               onGoHome={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
-              onApplyProgram={applyProposedProgram}
+              onProgramReady={(p) => {
+                // Ассистент собрал программу — показываем её на экране
+                // «Программа», где уже есть просмотр и кнопки «Принять»
+                // и «Отклонить». Подтверждение не должно жить в ленте.
+                setProgramProposal(p);
+                setShowProgramModal(true);
+              }}
             />
           </div>
         )}
