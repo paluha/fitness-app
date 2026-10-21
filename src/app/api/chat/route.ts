@@ -38,7 +38,9 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - Программа применяется НЕ сразу. Как только ты её соберёшь, откроется экран с полным списком упражнений и кнопками «Принять программу» и «Отклонить» — решает пользователь. Старая при этом уйдёт в историю программ, её можно вернуть. Так и говори: «сейчас откроется экран, посмотри и подтверди» — не обещай, что уже всё поменял.
 - Перед вызовом спроси ОДНИМ вопросом, нужен ли продвинутый режим (суперсеты, дропсеты, работа до отказа) или стандартный — если пользователь этого ещё не сказал. Это единственное, что обязательно уточнить: остальное бери из его данных выше.
 - Опирайся на его рабочие веса, частоту тренировок и цель. Не пересказывай получившуюся программу текстом — она и так будет показана списком; напиши только, что в ней изменилось и почему.
-- В истории переписки есть отметки «Программа принята и уже действует» и «Программа отклонена». Читай их: если программа принята, она УЖЕ РАБОТАЕТ — не предлагай составить её снова и не говори «сейчас составлю». На вопросы про неё («она на сколько дней?», «что в ней?») отвечай по разделу ШАБЛОНЫ ТРЕНИРОВОК ниже — это и есть действующая программа.
+- В истории переписки есть отметки «Программа принята и уже действует» и «Программа отклонена». Читай их: если программа принята, она УЖЕ РАБОТАЕТ — не предлагай составить её снова и не говори «сейчас составлю». На вопросы про неё («она на сколько дней?», «что в ней?») отвечай по разделу ДЕЙСТВУЮЩАЯ ПРОГРАММА ниже.
+- В скобках над программой написано, откуда она взялась. Если её принял пользователь по твоему предложению — так и говори. Если она заведена до этой переписки, не приписывай её себе: её мог задать тренер или собрать сам пользователь.
+- Про прошлые программы отвечай по разделу ИСТОРИЯ ПРОГРАММ: когда меняли, сколько по какой тренировались. Любую можно вернуть на экране «Программа».
 
 КАК ВЕСТИ ДИАЛОГ:
 - НЕ переспрашивай то, что пользователь уже сказал в этом разговоре или что есть в его данных выше. Перед вопросом проверь историю переписки и данные: ответ часто уже есть.
@@ -158,7 +160,7 @@ type Meal = { name?: string; time?: string; calories?: number; protein?: number;
  * пятнадцать упражнений обрезалась на середине, и модель не могла
  * ответить даже на «сколько дней в программе».
  */
-function buildProgramText(workouts: unknown): string {
+export function buildProgramText(workouts: unknown): string {
   if (!Array.isArray(workouts)) return '—';
   const days = (workouts as { id?: string; name?: string; exercises?: { name?: string; plannedSets?: string; restTime?: string; notes?: string; supersetId?: string }[] }[])
     .filter(w => Array.isArray(w?.exercises) && w.exercises.length > 0);
@@ -173,6 +175,121 @@ function buildProgramText(workouts: unknown): string {
     return `${w.name || 'Тренировка ' + (i + 1)} (${w.id || 't' + (i + 1)}):\n${lines.join('\n')}`;
   });
   return `Всего тренировок в программе: ${days.length}.\n\n${blocks.join('\n\n')}`;
+}
+
+/**
+ * История программ: что было до текущей и когда её сменили.
+ *
+ * Без неё ассистент не понимает, откуда взялись тренировки — он сам их
+ * предложил, их задал тренер или пользователь собрал руками, — и когда
+ * это случилось. Отсюда вопросы вроде «а какая у тебя программа?» при
+ * том, что он же её и составил.
+ */
+export function buildProgramHistory(archive: unknown, dayLogs: unknown): string {
+  if (!Array.isArray(archive) || archive.length === 0) {
+    return 'Прошлых программ нет — текущая первая либо история не велась.';
+  }
+  const items = archive as { label?: string; archivedAt?: string; workouts?: { exercises?: { name?: string }[] }[] }[];
+
+  // Когда по программе реально тренировались: archivedAt — это момент
+  // замены в базе, а заниматься по ней могли ещё долго после.
+  const logs = (dayLogs && typeof dayLogs === 'object' && !Array.isArray(dayLogs))
+    ? dayLogs as Record<string, { workoutDraft?: { exercises?: { name?: string; sets?: unknown[] }[] }; workoutSnapshot?: { exercises?: { name?: string; sets?: unknown[] }[] } }>
+    : {};
+
+  // У программ бывают общие упражнения, поэтому день отдаём той, чьих
+  // упражнений в нём больше: иначе все программы показывают один и тот
+  // же период «от первой тренировки до последней».
+  const nameSets = items.map(a => new Set(
+    (a.workouts || []).flatMap(w => (w.exercises || []).map(e => (e.name || '').trim().toLowerCase())).filter(Boolean),
+  ));
+
+  const lines = items.slice(0, 5).map((a, idx) => {
+    const days: string[] = [];
+    for (const d of Object.keys(logs).sort()) {
+      const cand = logs[d]?.workoutDraft ?? logs[d]?.workoutSnapshot;
+      const exs = cand?.exercises;
+      if (!Array.isArray(exs)) continue;
+      const done = exs.filter(e => Array.isArray(e?.sets) && e.sets.length > 0)
+        .map(e => (e.name || '').trim().toLowerCase());
+      if (done.length === 0) continue;
+      const score = done.filter(n => nameSets[idx].has(n)).length;
+      if (score === 0) continue;
+      // При равном счёте день достаётся более новой программе: архив
+      // отсортирован новыми сверху, поэтому проигрываем только тем, кто
+      // выше нас по списку, а нижним уступаем лишь при явном перевесе.
+      const beaten = nameSets.some((s, j) => {
+        if (j === idx) return false;
+        const other = done.filter(n => s.has(n)).length;
+        return j < idx ? other >= score : other > score;
+      });
+      if (!beaten) days.push(d);
+    }
+    // Мало дней — перечисляем их прямо: диапазон «апрель — октябрь» при
+    // трёх тренировках вводит в заблуждение, будто занимались полгода.
+    const period = days.length === 0
+      ? 'тренировок по ней не записано'
+      : days.length <= 3
+        ? `тренировки: ${days.join(', ')}`
+        : `тренировались ${days[0]} — ${days[days.length - 1]}, ${days.length} раз`;
+    const when = a.archivedAt ? String(a.archivedAt).slice(0, 10) : '—';
+    const count = (a.workouts || []).filter(w => (w.exercises || []).length > 0).length;
+    return `  • «${a.label || 'без названия'}» — ${count} трен., заменена ${when}; ${period}`;
+  });
+
+  return `Прошлых программ: ${items.length}. Последние:\n${lines.join('\n')}`;
+}
+
+/**
+ * Лента последних событий: тренировки, записи еды, замеры, смены
+ * программы, загрузки анализов — в одном хронологическом списке.
+ *
+ * Отдельного журнала действий в приложении нет, поэтому собираем ленту
+ * из того, что уже хранится. Так ассистент видит, чем человек занимался,
+ * и не спрашивает о том, что произошло на днях.
+ */
+export function buildActivityLog(dayLogs: unknown, archive: unknown, labs: LabRow[], limit = 14): string {
+  const events: { date: string; text: string }[] = [];
+
+  if (dayLogs && typeof dayLogs === 'object' && !Array.isArray(dayLogs)) {
+    const logs = dayLogs as Record<string, {
+      meals?: unknown[];
+      steps?: number | null;
+      workoutDraft?: { workoutName?: string; exercises?: { name?: string; completed?: boolean; sets?: unknown[] }[] };
+      workoutSnapshot?: { workoutName?: string; exercises?: { name?: string; completed?: boolean; sets?: unknown[] }[] };
+    }>;
+    for (const d of Object.keys(logs)) {
+      const log = logs[d];
+      const cand = log?.workoutSnapshot ?? log?.workoutDraft;
+      const exs = cand?.exercises;
+      if (Array.isArray(exs)) {
+        const done = exs.filter(e => e?.completed || (Array.isArray(e?.sets) && e.sets.length > 0));
+        if (done.length) {
+          events.push({ date: d, text: `тренировка «${cand?.workoutName || '—'}»: ${done.length} из ${exs.length} упражнений` });
+        }
+      }
+      if (Array.isArray(log?.meals) && log.meals.length) {
+        events.push({ date: d, text: `записана еда: ${log.meals.length} приём(ов)` });
+      }
+    }
+  }
+
+  if (Array.isArray(archive)) {
+    for (const a of archive as { label?: string; archivedAt?: string }[]) {
+      if (a?.archivedAt) {
+        events.push({ date: String(a.archivedAt).slice(0, 10), text: `сменили программу (прежняя «${a.label || '—'}» ушла в историю)` });
+      }
+    }
+  }
+
+  for (const r of labs || []) {
+    const d = r.collectedAt instanceof Date ? r.collectedAt.toISOString().slice(0, 10) : String(r.collectedAt).slice(0, 10);
+    events.push({ date: d, text: `анализы${r.panelName ? ` «${r.panelName}»` : ''}` });
+  }
+
+  if (events.length === 0) return 'Событий пока нет.';
+  events.sort((a, b) => (a.date < b.date ? 1 : -1)); // новые сверху
+  return events.slice(0, limit).map(e => `  ${e.date} — ${e.text}`).join('\n');
 }
 
 function buildFoodLog(dayLogs: unknown, days = 7): string {
@@ -316,6 +433,11 @@ export async function POST(request: Request) {
       select: {
         workouts: true, dayLogs: true, progressHistory: true,
         bodyMeasurements: true, habits: true,
+        // Нужен, чтобы ассистент знал, откуда взялась текущая программа
+        // и что было до неё: без этого он не отличает программу, которую
+        // сам же составил, от заданной тренером или собранной вручную.
+        programArchive: true,
+        updatedAt: true,
       },
     }),
     // ПОСЛЕДНИЕ сообщения диалога. Здесь был orderBy 'asc' + take, то есть
@@ -358,6 +480,23 @@ export async function POST(request: Request) {
   const bms = Array.isArray(fitness?.bodyMeasurements) ? (fitness?.bodyMeasurements as { date?: string; weight?: number }[]) : [];
   const lastWeighIn = [...bms].reverse().find(b => b && typeof b.weight === 'number' && b.weight > 0);
 
+  /**
+   * Откуда взялась действующая программа.
+   *
+   * Ассистент не отличал программу, которую сам же предложил, от
+   * заданной тренером или собранной вручную — и переспрашивал «а какая
+   * у тебя программа?». Отметку о принятии он уже пишет в чат при
+   * подтверждении, поэтому достаточно найти последнюю.
+   */
+  const acceptedNote = [...history]
+    .reverse()
+    .find(m => m.role === 'assistant' && /Программа принята и уже действует/.test(m.content || ''));
+  const programOrigin = acceptedNote
+    ? `(Эту программу предложил ты, пользователь принял её ${acceptedNote.createdAt.toISOString().slice(0, 10)} — она уже действует. Не предлагай составить новую, пока не попросят.)`
+    : (Array.isArray(fitness?.programArchive) && fitness.programArchive.length > 0
+      ? '(Программу меняли; кто её составил — в переписке не отмечено. Если это важно для ответа, спроси.)'
+      : '(Программа заведена до начала этой переписки — её мог задать тренер или собрать сам пользователь. Не приписывай её себе.)');
+
   // Даты, за которые еда реально записана. Нужны в промпте явным списком:
   // модель ставила карточку на дату без записей (например, назвала «вчера»
   // день из прошлого сезона), карточка выходила пустой, и модель объясняла
@@ -391,7 +530,14 @@ export async function POST(request: Request) {
 ${buildWorkoutHistory(mergedDayLogs, 60)}
 
 📋 ДЕЙСТВУЮЩАЯ ПРОГРАММА (это текущие тренировки пользователя — на вопросы «сколько дней», «что в программе» отвечай по ней):
+${programOrigin}
 ${buildProgramText(fitness?.workouts)}
+
+🗂 ИСТОРИЯ ПРОГРАММ (что было раньше; вернуть любую можно на экране «Программа»):
+${buildProgramHistory(fitness?.programArchive, mergedDayLogs)}
+
+🕒 ЧТО ПРОИСХОДИЛО В ПРИЛОЖЕНИИ (последние события — по ним понятно, чем пользователь занимался):
+${buildActivityLog(mergedDayLogs, fitness?.programArchive, labs)}
 
 🍽️ ЕДА (дневник по дням, новые сверху; если сегодняшней даты нет — за сегодня еда не записана):
 ${buildFoodLog(mergedDayLogs, 7)}
