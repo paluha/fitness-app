@@ -78,9 +78,23 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
 
   // Не больше четырёх вложений за сообщение — столько же принимает сервер.
   const MAX_FILES = 4;
-  // Vercel рубит запросы тяжелее 4.5 МБ, причём HTML-ошибкой ещё до кода.
-  // Держим запас: base64 раздувает данные примерно на треть.
-  const MAX_TOTAL_BYTES = 3_200_000;
+  /**
+   * Предел на суммарный вес вложений — в символах data-URL, как они и
+   * уедут в теле запроса.
+   *
+   * Vercel рубит запросы тяжелее 4.5 МБ HTML-ошибкой ещё до кода, а
+   * base64 раздувает данные примерно на треть. 4 200 000 символов — это
+   * около 3 МБ исходных файлов: запас к лимиту остаётся, но обычный PDF
+   * с анализами проходит (раньше порог стоял на 2.3 МБ и отсекал их).
+   */
+  const MAX_TOTAL_BYTES = 4_200_000;
+
+  /** Байты из длины data-URL — для понятного сообщения о размере. */
+  const approxBytes = (dataUrl: string) => {
+    const comma = dataUrl.indexOf(',');
+    return Math.floor((dataUrl.length - comma - 1) * 0.75);
+  };
+  const fmtMb = (bytes: number) => `${(bytes / 1048576).toFixed(1)} МБ`;
 
   /**
    * Что модель может прочитать. Остальное не отправляем вовсе.
@@ -98,6 +112,29 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
         || f.type === 'application/json';
     }
     return READABLE_EXT.test(f.name || '');
+  };
+
+  /**
+   * Текст из PDF прямо в браузере.
+   *
+   * Тяжёлый PDF целиком отправить нельзя — Vercel рубит запросы больше
+   * 4.5 МБ. Но читать нам нужно содержимое, а не файл: разбираем его на
+   * телефоне и шлём несколько килобайт текста вместо мегабайтов. Тот же
+   * приём уже работает в разборе анализов.
+   *
+   * Скан без текстового слоя так не прочитать — там только картинка,
+   * нужен сам файл и зрение модели.
+   */
+  const pdfToText = async (file: File): Promise<string | null> => {
+    try {
+      const { extractText, getDocumentProxy } = await import('unpdf');
+      const doc = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
+      const { text } = await extractText(doc, { mergePages: true });
+      const clean = String(text || '').replace(/\u0000/g, '').trim();
+      return clean.length >= 200 ? clean.slice(0, 120_000) : null;
+    } catch {
+      return null;
+    }
   };
 
   // Картинку сжимаем по ширине, остальное читаем как есть.
@@ -142,6 +179,24 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
 
     const take = picked.slice(0, free);
     const read = await Promise.all(take.map(async (f) => {
+      const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+      // Тяжёлый PDF целиком не уедет — вытаскиваем из него текст на
+      // телефоне. Для лёгкого шлём сам файл: модель прочитает и вёрстку,
+      // и таблицы, а не только текстовый слой.
+      if (isPdf && f.size > 1_500_000) {
+        const text = await pdfToText(f);
+        if (text) {
+          // Через Blob, а не btoa(String.fromCharCode(...bytes)): на
+          // сотне тысяч символов такой вызов переполняет стек.
+          const data = await new Promise<string | null>((resolve) => {
+            const r = new FileReader();
+            r.onerror = () => resolve(null);
+            r.onload = () => resolve(r.result as string);
+            r.readAsDataURL(new Blob([text], { type: 'text/plain' }));
+          });
+          if (data) return { name: f.name, data };
+        }
+      }
       const data = await toDataUrl(f);
       return data ? { name: f.name, data } : null;
     }));
@@ -149,13 +204,16 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
     setImages((prev) => {
       const next = [...prev];
       let total = next.reduce((a, x) => a + x.data.length, 0);
-      let tooBig = 0;
+      const tooBig: { name: string; bytes: number }[] = [];
       const overLimit = picked.length - take.length;
       for (const item of read) {
         if (!item) continue;
         // Не превышаем общий вес: иначе запрос упрётся в лимит Vercel и
         // вернёт HTML-ошибку, которую чат показать не сможет.
-        if (total + item.data.length > MAX_TOTAL_BYTES) { tooBig++; continue; }
+        if (total + item.data.length > MAX_TOTAL_BYTES) {
+          tooBig.push({ name: item.name, bytes: approxBytes(item.data) });
+          continue;
+        }
         next.push(item);
         total += item.data.length;
       }
@@ -164,7 +222,18 @@ export function AssistantChat({ muscleGroups, onGoHome }: {
         problems.push(`Не поддерживается: ${unreadable.map((f) => f.name).join(', ')}. Подойдут фото, PDF или текстовый файл.`);
       }
       if (overLimit > 0) problems.push(`Можно прикрепить не больше ${MAX_FILES} файлов.`);
-      if (tooBig > 0) problems.push('Часть файлов не поместилась — слишком большой общий размер.');
+      if (tooBig.length) {
+        // Называем файл и его вес: иначе непонятно, что именно урезать.
+        // Из текстового PDF текст уже вытащили бы выше, значит сюда
+        // дошёл скан — из него читать нечего, поможет только размер.
+        const limitMb = fmtMb(MAX_TOTAL_BYTES * 0.75);
+        const names = tooBig.map((f) => `${f.name} — ${fmtMb(f.bytes)}`).join(', ');
+        const scan = tooBig.some((f) => /\.pdf$/i.test(f.name));
+        problems.push(
+          `${names}. Это больше ${limitMb}.` +
+          (scan ? ' Похоже на скан: текст из него не вытащить, пришли страницы по отдельности или фото лучшего качества.' : ' Пришли файл поменьше или по частям.')
+        );
+      }
       setAttachError(problems.length ? problems.join(' ') : null);
       return next;
     });
