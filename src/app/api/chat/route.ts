@@ -1018,11 +1018,21 @@ export async function PATCH(request: Request) {
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-  const messages = await prisma.chatMessage.findMany({
+  // Берём ПОСЛЕДНИЕ сообщения, а не первые.
+  //
+  // Было orderBy 'asc' + take 200 — то есть самые СТАРЫЕ двести. Как
+  // только переписка переросла этот предел, свежие сообщения перестали
+  // показываться: пользователь переключал вкладку, возвращался — а
+  // только что заданного вопроса в чате нет. При этом ассистент их
+  // видел, потому что POST читает историю с 'desc'. На живых данных
+  // пряталось 18 сообщений из 218.
+  const recent = await prisma.chatMessage.findMany({
     where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 200,
     select: { id: true, role: true, content: true, createdAt: true },
   });
+  // Клиент рисует сверху вниз, поэтому возвращаем в прямом порядке.
+  const messages = recent.reverse();
   return new Response(JSON.stringify({ messages }), { headers: { 'Content-Type': 'application/json' } });
 }
