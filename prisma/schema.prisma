@@ -69,6 +69,9 @@ model User {
   // Лабораторные анализы (загруженные результаты)
   labResults    LabResult[]
 
+  // Счётчики обращений к платным ИИ-роутам
+  aiUsage       AiUsage[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -340,4 +343,27 @@ model FoodProduct {
 
   @@index([trainerId])
   @@index([category])
+}
+
+/// Счётчик обращений к платным ИИ-роутам: защита счёта за API.
+///
+/// Храним в БД, а не в памяти процесса: на Vercel каждый запрос может
+/// попасть в свой инстанс функции, и счётчик в переменной модуля там
+/// не работает — лимит бы не срабатывал вообще.
+///
+/// Одна строка на (пользователь, роут, окно). Старые окна чистит
+/// rateLimit() попутно, отдельная задача не нужна.
+model AiUsage {
+  id          String   @id @default(cuid())
+  userId      String
+  route       String   // 'chat', 'food-analyze', 'program', ...
+  windowStart DateTime // начало минутного/суточного окна
+  windowKind  String   // 'min' | 'day'
+  count       Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, route, windowKind, windowStart])
+  @@index([userId, route])
+  @@index([windowStart])
 }

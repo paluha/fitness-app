@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { trackError, trackLatency } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Allow up to 30s for AI image analysis
 export const maxDuration = 30;
@@ -160,6 +161,9 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const limit = await rateLimit(session.user.id, 'food-analyze');
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const { image, type, hint } = await request.json();
 

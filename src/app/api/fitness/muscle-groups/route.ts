@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import Anthropic from '@anthropic-ai/sdk';
 import { authOptions } from '@/lib/auth';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // ИИ-определение группы мышц по названию упражнения. Клиент присылает пачку
 // названий, которых ещё нет в его локальном кэше, получает словарь
@@ -92,6 +93,9 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const limit = await rateLimit(session.user.id, 'muscle-groups');
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const body = await request.json().catch(() => null);
     const names: string[] = Array.isArray(body?.names)

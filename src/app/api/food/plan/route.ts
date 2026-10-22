@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
 import { trainxSystem } from '@/lib/trainx-ai';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Персональный план «когда и что есть» на день — генерируется ИИ под цель
 // пользователя (похудение/поддержание/набор), его макро-цели и его же
@@ -66,6 +67,9 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const limit = await rateLimit(session.user.id, 'food-plan');
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {

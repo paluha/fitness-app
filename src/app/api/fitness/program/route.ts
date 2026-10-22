@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
 import { trainxSystem } from '@/lib/trainx-ai';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // ИИ-генерация новой программы тренировок на основе текущей программы,
 // статистики (веса, частота), цели пользователя и его пожеланий.
@@ -73,6 +74,11 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Самый дорогой роут в приложении (Opus, ~6000 токенов выхода).
+    const limit = await rateLimit(session.user.id, 'program');
+    if (!limit.ok) return rateLimitResponse(limit);
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 });

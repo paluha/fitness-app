@@ -2812,6 +2812,83 @@ export default function FitnessPage() {
   const [bodyMeasurements, setBodyMeasurements] = useState<BodyMeasurement[]>([]);
   const [plannerEvents, setPlannerEventsRaw] = useState<PlannerEvent[]>([]);
   const [exerciseLibrary, setExerciseLibrary] = useState<Record<string, string>>({});
+
+  /**
+   * Библиотека картинок — отдельным запросом, не в общем GET /api/fitness.
+   *
+   * У активного пользователя это больше мегабайта base64, а меняется она
+   * раз в месяц: пока она ехала вместе с тренировками, каждый запуск
+   * приложения ждал мегабайты, чтобы показать сегодняшний день.
+   *
+   * ETag держим в localStorage вместе с самой библиотекой: сервер на
+   * повторный заход отвечает 304 без тела, и картинки берутся локально.
+   */
+  const loadExerciseLibrary = useCallback(async () => {
+    const LIB_KEY = 'fitness_exlib';
+    const TAG_KEY = 'fitness_exlib_etag';
+    let cached: Record<string, string> = {};
+    let etag = '';
+    try {
+      cached = JSON.parse(localStorage.getItem(LIB_KEY) || '{}');
+      etag = localStorage.getItem(TAG_KEY) || '';
+    } catch { /* повреждённый кэш — считаем, что его нет */ }
+    // Показываем кэш сразу, не дожидаясь сети.
+    if (Object.keys(cached).length > 0) setExerciseLibrary(cached);
+
+    try {
+      const r = await fetch('/api/fitness/exercise-library', {
+        headers: etag ? { 'If-None-Match': etag } : {},
+      });
+      if (r.status === 304) return; // кэш актуален
+      if (!r.ok) return;
+      const lib = (await r.json()).exerciseLibrary as Record<string, string>;
+      setExerciseLibrary(lib || {});
+      try {
+        localStorage.setItem(LIB_KEY, JSON.stringify(lib || {}));
+        const tag = r.headers.get('etag');
+        if (tag) localStorage.setItem(TAG_KEY, tag);
+      } catch { /* quota — просто не кэшируем */ }
+      // Подставляем картинки в уже показанные упражнения.
+      if (lib && Object.keys(lib).length > 0) {
+        setWorkouts(prev => prev.map(w => ({
+          ...w,
+          exercises: w.exercises.map(ex =>
+            ex.imageUrl ? ex : (() => {
+              const img = findLibImage(lib, ex.name);
+              return img ? { ...ex, imageUrl: img } : ex;
+            })()
+          ),
+        })));
+      }
+    } catch { /* офлайн — остаёмся на кэше */ }
+  }, []);
+
+  /**
+   * Отправить одну новую картинку. Шлём только её, а не всю библиотеку:
+   * сервер сам смёржит с уже сохранёнными.
+   */
+  const saveExerciseImage = useCallback(async (name: string, dataUrl: string) => {
+    try {
+      const r = await fetch('/api/fitness/exercise-library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: { [name]: dataUrl } }),
+      });
+      // Библиотека изменилась — прошлый ETag больше не годится.
+      if (r.ok) { try { localStorage.removeItem('fitness_exlib_etag'); } catch { /* quota */ } }
+    } catch { /* офлайн — картинка осталась в состоянии, уедет при следующем добавлении */ }
+  }, []);
+
+  /** Архив программ — нужен только на экране «История программ». */
+  const loadProgramArchive = useCallback(async () => {
+    try {
+      const r = await fetch('/api/fitness/program-archive');
+      if (!r.ok) return;
+      const arch = (await r.json()).programArchive;
+      if (Array.isArray(arch)) setProgramArchive(arch);
+    } catch { /* офлайн — архив не критичен для тренировки */ }
+  }, []);
+
   // ИИ-группы мышц по названиям упражнений (ключ — имя в нижнем регистре).
   // Кэш в localStorage; недостающие имена классифицируются одним batch-запросом.
   const [muscleGroups, setMuscleGroups] = useState<Record<string, string>>(() => {
@@ -3024,28 +3101,16 @@ export default function FitnessPage() {
         const response = await fetch('/api/fitness');
         if (response.ok) {
           const data = await response.json();
-          if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
           if (data.habits) setHabits(data.habits);
-          if (Array.isArray(data.programArchive)) setProgramArchive(data.programArchive);
           if (data.nutritionProfile) setNutritionProfile(data.nutritionProfile);
           if (Array.isArray(data.recipes)) setRecipes(data.recipes);
           if (Array.isArray(data.vitals)) setVitals(data.vitals);
-          // Apply library images to all workouts before setting state
-          if (data.workouts && data.exerciseLibrary) {
-            const lib = data.exerciseLibrary as Record<string, string>;
-            let changed = false;
-            for (const workout of data.workouts) {
-              for (const ex of workout.exercises) {
-                if (!ex.imageUrl) {
-                  const libImg = findLibImage(lib, ex.name);
-                  if (libImg) { ex.imageUrl = libImg; changed = true; }
-                }
-              }
-            }
-            setWorkouts(data.workouts);
-          } else if (data.workouts) {
-            setWorkouts(data.workouts);
-          }
+          if (data.workouts) setWorkouts(data.workouts);
+          // Библиотека картинок и архив программ приезжают отдельными
+          // запросами: это мегабайты, которые не нужны, чтобы показать
+          // сегодняшнюю тренировку. Картинки подставляем по приходу.
+          if (data.hasExerciseLibrary) void loadExerciseLibrary();
+          void loadProgramArchive();
           if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
@@ -3078,9 +3143,18 @@ export default function FitnessPage() {
           const b = JSON.parse(raw);
           // Офлайн-старт: шаблоны берём из бэкапа, только если сервер ещё
           // ни разу не отвечал в этой сессии (иначе перетрём свежую программу).
+          // Библиотека картинок лежит отдельным ключом (fitness_exlib) —
+          // в самом бэкапе её больше нет, чтобы не упираться в квоту.
+          // Старый бэкап мог ещё содержать её внутри: читаем оба варианта.
+          let lib: Record<string, string> = {};
+          try {
+            lib = JSON.parse(localStorage.getItem('fitness_exlib') || '{}');
+          } catch { /* битый кэш */ }
+          if (Object.keys(lib).length === 0 && b.exerciseLibrary && typeof b.exerciseLibrary === 'object') {
+            lib = b.exerciseLibrary as Record<string, string>;
+          }
           if (Array.isArray(b.workouts) && b.workouts.length && !serverDataLoadedRef.current) {
             // подставляем картинки из сохранённой библиотеки, как при обычной загрузке
-            const lib = (b.exerciseLibrary ?? {}) as Record<string, string>;
             for (const w of b.workouts as Workout[]) {
               for (const ex of w.exercises) {
                 if (!ex.imageUrl) {
@@ -3091,7 +3165,7 @@ export default function FitnessPage() {
             }
             setWorkouts(b.workouts);
           }
-          if (b.exerciseLibrary && typeof b.exerciseLibrary === 'object') setExerciseLibrary(b.exerciseLibrary);
+          if (Object.keys(lib).length > 0) setExerciseLibrary(lib);
           if (b.dayLogs && typeof b.dayLogs === 'object') setDayLogs(prev => mergeServerDayLogs(prev, b.dayLogs));
           if (b.progressHistory) setProgressHistory(b.progressHistory);
           if (Array.isArray(b.bodyMeasurements) && b.bodyMeasurements.length) setBodyMeasurements(b.bodyMeasurements);
@@ -3131,7 +3205,9 @@ export default function FitnessPage() {
             // GET срезает вшитые картинки, и без этой подстановки поллинг
             // затирал тренировки «голыми» шаблонами — только что добавленное
             // фото «исчезало» с экрана через минуту (в базе оставаясь целым).
-            const pollLib = (data.exerciseLibrary ?? {}) as Record<string, string>;
+            // Библиотека больше не приходит в этом ответе — берём ту, что
+            // уже в состоянии (её грузит loadExerciseLibrary с ETag).
+            const pollLib = exerciseLibraryRef.current;
             for (const w of data.workouts as Workout[]) {
               for (const ex of w.exercises) {
                 if (!ex.imageUrl) {
@@ -3147,7 +3223,6 @@ export default function FitnessPage() {
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
           if (data.plannerEvents) setPlannerEventsRaw(data.plannerEvents);
           if (data.habits) setHabits(data.habits);
-          if (data.exerciseLibrary) setExerciseLibrary(data.exerciseLibrary);
           // Re-hydrate from Dexie immediately so any per-row writes that the
           // server didn't acknowledge yet survive the merge above.
           hydrateFromLocalDB();
@@ -3300,10 +3375,10 @@ export default function FitnessPage() {
         payload.plannerEvents = plannerData;
         plannerUserChanged.current = false;
       }
-      // Always sync exercise library if it has data
-      if (Object.keys(exerciseLibraryRef.current).length > 0) {
-        payload.exerciseLibrary = exerciseLibraryRef.current;
-      }
+      // Библиотеку картинок здесь НЕ отправляем: она уходит сразу при
+      // добавлении картинки через /api/fitness/exercise-library. Раньше она
+      // ехала с каждым автосейвом — отметка одного подхода в зале гнала на
+      // сервер мегабайт и перезаписывала всю строку в БД.
       if (habitsRef.current.length > 0) {
         payload.habits = habitsRef.current;
       }
@@ -3334,7 +3409,11 @@ export default function FitnessPage() {
 
     // Save to localStorage IMMEDIATELY (offline-safe)
     try {
-      localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, exerciseLibrary: exerciseLibraryRef.current, ts: Date.now() }));
+      // Без библиотеки картинок: она лежит отдельным ключом (fitness_exlib),
+      // а мегабайт base64 здесь съедал квоту localStorage (~5 МБ) и ронял
+      // запись бэкапа целиком — вместе с журналом тренировки, ради которого
+      // этот бэкап и нужен.
+      localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, ts: Date.now() }));
     } catch { /* quota */ }
 
     // Debounce server sync — 1.5s after last change
@@ -3348,7 +3427,7 @@ export default function FitnessPage() {
         const timeout = setTimeout(() => controller.abort(), 5000);
         const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
         if (plannerUserChanged.current) { payload.plannerEvents = plannerEvents; plannerUserChanged.current = false; }
-        if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
+        // Библиотека картинок идёт своим роутом при добавлении — см. syncToServer.
         if (habitsRef.current.length > 0) payload.habits = habitsRef.current;
         const response = await fetch('/api/fitness', {
           method: 'POST',
@@ -3375,16 +3454,18 @@ export default function FitnessPage() {
 
   // Force sync when page is closing
   useEffect(() => {
+    // sendBeacon не отправляет большие тела: браузеры ограничивают их 64 КБ
+    // и молча отбрасывают всё, что крупнее. Пока сюда попадала библиотека
+    // картинок, закрытие приложения с мегабайтом в payload могло потерять
+    // записанные подходы. Теперь отправляем только журнал тренировки.
     const handleBeforeUnload = () => {
       if (!isLoaded || !serverDataLoadedRef.current || !userMadeChangeRef.current) return;
       const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
-      if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
       navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && isLoaded && serverDataLoadedRef.current && userMadeChangeRef.current) {
         const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
-        if (Object.keys(exerciseLibraryRef.current).length > 0) payload.exerciseLibrary = exerciseLibraryRef.current;
         navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
       }
     };
@@ -5834,7 +5915,7 @@ export default function FitnessPage() {
                       supersetGroup={supersetGroup}
                       lastSets={lastSetsByExerciseId[ex.id]}
                       exerciseLibrary={exerciseLibrary}
-                      onImageSaved={(name, url) => setExerciseLibrary(prev => ({ ...prev, [name]: url }))}
+                      onImageSaved={(name, url) => { setExerciseLibrary(prev => ({ ...prev, [name]: url })); void saveExerciseImage(name, url); }}
                       dayClosed={currentDayLog.dayClosed}
                       onShowImage={(url, name) => { setImageModal({ url, name }); document.body.style.overflow = 'hidden'; }}
                       expanded={expandedExerciseId === ex.id}

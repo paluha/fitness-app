@@ -33,9 +33,36 @@ export async function GET() {
     }
 
     // Get user's fitness data (day logs, progress)
+    //
+    // exerciseLibrary и programArchive сюда НЕ берём: у активного
+    // пользователя это мегабайты base64 и прошлых программ, которые на
+    // старте приложения не нужны. Их отдают отдельные роуты с ETag:
+    // /api/fitness/exercise-library и /api/fitness/program-archive.
     const fitnessData = await prisma.fitnessData.findUnique({
-      where: { userId }
+      where: { userId },
+      select: {
+        workouts: true,
+        dayLogs: true,
+        progressHistory: true,
+        bodyMeasurements: true,
+        favoriteMeals: true,
+        plannerEvents: true,
+        habits: true,
+        nutritionProfile: true,
+        recipes: true,
+        vitals: true,
+        updatedAt: true,
+      },
     });
+
+    // Для срезания дублей картинок нужны только КЛЮЧИ библиотеки, не сами
+    // base64-строки. Тянем их запросом в БД, иначе мегабайт картинок
+    // приехал бы в функцию ради одной проверки «есть такая картинка?».
+    const libKeyRows = await prisma.$queryRaw<{ k: string }[]>`
+      SELECT jsonb_object_keys(COALESCE("exerciseLibrary", '{}')::jsonb) AS k
+      FROM "FitnessData" WHERE "userId" = ${userId}
+    `.catch(() => [] as { k: string }[]);
+    const libKeys = libKeyRows.map(r => r.k);
 
     // Merge the legacy dayLogs JSON with per-row WorkoutLogEntry and DayLogEntry
     // so any client gets a consistent snapshot of day state on the very first
@@ -46,14 +73,14 @@ export async function GET() {
     // exerciseLibrary и раздували GET до мегабайт (медленная загрузка → «пустой»
     // календарь на телефоне первые секунды). Срезаем imageUrl только если та же
     // картинка гарантированно есть в библиотеке — клиент подставит её оттуда.
-    const lib = (fitnessData?.exerciseLibrary ?? {}) as Record<string, string>;
     // То же фаззи-правило, что на клиенте (findLibImage): точное имя или самый
     // длинный ключ, совпадающий по началу — иначе переименованные ИИ-программой
     // упражнения не срезаются и блоб снова раздувается.
+    const libKeySet = new Set(libKeys);
     const hasLibImage = (rawName: string): boolean => {
       const name = rawName.toLowerCase().trim();
-      if (lib[name]) return true;
-      for (const key of Object.keys(lib)) {
+      if (libKeySet.has(name)) return true;
+      for (const key of libKeys) {
         if (key.length < 8) continue;
         if (name.startsWith(key) || key.startsWith(name)) return true;
       }
@@ -77,9 +104,11 @@ export async function GET() {
       bodyMeasurements: fitnessData?.bodyMeasurements || null,
       favoriteMeals: fitnessData?.favoriteMeals || null,
       plannerEvents: fitnessData?.plannerEvents || null,
-      exerciseLibrary: fitnessData?.exerciseLibrary || null,
+      // exerciseLibrary и programArchive клиент забирает отдельными
+      // запросами с ETag — здесь отдаём только признак, что они есть,
+      // чтобы клиент знал, нужно ли за ними идти.
+      hasExerciseLibrary: libKeys.length > 0,
       habits: fitnessData?.habits || null,
-      programArchive: fitnessData?.programArchive || null,
       nutritionProfile: fitnessData?.nutritionProfile || null,
       recipes: fitnessData?.recipes || null,
       vitals: fitnessData?.vitals || null,

@@ -5,6 +5,7 @@ import { trackError } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
 import { trainxSystem } from '@/lib/trainx-ai';
 import { getMergedDayLogs } from '@/lib/fitness-merge';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // AI-чат с фитнес-ассистентом, который "цепляет" данные пользователя.
 // Паттерн как у /api/food/recommend: стабильный system-промпт кэшируется,
@@ -421,6 +422,9 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
   const userId = session.user.id;
+
+  const limit = await rateLimit(userId, 'chat');
+  if (!limit.ok) return rateLimitResponse(limit);
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

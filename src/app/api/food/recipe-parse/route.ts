@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Импорт рецепта с фото: пользователь фотографирует страницу купленного
 // рецепта (книга/PDF/скрин) — ИИ вытаскивает название, ингредиенты, шаги
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const limit = await rateLimit(session.user.id, 'food-recipe');
+    if (!limit.ok) return rateLimitResponse(limit);
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 });

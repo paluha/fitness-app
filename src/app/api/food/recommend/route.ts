@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { trackError, trackLatency } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
 import { trainxSystem } from '@/lib/trainx-ai';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Allow up to 30s for AI recommendations
 export const maxDuration = 30;
@@ -111,6 +112,9 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const limit = await rateLimit(session.user.id, 'food-recommend');
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const {
       remainingMacros,
