@@ -429,6 +429,17 @@ interface Exercise {
    * Пустое значение — обычное упражнение.
    */
   supersetId?: string;
+  /**
+   * Запланировано программой: последний подход — дропсет.
+   *
+   * Отличается от ExerciseSet.drops: там ФАКТ (какие веса реально
+   * сбросил в зале), здесь ПЛАН (что собирался). Без отдельного флага
+   * план было видно только текстом в notes, и пользователь не понимал,
+   * на каком подходе и что делать.
+   */
+  planDropSet?: boolean;
+  /** Запланировано программой: последний подход до отказа. */
+  planToFailure?: boolean;
 }
 
 interface Workout {
@@ -1565,6 +1576,39 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     </span>
                   </div>
                 )}
+                {/* Дропсет из программы: раньше план был виден только
+                    строчкой в заметке, и было непонятно, на каком
+                    подходе и что именно делать. Плашка как у суперсета. */}
+                {(ex.planDropSet || ex.planToFailure) && (
+                  <div
+                    /* Инлайновый стиль по той же причине, что у суперсета:
+                       класс из globals.css однажды не доехал до прода. */
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 6,
+                      margin: '0 0 9px', padding: '9px 11px', borderRadius: 10,
+                      background: '#fdf0e8', border: '1px solid #f4d9c6',
+                      fontSize: 11, lineHeight: 1.45, color: '#8a5327',
+                    }}
+                  >
+                    {ex.planDropSet
+                      ? <ChevronsDown size={12} style={{ flex: 'none', marginTop: 1 }} />
+                      : <Flame size={12} style={{ flex: 'none', marginTop: 1 }} />}
+                    <span>
+                      {ex.planDropSet ? (
+                        <>
+                          <b>Подход {sets.length}</b> — дропсет: доведи до отказа,
+                          сбрось вес на 20-25% <i>без отдыха</i> и сделай ещё
+                          столько повторов, сколько получится. Запиши сброс
+                          кнопкой <b>дроп</b> под подходом.
+                          {ex.planToFailure ? ' Он же — до отказа.' : ''}
+                        </>
+                      ) : (
+                        <><b>Подход {sets.length}</b> — до отказа: работай, пока
+                        повтор не перестанет получаться. Отметь кнопкой <b>до отказа</b>.</>
+                      )}
+                    </span>
+                  </div>
+                )}
                 <div className="tx-restset">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Timer size={11} />
@@ -1606,7 +1650,18 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   <div
                     className={['tx-grid', 'tx-row', i === currentIdx ? 'is-current' : '', s.completed ? 'is-filled' : '', warn ? 'has-warn' : ''].filter(Boolean).join(' ')}
                   >
-                    <span className={['tx-setn', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}>{i + 1}</span>
+                    <span
+                      className={['tx-setn', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}
+                      /* Запланированный дропсет/отказ помечаем на самом
+                         номере подхода — чтобы было видно, какой именно
+                         подход «особенный», не читая подсказку выше. */
+                      style={(ex.planDropSet || ex.planToFailure) && i === sets.length - 1
+                        ? { boxShadow: 'inset 0 0 0 2px #e08b4c' }
+                        : undefined}
+                      title={(ex.planDropSet || ex.planToFailure) && i === sets.length - 1
+                        ? (ex.planDropSet ? 'По программе: дропсет' : 'По программе: до отказа')
+                        : undefined}
+                    >{i + 1}</span>
                     <span className="tx-last">
                       {last && (last.reps > 0 || last.weight > 0) ? `${last.reps}×${last.weight}` : '—'}
                     </span>
@@ -1636,8 +1691,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     </button>
                   </div>
                   {/* Отметки техники: «до отказа» и дропсет. Висят под
-                      подходом, чтобы не ломать сетку из пяти колонок. */}
-                  {(s.completed || s.toFailure || (s.drops?.length ?? 0) > 0) && (
+                      подходом, чтобы не ломать сетку из пяти колонок.
+                      На запланированном программой подходе показываем
+                      сразу, не дожидаясь отметки: иначе кнопки «дроп»
+                      не видно именно тогда, когда она нужна. */}
+                  {(s.completed || s.toFailure || (s.drops?.length ?? 0) > 0
+                    || ((ex.planDropSet || ex.planToFailure) && i === sets.length - 1)) && (
                     <div className="tx-tech">
                       <button
                         type="button"
@@ -2283,6 +2342,36 @@ function findLibImage(lib: Record<string, string>, rawName: string): string | un
     }
   }
   return best;
+}
+
+/**
+ * Достаём план техник из текста для программ, собранных ДО того, как
+ * флаги стали сохраняться.
+ *
+ * Раньше ассистент писал «последний подход — дропсет» в plannedSets и
+ * notes, а сами флаги терялись — интерфейс не мог ничего показать.
+ * Чтобы уже существующие программы не пришлось пересобирать, читаем
+ * тот же текст и восстанавливаем метку.
+ *
+ * Флаг, пришедший с сервера, важнее текста: его мог поставить
+ * пользователь или новая версия ассистента.
+ */
+const PLAN_DROP_RE = /дроп[\s-]?сет|дропс|сброс(?:ь|ить)?\s*\d+\s*%/i;
+const PLAN_FAIL_RE = /до\s+отказа/i;
+
+function withPlannedTechniques(workouts: Workout[]): Workout[] {
+  return workouts.map(w => ({
+    ...w,
+    exercises: (w.exercises || []).map(e => {
+      if (e.planDropSet !== undefined || e.planToFailure !== undefined) return e;
+      const text = [e.plannedSets, e.notes].filter(Boolean).join(' ');
+      if (!text) return e;
+      const drop = PLAN_DROP_RE.test(text);
+      const fail = PLAN_FAIL_RE.test(text);
+      if (!drop && !fail) return e;
+      return { ...e, ...(drop ? { planDropSet: true } : {}), ...(fail ? { planToFailure: true } : {}) };
+    }),
+  }));
 }
 
 function mergeServerDayLogs(
@@ -3154,7 +3243,7 @@ export default function FitnessPage() {
           if (data.nutritionProfile) setNutritionProfile(data.nutritionProfile);
           if (Array.isArray(data.recipes)) setRecipes(data.recipes);
           if (Array.isArray(data.vitals)) setVitals(data.vitals);
-          if (data.workouts) setWorkouts(data.workouts);
+          if (data.workouts) setWorkouts(withPlannedTechniques(data.workouts));
           // Библиотека картинок и архив программ приезжают отдельными
           // запросами: это мегабайты, которые не нужны, чтобы показать
           // сегодняшнюю тренировку. Картинки подставляем по приходу.
@@ -3211,7 +3300,7 @@ export default function FitnessPage() {
                 }
               }
             }
-            setWorkouts(b.workouts);
+            setWorkouts(withPlannedTechniques(b.workouts));
           }
           if (Object.keys(lib).length > 0) setExerciseLibrary(lib);
           if (b.dayLogs && typeof b.dayLogs === 'object') setDayLogs(prev => mergeServerDayLogs(prev, b.dayLogs));
@@ -3264,7 +3353,7 @@ export default function FitnessPage() {
                 }
               }
             }
-            setWorkouts(data.workouts);
+            setWorkouts(withPlannedTechniques(data.workouts));
           }
           if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
@@ -4098,19 +4187,19 @@ export default function FitnessPage() {
         plannedSets: e.plannedSets,
         actualSets: '',
         restTime: e.restTime,
-        // Техники подхода («до отказа», дропсет) — это указание на
-        // тренировку, поэтому дописываем их в заметку упражнения: сами
-        // подходы создаются уже в зале, и пометить их можно там.
-        notes: [
-          e.notes,
-          e.toFailure ? 'последний подход до отказа' : '',
-          e.dropSet ? 'последний подход — дропсет' : '',
-        ].filter(Boolean).join(' · ').slice(0, 120),
+        notes: String(e.notes || '').slice(0, 120),
         newWeight: '',
         feedback: '',
         completed: false,
-        // Метка суперсета живёт в самом упражнении.
+        // Метки техник живут в самом упражнении, а не только текстом в
+        // заметке. Раньше dropSet и toFailure дописывались в notes и
+        // терялись как флаги — интерфейс не мог их показать, и дропсет
+        // был виден только как строчка мелким шрифтом среди прочего
+        // текста. Суперсет отображался именно потому, что его метка
+        // сохранялась здесь.
         ...(e.supersetId ? { supersetId: e.supersetId } : {}),
+        ...(e.dropSet ? { planDropSet: true } : {}),
+        ...(e.toFailure ? { planToFailure: true } : {}),
       })),
     }));
     await saveProgramChange(newWorkouts, newArchive);
