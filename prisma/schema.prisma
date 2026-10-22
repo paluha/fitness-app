@@ -63,6 +63,8 @@ model User {
   // AI-чат: история сообщений с ассистентом
   chatMessages  ChatMessage[]
   chatAttachments ChatAttachment[]
+  ouraConnection  OuraConnection?
+  ouraDaily       OuraDaily[]
 
   // Лабораторные анализы (загруженные результаты)
   labResults    LabResult[]
@@ -107,6 +109,61 @@ model ChatAttachment {
 
   @@index([userId, createdAt])
   @@index([messageId])
+}
+
+// Подключение кольца Oura: токены доступа и обновления.
+//
+// Храним отдельной таблицей, а не в FitnessData: токены обновляются по
+// своему расписанию и не должны ездить вместе с блобом тренировок.
+model OuraConnection {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  // Когда протухнет accessToken — обновляем заранее, не дожидаясь 401.
+  expiresAt    DateTime
+  scope        String?
+  // Последняя успешная выгрузка: с неё продолжаем, чтобы не тянуть всё.
+  lastSyncAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Дневные показатели из Oura: сон, готовность, активность.
+//
+// Одна строка на день — повторная выгрузка перезаписывает её, поэтому
+// синхронизацию можно запускать сколько угодно раз.
+model OuraDaily {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            String   // YYYY-MM-DD, как и остальные даты в приложении
+
+  // Сон
+  sleepScore      Int?     // 0-100, общая оценка сна
+  totalSleepMin   Int?     // всего сна, минут
+  deepSleepMin    Int?
+  remSleepMin     Int?
+  sleepEfficiency Int?     // %, доля сна от времени в кровати
+  bedtimeStart    DateTime?
+
+  // Готовность и восстановление
+  readinessScore  Int?     // 0-100
+  restingHr       Int?     // пульс покоя
+  hrvMs           Int?     // вариабельность, мс
+  bodyTempDelta   Float?   // отклонение температуры тела, °C
+
+  // Активность
+  activityScore   Int?
+  steps           Int?
+  activeCalories  Int?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 // Результат лабораторного анализа пользователя.

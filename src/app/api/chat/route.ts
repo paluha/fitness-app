@@ -21,6 +21,7 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - Прогрессия: когда добавлять вес, когда объём, когда разгрузиться. Опирайся на рабочие веса и частоту из данных, а не на общие схемы.
 - Техника: назови 2-3 ключевые точки и типичную ошибку, а не пересказ учебника.
 - Восстановление: связывай застой в весах с недосыпом, недоеданием и частотой — у тебя есть эти данные.
+- Если подключено кольцо Oura, смотри раздел СОН И ВОССТАНОВЛЕНИЕ: низкая готовность, упавшая ВСР или подскочивший пульс покоя — повод снизить нагрузку, а не добавить. Сравнивай день со средним этого человека, а не с чужой нормой.
 - Разбирай суперсеты, дропсеты и работу до отказа: зачем нужны, кому рано, как встроить.
 
 2. НУТРИЦИОЛОГ.
@@ -323,6 +324,54 @@ export function buildActivityLog(dayLogs: unknown, archive: unknown, labs: LabRo
   return events.slice(0, limit).map(e => `  ${e.date} — ${e.text}`).join('\n');
 }
 
+type OuraRow = {
+  date: string;
+  sleepScore: number | null;
+  totalSleepMin: number | null;
+  deepSleepMin: number | null;
+  remSleepMin: number | null;
+  readinessScore: number | null;
+  restingHr: number | null;
+  hrvMs: number | null;
+  steps: number | null;
+};
+
+/**
+ * Сон и восстановление строками по дням плюс средние за период.
+ *
+ * Средние нужны, чтобы ассистент видел норму человека: пульс покоя 58
+ * сам по себе ни о чём не говорит, а «58 при среднем 52» — уже сигнал.
+ */
+function buildOuraText(rows: unknown): string {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return 'Кольцо не подключено или данных пока нет. Не выдумывай цифры сна и пульса — если они нужны для ответа, скажи, что их нет.';
+  }
+  const list = rows as OuraRow[];
+
+  const hhmm = (min: number | null) =>
+    min == null ? '—' : `${Math.floor(min / 60)}ч ${String(min % 60).padStart(2, '0')}м`;
+  const avg = (pick: (r: OuraRow) => number | null) => {
+    const v = list.map(pick).filter((x): x is number => typeof x === 'number');
+    return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null;
+  };
+
+  const head = `За ${list.length} дн. в среднем: сон ${hhmm(avg(r => r.totalSleepMin))}, `
+    + `оценка сна ${avg(r => r.sleepScore) ?? '—'}, готовность ${avg(r => r.readinessScore) ?? '—'}, `
+    + `пульс покоя ${avg(r => r.restingHr) ?? '—'}, ВСР ${avg(r => r.hrvMs) ?? '—'} мс.`;
+
+  const lines = list.slice(0, 10).map(r =>
+    `  ${r.date}: сон ${hhmm(r.totalSleepMin)}`
+    + (r.sleepScore != null ? ` (оценка ${r.sleepScore})` : '')
+    + (r.deepSleepMin != null ? `, глубокий ${hhmm(r.deepSleepMin)}` : '')
+    + (r.remSleepMin != null ? `, REM ${hhmm(r.remSleepMin)}` : '')
+    + (r.readinessScore != null ? `; готовность ${r.readinessScore}` : '')
+    + (r.restingHr != null ? `; пульс покоя ${r.restingHr}` : '')
+    + (r.hrvMs != null ? `; ВСР ${r.hrvMs} мс` : '')
+    + (r.steps != null ? `; шагов ${r.steps}` : ''));
+
+  return `${head}\n${lines.join('\n')}`;
+}
+
 function buildFoodLog(dayLogs: unknown, days = 7): string {
   if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
   const entries = Object.entries(dayLogs as Record<string, { meals?: unknown; steps?: number | null }>);
@@ -449,7 +498,7 @@ export async function POST(request: Request) {
     || (attBlocks.length > 1 ? 'Посмотри на эти файлы.' : hasImg ? 'Посмотри на это фото.' : 'Посмотри на этот файл.');
 
   // --- собираем данные пользователя + историю чата + анализы ---
-  const [user, fitness, history, labs, mergedDayLogs] = await Promise.all([
+  const [user, fitness, history, oura, labs, mergedDayLogs] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -481,6 +530,12 @@ export async function POST(request: Request) {
       orderBy: { createdAt: 'desc' },
       take: 40,
       select: { role: true, content: true, createdAt: true },
+    }),
+    // Сон и восстановление из кольца Oura, если оно подключено.
+    prisma.ouraDaily.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      take: 14,
     }),
     prisma.labResult.findMany({
       where: { userId },
@@ -559,6 +614,9 @@ export async function POST(request: Request) {
 
 🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал; у свежих дней — рабочие подходы «вес×повторы», веса пользователь вводит в колонке весов):
 ${buildWorkoutHistory(mergedDayLogs, 60)}
+
+💍 СОН И ВОССТАНОВЛЕНИЕ (кольцо Oura; связывай с результатами в зале — застой в весах часто идёт от недосыпа, а не от программы):
+${buildOuraText(oura)}
 
 📋 ДЕЙСТВУЮЩАЯ ПРОГРАММА (это текущие тренировки пользователя — на вопросы «сколько дней», «что в программе» отвечай по ней):
 ${programOrigin}

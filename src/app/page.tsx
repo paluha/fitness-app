@@ -2504,6 +2504,29 @@ export default function FitnessPage() {
     }
   }, []);
 
+  /**
+   * Состояние кольца Oura. Грузим один раз при старте, чтобы раздел в
+   * настройках был готов к моменту открытия.
+   *
+   * Возврат из Oura приходит с ?oura=connected — тогда сразу открываем
+   * настройки, чтобы пользователь увидел результат, и чистим адрес.
+   */
+  useEffect(() => {
+    fetch('/api/oura')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => d && setOura(d))
+      .catch(() => {});
+
+    const status = new URLSearchParams(window.location.search).get('oura');
+    if (status) {
+      if (status === 'connected') {
+        setView('profile');
+        localStorage.setItem('fitness_view', 'profile');
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const [workouts, setWorkouts] = useState<Workout[]>(DEFAULT_WORKOUTS);
   const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
@@ -2655,6 +2678,14 @@ export default function FitnessPage() {
    * только по кнопке: подменять тренировку молча нельзя.
    */
   const [workoutEdit, setWorkoutEdit] = useState<WorkoutEdit | null>(null);
+  /** Состояние кольца Oura: подключено ли и последние дни показателей. */
+  const [oura, setOura] = useState<{
+    configured: boolean;
+    connected: boolean;
+    lastSyncAt: string | null;
+    days: { date: string; totalSleepMin: number | null; readinessScore: number | null; restingHr: number | null; hrvMs: number | null }[];
+  } | null>(null);
+  const [ouraBusy, setOuraBusy] = useState(false);
   const [applyingEdit, setApplyingEdit] = useState(false);
   const [programLoading, setProgramLoading] = useState(false);
   const [programError, setProgramError] = useState<string | null>(null);
@@ -6854,6 +6885,92 @@ export default function FitnessPage() {
                     <option value="Asia/Tokyo">Tokyo (UTC+9)</option>
                   </select>
                 </div>
+
+                {/* Кольцо Oura: сон, готовность, пульс покоя и ВСР.
+                    Раздел показывается, только если ключи приложения
+                    заданы на сервере — иначе кнопка вела бы в никуда. */}
+                {oura?.configured && (
+                  <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
+                      Кольцо Oura
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.45 }}>
+                      {oura.connected
+                        ? 'Сон, готовность, пульс покоя и ВСР подтягиваются автоматически. ИИ учитывает их, когда советует нагрузку.'
+                        : 'Подключи, чтобы ИИ видел сон и восстановление: застой в весах часто идёт от недосыпа, а не от программы.'}
+                    </div>
+
+                    {oura.connected && oura.days.length > 0 && (() => {
+                      const last = oura.days[0];
+                      const hhmm = (m: number | null) => m == null ? '—' : `${Math.floor(m / 60)}ч ${String(m % 60).padStart(2, '0')}м`;
+                      return (
+                        <div style={{
+                          display: 'flex', gap: '14px', flexWrap: 'wrap', marginBottom: '12px',
+                          padding: '11px 13px', borderRadius: '11px',
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                        }}>
+                          {[
+                            ['Сон', hhmm(last.totalSleepMin)],
+                            ['Готовность', last.readinessScore ?? '—'],
+                            ['Пульс покоя', last.restingHr ?? '—'],
+                            ['ВСР', last.hrvMs != null ? `${last.hrvMs} мс` : '—'],
+                          ].map(([k, v]) => (
+                            <div key={String(k)}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{k}</div>
+                              <div style={{ fontSize: '14px', fontWeight: 700 }}>{v}</div>
+                            </div>
+                          ))}
+                          <div style={{ width: '100%', fontSize: '10px', color: 'var(--text-muted)' }}>
+                            за {last.date}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {oura.connected ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={async () => {
+                            setOuraBusy(true);
+                            try {
+                              await fetch('/api/oura', { method: 'POST' });
+                              const r = await fetch('/api/oura');
+                              if (r.ok) setOura(await r.json());
+                            } finally { setOuraBusy(false); }
+                          }}
+                          disabled={ouraBusy}
+                          style={{
+                            flex: 1, padding: '12px', borderRadius: '11px',
+                            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                            color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px',
+                            cursor: ouraBusy ? 'not-allowed' : 'pointer',
+                          }}
+                        >{ouraBusy ? 'Обновляю…' : 'Обновить данные'}</button>
+                        <button
+                          onClick={async () => {
+                            await fetch('/api/oura', { method: 'DELETE' });
+                            const r = await fetch('/api/oura');
+                            if (r.ok) setOura(await r.json());
+                          }}
+                          style={{
+                            padding: '12px 14px', borderRadius: '11px',
+                            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                            color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer',
+                          }}
+                        >Отключить</button>
+                      </div>
+                    ) : (
+                      <a
+                        href="/api/oura/connect"
+                        style={{
+                          display: 'block', padding: '13px', borderRadius: '11px', textAlign: 'center',
+                          background: 'var(--text-primary)', color: 'var(--bg-primary)',
+                          fontWeight: 700, fontSize: '14px', textDecoration: 'none',
+                        }}
+                      >Подключить Oura</a>
+                    )}
+                  </div>
+                )}
 
                 {/* О себе — параметры для ИИ (возраст, рост, пол) */}
                 <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
