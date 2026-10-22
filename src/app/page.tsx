@@ -42,6 +42,15 @@ function parseRestTime(restTime: string | undefined | null): number {
     // Use the middle value for range, or exact value
     return Math.round((min + max) / 2) * 60;
   }
+  // Секунды: ассистент пишет и так («30 сек до A2», «45-60 сек»). Без
+  // этой ветки любое значение в секундах молча превращалось в 2 минуты.
+  const sec = raw.match(/(\d+)(?:-(\d+))?\s*сек/);
+  if (sec) {
+    const min = parseInt(sec[1]);
+    const max = sec[2] ? parseInt(sec[2]) : min;
+    const v = Math.round((min + max) / 2);
+    if (v > 0) return Math.min(600, v);
+  }
   return 120; // Default 2 minutes
 }
 
@@ -53,8 +62,11 @@ function formatTime(seconds: number): string {
 }
 
 // Rest Timer Component
-function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
+function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLabel }: {
   restTime: string;
+  // Подпись до запуска: в суперсете отдых относится к КРУГУ, а не к
+  // подходу, и «Отдых после подхода» там читается неверно.
+  idleLabel?: string;
   // Счётчик-«сигнал»: увеличивается родителем, когда отмечен подход —
   // таймер перезапускается. Ручные Play/Pause при этом сохраняются.
   startSignal?: number;
@@ -267,7 +279,7 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange }: {
           телефон лежит рядом, и 11px там не прочитать. */}
       <span className="rest-state" role="status">
         <span className="rest-label">
-          {isFinished ? 'Отдых закончен' : isRunning ? 'Отдых' : 'Отдых после подхода'}
+          {isFinished ? 'Отдых закончен' : isRunning ? 'Отдых' : (idleLabel ?? 'Отдых после подхода')}
         </span>
         <span className="rest-time">
           {isFinished ? 'Можно начинать' : formatTime(isRunning ? timeLeft : totalSeconds)}
@@ -1567,12 +1579,12 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
                 текущего круга, чтобы не было трёх таймеров подряд. */}
             {isCurrent ? (
               <div className="tx-roundrestwrap">
-                <RestTimer restTime={restTime} startSignal={restSignal} />
+                <RestTimer restTime={restTime} startSignal={restSignal} idleLabel="Отдых после круга" />
               </div>
             ) : (
               <div className="tx-roundfoot">
                 <Timer size={10} />
-                <span>отдых после круга {restTime}</span>
+                <span>отдых после круга</span>
               </div>
             )}
           </div>
@@ -6497,7 +6509,11 @@ export default function FitnessPage() {
                         <SupersetRounds
                           group={groupExercises}
                           rounds={row.supRounds?.plan ?? 3}
-                          restTime={row.ex.restTime}
+                          /* Отдых берём у ПОСЛЕДНЕГО упражнения связки:
+                             он относится ко всему кругу. У первого там
+                             стоит переход к паре («30 сек до A2»), и
+                             показывать его как отдых после круга — ложь. */
+                          restTime={groupExercises[groupExercises.length - 1]?.restTime || row.ex.restTime}
                           restSignal={supersetRest[supKey] ?? 0}
                           onRest={() => setSupersetRest(prev => ({ ...prev, [supKey]: (prev[supKey] ?? 0) + 1 }))}
                           onUpdateSet={(exId, setIdx, patch) => {
