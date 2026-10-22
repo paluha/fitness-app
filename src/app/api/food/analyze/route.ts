@@ -15,6 +15,16 @@ const FOOD_PHOTO_SYSTEM = `You analyze food photos and return nutrition informat
 Look at the image and identify the food. If a kitchen scale is visible in the
 photo, read the exact weight from it. Otherwise estimate the portion size.
 
+READING THE SCALE — do this first, before anything else:
+- Many photos are taken with the food sitting on a kitchen scale. Look at the
+  scale's display even if it is small, dim or at an angle, and read the digits.
+- The display usually shows grams, sometimes with a "g" suffix. Typical food
+  portions are 50-500 g. A reading like "1 2 0" means 120 g.
+- Put that number in "weight". This is a MEASURED value — far better than any
+  visual estimate, so never ignore a readable display.
+- Only if there is no scale, or its digits are genuinely unreadable, set
+  "weight" to null and estimate the portion visually.
+
 Return ONLY a JSON object matching the requested schema. All numbers should be
 realistic per-serving values:
 - calories: kcal
@@ -40,6 +50,21 @@ HOW TO COMPUTE (this is the correct method — follow it exactly):
   * Творог обезжиренный 0-2%: ~18 g protein, ~1 g fat, ~3 g carbs, ~90 kcal
   * Куриная грудка (варёная): ~29 g protein, ~3 g fat, ~0 g carbs, ~165 kcal
   Cottage cheese is a HIGH-PROTEIN food — protein is its LARGEST macro.
+
+COUNT WHAT YOU SEE — don't inflate fat.
+- Build the dish from its visible parts, then add them up. For eggs: count the
+  portions in the photo and use ~6 g protein and ~5 g fat PER WHOLE EGG. One
+  egg ≈ 70 kcal. Egg whites only: ~3.5 g protein, ~0 g fat each.
+- Reference per 100 g: яичница-болтунья из целых яиц ~11 g protein, ~10 g fat;
+  омлет с молоком ~10 g protein, ~9 g fat; отварной рис ~2.5 g protein,
+  ~0.3 g fat, ~28 g carbs; гречка отварная ~4 g protein, ~1 g fat, ~20 g carbs;
+  варёный картофель ~2 g protein, ~0.1 g fat, ~17 g carbs.
+- Added cooking fat: only count oil or butter you can actually SEE (sheen,
+  pooling, obvious frying). A typical pan portion is ~5-10 g of oil, not more.
+  If the dish looks dry or baked, add nothing.
+- Sanity check before answering: for an egg dish, fat should be close to
+  5 g × (number of eggs) plus any visible oil. If your fat is more than double
+  that, you over-estimated — recount the eggs and fix it.
 
 CRITICAL rules for the numbers — follow ALL of them:
 1. Every value must be ZERO OR POSITIVE. Protein, fat, carbs and calories can
@@ -171,6 +196,10 @@ export async function POST(request: Request) {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 600,
+      // Одно и то же фото должно давать один и тот же ответ: при
+      // стандартной температуре КБЖУ расходилось от запроса к запросу,
+      // и дневник переставал быть сопоставимым сам с собой.
+      temperature: 0,
       system: [
         {
           type: 'text',
@@ -337,6 +366,12 @@ export async function POST(request: Request) {
         serving: parsed.serving as string | undefined,
         confidence: parsed.confidence as string | undefined,
         notes: parsed.notes as string | undefined,
+        // Вес порции модель возвращала, но наружу он не отдавался —
+        // поэтому «Порция» всегда оставалась неопределённой, а кнопка
+        // «Пересчитать» не работала даже при весах на фото.
+        weight: Number.isFinite(Number(parsed.weight)) && Number(parsed.weight) > 0
+          ? Math.round(Number(parsed.weight))
+          : null,
       },
     });
   } catch (error) {
