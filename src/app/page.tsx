@@ -6900,7 +6900,9 @@ export default function FitnessPage() {
                         : 'Подключи, чтобы ИИ видел сон и восстановление: застой в весах часто идёт от недосыпа, а не от программы.'}
                     </div>
 
-                    {oura.connected && oura.days.length > 0 && (() => {
+                    {/* Показатели видны и без активного подключения:
+                        выгруженная история остаётся и после отключения. */}
+                    {oura.days.length > 0 && (() => {
                       const last = oura.days[0];
                       const hhmm = (m: number | null) => m == null ? '—' : `${Math.floor(m / 60)}ч ${String(m % 60).padStart(2, '0')}м`;
                       return (
