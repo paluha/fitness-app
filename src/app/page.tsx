@@ -1968,6 +1968,17 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
         </div>
       </div>
 
+      {/* Таймер отдыха живёт ВЫШЕ ветвления «выполнено / не выполнено».
+          Иначе на последнем подходе он размонтировался вместе с блоком
+          подходов и монтировался заново уже в сводке — новый экземпляр
+          не видел сигнала запуска и показывал «1:00», как будто отметка
+          ничего не сделала. */}
+      {expanded && supersetPos !== 'inner' && (
+        <div style={{ padding: '0 12px', marginTop: '8px' }}>
+          <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
+        </div>
+      )}
+
       {/* Expanded flyout for COMPLETED exercises */}
       {expanded && ex.completed && (
         <div style={{
@@ -1976,16 +1987,6 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           background: 'var(--bg-card)',
           fontSize: '12px'
         }}>
-          {/* Отдых после последнего подхода. Без него таймер стартовал и
-              тут же исчезал: упражнение закрывается, блок с подходами
-              (вместе с таймером) сменяется этой сводкой. А отдыхать
-              после последнего подхода нужно — впереди либо следующее
-              упражнение, либо конец тренировки. */}
-          {supersetPos !== 'inner' && (
-            <div style={{ marginBottom: '10px' }}>
-              <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
-            </div>
-          )}
           {/* Info section */}
           <div style={{ marginBottom: '10px' }}>
             <div style={{ fontWeight: 600, color: 'var(--green)', marginBottom: '6px', fontSize: '11px' }}>
@@ -2217,12 +2218,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 >+</button>
                 </span>
                 </div>
-                {/* Внутри связки таймер не показываем: отдыха там нет, а
-                    «2:00 Старт» под плашкой суперсета сбивает с толку —
-                    непонятно, отдыхать или идти к парному упражнению. */}
-                {supersetPos !== 'inner' && (
-                  <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
-                )}
+                {/* Таймер отсюда поднят выше ветвления «выполнено / не
+                    выполнено» — см. комментарий там. Внутри связки его
+                    по-прежнему нет: отдыха там не бывает. */}
                 <div className="tx-grid tx-head">
                   <span>№</span>
                   <span>{lastLabel ?? 'Last'}</span>
