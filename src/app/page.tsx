@@ -2826,6 +2826,28 @@ export default function FitnessPage() {
   const loadExerciseLibrary = useCallback(async () => {
     const LIB_KEY = 'fitness_exlib';
     const TAG_KEY = 'fitness_exlib_etag';
+
+    /** Подставить картинки в уже показанные упражнения. */
+    const applyToWorkouts = (lib: Record<string, string>) => {
+      if (!lib || Object.keys(lib).length === 0) return;
+      setWorkouts(prev => {
+        let changed = false;
+        const next = prev.map(w => ({
+          ...w,
+          exercises: w.exercises.map(ex => {
+            if (ex.imageUrl) return ex;
+            const img = findLibImage(lib, ex.name);
+            if (!img) return ex;
+            changed = true;
+            return { ...ex, imageUrl: img };
+          }),
+        }));
+        // Без этой проверки новый массив на каждый вызов дёргал бы
+        // автосейв и перерисовку всех карточек впустую.
+        return changed ? next : prev;
+      });
+    };
+
     let cached: Record<string, string> = {};
     let etag = '';
     try {
@@ -2833,32 +2855,30 @@ export default function FitnessPage() {
       etag = localStorage.getItem(TAG_KEY) || '';
     } catch { /* повреждённый кэш — считаем, что его нет */ }
     // Показываем кэш сразу, не дожидаясь сети.
-    if (Object.keys(cached).length > 0) setExerciseLibrary(cached);
+    if (Object.keys(cached).length > 0) {
+      setExerciseLibrary(cached);
+      applyToWorkouts(cached);
+    }
 
     try {
       const r = await fetch('/api/fitness/exercise-library', {
         headers: etag ? { 'If-None-Match': etag } : {},
       });
-      if (r.status === 304) return; // кэш актуален
+      // 304 — кэш актуален. Картинки уже подставлены выше; повторно
+      // ничего не пишем, иначе мегабайтный setItem тормозил бы запуск.
+      if (r.status === 304) return;
       if (!r.ok) return;
       const lib = (await r.json()).exerciseLibrary as Record<string, string>;
       setExerciseLibrary(lib || {});
+      applyToWorkouts(lib);
       try {
         localStorage.setItem(LIB_KEY, JSON.stringify(lib || {}));
         const tag = r.headers.get('etag');
         if (tag) localStorage.setItem(TAG_KEY, tag);
-      } catch { /* quota — просто не кэшируем */ }
-      // Подставляем картинки в уже показанные упражнения.
-      if (lib && Object.keys(lib).length > 0) {
-        setWorkouts(prev => prev.map(w => ({
-          ...w,
-          exercises: w.exercises.map(ex =>
-            ex.imageUrl ? ex : (() => {
-              const img = findLibImage(lib, ex.name);
-              return img ? { ...ex, imageUrl: img } : ex;
-            })()
-          ),
-        })));
+      } catch {
+        // Квота переполнена: кэшировать не удалось. Чтобы в следующий раз
+        // не прийти со старым ETag к несохранённой библиотеке, забываем и его.
+        try { localStorage.removeItem(TAG_KEY); } catch { /* и это не вышло */ }
       }
     } catch { /* офлайн — остаёмся на кэше */ }
   }, []);
@@ -2879,15 +2899,44 @@ export default function FitnessPage() {
     } catch { /* офлайн — картинка осталась в состоянии, уедет при следующем добавлении */ }
   }, []);
 
-  /** Архив программ — нужен только на экране «История программ». */
+  /**
+   * Архив программ — нужен только на экране «История программ».
+   *
+   * В localStorage его НЕ кладём, хотя ETag на сервере для него есть.
+   * Замер на реальных данных: библиотека 1034 КБ + архив 841 КБ + бэкап
+   * дня 2736 КБ = 4611 КБ при квоте ~5120 КБ. Архив вытеснил бы бэкап
+   * журнала тренировки, а он важнее: архив всегда можно забрать с
+   * сервера, записанные офлайн подходы — нельзя.
+   *
+   * Грузим лениво: только когда пользователь открыл экран профиля.
+   */
+  const archiveLoadedRef = useRef(false);
+  // Актуальный архив для записи: setState асинхронный, а сразу после
+  // дозагрузки нужно построить полный массив на отправку.
+  const programArchiveRef = useRef<ArchivedProgram[]>([]);
+  programArchiveRef.current = programArchive;
   const loadProgramArchive = useCallback(async () => {
+    if (archiveLoadedRef.current) return;
+    archiveLoadedRef.current = true;
     try {
       const r = await fetch('/api/fitness/program-archive');
-      if (!r.ok) return;
+      if (!r.ok) { archiveLoadedRef.current = false; return; }
       const arch = (await r.json()).programArchive;
-      if (Array.isArray(arch)) setProgramArchive(arch);
-    } catch { /* офлайн — архив не критичен для тренировки */ }
+      if (Array.isArray(arch)) {
+        setProgramArchive(arch);
+        programArchiveRef.current = arch;
+      }
+    } catch {
+      // Офлайн — архив не критичен для тренировки, попробуем ещё раз позже.
+      archiveLoadedRef.current = false;
+    }
   }, []);
+
+  // Архив грузим при первом открытии профиля — там единственный экран,
+  // где он показывается («История программ»).
+  useEffect(() => {
+    if (view === 'profile') void loadProgramArchive();
+  }, [view, loadProgramArchive]);
 
   // ИИ-группы мышц по названиям упражнений (ключ — имя в нижнем регистре).
   // Кэш в localStorage; недостающие имена классифицируются одним batch-запросом.
@@ -3110,7 +3159,6 @@ export default function FitnessPage() {
           // запросами: это мегабайты, которые не нужны, чтобы показать
           // сегодняшнюю тренировку. Картинки подставляем по приходу.
           if (data.hasExerciseLibrary) void loadExerciseLibrary();
-          void loadProgramArchive();
           if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
@@ -4036,7 +4084,11 @@ export default function FitnessPage() {
     workouts: { exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[];
   }) => {
     const entry = snapshotCurrentProgram();
-    const newArchive = [entry, ...programArchive].slice(0, 20);
+    // Архив грузится лениво (только на экране профиля), поэтому здесь его
+    // может не быть в состоянии — а строим мы полный массив на запись.
+    // Без этой дозагрузки смена программы из чата затёрла бы всю историю.
+    await loadProgramArchive();
+    const newArchive = [entry, ...programArchiveRef.current].slice(0, 20);
     const newWorkouts: Workout[] = proposal.workouts.map((w, i) => ({
       id: 't' + (i + 1),
       name: 'Тренировка ' + (i + 1),
@@ -4088,7 +4140,10 @@ export default function FitnessPage() {
 
   const restoreProgram = async (entry: ArchivedProgram) => {
     const current = snapshotCurrentProgram();
-    const newArchive = [current, ...programArchive.filter(p => p.id !== entry.id)].slice(0, 20);
+    // Вызывается с экрана профиля, где архив уже загружен, но полагаться на
+    // это нельзя: пустой архив здесь означал бы потерю истории.
+    await loadProgramArchive();
+    const newArchive = [current, ...programArchiveRef.current.filter(p => p.id !== entry.id)].slice(0, 20);
     const restored: Workout[] = entry.workouts.map(w => ({
       ...w,
       exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
