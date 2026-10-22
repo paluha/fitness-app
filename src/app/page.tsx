@@ -1294,6 +1294,191 @@ function getDateLabel(date: Date, todayDateStr: string): string {
   return date.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+/**
+ * Просмотр фото упражнения: щипком увеличить, двумя пальцами подвинуть.
+ *
+ * Раньше жесты были запрещены намеренно (touchAction: none, preventDefault
+ * на touchmove, pointerEvents: none на картинке) — чтобы случайный свайп
+ * не прокручивал страницу под модалкой. Но вместе с этим пропала и
+ * возможность разглядеть технику на схеме, а заменить фото можно было
+ * только долгим нажатием на карточке, которое его УДАЛЯЕТ, и об этом
+ * нигде не написано.
+ */
+function ImageViewer({ url, name, onClose, onReplace, onDelete }: {
+  url: string;
+  name: string;
+  onClose: () => void;
+  onReplace: () => void;
+  onDelete: () => void;
+}) {
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  // Идёт ли жест — состоянием, а не ref: во время щипка анимацию
+  // перехода надо выключать, а ref читать в рендере нельзя.
+  const [dragging, setDragging] = useState(false);
+  // Расстояние между пальцами и смещение на начало жеста.
+  const gesture = useRef<{ dist: number; scale: number; x: number; y: number; tx: number; ty: number } | null>(null);
+  const MIN = 1, MAX = 5;
+
+  const reset = () => { setScale(1); setTx(0); setTy(0); };
+
+  const dist = (t: React.TouchList) =>
+    Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  const mid = (t: React.TouchList) => ({
+    x: (t[0].clientX + t[1].clientX) / 2,
+    y: (t[0].clientY + t[1].clientY) / 2,
+  });
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const m = mid(e.touches);
+      gesture.current = { dist: dist(e.touches), scale, x: m.x, y: m.y, tx, ty };
+      setDragging(true);
+    } else if (e.touches.length === 1 && scale > 1) {
+      // Одним пальцем двигаем только когда уже приблизили — иначе
+      // перехватывали бы обычный тап по фону.
+      gesture.current = { dist: 0, scale, x: e.touches[0].clientX, y: e.touches[0].clientY, tx, ty };
+      setDragging(true);
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const g = gesture.current;
+    if (!g) return;
+    if (e.touches.length === 2 && g.dist > 0) {
+      e.preventDefault();
+      const next = Math.max(MIN, Math.min(MAX, g.scale * (dist(e.touches) / g.dist)));
+      const m = mid(e.touches);
+      setScale(next);
+      setTx(g.tx + (m.x - g.x));
+      setTy(g.ty + (m.y - g.y));
+    } else if (e.touches.length === 1 && scale > 1) {
+      e.preventDefault();
+      setTx(g.tx + (e.touches[0].clientX - g.x));
+      setTy(g.ty + (e.touches[0].clientY - g.y));
+    }
+  };
+
+  const onTouchEnd = () => {
+    gesture.current = null;
+    setDragging(false);
+    // Отпустили около единицы — возвращаем ровно 1, чтобы картинка не
+    // застревала чуть сдвинутой.
+    if (scale <= 1.05) reset();
+  };
+
+  return (
+    <div
+      onClick={() => { if (scale === 1) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 9999, padding: '56px 16px 92px', overflow: 'hidden',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onDoubleClick={() => (scale === 1 ? setScale(2.5) : reset())}
+        style={{
+          position: 'relative', maxWidth: '460px', width: '100%',
+          touchAction: 'none',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={name}
+          draggable={false}
+          style={{
+            width: '100%', borderRadius: '12px', objectFit: 'contain',
+            transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+            transformOrigin: 'center center',
+            transition: dragging ? 'none' : 'transform 0.18s ease',
+            userSelect: 'none', pointerEvents: 'none',
+          }}
+        />
+        <div style={{ textAlign: 'center', marginTop: '10px', color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 600 }}>
+          {name}
+          {scale > 1 && <span style={{ marginLeft: 8, fontWeight: 500 }}>{scale.toFixed(1)}×</span>}
+        </div>
+      </div>
+
+      {/* Крестик — в углу экрана, а не у картинки: при увеличении
+          картинка выходит за свои границы и перекрывала бы его. */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        aria-label="Закрыть"
+        style={{
+          position: 'fixed', top: '14px', right: '14px',
+          width: '36px', height: '36px', borderRadius: '50%',
+          background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}
+      ><X size={18} /></button>
+
+      {/* Масштаб кнопками: щипок есть не везде (мышь на десктопе). */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'fixed', top: '14px', left: '14px', display: 'flex', gap: '6px',
+        }}
+      >
+        <button
+          onClick={() => setScale(s => Math.max(MIN, +(s - 0.5).toFixed(2)))}
+          aria-label="Уменьшить"
+          style={viewerBtn}
+        >−</button>
+        <button
+          onClick={() => setScale(s => Math.min(MAX, +(s + 0.5).toFixed(2)))}
+          aria-label="Увеличить"
+          style={viewerBtn}
+        >+</button>
+        {scale !== 1 && (
+          <button onClick={reset} aria-label="Сбросить масштаб" style={{ ...viewerBtn, width: 'auto', padding: '0 12px', fontSize: '12px' }}>
+            1:1
+          </button>
+        )}
+      </div>
+
+      {/* Заменить и удалить — внизу, где их ищут. Раньше заменить было
+          нельзя вовсе, а удаление пряталось в долгом нажатии. */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'fixed', left: 0, right: 0, bottom: 'calc(20px + env(safe-area-inset-bottom))',
+          display: 'flex', justifyContent: 'center', gap: '10px', padding: '0 16px',
+        }}
+      >
+        <button onClick={onReplace} style={viewerAction}>
+          <ImageIcon size={14} /> Заменить фото
+        </button>
+        <button onClick={onDelete} style={{ ...viewerAction, color: '#ff8a80' }}>
+          <X size={14} /> Удалить
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const viewerBtn: React.CSSProperties = {
+  width: '36px', height: '36px', borderRadius: '50%',
+  background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer', fontSize: '18px', fontWeight: 600, fontFamily: 'inherit',
+  lineHeight: 1,
+};
+
+const viewerAction: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: '6px',
+  height: '40px', padding: '0 16px', borderRadius: '20px',
+  background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff',
+  fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+};
+
 /** Подписи техник: как называется в интерфейсе и как подписаны ступени. */
 const TECH_META: Record<SetTechnique, { label: string; step: string; hint: string }> = {
   drop: {
@@ -1750,9 +1935,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             type="button"
             className="tx-photo"
             onClick={(e) => { e.stopPropagation(); onShowImage?.(ex.imageUrl!, ex.name); }}
-            onContextMenu={(e) => { e.preventDefault(); onUpdate({ imageUrl: undefined }); }}
-            title={'Фото: ' + ex.name}
-            aria-label={'Фото: ' + ex.name}
+            /* Долгое нажатие больше не удаляет втихую: удалить и
+               заменить можно в просмотрщике, где это подписано. */
+            title={'Фото: ' + ex.name + ' — открыть, увеличить, заменить'}
+            aria-label={'Фото: ' + ex.name + ' — открыть'}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ex.imageUrl} alt={ex.name} />
@@ -3444,6 +3630,8 @@ export default function FitnessPage() {
     return () => clearTimeout(timer);
   }, [workouts, muscleGroups]);
   const [imageModal, setImageModal] = useState<{ url: string; name: string } | null>(null);
+  /** Выбор нового фото из просмотрщика — input лежит вне модалки. */
+  const imageReplaceRef = useRef<HTMLInputElement | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const plannerLoadedFromServer = useRef(false);
   const plannerUserChanged = useRef(false);
@@ -9857,28 +10045,73 @@ export default function FitnessPage() {
 
       {/* Exercise image modal — rendered at root level to avoid re-render issues */}
       {imageModal && (
-        <div
-          onClick={() => { setImageModal(null); document.body.style.overflow = ''; }}
-          onTouchMove={e => e.preventDefault()}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9999, padding: '40px', touchAction: 'none',
+        <ImageViewer
+          url={imageModal.url}
+          name={imageModal.name}
+          onClose={() => { setImageModal(null); document.body.style.overflow = ''; }}
+          onReplace={() => { imageReplaceRef.current?.click(); }}
+          onDelete={() => {
+            const target = imageModal;
+            setImageModal(null);
+            document.body.style.overflow = '';
+            // Снимаем картинку и с упражнения, и из библиотеки: иначе
+            // она подставится обратно при следующей загрузке.
+            const key = target.name.toLowerCase().trim();
+            setWorkouts(prev => prev.map(w => ({
+              ...w,
+              exercises: w.exercises.map(e =>
+                e.name.toLowerCase().trim() === key ? { ...e, imageUrl: undefined } : e),
+            })));
+            userMadeChangeRef.current = true;
+            setExerciseLibrary(prev => {
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+            void fetch(`/api/fitness/exercise-library?name=${encodeURIComponent(key)}`, { method: 'DELETE' })
+              .then(() => { try { localStorage.removeItem('fitness_exlib_etag'); } catch { /* quota */ } })
+              .catch(() => { /* офлайн — уйдёт при следующем изменении */ });
           }}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '400px', width: '100%' }}>
-            <img src={imageModal.url} alt={imageModal.name} style={{ width: '100%', borderRadius: '12px', objectFit: 'contain', pointerEvents: 'none' }} />
-            <div style={{ textAlign: 'center', marginTop: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>{imageModal.name}</div>
-            <button onClick={() => { setImageModal(null); document.body.style.overflow = ''; }} style={{
-              position: 'absolute', top: '-12px', right: '-12px',
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: '#fff', border: 'none', color: '#000',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-            }}><X size={16} /></button>
-          </div>
-        </div>
+        />
       )}
+      {/* Выбор нового фото из просмотрщика. Живёт здесь, а не в модалке:
+          input не должен исчезать, пока браузер открывает галерею. */}
+      <input
+        ref={imageReplaceRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const target = imageModal;
+          e.target.value = '';
+          if (!file || !target) return;
+          const canvas = document.createElement('canvas');
+          const img = new Image();
+          img.onload = () => {
+            const maxSize = 1200;
+            let w = img.width, h = img.height;
+            if (w > maxSize || h > maxSize) {
+              if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+              else { w = (w / h) * maxSize; h = maxSize; }
+            }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const key = target.name.toLowerCase().trim();
+            setWorkouts(prev => prev.map(wk => ({
+              ...wk,
+              exercises: wk.exercises.map(ex =>
+                ex.name.toLowerCase().trim() === key ? { ...ex, imageUrl: dataUrl } : ex),
+            })));
+            userMadeChangeRef.current = true;
+            setExerciseLibrary(prev => ({ ...prev, [key]: dataUrl }));
+            void saveExerciseImage(key, dataUrl);
+            setImageModal({ url: dataUrl, name: target.name });
+          };
+          img.src = URL.createObjectURL(file);
+        }}
+      />
 
       {/* Нижняя навигация: основное меню-капсула + отдельная капсула AI-чата справа */}
       {/* Нижнее меню по макету: четыре равные вкладки в одной панели.
