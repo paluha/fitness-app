@@ -110,7 +110,8 @@ export async function POST(request: Request) {
 
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
-      model: 'claude-opus-5',
+      // Разбор задач планера в список — не требует Opus.
+      model: 'claude-sonnet-4-6',
       max_tokens: 4000,
       output_config: {
         effort: 'low',

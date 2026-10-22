@@ -69,8 +69,10 @@ export async function POST(request: Request) {
 
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
-      model: 'claude-opus-5',
-      max_tokens: 16000,
+      // Разбор текста рецепта в структуру — работа на распознавание, а не
+    // на рассуждение.
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
       output_config: {
         format: { type: 'json_schema', schema: RECIPE_SCHEMA },
       },

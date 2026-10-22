@@ -70,10 +70,11 @@ export async function POST(request: Request) {
 
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
-      model: 'claude-opus-5',
+      // Короткие вопросы анкеты питания: Opus тут избыточен.
+      model: 'claude-sonnet-4-6',
       // Thinking у модели входит в этот же лимит: длинный ответ пользователя →
       // больше размышлений → при 2000 JSON обрезался и парс падал. Даём запас.
-      max_tokens: 8000,
+      max_tokens: 4000,
       output_config: {
         effort: 'low',
         format: { type: 'json_schema', schema: TURN_SCHEMA },

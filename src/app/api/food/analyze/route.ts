@@ -24,6 +24,11 @@ READING THE SCALE — do this first, before anything else:
   visual estimate, so never ignore a readable display.
 - Only if there is no scale, or its digits are genuinely unreadable, set
   "weight" to null and estimate the portion visually.
+- Treat the displayed number as the weight of the FOOD. People who weigh food
+  tare the plate first, and you cannot tell from a photo whether they did.
+  NEVER subtract a guessed plate weight — "180 g minus ~90 g for the plate"
+  halves the result and the user never sees that you guessed. Use the number
+  as shown, and compute the macros from it.
 
 Return ONLY a JSON object matching the requested schema. All numbers should be
 realistic per-serving values:
