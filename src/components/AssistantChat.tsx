@@ -54,6 +54,13 @@ type SavedFile = {
   createdAt: string;
 };
 
+/** Правка одной тренировки, предложенная ассистентом. */
+export type WorkoutEdit = {
+  workoutId: string;
+  summary: string;
+  exercises: ProposedExercise[];
+};
+
 export type ProgramProposal = {
   rationale: string;
   advanced: boolean;
@@ -90,7 +97,7 @@ function fmtWhen(iso?: string): string | null {
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 // Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
 // белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
+export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkoutEdit }: {
   muscleGroups?: Record<string, string>;
   // Возврат на главную. В чате нижнее меню скрыто, поэтому выход даёт
   // кнопка в строке ввода. Без обработчика кнопка не показывается.
@@ -101,6 +108,11 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
    * меняет: подтверждение живёт на отдельном экране, а не в ленте.
    */
   onProgramReady?: (p: ProgramProposal) => void;
+  /**
+   * Правка одной тренировки готова — родитель показывает экран
+   * подтверждения. Чат сам ничего не меняет.
+   */
+  onWorkoutEdit?: (e: WorkoutEdit) => void;
 } = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -474,6 +486,10 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady }: {
           const parsed = JSON.parse(acc.slice(cut + PROPOSAL_MARKER.length));
           if (parsed?.type === 'program_proposal' && Array.isArray(parsed.data?.workouts)) {
             onProgramReady?.(parsed.data);
+          }
+          // Правка одной тренировки — отдельный экран подтверждения.
+          if (parsed?.type === 'workout_edit' && Array.isArray(parsed.data?.exercises)) {
+            onWorkoutEdit?.(parsed.data);
           }
         } catch { /* битый хвост — экран не открываем */ }
       }

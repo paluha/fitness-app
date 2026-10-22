@@ -12,7 +12,7 @@ import {
   Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
-import { AssistantChat } from '@/components/AssistantChat';
+import { AssistantChat, type WorkoutEdit } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
 import { WeightChart } from '@/components/WeightChart';
 import NutritionPage from '@/components/NutritionPage';
@@ -2650,6 +2650,12 @@ export default function FitnessPage() {
    * прямо сейчас, а не от прошлого решения.
    */
   const [programAdvanced, setProgramAdvanced] = useState(false);
+  /**
+   * Правка одной тренировки, предложенная ассистентом. Применяется
+   * только по кнопке: подменять тренировку молча нельзя.
+   */
+  const [workoutEdit, setWorkoutEdit] = useState<WorkoutEdit | null>(null);
+  const [applyingEdit, setApplyingEdit] = useState(false);
   const [programLoading, setProgramLoading] = useState(false);
   const [programError, setProgramError] = useState<string | null>(null);
   const [programProposal, setProgramProposal] = useState<{
@@ -3868,6 +3874,52 @@ export default function FitnessPage() {
    * на её место. Общая дорога для кнопки на экране «Программа» и для
    * предложения из чата — чтобы архив наполнялся одинаково.
    */
+  /**
+   * Применить правку одной тренировки. В архив НЕ пишем: это не смена
+   * программы, а точечное изменение — иначе история заполнилась бы
+   * почти одинаковыми копиями после каждой мелкой правки.
+   */
+  const applyWorkoutEdit = async (edit: WorkoutEdit) => {
+    const target = workouts.find(w => w.id === edit.workoutId);
+    if (!target) return;
+    const updated = workouts.map(w => w.id !== edit.workoutId ? w : {
+      ...w,
+      exercises: edit.exercises.map((e, j) => {
+        // Сохраняем id и картинку упражнения, если оно осталось: по id
+        // привязаны записи подходов, а картинку незачем терять.
+        const prev = w.exercises.find(x => x.name.trim().toLowerCase() === e.name.trim().toLowerCase());
+        return {
+          id: prev?.id ?? String(j + 1),
+          name: e.name,
+          plannedSets: e.plannedSets,
+          actualSets: '',
+          restTime: e.restTime,
+          notes: e.notes ?? '',
+          newWeight: '',
+          feedback: '',
+          completed: false,
+          ...(prev?.imageUrl ? { imageUrl: prev.imageUrl } : {}),
+          ...(e.supersetId ? { supersetId: e.supersetId } : {}),
+        };
+      }),
+    });
+    userMadeChangeRef.current = true;
+    setWorkouts(updated);
+    try {
+      await fetch('/api/fitness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workouts: updated }),
+      });
+    } catch { /* доедет обычным автосейвом */ }
+    // Отмечаем в переписке, иначе ассистент не узнает о решении.
+    fetch('/api/chat', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accepted: true, edit: edit.summary }),
+    }).catch(() => { /* отметка не критична */ });
+  };
+
   const applyProposedProgram = async (proposal: {
     workouts: { exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[];
   }) => {
@@ -6903,6 +6955,7 @@ export default function FitnessPage() {
                 setProgramProposal(p);
                 setShowProgramModal(true);
               }}
+              onWorkoutEdit={(e) => setWorkoutEdit(e)}
             />
           </div>
         )}
@@ -7501,6 +7554,106 @@ export default function FitnessPage() {
       )}
 
       {/* Программа: ИИ-предложение новой + история старых */}
+      {/* Правка одной тренировки от ассистента: показываем, что станет,
+          и применяем только по кнопке. */}
+      {workoutEdit && (() => {
+        const target = workouts.find(w => w.id === workoutEdit.workoutId);
+        const before = target?.exercises ?? [];
+        const beforeNames = new Set(before.map(e => e.name.trim().toLowerCase()));
+        const afterNames = new Set(workoutEdit.exercises.map(e => e.name.trim().toLowerCase()));
+        return (
+          <div className="modal-overlay" onClick={() => setWorkoutEdit(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '6px' }}>
+                <Dumbbell size={18} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
+                <span style={{ fontSize: '17px', fontWeight: 800 }}>
+                  Правка: {target?.name ?? workoutEdit.workoutId}
+                </span>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
+                {workoutEdit.summary}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
+                {workoutEdit.exercises.map((e, i) => {
+                  const isNew = !beforeNames.has(e.name.trim().toLowerCase());
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', justifyContent: 'space-between', gap: '8px',
+                      padding: '7px 10px', borderRadius: '9px', fontSize: '12px',
+                      background: isNew ? 'var(--yellow-dim)' : 'var(--bg-elevated)',
+                      border: `1px solid ${isNew ? 'var(--yellow)' : 'var(--border)'}`,
+                    }}>
+                      <span style={{ color: 'var(--text-primary)' }}>
+                        {isNew && <b style={{ color: 'var(--yellow)' }}>+ </b>}
+                        {e.name}
+                        {e.supersetId ? ` · суперсет ${e.supersetId}` : ''}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{e.plannedSets}</span>
+                    </div>
+                  );
+                })}
+                {/* Что убрали — показываем отдельно, иначе пропажа
+                    упражнения останется незамеченной. */}
+                {before.filter(e => !afterNames.has(e.name.trim().toLowerCase())).map((e, i) => (
+                  <div key={`rm-${i}`} style={{
+                    display: 'flex', justifyContent: 'space-between', gap: '8px',
+                    padding: '7px 10px', borderRadius: '9px', fontSize: '12px',
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                    color: 'var(--text-muted)', textDecoration: 'line-through',
+                  }}>
+                    <span>− {e.name}</span>
+                    <span style={{ flexShrink: 0 }}>{e.plannedSets}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    const summary = workoutEdit.summary;
+                    setWorkoutEdit(null);
+                    fetch('/api/chat', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ accepted: false, edit: summary }),
+                    }).catch(() => { /* отметка не критична */ });
+                  }}
+                  disabled={applyingEdit}
+                  style={{
+                    flex: 1, padding: '13px', background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)', borderRadius: '12px',
+                    color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >Отклонить</button>
+                <button
+                  onClick={async () => {
+                    if (applyingEdit) return;
+                    setApplyingEdit(true);
+                    try {
+                      await applyWorkoutEdit(workoutEdit);
+                      setWorkoutEdit(null);
+                      if (view === 'chat') {
+                        setView('workout');
+                        localStorage.setItem('fitness_view', 'workout');
+                      }
+                    } finally {
+                      setApplyingEdit(false);
+                    }
+                  }}
+                  disabled={applyingEdit}
+                  style={{
+                    flex: 1.4, padding: '13px', background: 'var(--green)',
+                    border: 'none', borderRadius: '12px',
+                    color: '#fff', fontWeight: 700, cursor: applyingEdit ? 'not-allowed' : 'pointer',
+                  }}
+                >{applyingEdit ? 'Применяю…' : 'Применить'}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {showProgramModal && (
         <div className="modal-overlay" onClick={() => setShowProgramModal(false)}>
           <div
