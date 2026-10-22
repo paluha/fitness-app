@@ -975,8 +975,19 @@ button:disabled {
 /* Техники внутри подхода: ступени списком.
    Раньше «вес × повторы» шли чипами в одну строку без подписей, и было
    неясно, что это ступень сброса, а не ещё один подход. */
-.tx-techwrap { margin: 0 0 8px calc(18px + 61px + 12px); }
+.tx-techwrap { margin: 2px 0 8px calc(18px + 61px + 12px); }
 @media (max-width: 359px) { .tx-techwrap { margin-left: 0; } }
+/* К какому подходу относятся кнопки. Без подписи панель висела под
+   таблицей «ничья» — непонятно, 3-й это подход или все сразу. */
+.tx-techfor {
+  font-size: 10px; font-weight: 700; color: #a79b8c;
+  text-transform: uppercase; letter-spacing: 0.3px; margin-right: 1px;
+}
+.tx-techmore {
+  border: 0; background: transparent; padding: 0 4px;
+  font-size: 10px; font-weight: 600; color: #a79b8c;
+  font-family: inherit; cursor: pointer;
+}
 
 .tx-steps {
   margin-top: 6px; border: 1px solid #efe7db; border-radius: 10px;

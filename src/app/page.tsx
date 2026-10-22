@@ -1310,10 +1310,12 @@ const TECH_META: Record<SetTechnique, { label: string; step: string; hint: strin
  * следующей ступени подставляется сам.
  */
 function SetTechPanel({
-  set, planned, onToggleFailure, onToggleNegative, onSetNegative,
+  set, setNo, planned, onToggleFailure, onToggleNegative, onSetNegative,
   onAddStep, onUpdateStep, onRemoveStep,
 }: {
   set: ExerciseSet;
+  /** Номер подхода — панель висит под строкой и без подписи «ничья». */
+  setNo: number;
   /** Техника, запланированная программой на этот подход. */
   planned?: SetTechnique;
   onToggleFailure: () => void;
@@ -1323,16 +1325,24 @@ function SetTechPanel({
   onUpdateStep: (di: number, patch: Partial<DropStep>) => void;
   onRemoveStep: (di: number) => void;
 }) {
+  // Редкие техники прячем, пока не попросят: пять кнопок подряд
+  // переносились на три строки и выглядели как список «на весь экран».
+  const [more, setMore] = useState(false);
   const steps = set.drops ?? [];
   const tech: SetTechnique = set.tech ?? planned ?? 'drop';
   const meta = TECH_META[tech];
   // Итог по подходу: сколько всего повторов с учётом ступеней. В зале
   // это единственное число, которое хочется видеть сразу.
   const totalReps = (set.reps || 0) + steps.reduce((s, d) => s + (d.reps || 0), 0);
+  // Что показываем сразу: отметка отказа и техника этого подхода
+  // (запланированная или уже начатая). Остальное — под «ещё».
+  const extras = (['drop', 'restPause', 'cluster'] as SetTechnique[]).filter(k => k !== tech);
+  const showExtras = more && steps.length === 0;
 
   return (
     <div className="tx-techwrap">
       <div className="tx-tech">
+        <span className="tx-techfor">подход {setNo}:</span>
         <button
           type="button"
           className={['tx-techbtn', set.toFailure ? 'is-on' : ''].filter(Boolean).join(' ')}
@@ -1349,32 +1359,47 @@ function SetTechPanel({
         >
           <ChevronsDown size={11} /> {steps.length > 0 ? meta.label : `+ ${meta.label}`}
         </button>
-        <button
-          type="button"
-          className={['tx-techbtn', set.negativeSec ? 'is-on' : ''].filter(Boolean).join(' ')}
-          onClick={onToggleNegative}
-          title="Медленная уступающая фаза"
-        >
-          <Hourglass size={11} /> негатив
-        </button>
         {/* Техника выбирается только пока ступеней нет: менять её на
             полпути значило бы переписать смысл уже записанного. */}
-        {steps.length === 0 && (
+        {steps.length === 0 && !more && (
+          <button type="button" className="tx-techmore" onClick={() => setMore(true)}>
+            ещё…
+          </button>
+        )}
+        {showExtras && (
           <>
-            {(['restPause', 'cluster'] as SetTechnique[])
-              .filter(k => k !== tech)
-              .map(k => (
-                <button
-                  key={k}
-                  type="button"
-                  className="tx-techbtn"
-                  onClick={() => onAddStep(k)}
-                  title={TECH_META[k].hint}
-                >
-                  + {TECH_META[k].label}
-                </button>
-              ))}
+            {extras.map(k => (
+              <button
+                key={k}
+                type="button"
+                className="tx-techbtn"
+                onClick={() => onAddStep(k)}
+                title={TECH_META[k].hint}
+              >
+                + {TECH_META[k].label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={['tx-techbtn', set.negativeSec ? 'is-on' : ''].filter(Boolean).join(' ')}
+              onClick={onToggleNegative}
+              title="Медленная уступающая фаза"
+            >
+              <Hourglass size={11} /> негатив
+            </button>
           </>
+        )}
+        {/* Негатив мог быть включён раньше — тогда кнопка видна всегда,
+            иначе его нельзя было бы выключить, не открывая «ещё». */}
+        {!showExtras && !!set.negativeSec && (
+          <button
+            type="button"
+            className="tx-techbtn is-on"
+            onClick={onToggleNegative}
+            title="Медленная уступающая фаза"
+          >
+            <Hourglass size={11} /> негатив
+          </button>
         )}
       </div>
 
@@ -1890,16 +1915,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   >
                     <span
                       className={['tx-setn', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}
-                      /* Запланированный дропсет/отказ помечаем на самом
-                         номере подхода — чтобы было видно, какой именно
-                         подход «особенный», не читая подсказку выше. */
-                      style={(ex.planDropSet || ex.planToFailure) && i === sets.length - 1
-                        ? { boxShadow: 'inset 0 0 0 2px #e08b4c' }
+                      /* Запланированный подход помечаем цветом и точкой,
+                         а НЕ рамкой: рамка вокруг голой цифры читалась
+                         как пустое поле ввода (видно на скриншоте). */
+                      style={(ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1
+                        ? { color: '#c47a35', fontWeight: 700 }
                         : undefined}
-                      title={(ex.planDropSet || ex.planToFailure) && i === sets.length - 1
-                        ? (ex.planDropSet ? 'По программе: дропсет' : 'По программе: до отказа')
+                      title={(ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1
+                        ? (ex.planDropSet ? 'По программе: дропсет' : ex.planTech ? 'По программе: ' + TECH_META[ex.planTech].label : 'По программе: до отказа')
                         : undefined}
-                    >{i + 1}</span>
+                    >{i + 1}{(ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1 ? '•' : ''}</span>
                     <span className="tx-last">
                       {last && (last.reps > 0 || last.weight > 0) ? `${last.reps}×${last.weight}` : '—'}
                     </span>
@@ -1937,6 +1962,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     || ((ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1)) && (
                     <SetTechPanel
                       set={s}
+                      setNo={i + 1}
                       planned={i === sets.length - 1
                         ? (ex.planDropSet ? 'drop' : ex.planTech)
                         : undefined}
