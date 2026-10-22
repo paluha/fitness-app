@@ -831,7 +831,7 @@ const PROGRAM_TOOL: Anthropic.Tool = {
                   notes: { type: 'string', description: 'Короткая приписка: группа мышц или техника' },
                   supersetId: { type: 'string', description: 'Только в продвинутом режиме: одинаковая метка («A», «B») у двух упражнений связки, идущих подряд. Иначе пустая строка.' },
                   toFailure: { type: 'boolean', description: 'Только в продвинутом режиме: последний подход до отказа' },
-                  dropSet: { type: 'boolean', description: 'Только в продвинутом режиме: последний подход дропсетом' },
+                  dropSet: { type: 'boolean', description: 'Только в продвинутом режиме: последний подход дропсетом. Если true — ОБЯЗАТЕЛЬНО напиши в notes, на сколько сбрасывать вес и сколько раз, например «сброс 25%, ещё 10-12 до отказа»: иначе пользователь не знает, что делать в зале.' },
                 },
                 required: ['name', 'plannedSets', 'restTime', 'notes'],
               },
