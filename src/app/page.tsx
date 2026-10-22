@@ -1976,6 +1976,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           background: 'var(--bg-card)',
           fontSize: '12px'
         }}>
+          {/* Отдых после последнего подхода. Без него таймер стартовал и
+              тут же исчезал: упражнение закрывается, блок с подходами
+              (вместе с таймером) сменяется этой сводкой. А отдыхать
+              после последнего подхода нужно — впереди либо следующее
+              упражнение, либо конец тренировки. */}
+          {supersetPos !== 'inner' && (
+            <div style={{ marginBottom: '10px' }}>
+              <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
+            </div>
+          )}
           {/* Info section */}
           <div style={{ marginBottom: '10px' }}>
             <div style={{ fontWeight: 600, color: 'var(--green)', marginBottom: '6px', fontSize: '11px' }}>
@@ -2043,9 +2053,16 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               // В суперсете отдыха между подходами нет: после упражнения
               // сразу идёт парное, отдых — только после всей связки. Её
               // последнее упражнение отдых запускает, остальные — нет.
+              //
+              // Раньше здесь стояло «упражнение закрыто целиком — гасим
+              // отдых». Но закрывает его как раз ПОСЛЕДНЯЯ отметка, то
+              // есть на самый частый случай («отметил подход — хочу
+              // отдыхать») таймер не стартовал вовсе. Отдыхать после
+              // последнего подхода нужно так же: впереди либо следующее
+              // упражнение, либо конец тренировки, и пауза всё равно
+              // нужна. Гасим только когда отметку СНИМАЮТ.
               if (patch.completed === true) {
-                if (allDone) setRestStop(v => v + 1);
-                else if (supersetPos === 'inner') setRestStop(v => v + 1);
+                if (supersetPos === 'inner') setRestStop(v => v + 1);
                 else setRestStart(v => v + 1);
               } else if (patch.completed === false) {
                 setRestStop(v => v + 1);
@@ -5277,28 +5294,26 @@ export default function FitnessPage() {
   };
   const updateExercise = (workoutId: string, exerciseId: string, updates: Partial<Exercise>) => {
     userMadeChangeRef.current = true;
-    // Упражнение только что закрыли целиком («Отметить все» или последний
-    // подход) — карточка схлопывается, и сразу раскрываем следующее
-    // невыполненное, чтобы не искать его руками. Ищем по кругу: после
-    // последнего возвращаемся к пропущенным в начале списка.
+    // Связку закрываем, только когда она пройдена целиком — иначе
+    // карточка схлопывалась бы посреди кругов, после первого же
+    // упражнения.
+    //
+    // Обычное упражнение раньше схлопывалось сразу, как отмечен
+    // последний подход, и открывалось следующее. Но вместе с карточкой
+    // исчезал и таймер отдыха, который как раз в этот момент
+    // запускается, — выглядело как «отметил, а время не пошло».
+    // Поэтому закрытое упражнение остаётся раскрытым: там видно сводку
+    // и идущий отдых, а дальше человек сам нажмёт следующее.
     if (updates.completed === true) {
       setExpandedExerciseId(prevId => {
         const list = workouts.find(w => w.id === workoutId)?.exercises ?? [];
         const done = list.find(e => e.id === exerciseId);
-        // Раскрыта связка (ключ «workoutId-метка», не id упражнения):
-        // закрываем её, только когда ВСЯ связка пройдена — иначе она
-        // схлопывалась бы посреди кругов, после первого же упражнения.
         if (done?.supersetId && prevId === `${workoutId}-${done.supersetId}`) {
           const inGroup = list.filter(e => e.supersetId === done.supersetId);
           const allDone = inGroup.every(e => e.id === exerciseId || e.completed);
           return allDone ? null : prevId;
         }
-        if (prevId !== exerciseId) return prevId;
-        const from = list.findIndex(e => e.id === exerciseId);
-        if (from < 0) return null;
-        const ordered = [...list.slice(from + 1), ...list.slice(0, from)];
-        const next = ordered.find(e => !e.completed);
-        return next ? next.id : null;
+        return prevId;
       });
     }
     setWorkouts(prev => {
