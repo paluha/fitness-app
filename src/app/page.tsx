@@ -6956,6 +6956,12 @@ export default function FitnessPage() {
                 setShowProgramModal(true);
               }}
               onWorkoutEdit={(e) => setWorkoutEdit(e)}
+              /* Предложение ждёт решения — даём путь обратно к нему,
+                 иначе после «Обсудить» к программе не вернуться. */
+              pendingProgram={programProposal ? {
+                days: programProposal.workouts.length,
+                open: () => setShowProgramModal(true),
+              } : undefined}
             />
           </div>
         )}
@@ -7608,24 +7614,9 @@ export default function FitnessPage() {
                 ))}
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => {
-                    const summary = workoutEdit.summary;
-                    setWorkoutEdit(null);
-                    fetch('/api/chat', {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ accepted: false, edit: summary }),
-                    }).catch(() => { /* отметка не критична */ });
-                  }}
-                  disabled={applyingEdit}
-                  style={{
-                    flex: 1, padding: '13px', background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)', borderRadius: '12px',
-                    color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer',
-                  }}
-                >Отклонить</button>
+              {/* Главная кнопка отдельной строкой, остальные под ней:
+                  три в ряд на узком экране ужимаются до нечитаемых. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <button
                   onClick={async () => {
                     if (applyingEdit) return;
@@ -7643,11 +7634,46 @@ export default function FitnessPage() {
                   }}
                   disabled={applyingEdit}
                   style={{
-                    flex: 1.4, padding: '13px', background: 'var(--green)',
+                    padding: '14px', background: 'var(--green)',
                     border: 'none', borderRadius: '12px',
-                    color: '#fff', fontWeight: 700, cursor: applyingEdit ? 'not-allowed' : 'pointer',
+                    color: '#fff', fontWeight: 700, fontSize: '14px',
+                    cursor: applyingEdit ? 'not-allowed' : 'pointer',
                   }}
                 >{applyingEdit ? 'Применяю…' : 'Применить'}</button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      // Окно закрываем, но правку не отменяем: её хотят
+                      // обсудить в чате и, возможно, поправить.
+                      setWorkoutEdit(null);
+                      setView('chat');
+                      localStorage.setItem('fitness_view', 'chat');
+                    }}
+                    disabled={applyingEdit}
+                    style={{
+                      flex: 1, padding: '12px', background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)', borderRadius: '11px',
+                      color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer',
+                    }}
+                  >Обсудить</button>
+                  <button
+                    onClick={() => {
+                      const summary = workoutEdit.summary;
+                      setWorkoutEdit(null);
+                      fetch('/api/chat', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accepted: false, edit: summary }),
+                      }).catch(() => { /* отметка не критична */ });
+                    }}
+                    disabled={applyingEdit}
+                    style={{
+                      flex: 1, padding: '12px', background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)', borderRadius: '11px',
+                      color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer',
+                    }}
+                  >Отклонить</button>
+                </div>
               </div>
             </div>
           </div>
@@ -7788,32 +7814,53 @@ export default function FitnessPage() {
                     ))}
                   </div>
                 ))}
-                <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                  <button
-                    onClick={() => {
-                      setProgramProposal(null);
-                      // Отклонение тоже отмечаем: иначе ассистент решит,
-                      // что предложение всё ещё ждёт ответа.
-                      fetch('/api/chat', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ accepted: false }),
-                      }).catch(() => { /* отметка не критична */ });
-                    }}
-                    style={{
-                      flex: 1, padding: '13px', background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)', borderRadius: '12px',
-                      color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer'
-                    }}
-                  >Отклонить</button>
+                {/* Три исхода, а не два: кроме «да» и «нет» нужен
+                    разговор — что-то поменять, о чём-то спросить.
+                    Предложение при этом НЕ теряется: вернёшься к нему
+                    из чата, когда договоритесь. */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                   <button
                     onClick={acceptProgram}
                     style={{
-                      flex: 1.4, padding: '13px', background: 'var(--green)',
+                      padding: '14px', background: 'var(--green)',
                       border: 'none', borderRadius: '12px',
-                      color: '#fff', fontWeight: 700, cursor: 'pointer'
+                      color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer'
                     }}
                   >Принять программу</button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => {
+                        // Уходим в чат, предложение оставляем: ассистент
+                        // поправит его и пришлёт заново, либо вернёшься
+                        // к этому же экрану кнопкой «К программе».
+                        setShowProgramModal(false);
+                        setView('chat');
+                        localStorage.setItem('fitness_view', 'chat');
+                      }}
+                      style={{
+                        flex: 1, padding: '12px', background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)', borderRadius: '11px',
+                        color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer'
+                      }}
+                    >Обсудить и поправить</button>
+                    <button
+                      onClick={() => {
+                        setProgramProposal(null);
+                        // Отклонение тоже отмечаем: иначе ассистент решит,
+                        // что предложение всё ещё ждёт ответа.
+                        fetch('/api/chat', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ accepted: false }),
+                        }).catch(() => { /* отметка не критична */ });
+                      }}
+                      style={{
+                        flex: 1, padding: '12px', background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)', borderRadius: '11px',
+                        color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer'
+                      }}
+                    >Отклонить</button>
+                  </div>
                 </div>
               </div>
             )}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Send, Paperclip, X, Home, FileText, FolderOpen, Image as ImageIcon } from 'lucide-react';
+import { Send, Paperclip, X, Home, FileText, FolderOpen, Image as ImageIcon, Dumbbell } from 'lucide-react';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -97,7 +97,7 @@ function fmtWhen(iso?: string): string | null {
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 // Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
 // белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkoutEdit }: {
+export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkoutEdit, pendingProgram }: {
   muscleGroups?: Record<string, string>;
   // Возврат на главную. В чате нижнее меню скрыто, поэтому выход даёт
   // кнопка в строке ввода. Без обработчика кнопка не показывается.
@@ -113,6 +113,11 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
    * подтверждения. Чат сам ничего не меняет.
    */
   onWorkoutEdit?: (e: WorkoutEdit) => void;
+  /**
+   * Программа ждёт решения. Показываем полоску с возвратом к экрану
+   * подтверждения: после «Обсудить» иначе к ней не вернуться.
+   */
+  pendingProgram?: { days: number; open: () => void };
 } = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -746,6 +751,26 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
             )}
           </div>
         </div>
+      )}
+
+      {/* Программа ждёт решения: напоминаем и даём путь обратно. Без
+          этого после «Обсудить» вернуться к ней было бы нечем. */}
+      {pendingProgram && (
+        <button
+          onClick={pendingProgram.open}
+          style={{
+            marginTop: 10, padding: '11px 13px', borderRadius: 12,
+            display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+            background: 'var(--yellow-dim)', border: '1px solid var(--yellow)',
+            cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+          }}
+        >
+          <Dumbbell size={15} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.35 }}>
+            Программа на {pendingProgram.days} трен. ждёт решения
+            <span style={{ color: 'var(--text-muted)' }}> — открыть и подтвердить</span>
+          </span>
+        </button>
       )}
 
       {/* Превью прикреплённых фото — лентой, каждое снимается крестиком.
