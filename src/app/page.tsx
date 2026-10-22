@@ -390,6 +390,24 @@ export interface DropStep {
   weight: number;
 }
 
+/**
+ * Техника, выполняемая ВНУТРИ одного подхода.
+ *
+ * Все они устроены одинаково: основная работа, потом несколько ступеней
+ * без полноценного отдыха. Отличается только то, что меняется между
+ * ступенями, поэтому структура данных у них общая (step[]), а интерфейс
+ * подписывает ступени по-своему.
+ *
+ * - drop     — сброс веса без отдыха («100×8 → 75×6 → 55×5»)
+ * - restPause — вес тот же, между ступенями пауза 10-20 сек
+ * - cluster  — подход разбит на блоки с паузами («3+3+3» вместо 9)
+ *
+ * Пирамида и негативы сюда не входят: пирамида — это про веса МЕЖДУ
+ * подходами (флаг на упражнении), а негативы — свойство самого подхода
+ * (темп), а не отдельные ступени.
+ */
+export type SetTechnique = 'drop' | 'restPause' | 'cluster';
+
 export interface ExerciseSet {
   reps: number;
   weight: number;   // pounds
@@ -404,8 +422,21 @@ export interface ExerciseSet {
    * Дропсет: сбросы веса внутри ОДНОГО подхода, без отдыха между ними.
    * «100×8 → 70×6 → 50×5» — это один подход с двумя ступенями, а не три
    * подхода: иначе тренд видит падение рабочего веса, которого не было.
+   *
+   * Поле осталось с прежним именем ради сохранённых тренировок: его
+   * читают закрытые дни и история. Какая именно техника — в `tech`.
    */
   drops?: DropStep[];
+  /**
+   * Чем являются ступени в `drops`. Пусто = дропсет (так было до
+   * появления других техник, и старые записи читаются без миграции).
+   */
+  tech?: SetTechnique;
+  /**
+   * Негативы: медленная уступающая фаза. Не ступени, а свойство
+   * подхода — сколько секунд опускание.
+   */
+  negativeSec?: number;
 }
 
 interface Exercise {
@@ -440,6 +471,20 @@ interface Exercise {
   planDropSet?: boolean;
   /** Запланировано программой: последний подход до отказа. */
   planToFailure?: boolean;
+  /**
+   * Запланированная техника внутри подхода, если это не дропсет:
+   * rest-pause или кластер. Дропсет остаётся в planDropSet, чтобы не
+   * ломать уже сохранённые программы.
+   */
+  planTech?: SetTechnique;
+  /**
+   * Пирамида: вес осознанно меняется ОТ ПОДХОДА К ПОДХОДУ.
+   *
+   * Без этой метки тренд видел бы скачки рабочего веса как провал: при
+   * пирамиде «60×12 → 80×10 → 100×6» максимум не падал, схема такая.
+   * 'up' — вес растёт, повторы падают; 'down' — наоборот.
+   */
+  planPyramid?: 'up' | 'down';
 }
 
 interface Workout {
@@ -1237,6 +1282,170 @@ function getDateLabel(date: Date, todayDateStr: string): string {
   return date.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+/** Подписи техник: как называется в интерфейсе и как подписаны ступени. */
+const TECH_META: Record<SetTechnique, { label: string; step: string; hint: string }> = {
+  drop: {
+    label: 'дропсет',
+    step: 'сброс',
+    hint: 'Сбрось вес и продолжай без отдыха',
+  },
+  restPause: {
+    label: 'rest-pause',
+    step: 'подход',
+    hint: 'Вес тот же, между блоками пауза 10-20 сек',
+  },
+  cluster: {
+    label: 'кластер',
+    step: 'блок',
+    hint: 'Подход разбит на блоки с паузами 10-15 сек',
+  },
+};
+
+/**
+ * Техники внутри подхода: отметки и ступени.
+ *
+ * Раньше это была тесная строка чипов, где «вес × повторы» шли подряд
+ * без подписей — непонятно, что это одна ступень сброса, а не ещё один
+ * подход. Теперь ступени идут списком с номерами и подписями, а вес
+ * следующей ступени подставляется сам.
+ */
+function SetTechPanel({
+  set, planned, onToggleFailure, onToggleNegative, onSetNegative,
+  onAddStep, onUpdateStep, onRemoveStep,
+}: {
+  set: ExerciseSet;
+  /** Техника, запланированная программой на этот подход. */
+  planned?: SetTechnique;
+  onToggleFailure: () => void;
+  onToggleNegative: () => void;
+  onSetNegative: (sec: number) => void;
+  onAddStep: (tech: SetTechnique) => void;
+  onUpdateStep: (di: number, patch: Partial<DropStep>) => void;
+  onRemoveStep: (di: number) => void;
+}) {
+  const steps = set.drops ?? [];
+  const tech: SetTechnique = set.tech ?? planned ?? 'drop';
+  const meta = TECH_META[tech];
+  // Итог по подходу: сколько всего повторов с учётом ступеней. В зале
+  // это единственное число, которое хочется видеть сразу.
+  const totalReps = (set.reps || 0) + steps.reduce((s, d) => s + (d.reps || 0), 0);
+
+  return (
+    <div className="tx-techwrap">
+      <div className="tx-tech">
+        <button
+          type="button"
+          className={['tx-techbtn', set.toFailure ? 'is-on' : ''].filter(Boolean).join(' ')}
+          onClick={onToggleFailure}
+          title="Последнее повторение далось на пределе"
+        >
+          <Flame size={11} /> до отказа
+        </button>
+        <button
+          type="button"
+          className={['tx-techbtn', steps.length > 0 ? 'is-on' : ''].filter(Boolean).join(' ')}
+          onClick={() => onAddStep(tech)}
+          title={meta.hint}
+        >
+          <ChevronsDown size={11} /> {steps.length > 0 ? meta.label : `+ ${meta.label}`}
+        </button>
+        <button
+          type="button"
+          className={['tx-techbtn', set.negativeSec ? 'is-on' : ''].filter(Boolean).join(' ')}
+          onClick={onToggleNegative}
+          title="Медленная уступающая фаза"
+        >
+          <Hourglass size={11} /> негатив
+        </button>
+        {/* Техника выбирается только пока ступеней нет: менять её на
+            полпути значило бы переписать смысл уже записанного. */}
+        {steps.length === 0 && (
+          <>
+            {(['restPause', 'cluster'] as SetTechnique[])
+              .filter(k => k !== tech)
+              .map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  className="tx-techbtn"
+                  onClick={() => onAddStep(k)}
+                  title={TECH_META[k].hint}
+                >
+                  + {TECH_META[k].label}
+                </button>
+              ))}
+          </>
+        )}
+      </div>
+
+      {/* Негативы: свойство подхода, а не ступень — отдельной строкой. */}
+      {!!set.negativeSec && (
+        <div className="tx-negrow">
+          <Hourglass size={11} />
+          <span>опускание</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={set.negativeSec}
+            onChange={(e) => onSetNegative(Math.max(1, Math.min(30, parseInt(e.target.value, 10) || 1)))}
+            aria-label="секунд на опускание"
+          />
+          <span>сек</span>
+        </div>
+      )}
+
+      {steps.length > 0 && (
+        <div className="tx-steps">
+          <div className="tx-steprow is-base">
+            <span className="tx-stepname">основной</span>
+            <span className="tx-stepval">{set.reps || 0} × {set.weight || 0}</span>
+            <span />
+          </div>
+          {steps.map((d, di) => (
+            <div className="tx-steprow" key={di}>
+              <span className="tx-stepname">
+                <ChevronsDown size={10} /> {meta.step} {di + 1}
+              </span>
+              <span className="tx-stepinputs">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={d.reps || ''}
+                  placeholder="повт"
+                  onChange={(e) => onUpdateStep(di, { reps: parseInt(e.target.value, 10) || 0 })}
+                  aria-label={`повторы, ${meta.step} ${di + 1}`}
+                />
+                <b>×</b>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={d.weight || ''}
+                  placeholder="вес"
+                  onChange={(e) => onUpdateStep(di, { weight: parseInt(e.target.value, 10) || 0 })}
+                  aria-label={`вес, ${meta.step} ${di + 1}`}
+                />
+              </span>
+              <button
+                type="button"
+                className="tx-stepdel"
+                onClick={() => onRemoveStep(di)}
+                aria-label={`убрать ${meta.step} ${di + 1}`}
+              >×</button>
+            </div>
+          ))}
+          <div className="tx-steprow is-foot">
+            <button type="button" className="tx-stepadd" onClick={() => onAddStep(tech)}>
+              + ещё {meta.step}
+            </button>
+            <span className="tx-steptotal">итого {totalReps} повт</span>
+            <span />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Beautiful Exercise Card Component
 function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup }: {
   ex: Exercise;
@@ -1365,11 +1574,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             (свёрнутая) — как в макете. Порядкового номера нет. */}
         <div className="tx-exname" style={{ color: ex.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}>
           {ex.name}
-          {/* Суперсет: упражнения с одной меткой идут без отдыха между
-              собой — видно прямо в названии, чтобы не искать в заметке. */}
-          {ex.supersetId && (
-            <span className="tx-superset" title="Суперсет: без отдыха между упражнениями связки">
-              <Link2 size={9} />Суперсет {ex.supersetId}
+          {/* Внутри блока связки метку «Суперсет A» уже показывает рамка,
+              поэтому здесь — только позиция в связке (A1, A2): по ней
+              видно, с чего круг начинается и чем заканчивается. */}
+          {ex.supersetId && supersetGroup && supersetGroup.length > 1 && (
+            <span className="tx-superset" title="Порядок в связке">
+              <Link2 size={9} />{ex.supersetId}{supersetGroup.indexOf(ex.name) + 1}
             </span>
           )}
           {/* Подпись под названием есть ВСЕГДА и одной высоты: раскрытая —
@@ -1525,13 +1735,19 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
              * подхода, а не отдельными строками: иначе тренд увидит
              * падение рабочего веса, которого не было.
              */
-            const addDrop = (i: number) => {
+            const addDrop = (i: number, tech: SetTechnique = 'drop') => {
               const cur = sets[i];
               const last = cur.drops?.[cur.drops.length - 1];
               const base = last ?? { weight: cur.weight || 0, reps: cur.reps || 0 };
-              // Типичный сброс — примерно на четверть веса.
-              const step = { weight: Math.max(0, Math.round((base.weight * 0.75) / 2.5) * 2.5), reps: 0 };
-              updateSet(i, { drops: [...(cur.drops ?? []), step] });
+              // У дропсета вес падает примерно на четверть, у rest-pause и
+              // кластера он тот же — меняется только отдых между ступенями.
+              const weight = tech === 'drop'
+                ? Math.max(0, Math.round((base.weight * 0.75) / 2.5) * 2.5)
+                : base.weight;
+              updateSet(i, {
+                drops: [...(cur.drops ?? []), { weight, reps: 0 }],
+                tech: cur.tech ?? tech,
+              });
             };
             const updateDrop = (i: number, di: number, patch: Partial<DropStep>) => {
               const drops = (sets[i].drops ?? []).map((d, j) => j === di ? { ...d, ...patch } : d);
@@ -1539,7 +1755,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             };
             const removeDrop = (i: number, di: number) => {
               const drops = (sets[i].drops ?? []).filter((_, j) => j !== di);
-              updateSet(i, { drops: drops.length ? drops : undefined });
+              // Убрали последнюю ступень — снимаем и метку техники,
+              // иначе подход остаётся «дропсетом» без сбросов.
+              updateSet(i, drops.length
+                ? { drops }
+                : { drops: undefined, tech: undefined });
             };
             const allSetsDone = sets.length > 0 && sets.every(s => s.completed);
             const markAllSets = () => {
@@ -1579,7 +1799,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                 {/* Дропсет из программы: раньше план был виден только
                     строчкой в заметке, и было непонятно, на каком
                     подходе и что именно делать. Плашка как у суперсета. */}
-                {(ex.planDropSet || ex.planToFailure) && (
+                {(ex.planDropSet || ex.planToFailure || ex.planTech || ex.planPyramid) && (
                   <div
                     /* Инлайновый стиль по той же причине, что у суперсета:
                        класс из globals.css однажды не доехал до прода. */
@@ -1590,17 +1810,35 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       fontSize: 11, lineHeight: 1.45, color: '#8a5327',
                     }}
                   >
-                    {ex.planDropSet
-                      ? <ChevronsDown size={12} style={{ flex: 'none', marginTop: 1 }} />
-                      : <Flame size={12} style={{ flex: 'none', marginTop: 1 }} />}
+                    {ex.planPyramid
+                      ? <TrendingUp size={12} style={{ flex: 'none', marginTop: 1 }} />
+                      : (ex.planDropSet || ex.planTech)
+                        ? <ChevronsDown size={12} style={{ flex: 'none', marginTop: 1 }} />
+                        : <Flame size={12} style={{ flex: 'none', marginTop: 1 }} />}
                     <span>
-                      {ex.planDropSet ? (
+                      {ex.planPyramid ? (
+                        <>Пирамида: вес {ex.planPyramid === 'up' ? 'растёт' : 'падает'} от
+                        подхода к подходу, повторы — наоборот. Это схема, а не
+                        провал в весах: записывай как есть.</>
+                      ) : ex.planDropSet ? (
                         <>
                           <b>Подход {sets.length}</b> — дропсет: доведи до отказа,
                           сбрось вес на 20-25% <i>без отдыха</i> и сделай ещё
-                          столько повторов, сколько получится. Запиши сброс
-                          кнопкой <b>дроп</b> под подходом.
+                          столько повторов, сколько получится. Запиши ступени
+                          кнопкой <b>+ дропсет</b> под подходом.
                           {ex.planToFailure ? ' Он же — до отказа.' : ''}
+                        </>
+                      ) : ex.planTech === 'restPause' ? (
+                        <>
+                          <b>Подход {sets.length}</b> — rest-pause: доведи до отказа,
+                          пауза 10-20 сек <i>не меняя вес</i>, и ещё блок повторов.
+                          Обычно 2-3 блока. Записывай кнопкой <b>+ rest-pause</b>.
+                        </>
+                      ) : ex.planTech === 'cluster' ? (
+                        <>
+                          <b>Подход {sets.length}</b> — кластер: разбей подход на
+                          блоки с паузами 10-15 сек (например 3+3+3 вместо 9).
+                          Записывай блоки кнопкой <b>+ кластер</b>.
                         </>
                       ) : (
                         <><b>Подход {sets.length}</b> — до отказа: работай, пока
@@ -1695,46 +1933,20 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       На запланированном программой подходе показываем
                       сразу, не дожидаясь отметки: иначе кнопки «дроп»
                       не видно именно тогда, когда она нужна. */}
-                  {(s.completed || s.toFailure || (s.drops?.length ?? 0) > 0
-                    || ((ex.planDropSet || ex.planToFailure) && i === sets.length - 1)) && (
-                    <div className="tx-tech">
-                      <button
-                        type="button"
-                        className={['tx-techbtn', s.toFailure ? 'is-on' : ''].filter(Boolean).join(' ')}
-                        onClick={() => updateSet(i, { toFailure: !s.toFailure })}
-                        title="Подход до отказа"
-                      >
-                        <Flame size={11} /> до отказа
-                      </button>
-                      <button
-                        type="button"
-                        className={['tx-techbtn', (s.drops?.length ?? 0) > 0 ? 'is-on' : ''].filter(Boolean).join(' ')}
-                        onClick={() => addDrop(i)}
-                        title="Добавить сброс веса в этот подход"
-                      >
-                        <ChevronsDown size={11} /> дроп
-                      </button>
-                      {(s.drops ?? []).map((d, di) => (
-                        <span key={di} className="tx-drop">
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            value={d.weight || ''}
-                            placeholder="вес"
-                            onChange={(ev) => updateDrop(i, di, { weight: parseInt(ev.target.value, 10) || 0 })}
-                          />
-                          <b>×</b>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            value={d.reps || ''}
-                            placeholder="повт"
-                            onChange={(ev) => updateDrop(i, di, { reps: parseInt(ev.target.value, 10) || 0 })}
-                          />
-                          <button type="button" onClick={() => removeDrop(i, di)} aria-label={`убрать сброс ${di + 1}`}>×</button>
-                        </span>
-                      ))}
-                    </div>
+                  {(s.completed || s.toFailure || (s.drops?.length ?? 0) > 0 || s.negativeSec
+                    || ((ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1)) && (
+                    <SetTechPanel
+                      set={s}
+                      planned={i === sets.length - 1
+                        ? (ex.planDropSet ? 'drop' : ex.planTech)
+                        : undefined}
+                      onToggleFailure={() => updateSet(i, { toFailure: !s.toFailure })}
+                      onToggleNegative={() => updateSet(i, { negativeSec: s.negativeSec ? undefined : 3 })}
+                      onSetNegative={(sec) => updateSet(i, { negativeSec: sec })}
+                      onAddStep={(tech) => addDrop(i, tech)}
+                      onUpdateStep={(di, patch) => updateDrop(i, di, patch)}
+                      onRemoveStep={(di) => removeDrop(i, di)}
+                    />
                   )}
                   {warn && (
                     <div className="tx-warn" role="status">
@@ -2358,18 +2570,42 @@ function findLibImage(lib: Record<string, string>, rawName: string): string | un
  */
 const PLAN_DROP_RE = /дроп[\s-]?сет|дропс|сброс(?:ь|ить)?\s*\d+\s*%/i;
 const PLAN_FAIL_RE = /до\s+отказа/i;
+const PLAN_RP_RE = /rest[\s-]?pause|рест[\s-]?пауз/i;
+const PLAN_CLUSTER_RE = /кластер|миниподход/i;
+// «Пирамида» — только когда сказано про веса между подходами.
+// Класс [а-яё], а не \w: \w в JS не включает кириллицу, и «обратная
+// пирамида» с ним не находилась (поймал юнит-тест).
+const PLAN_PYR_UP_RE = /пирамид/i;
+const PLAN_PYR_DOWN_RE = /обратн[а-яё]*\s+пирамид|пирамид[а-яё]*\s+вниз/i;
 
 function withPlannedTechniques(workouts: Workout[]): Workout[] {
   return workouts.map(w => ({
     ...w,
     exercises: (w.exercises || []).map(e => {
-      if (e.planDropSet !== undefined || e.planToFailure !== undefined) return e;
+      if (e.planDropSet !== undefined || e.planToFailure !== undefined
+        || e.planTech !== undefined || e.planPyramid !== undefined) return e;
       const text = [e.plannedSets, e.notes].filter(Boolean).join(' ');
       if (!text) return e;
       const drop = PLAN_DROP_RE.test(text);
       const fail = PLAN_FAIL_RE.test(text);
-      if (!drop && !fail) return e;
-      return { ...e, ...(drop ? { planDropSet: true } : {}), ...(fail ? { planToFailure: true } : {}) };
+      // Дропсет важнее: если в тексте и сброс веса, и пауза — это дропсет
+      // со сбросами, а не rest-pause (там вес не меняется).
+      const tech: SetTechnique | undefined = drop
+        ? undefined
+        : PLAN_RP_RE.test(text) ? 'restPause'
+        : PLAN_CLUSTER_RE.test(text) ? 'cluster'
+        : undefined;
+      const pyr: 'up' | 'down' | undefined = PLAN_PYR_DOWN_RE.test(text) ? 'down'
+        : PLAN_PYR_UP_RE.test(text) ? 'up'
+        : undefined;
+      if (!drop && !fail && !tech && !pyr) return e;
+      return {
+        ...e,
+        ...(drop ? { planDropSet: true } : {}),
+        ...(fail ? { planToFailure: true } : {}),
+        ...(tech ? { planTech: tech } : {}),
+        ...(pyr ? { planPyramid: pyr } : {}),
+      };
     }),
   }));
 }
@@ -6040,13 +6276,27 @@ export default function FitnessPage() {
                   const supersetPos = ex.supersetId
                     ? (displayExercises[idx + 1]?.supersetId === ex.supersetId ? 'inner' as const : 'last' as const)
                     : undefined;
+                  // Связку рисуем ОДНИМ блоком: открывает его первое
+                  // упражнение метки, закрывает последнее. Иначе две
+                  // отдельные карточки не читаются как одна единица
+                  // работы — а это именно она, с общим отдыхом.
+                  const supIsFirst = !!ex.supersetId && displayExercises[idx - 1]?.supersetId !== ex.supersetId;
+                  const supIsLast = !!ex.supersetId && displayExercises[idx + 1]?.supersetId !== ex.supersetId;
+                  // Круги: сколько подходов уже отмечено в самом коротком
+                  // из упражнений связки — столько кругов и пройдено.
+                  const supRounds = ex.supersetId ? (() => {
+                    const inGroup = displayExercises.filter(e => e.supersetId === ex.supersetId);
+                    const plan = Math.max(...inGroup.map(e => (e.sets ?? makeInitialSets(e.plannedSets)).length));
+                    const done = Math.min(...inGroup.map(e => (e.sets ?? []).filter(s => s.completed).length));
+                    return { done, plan };
+                  })() : null;
                   // Вся связка целиком: нужна карточке, чтобы объяснить,
                   // с чем чередовать и когда отдыхать. Без этого плашка
                   // «Суперсет A» ничего не говорит о том, как тренить.
                   const supersetGroup = ex.supersetId
                     ? displayExercises.filter(e => e.supersetId === ex.supersetId).map(e => e.name)
                     : undefined;
-                  return (
+                  const card = (
                     <ExerciseCard
                       key={ex.id}
                       ex={ex}
@@ -6068,7 +6318,36 @@ export default function FitnessPage() {
                       lastLabel={t('lastTimeCol') as string}
                     />
                   );
+                  return { ex, card, supIsFirst, supIsLast, supRounds };
                 })
+                // Собираем связки в один блок: подряд идущие упражнения с
+                // одной меткой заворачиваются в общую рамку с счётчиком
+                // кругов, остальные остаются как были.
+                .reduce<React.ReactNode[]>((out, row, i, all) => {
+                  if (!row.ex.supersetId) { out.push(row.card); return out; }
+                  if (!row.supIsFirst) return out; // уже внутри блока
+                  const group: typeof all = [row];
+                  for (let j = i + 1; j < all.length; j++) {
+                    if (all[j].ex.supersetId !== row.ex.supersetId) break;
+                    group.push(all[j]);
+                  }
+                  out.push(
+                    <div className="tx-supwrap" key={'sup-' + row.ex.supersetId + '-' + row.ex.id}>
+                      <div className="tx-suphead">
+                        <span className="tx-suptitle">
+                          <Link2 size={11} /> Суперсет {row.ex.supersetId}
+                        </span>
+                        {row.supRounds && row.supRounds.plan > 0 && (
+                          <span className="tx-suprounds">
+                            круг {Math.min(row.supRounds.done + 1, row.supRounds.plan)} из {row.supRounds.plan}
+                          </span>
+                        )}
+                      </div>
+                      {group.map(g => g.card)}
+                    </div>
+                  );
+                  return out;
+                }, [])
               ) : (
                 <div style={{
                   background: 'var(--bg-card)',
