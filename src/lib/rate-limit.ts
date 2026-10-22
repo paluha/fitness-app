@@ -42,6 +42,48 @@ export const AI_LIMITS: Record<string, RouteLimit> = {
   'muscle-groups': { perMinute: 10, perDay: 50 },
 };
 
+/**
+ * Попытки входа по email. Отдельно от AI_LIMITS: ключ здесь — не id
+ * пользователя (его ещё нет), а сам email.
+ *
+ * Проверено на проде: 12 неверных паролей подряд проходили без задержки
+ * и без блокировки, то есть пароль можно было подбирать сколько угодно.
+ *
+ * 10 попыток в минуту и 50 в час: человек, забывший пароль, уложится,
+ * а перебор по словарю станет бессмысленно медленным.
+ */
+const LOGIN_PER_MIN = 10;
+const LOGIN_PER_HOUR = 50;
+
+export async function loginAllowed(email: string): Promise<boolean> {
+  const key = email.trim().toLowerCase().slice(0, 200);
+  if (!key) return true;
+  const now = new Date();
+  try {
+    for (const [kind, cap, ms] of [['min', LOGIN_PER_MIN, 60_000], ['hour', LOGIN_PER_HOUR, 3_600_000]] as const) {
+      const start = new Date(Math.floor(now.getTime() / ms) * ms);
+      const row = await prisma.loginAttempt.upsert({
+        where: { email_windowKind_windowStart: { email: key, windowKind: kind, windowStart: start } },
+        update: { count: { increment: 1 } },
+        create: { email: key, windowKind: kind, windowStart: start, count: 1 },
+        select: { count: true },
+      });
+      if (row.count > cap) return false;
+    }
+    // Чистим старые окна попутно, раз в ~50 входов.
+    if (Math.random() < 0.02) {
+      prisma.loginAttempt
+        .deleteMany({ where: { windowStart: { lt: new Date(now.getTime() - 86_400_000) } } })
+        .catch(() => { /* не критично */ });
+    }
+  } catch (e) {
+    // Как и в rateLimit: при сбое счётчика вход не ломаем.
+    console.error('loginAllowed failed open:', e);
+    return true;
+  }
+  return true;
+}
+
 export type RateVerdict =
   | { ok: true }
   | { ok: false; retryAfterSec: number; scope: 'min' | 'day'; limit: number };

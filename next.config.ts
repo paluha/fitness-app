@@ -12,6 +12,26 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // Базовые защитные заголовки. HSTS добавляет Vercel, остальных не было.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Не открывать приложение во фрейме: защита от кликджекинга,
+          // когда чужая страница накрывает наши кнопки прозрачным слоем.
+          { key: 'X-Frame-Options', value: 'DENY' },
+          // Не угадывать тип файла по содержимому: загруженная картинка
+          // с кодом внутри не должна исполниться как скрипт.
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Не отдавать полный путь страницы на сторонние сайты.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Доступ к камере оставляем: с неё фотографируют еду и упражнения.
+          { key: 'Permissions-Policy', value: 'geolocation=(), microphone=(), payment=()' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

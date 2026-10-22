@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -23,11 +24,14 @@ export async function GET(request: Request) {
 
     const data = await prisma.fitnessData.findUnique({
       where: { userId: session.user.id },
-      select: { programArchive: true, updatedAt: true },
+      select: { programArchive: true },
     });
 
     const archive = (data?.programArchive as unknown[] | null) || [];
-    const etag = `W/"arch-${data?.updatedAt ? data.updatedAt.getTime() : 0}-${archive.length}"`;
+    // ETag по содержимому, а не по FitnessData.updatedAt: то сдвигается
+    // при каждом автосейве и обнуляло бы кэш после любой тренировки.
+    const hash = crypto.createHash('sha1').update(JSON.stringify(archive)).digest('hex').slice(0, 16);
+    const etag = `W/"arch-${archive.length}-${hash}"`;
 
     if (request.headers.get('if-none-match') === etag) {
       return new NextResponse(null, {

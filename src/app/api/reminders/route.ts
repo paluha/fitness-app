@@ -49,10 +49,23 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 // GET — called by cron every minute
 export async function GET(request: Request) {
-  // Verify cron secret to prevent abuse
+  // Verify cron secret to prevent abuse.
+  //
+  // Fail-closed: раньше при незаданном CRON_SECRET проверка пропускалась
+  // и роут был открыт всему интернету — его можно было звать в цикле и
+  // спамить владельцу напоминания в Telegram.
+  //
+  // Vercel Cron сам шлёт `Authorization: Bearer $CRON_SECRET`, когда
+  // переменная задана; собственные запросы платформы помечены
+  // заголовком x-vercel-cron, его и принимаем как второй допустимый вход.
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  const fromVercelCron = request.headers.get('x-vercel-cron') !== null;
+  const secretOk = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+  if (!secretOk && !fromVercelCron) {
+    if (!cronSecret) {
+      console.error('[reminders] CRON_SECRET не задан — внешний запрос отклонён');
+    }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

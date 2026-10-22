@@ -74,6 +74,11 @@ model User {
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // Postgres не индексирует внешние ключи сам: без этих индексов
+  // список клиентов тренера и отвязка программы шли полным сканом User.
+  @@index([trainerId, role])
+  @@index([programId])
 }
 
 // История AI-чата пользователя со своим фитнес-ассистентом.
@@ -365,5 +370,22 @@ model AiUsage {
 
   @@unique([userId, route, windowKind, windowStart])
   @@index([userId, route])
+  @@index([windowStart])
+}
+
+/// Попытки входа по email — защита от подбора пароля.
+///
+/// Отдельно от AiUsage: там userId связан с User внешним ключом, а здесь
+/// считать нужно ДО того, как пользователь опознан (и даже когда такого
+/// аккаунта нет вовсе — иначе перебор по несуществующим адресам не
+/// ограничен и выдаёт, какие адреса существуют).
+model LoginAttempt {
+  id          String   @id @default(cuid())
+  email       String   // в нижнем регистре
+  windowStart DateTime
+  windowKind  String   // 'min' | 'hour'
+  count       Int      @default(0)
+
+  @@unique([email, windowKind, windowStart])
   @@index([windowStart])
 }

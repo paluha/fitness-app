@@ -187,10 +187,16 @@ export async function POST(request: Request) {
     }
     // plannerEvents: trust client — deletions must persist, empty array = user cleared all
 
-    // Fetch existing data once for merge operations
+    // Fetch existing data once for merge operations.
+    //
+    // exerciseLibrary читаем ТОЛЬКО если клиент его прислал. Обычный
+    // автосейв его не присылает (библиотека ходит своим роутом), а
+    // безусловный select тянул из базы мегабайт base64 на каждую
+    // отметку подхода в зале.
+    const needLib = body.exerciseLibrary !== undefined;
     const existing = await prisma.fitnessData.findUnique({
       where: { userId },
-      select: { dayLogs: true, progressHistory: true, plannerEvents: true, exerciseLibrary: true }
+      select: { dayLogs: true, progressHistory: true, plannerEvents: true, exerciseLibrary: needLib }
     });
 
     // Merge dayLogs: client keys take priority, existing keys preserved
@@ -243,6 +249,13 @@ export async function POST(request: Request) {
 
     const fitnessData = await prisma.fitnessData.upsert({
       where: { userId },
+      // Без select upsert возвращает всю строку, включая мегабайт
+      // exerciseLibrary. Нужны только поля для снапшота и updatedAt.
+      select: {
+        workouts: true, dayLogs: true, progressHistory: true,
+        bodyMeasurements: true, favoriteMeals: true, plannerEvents: true,
+        habits: true, updatedAt: true,
+      },
       update: updateData,
       create: {
         userId,
@@ -261,8 +274,8 @@ export async function POST(request: Request) {
       }
     });
 
-    // Rolling backup of the full post-write state. Non-blocking: even if the
-    // snapshot fails we still return success because the main save is done.
+    // Rolling backup of the post-write state. Сам снапшот не чаще раза в
+    // 15 минут и без exerciseLibrary — см. комментарии в fitness-snapshots.
     await createSnapshotForUser(userId, {
       workouts: fitnessData.workouts,
       dayLogs: fitnessData.dayLogs,
@@ -270,7 +283,6 @@ export async function POST(request: Request) {
       bodyMeasurements: fitnessData.bodyMeasurements,
       favoriteMeals: fitnessData.favoriteMeals,
       plannerEvents: fitnessData.plannerEvents,
-      exerciseLibrary: fitnessData.exerciseLibrary,
       habits: fitnessData.habits,
     });
 

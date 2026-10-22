@@ -204,7 +204,13 @@ export async function POST(request: Request) {
 
     chatId = message.chat.id;
 
-    if (ALLOWED_CHAT_ID && String(chatId) !== ALLOWED_CHAT_ID) {
+    // Fail-closed: без заданного ALLOWED_CHAT_ID раньше проверка
+    // пропускалась целиком, и любой запрос правил планер владельца.
+    if (!ALLOWED_CHAT_ID) {
+      console.error('[telegram] TELEGRAM_PLANNER_CHAT_ID не задан — запрос отклонён');
+      return NextResponse.json({ ok: true });
+    }
+    if (String(chatId) !== ALLOWED_CHAT_ID) {
       await sendTelegram(chatId, '⛔ Доступ запрещён.');
       return NextResponse.json({ ok: true });
     }
@@ -347,10 +353,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Telegram webhook error:', error);
-    if (chatId && chatId !== 0) {
+    // Текст ошибки наружу не отдаём: сообщения Prisma содержат имена
+    // таблиц и колонок, иногда адрес базы. Подробности — только в логах.
+    if (chatId && chatId !== 0 && String(chatId) === ALLOWED_CHAT_ID) {
       try {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        await sendTelegram(chatId, `⚠️ Ошибка: ${errMsg.substring(0, 300)}`);
+        await sendTelegram(chatId, '⚠️ Не получилось обработать — попробуй ещё раз.');
       } catch { /* ignore */ }
     }
     return NextResponse.json({ ok: true });

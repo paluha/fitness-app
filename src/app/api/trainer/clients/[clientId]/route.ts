@@ -117,15 +117,23 @@ export async function PUT(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // If client has a program, update the program's recommendations
+    // If client has a program, update the program's recommendations.
+    //
+    // trainerId в условии обязателен: клиент проверен выше, но сама
+    // программа могла быть создана другим тренером. Без этой проверки
+    // один тренер правил бы программу другого — и правка разъехалась бы
+    // по всем клиентам, которым та программа назначена.
     if (client.programId) {
-      await prisma.trainingProgram.update({
-        where: { id: client.programId },
+      const updated = await prisma.trainingProgram.updateMany({
+        where: { id: client.programId, trainerId: session.user.id },
         data: {
           nutritionRecommendations: nutritionRecommendations,
           updatedAt: new Date()
         }
       });
+      if (updated.count === 0) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     } else {
       // Create a new program for this client with recommendations
       const program = await prisma.trainingProgram.create({

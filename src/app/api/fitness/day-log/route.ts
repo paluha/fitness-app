@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/fitness/day-log?since=<iso>   — diff sync: rows changed after a timestamp
 // GET /api/fitness/day-log?date=YYYY-MM-DD  — all kinds for that day
@@ -23,11 +24,23 @@ export async function GET(request: Request) {
       if (!isNaN(since.getTime())) where.serverUpdatedAt = { gt: since };
     }
 
+    // Потолок на выборку — как в workout-log: payload у kind:'meals'
+    // весит килобайты, и без take первая загрузка тянула всю историю.
+    const PAGE = 1000;
     const rows = await prisma.dayLogEntry.findMany({
       where,
       orderBy: { serverUpdatedAt: 'asc' },
+      take: PAGE + 1,
     });
-    return NextResponse.json({ rows, serverTime: new Date().toISOString() });
+    const hasMore = rows.length > PAGE;
+    if (hasMore) rows.length = PAGE;
+    return NextResponse.json({
+      rows,
+      hasMore,
+      serverTime: hasMore && rows.length > 0
+        ? rows[rows.length - 1].serverUpdatedAt.toISOString()
+        : new Date().toISOString(),
+    });
   } catch (error) {
     console.error('[day-log GET]', error);
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
@@ -53,19 +66,32 @@ export async function PATCH(request: Request) {
     let skipped = 0;
     const applyTs = new Date();
 
+    // Одна выборка на пачку вместо findUnique в цикле — см. тот же
+    // разбор в workout-log: клиент шлёт до 200 операций за флаш, и
+    // последовательные round-trip'ы держали соединение из пула секундами.
+    const keys = items
+      .map(it => ({ date: String(it.date || ''), kind: String(it.kind || '') }))
+      .filter(k => k.date && k.kind);
+    const existingRows = keys.length > 0
+      ? await prisma.dayLogEntry.findMany({
+          where: { userId, OR: keys.map(k => ({ date: k.date, kind: k.kind })) },
+          select: { date: true, kind: true, clientUpdatedAt: true },
+        })
+      : [];
+    const existingMap = new Map(existingRows.map(r => [`${r.date}\u0000${r.kind}`, r]));
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+
     for (const it of items) {
       const date = String(it.date || '');
       const kind = String(it.kind || '');
       if (!date || !kind) { skipped++; continue; }
       const incomingAt = it.clientUpdatedAt ? new Date(it.clientUpdatedAt as string) : applyTs;
 
-      const existing = await prisma.dayLogEntry.findUnique({
-        where: { userId_date_kind: { userId, date, kind } },
-        select: { clientUpdatedAt: true },
-      });
+      const existing = existingMap.get(`${date}\u0000${kind}`);
       if (existing && existing.clientUpdatedAt >= incomingAt) { skipped++; continue; }
 
-      await prisma.dayLogEntry.upsert({
+      ops.push(prisma.dayLogEntry.upsert({
         where: { userId_date_kind: { userId, date, kind } },
         create: {
           userId,
@@ -81,8 +107,12 @@ export async function PATCH(request: Request) {
           clientUpdatedAt: incomingAt,
           deletedAt: null,
         },
-      });
+      }));
       applied++;
+    }
+
+    if (ops.length > 0) {
+      await prisma.$transaction(ops);
     }
 
     return NextResponse.json({ applied, skipped, serverTime: new Date().toISOString() });

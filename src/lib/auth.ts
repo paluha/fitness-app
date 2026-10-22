@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from './prisma';
 import bcrypt from 'bcryptjs';
+import { loginAllowed } from './rate-limit';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,10 +13,17 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        console.log('Auth attempt for:', credentials?.email);
-
+        // Email и результат проверки пароля в логи не пишем: логи Vercel
+        // видны всем, у кого доступ к проекту, а пара «пользователь
+        // найден» + «пароль верен» давала готовый список адресов и
+        // способ отличить «нет такого аккаунта» от «неверный пароль».
         if (!credentials?.email || !credentials?.password) {
-          console.log('Missing credentials');
+          return null;
+        }
+
+        // Ограничение попыток по email: без него пароль подбирался
+        // сколько угодно (проверено на проде — 12 попыток подряд прошли).
+        if (!(await loginAllowed(credentials.email))) {
           return null;
         }
 
@@ -23,15 +31,11 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email }
         });
 
-        console.log('User found:', !!user, user?.email);
-
         if (!user || !user.password) {
-          console.log('No user or password');
           return null;
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
-        console.log('Password valid:', isValid);
 
         if (!isValid) {
           return null;

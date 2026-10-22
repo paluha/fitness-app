@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -11,9 +12,19 @@ import { prisma } from '@/lib/prisma';
 // месяц. Здесь отдаём их отдельным запросом, который клиент кэширует по
 // ETag: второй и последующие заходы получают 304 без тела.
 
-/** Версия библиотеки — по времени последней записи и числу картинок. */
-function libEtag(updatedAt: Date | null | undefined, count: number): string {
-  return `W/"lib-${updatedAt ? updatedAt.getTime() : 0}-${count}"`;
+/**
+ * Версия библиотеки — по её содержимому, а не по FitnessData.updatedAt.
+ *
+ * updatedAt сдвигается при любом автосейве (отметил подход — время
+ * изменилось), поэтому ETag на нём протухал после каждой тренировки и
+ * мегабайт картинок уезжал заново, хотя сами картинки не менялись.
+ * Хэш от списка ключей и размеров меняется только когда меняются картинки.
+ */
+function libEtag(lib: Record<string, string>): string {
+  const keys = Object.keys(lib).sort();
+  const fingerprint = keys.map(k => `${k}:${lib[k]?.length ?? 0}`).join('|');
+  const hash = crypto.createHash('sha1').update(fingerprint).digest('hex').slice(0, 16);
+  return `W/"lib-${keys.length}-${hash}"`;
 }
 
 export async function GET(request: Request) {
@@ -25,11 +36,11 @@ export async function GET(request: Request) {
 
     const data = await prisma.fitnessData.findUnique({
       where: { userId: session.user.id },
-      select: { exerciseLibrary: true, updatedAt: true },
+      select: { exerciseLibrary: true },
     });
 
     const lib = (data?.exerciseLibrary as Record<string, string> | null) || {};
-    const etag = libEtag(data?.updatedAt, Object.keys(lib).length);
+    const etag = libEtag(lib);
 
     // Клиент прислал тот же ETag — тело не нужно, экономим мегабайты трафика.
     if (request.headers.get('if-none-match') === etag) {

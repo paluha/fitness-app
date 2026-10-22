@@ -38,12 +38,40 @@ type LegacyDayLog = {
   [k: string]: unknown;
 };
 
+/**
+ * За сколько дней назад сливаем журнал.
+ *
+ * Строки WorkoutLogEntry/DayLogEntry копятся вечно (~1700 и ~2200 в год
+ * на человека), а функция вызывается на каждой загрузке приложения,
+ * каждом опросе сервера и каждом сообщении в чат. Без окна это означало
+ * чтение всей истории и сериализацию «всех дней за всё время» в ответ.
+ *
+ * 400 дней хватает: год назад плюс запас, чтобы графики «год к году» и
+ * сравнение сезонов не теряли данные.
+ */
+const MERGE_WINDOW_DAYS = 400;
+
 export async function getMergedDayLogs(prisma: any, userId: string): Promise<Record<string, LegacyDayLog>> {
+  const cutoff = new Date(Date.now() - MERGE_WINDOW_DAYS * 86_400_000)
+    .toISOString().slice(0, 10);
+
   const [fd, workoutRows, dayRows] = await Promise.all([
-    prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true, workouts: true, programArchive: true } }),
-    prisma.workoutLogEntry.findMany({ where: { userId, deletedAt: null } }),
-    prisma.dayLogEntry.findMany({ where: { userId, deletedAt: null } }),
+    // programArchive целиком тут не нужен — из него берётся только самая
+    // поздняя archivedAt. Полный архив у активного пользователя под
+    // мегабайт, и он ехал в функцию на каждое сообщение в чат.
+    prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true, workouts: true } }),
+    prisma.workoutLogEntry.findMany({ where: { userId, deletedAt: null, date: { gte: cutoff } } }),
+    prisma.dayLogEntry.findMany({ where: { userId, deletedAt: null, date: { gte: cutoff } } }),
   ]);
+
+  // Дата смены текущей программы — одним запросом по архиву, без
+  // вытаскивания самих программ.
+  const archiveRows: Array<{ at: string | null }> = await prisma.$queryRaw`
+    SELECT max(a->>'archivedAt') AS at
+    FROM "FitnessData" f,
+         jsonb_array_elements(COALESCE(f."programArchive", '[]')::jsonb) AS a
+    WHERE f."userId" = ${userId}
+  `.catch(() => []);
 
   // Workout templates keyed by id — used to reconstruct exercise metadata
   // (name, plannedSets, restTime…) when a day has WorkoutLogEntry rows but no
@@ -58,12 +86,10 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
   // переиспользуются между программами, поэтому подставлять сегодняшние
   // названия в день, тренированный по прошлой программе, нельзя: вес жима
   // становился «весом отведений гантелей» в истории «прошлый раз».
-  const archive = (fd?.programArchive ?? []) as Array<{ archivedAt?: string }>;
-  let currentProgramSince = '';
-  for (const a of archive) {
-    const at = typeof a?.archivedAt === 'string' ? a.archivedAt.slice(0, 10) : '';
-    if (at > currentProgramSince) currentProgramSince = at;
-  }
+  const latestArchivedAt = archiveRows[0]?.at;
+  const currentProgramSince = typeof latestArchivedAt === 'string'
+    ? latestArchivedAt.slice(0, 10)
+    : '';
 
   const base: Record<string, LegacyDayLog> = {};
   const legacy = (fd?.dayLogs ?? {}) as Record<string, LegacyDayLog>;

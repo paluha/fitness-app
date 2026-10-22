@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/fitness/workout-log?since=<iso>  — pull rows changed after a timestamp (diff sync).
 // GET /api/fitness/workout-log?date=YYYY-MM-DD  — pull all rows for a specific day.
@@ -23,13 +24,27 @@ export async function GET(request: Request) {
       if (!isNaN(since.getTime())) where.serverUpdatedAt = { gt: since };
     }
 
+    // Потолок на выборку: без него первая загрузка (клиент идёт без
+    // since) тянула всю историю пользователя одним ответом — а она растёт
+    // примерно на 1700 строк в год. Порядок по serverUpdatedAt возрастающий,
+    // поэтому клиент добирает остаток, повторив запрос с последним
+    // serverTime из hasMore-ответа.
+    const PAGE = 1000;
     const rows = await prisma.workoutLogEntry.findMany({
       where,
       orderBy: { serverUpdatedAt: 'asc' },
+      take: PAGE + 1,
     });
+    const hasMore = rows.length > PAGE;
+    if (hasMore) rows.length = PAGE;
     return NextResponse.json({
       rows,
-      serverTime: new Date().toISOString(), // client stores this as new lastSyncTs
+      hasMore,
+      // При незавершённой выборке отдаём время последней строки, иначе
+      // клиент запомнил бы «сейчас» и потерял непрочитанный хвост.
+      serverTime: hasMore && rows.length > 0
+        ? rows[rows.length - 1].serverUpdatedAt.toISOString()
+        : new Date().toISOString(), // client stores this as new lastSyncTs
     });
   } catch (error) {
     console.error('[workout-log GET]', error);
@@ -58,16 +73,34 @@ export async function PATCH(request: Request) {
     let skipped = 0;
     const applyTs = new Date();
 
+    // Один запрос на всю пачку вместо findUnique в цикле.
+    //
+    // Клиент шлёт до 200 операций за раз (src/lib/sync.ts), и раньше на
+    // каждую уходило по два обращения к базе: 60 отметок = 120
+    // последовательных round-trip'ов. При удалённой базе это секунды на
+    // один PATCH, и всё это время запрос держит соединение из пула в 5 —
+    // при 50 пользователях пул кончался бы раньше, чем база нагружалась.
+    const keys = items
+      .map(it => ({ date: String(it.date || ''), exerciseId: String(it.exerciseId || '') }))
+      .filter(k => k.date && k.exerciseId);
+    const existingRows = keys.length > 0
+      ? await prisma.workoutLogEntry.findMany({
+          where: { userId, OR: keys.map(k => ({ date: k.date, exerciseId: k.exerciseId })) },
+          select: { date: true, exerciseId: true, clientUpdatedAt: true, actualSets: true },
+        })
+      : [];
+    const existingMap = new Map(existingRows.map(r => [`${r.date}\u0000${r.exerciseId}`, r]));
+
+    // Копим операции и применяем одной транзакцией.
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+
     for (const it of items) {
       const date = String(it.date || '');
       const exerciseId = String(it.exerciseId || '');
       if (!date || !exerciseId) { skipped++; continue; }
       const incomingAt = it.clientUpdatedAt ? new Date(it.clientUpdatedAt as string) : applyTs;
 
-      const existing = await prisma.workoutLogEntry.findUnique({
-        where: { userId_date_exerciseId: { userId, date, exerciseId } },
-        select: { clientUpdatedAt: true, actualSets: true },
-      });
+      const existing = existingMap.get(`${date}\u0000${exerciseId}`);
       if (existing && existing.clientUpdatedAt >= incomingAt) { skipped++; continue; }
 
       // Защита от затирания нулями: клиент со «свежей» пустой копией дня
@@ -83,7 +116,7 @@ export async function PATCH(request: Request) {
         actualSetsIn = undefined;
       }
 
-      await prisma.workoutLogEntry.upsert({
+      ops.push(prisma.workoutLogEntry.upsert({
         where: { userId_date_exerciseId: { userId, date, exerciseId } },
         create: {
           userId,
@@ -105,8 +138,12 @@ export async function PATCH(request: Request) {
           clientUpdatedAt: incomingAt,
           deletedAt: null, // PATCH un-deletes if needed
         },
-      });
+      }));
       applied++;
+    }
+
+    if (ops.length > 0) {
+      await prisma.$transaction(ops);
     }
 
     return NextResponse.json({ applied, skipped, serverTime: new Date().toISOString() });

@@ -30,13 +30,23 @@ export const ouraRedirectUri = () => {
  * Просто id пользователя сюда класть нельзя — его видно в адресной
  * строке и можно подставить чужой, привязав кольцо не к тому аккаунту.
  */
+/**
+ * Ключ для подписи state.
+ *
+ * Раньше при отсутствии NEXTAUTH_SECRET подставлялась строка 'dev' —
+ * это публично известный ключ, с которым кто угодно подделал бы state
+ * с чужим userId и привязал своё кольцо к другому аккаунту. Лучше
+ * сломаться громко, чем молча подписывать известным всем ключом.
+ */
+function stateKey(): string {
+  const s = process.env.NEXTAUTH_SECRET;
+  if (!s) throw new Error('NEXTAUTH_SECRET не задан — подпись state невозможна');
+  return s;
+}
+
 export function ouraState(userId: string): string {
   const payload = `${userId}.${Date.now()}`;
-  const sig = crypto
-    .createHmac('sha256', process.env.NEXTAUTH_SECRET || 'dev')
-    .update(payload)
-    .digest('hex')
-    .slice(0, 32);
+  const sig = crypto.createHmac('sha256', stateKey()).update(payload).digest('hex');
   return `${payload}.${sig}`;
 }
 
@@ -45,13 +55,20 @@ export function ouraStateUser(state: string): string | null {
   const parts = (state || '').split('.');
   if (parts.length !== 3) return null;
   const [userId, ts, sig] = parts;
-  const expected = crypto
-    .createHmac('sha256', process.env.NEXTAUTH_SECRET || 'dev')
-    .update(`${userId}.${ts}`)
-    .digest('hex')
-    .slice(0, 32);
-  if (sig !== expected) return null;
-  if (Date.now() - Number(ts) > 600_000) return null;
+  let expected: string;
+  try {
+    expected = crypto.createHmac('sha256', stateKey()).update(`${userId}.${ts}`).digest('hex');
+  } catch {
+    return null;
+  }
+  // Сравниваем за постоянное время: обычный !== выходит на первом
+  // несовпавшем символе и выдаёт длину верного префикса по времени ответа.
+  const a = Buffer.from(sig, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const started = Number(ts);
+  if (!Number.isFinite(started)) return null;
+  if (Date.now() - started > 600_000) return null;
   return userId;
 }
 
