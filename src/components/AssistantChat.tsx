@@ -180,7 +180,78 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
     });
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+  /**
+   * Прокрутка вслед за ответом.
+   *
+   * Раньше на каждое изменение messages запускалась ПЛАВНАЯ прокрутка, а
+   * при стриминге текст дописывается десятки раз в секунду — анимации
+   * накладывались друг на друга, и экран трясло.
+   *
+   * Теперь: пока ответ идёт — короткие мгновенные подтягивания не чаще
+   * чем раз в 150мс; когда дописал — одна плавная. И если пользователь
+   * отмотал вверх читать, не тянем его обратно.
+   */
+  /**
+   * Ровная подача текста.
+   *
+   * Куски из сети приходят неравномерно — то пусто, то абзац целиком, —
+   * и текст появлялся рывками. targetRef хранит, сколько уже пришло, а
+   * таймер догоняет это с постоянной скоростью: глазу спокойнее.
+   *
+   * null означает «поток кончился» — показываем остаток сразу.
+   */
+  const targetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!busy) return;
+    const id = window.setInterval(() => {
+      const target = targetRef.current;
+      if (target === null) return;
+      setMessages((m) => {
+        const copy = [...m];
+        const last = copy[copy.length - 1];
+        if (!last || last.role !== 'assistant') return m;
+        if (last.content.length >= target.length) return m;
+        // Шаг зависит от отставания: догоняем длинный хвост быстрее,
+        // чем ползём по символу, но без скачков.
+        const behind = target.length - last.content.length;
+        const step = Math.max(2, Math.ceil(behind / 8));
+        copy[copy.length - 1] = { ...last, content: target.slice(0, last.content.length + step) };
+        return copy;
+      });
+    }, 40);
+    return () => window.clearInterval(id);
+  }, [busy]);
+
+  // Поток закончился — показываем всё, что осталось недорисованным.
+  useEffect(() => {
+    if (busy || targetRef.current === null) return;
+    const target = targetRef.current;
+    targetRef.current = null;
+    setMessages((m) => {
+      const copy = [...m];
+      const last = copy[copy.length - 1];
+      if (last && last.role === 'assistant' && last.content !== target) {
+        copy[copy.length - 1] = { ...last, content: target };
+        return copy;
+      }
+      return m;
+    });
+  }, [busy]);
+
+  const lastScrollRef = useRef(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Далеко отмотал — значит читает старое, не мешаем.
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
+    if (!nearBottom) return;
+
+    if (!busy) { scrollToBottom(true); return; }
+    const now = Date.now();
+    if (now - lastScrollRef.current < 150) return;
+    lastScrollRef.current = now;
+    el.scrollTop = el.scrollHeight;   // без анимации: нечего догонять
+  }, [messages, busy, scrollToBottom]);
 
   /**
    * При открытии чата показываем конец переписки.
@@ -406,6 +477,9 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
     setAttachError(null);
     setBusy(true);
     setStage(imgs.length ? 'Читаю вложения' : 'Думаю');
+    // Сбрасываем цель от прошлого ответа: иначе подача допишет его хвост
+    // в новое, ещё пустое сообщение.
+    targetRef.current = '';
     const note = imgs.length === 0 ? '' : imgs.length === 1 ? '\n📎 [вложение]' : `\n📎 [вложений: ${imgs.length}]`;
     setMessages((m) => [
       ...m,
@@ -473,12 +547,12 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
         // программы, серверная подпись перебивает её и остаётся.
         if (stageText) setStage(stageText);
         else if (visible) setStage('Печатает');
-        setMessages((m) => {
-          const copy = [...m];
-          copy[copy.length - 1] = { ...copy[copy.length - 1], content: visible };
-          return copy;
-        });
+        // Не рисуем каждый кусок сразу: отдаём текст ровными порциями,
+        // иначе он появляется рывками вслед за сетью.
+        targetRef.current = visible;
       }
+      // Цель не сбрасываем: эффект ниже дорисует остаток, когда busy
+      // станет false. Обнулишь здесь — потеряется хвост ответа.
       // Служебные маркеры стадий в итоговом тексте не нужны.
       acc = acc.replace(STAGE_RE, '');
 
