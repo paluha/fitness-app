@@ -1471,6 +1471,117 @@ function SetTechPanel({
   );
 }
 
+/**
+ * Суперсет кругами: как его реально делают.
+ *
+ * A1 → сразу A2 → отдых → следующий круг. Раньше связка была только
+ * визуальной рамкой вокруг двух обычных карточек: отмечать приходилось
+ * в каждой отдельно, и порядок работы из интерфейса не читался.
+ *
+ * Здесь один круг — одна строка со всеми упражнениями связки, отдых
+ * один на круг, а не на каждое упражнение.
+ */
+function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRest }: {
+  group: Exercise[];
+  rounds: number;
+  onUpdateSet: (exId: string, setIdx: number, patch: Partial<ExerciseSet>) => void;
+  restTime: string;
+  restSignal: number;
+  onRest: () => void;
+}) {
+  const setsOf = (e: Exercise) => e.sets ?? makeInitialSets(e.plannedSets);
+  // Круг пройден, когда отмечены подходы этого круга во ВСЕХ упражнениях.
+  const roundDone = (r: number) => group.every(e => setsOf(e)[r]?.completed);
+  const currentRound = Array.from({ length: rounds }, (_, r) => r).find(r => !roundDone(r));
+
+  return (
+    <div className="tx-rounds">
+      {Array.from({ length: rounds }, (_, r) => {
+        const done = roundDone(r);
+        const isCurrent = r === currentRound;
+        return (
+          <div
+            key={r}
+            className={['tx-round', done ? 'is-done' : '', isCurrent ? 'is-current' : ''].filter(Boolean).join(' ')}
+          >
+            <div className="tx-roundhead">
+              <span>круг {r + 1}</span>
+              {done && <Check size={11} strokeWidth={3} />}
+            </div>
+            {group.map((e, gi) => {
+              const sets = setsOf(e);
+              const s = sets[r];
+              if (!s) return null;
+              return (
+                <div className="tx-roundex" key={e.id}>
+                  <span className="tx-roundname">
+                    <b>{e.supersetId}{gi + 1}</b> {e.name}
+                  </span>
+                  <span className="tx-roundinputs">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={s.reps || ''}
+                      placeholder="повт"
+                      onChange={(ev) => onUpdateSet(e.id, r, { reps: parseInt(ev.target.value, 10) || 0 })}
+                      aria-label={`повторы, ${e.name}, круг ${r + 1}`}
+                    />
+                    <b>×</b>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={s.weight || ''}
+                      placeholder="вес"
+                      onChange={(ev) => onUpdateSet(e.id, r, { weight: parseInt(ev.target.value, 10) || 0 })}
+                      aria-label={`вес, ${e.name}, круг ${r + 1}`}
+                    />
+                    <button
+                      type="button"
+                      className={['tx-check', s.completed ? 'is-on' : ''].filter(Boolean).join(' ')}
+                      onClick={() => {
+                        const next = !s.completed;
+                        onUpdateSet(e.id, r, { completed: next });
+                        // Отметили ПОСЛЕДНЕЕ упражнение круга — круг
+                        // закрыт, запускаем отдых сами: в зале руки
+                        // заняты, лишнее нажатие ни к чему.
+                        if (next && gi === group.length - 1
+                          && group.slice(0, -1).every(o => setsOf(o)[r]?.completed)) {
+                          onRest();
+                        }
+                      }}
+                      aria-label={`отметить ${e.name}, круг ${r + 1}`}
+                    >
+                      <Check size={15} strokeWidth={s.completed ? 3 : 2} />
+                    </button>
+                  </span>
+                  {/* Между упражнениями связки отдыха нет — говорим об
+                      этом там, где человек смотрит: между строками. */}
+                  {gi < group.length - 1 && (
+                    <span className="tx-roundgap">↓ без отдыха</span>
+                  )}
+                </div>
+              );
+            })}
+            {/* Отдых один на круг, а не после каждого упражнения —
+                в этом и смысл связки. Таймер показываем только у
+                текущего круга, чтобы не было трёх таймеров подряд. */}
+            {isCurrent ? (
+              <div className="tx-roundrestwrap">
+                <RestTimer restTime={restTime} startSignal={restSignal} />
+              </div>
+            ) : (
+              <div className="tx-roundfoot">
+                <Timer size={10} />
+                <span>отдых после круга {restTime}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Beautiful Exercise Card Component
 function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup }: {
   ex: Exercise;
@@ -3362,6 +3473,16 @@ export default function FitnessPage() {
   // Accordion: only one exercise expanded at a time. Clicking the same one
   // collapses it. Reset when the day or workout changes.
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
+  /**
+   * Режим показа связки: кругами (по умолчанию) или обычными карточками.
+   *
+   * Кругами — как суперсет делают: A1 → сразу A2 → отдых → следующий
+   * круг. Отдельные карточки оставлены на случай, когда нужно поправить
+   * заметку, картинку или посмотреть тренд по одному упражнению.
+   */
+  const [supersetByRounds, setSupersetByRounds] = useState<Record<string, boolean>>({});
+  /** Сигнал запуска отдыха после круга: ключ связки → счётчик нажатий. */
+  const [supersetRest, setSupersetRest] = useState<Record<string, number>>({});
   // Выбранный показатель в карточке «Мой прогресс» (по макету).
   const [bodyMetric, setBodyMetric] = useState<'weight' | 'waist' | 'chest'>('weight');
   const serverDataLoadedRef = useRef(false);
@@ -6357,6 +6478,9 @@ export default function FitnessPage() {
                     if (all[j].ex.supersetId !== row.ex.supersetId) break;
                     group.push(all[j]);
                   }
+                  const supKey = `${currentWorkout.id}-${row.ex.supersetId}`;
+                  const byRounds = supersetByRounds[supKey] !== false; // по умолчанию кругами
+                  const groupExercises = group.map(g => g.ex);
                   out.push(
                     <div className="tx-supwrap" key={'sup-' + row.ex.supersetId + '-' + row.ex.id}>
                       <div className="tx-suphead">
@@ -6369,7 +6493,35 @@ export default function FitnessPage() {
                           </span>
                         )}
                       </div>
-                      {group.map(g => g.card)}
+                      {byRounds ? (
+                        <SupersetRounds
+                          group={groupExercises}
+                          rounds={row.supRounds?.plan ?? 3}
+                          restTime={row.ex.restTime}
+                          restSignal={supersetRest[supKey] ?? 0}
+                          onRest={() => setSupersetRest(prev => ({ ...prev, [supKey]: (prev[supKey] ?? 0) + 1 }))}
+                          onUpdateSet={(exId, setIdx, patch) => {
+                            if (viewingPastWorkout) return;
+                            const target = groupExercises.find(e => e.id === exId);
+                            if (!target) return;
+                            const sets = (target.sets ?? makeInitialSets(target.plannedSets)).map((s, j) =>
+                              j === setIdx ? { ...s, ...patch } : s);
+                            updateExercise(currentWorkout.id, exId, {
+                              sets,
+                              completed: sets.length > 0 && sets.every(s => s.completed),
+                            });
+                          }}
+                        />
+                      ) : (
+                        group.map(g => g.card)
+                      )}
+                      <button
+                        type="button"
+                        className="tx-supmode"
+                        onClick={() => setSupersetByRounds(prev => ({ ...prev, [supKey]: !byRounds }))}
+                      >
+                        {byRounds ? 'показать упражнения по отдельности' : 'вернуться к кругам'}
+                      </button>
                     </div>
                   );
                   return out;

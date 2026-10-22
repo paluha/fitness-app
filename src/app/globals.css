@@ -1068,6 +1068,59 @@ button:disabled {
   font-weight: 600; color: #6b86ad; text-transform: none; letter-spacing: 0;
 }
 
+/* Суперсет кругами: A1 → сразу A2 → отдых → следующий круг.
+   Одна карточка на круг, а не на упражнение — так его и делают. */
+.tx-rounds { display: flex; flex-direction: column; gap: 7px; }
+.tx-round {
+  border: 1px solid #e3ebf6; border-radius: 12px; background: #fff;
+  padding: 8px 10px 9px;
+}
+.tx-round.is-current { border-color: #b9ceea; box-shadow: 0 0 0 2px #e8f0fb; }
+.tx-round.is-done { background: #fbfcfe; opacity: 0.75; }
+.tx-roundhead {
+  display: flex; align-items: center; gap: 5px; margin-bottom: 7px;
+  font-size: 10px; font-weight: 700; color: #6b86ad;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.tx-roundhead svg { color: var(--green); }
+.tx-roundex { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.tx-roundname {
+  font-size: 12px; font-weight: 500; color: #3a352d;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tx-roundname b {
+  display: inline-block; min-width: 20px; margin-right: 4px;
+  font-size: 10px; font-weight: 800; color: #3f6292;
+}
+.tx-roundinputs { display: flex; align-items: center; gap: 5px; }
+.tx-roundinputs input {
+  flex: 1; min-width: 0; height: 40px;
+  border: 1px solid #e6dfd5; border-radius: 8px; background: #f6f3ee;
+  text-align: center; font-size: 14px; font-weight: 600; color: #302b24;
+  font-family: inherit; padding: 0 3px;
+}
+.tx-roundinputs b { font-size: 10px; color: #a79b8c; font-weight: 500; }
+.tx-roundinputs .tx-check { flex: none; }
+/* «Без отдыха» между упражнениями связки — там, куда смотрят. */
+.tx-roundgap {
+  font-size: 9px; font-weight: 700; color: #8fa6c4;
+  text-transform: uppercase; letter-spacing: 0.4px; padding-left: 2px;
+}
+.tx-roundfoot {
+  display: flex; align-items: center; gap: 5px;
+  padding-top: 6px; border-top: 1px dashed #e3ebf6;
+  font-size: 10px; font-weight: 600; color: #8fa6c4;
+}
+.tx-roundfoot svg { flex: none; }
+.tx-roundrestwrap { padding-top: 6px; border-top: 1px dashed #e3ebf6; }
+/* Переключение «кругами / по отдельности». */
+.tx-supmode {
+  display: block; width: 100%; margin-top: 7px; padding: 6px 0;
+  border: 0; background: transparent;
+  font-size: 10px; font-weight: 600; color: #8fa6c4;
+  font-family: inherit; cursor: pointer;
+}
+
 /* Метка суперсета в заголовке упражнения. */
 .tx-superset {
   display: inline-flex; align-items: center; gap: 3px;
