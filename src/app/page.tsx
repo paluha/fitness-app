@@ -6889,7 +6889,7 @@ export default function FitnessPage() {
                 {/* Кольцо Oura: сон, готовность, пульс покоя и ВСР.
                     Раздел показывается, только если ключи приложения
                     заданы на сервере — иначе кнопка вела бы в никуда. */}
-                {oura?.configured && (
+                {oura && (oura.configured || oura.days.length > 0) && (
                   <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
                       Кольцо Oura
@@ -6959,7 +6959,7 @@ export default function FitnessPage() {
                           }}
                         >Отключить</button>
                       </div>
-                    ) : (
+                    ) : oura.configured ? (
                       <a
                         href="/api/oura/connect"
                         style={{
@@ -6968,6 +6968,12 @@ export default function FitnessPage() {
                           fontWeight: 700, fontSize: '14px', textDecoration: 'none',
                         }}
                       >Подключить Oura</a>
+                    ) : (
+                      // Ключей приложения нет — кнопка вела бы в никуда,
+                      // но показанные выше данные остаются доступными.
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                        Подключение пока не настроено. Показатели выше — из прошлых выгрузок.
+                      </div>
                     )}
                   </div>
                 )}

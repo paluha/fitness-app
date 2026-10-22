@@ -14,13 +14,13 @@ export async function GET() {
     where: { userId: session.user.id },
     select: { lastSyncAt: true, createdAt: true },
   });
-  const days = conn
-    ? await prisma.ouraDaily.findMany({
-        where: { userId: session.user.id },
-        orderBy: { date: 'desc' },
-        take: 30,
-      })
-    : [];
+  // Дни отдаём независимо от подключения: выгруженная история остаётся
+  // при отключении кольца, и показывать её по-прежнему нужно.
+  const days = await prisma.ouraDaily.findMany({
+    where: { userId: session.user.id },
+    orderBy: { date: 'desc' },
+    take: 30,
+  });
 
   return new Response(JSON.stringify({
     configured: ouraConfigured(),
