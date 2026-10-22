@@ -5095,8 +5095,17 @@ export default function FitnessPage() {
     // последнего возвращаемся к пропущенным в начале списка.
     if (updates.completed === true) {
       setExpandedExerciseId(prevId => {
-        if (prevId !== exerciseId) return prevId;
         const list = workouts.find(w => w.id === workoutId)?.exercises ?? [];
+        const done = list.find(e => e.id === exerciseId);
+        // Раскрыта связка (ключ «workoutId-метка», не id упражнения):
+        // закрываем её, только когда ВСЯ связка пройдена — иначе она
+        // схлопывалась бы посреди кругов, после первого же упражнения.
+        if (done?.supersetId && prevId === `${workoutId}-${done.supersetId}`) {
+          const inGroup = list.filter(e => e.supersetId === done.supersetId);
+          const allDone = inGroup.every(e => e.id === exerciseId || e.completed);
+          return allDone ? null : prevId;
+        }
+        if (prevId !== exerciseId) return prevId;
         const from = list.findIndex(e => e.id === exerciseId);
         if (from < 0) return null;
         const ordered = [...list.slice(from + 1), ...list.slice(0, from)];
@@ -6493,19 +6502,50 @@ export default function FitnessPage() {
                   const supKey = `${currentWorkout.id}-${row.ex.supersetId}`;
                   const byRounds = supersetByRounds[supKey] !== false; // по умолчанию кругами
                   const groupExercises = group.map(g => g.ex);
+                  // Связка сворачивается так же, как обычное упражнение:
+                  // раскрыта одна за раз. Иначе суперсет занимал экран
+                  // целиком, а соседние упражнения были свёрнуты.
+                  const supOpen = expandedExerciseId === supKey;
+                  const supDone = row.supRounds ? row.supRounds.done : 0;
+                  const supPlan = row.supRounds ? row.supRounds.plan : 0;
                   out.push(
-                    <div className="tx-supwrap" key={'sup-' + row.ex.supersetId + '-' + row.ex.id}>
-                      <div className="tx-suphead">
+                    <div
+                      className={['tx-supwrap', supOpen ? 'is-open' : ''].filter(Boolean).join(' ')}
+                      key={'sup-' + row.ex.supersetId + '-' + row.ex.id}
+                    >
+                      <div
+                        className="tx-suphead"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setExpandedExerciseId(prev => prev === supKey ? null : supKey)}
+                      >
                         <span className="tx-suptitle">
                           <Link2 size={11} /> Суперсет {row.ex.supersetId}
                         </span>
-                        {row.supRounds && row.supRounds.plan > 0 && (
+                        {supPlan > 0 && (
                           <span className="tx-suprounds">
-                            круг {Math.min(row.supRounds.done + 1, row.supRounds.plan)} из {row.supRounds.plan}
+                            {supOpen
+                              ? `круг ${Math.min(supDone + 1, supPlan)} из ${supPlan}`
+                              : `${supDone}/${supPlan} кругов`}
                           </span>
                         )}
                       </div>
-                      {byRounds ? (
+                      {/* Свёрнутая связка: названия упражнений одной
+                          строкой — видно, что внутри, без раскрытия. */}
+                      {!supOpen && (
+                        <div
+                          className="tx-supsummary"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setExpandedExerciseId(supKey)}
+                        >
+                          {groupExercises.map((e, gi) => (
+                            <span key={e.id}>
+                              <b>{e.supersetId}{gi + 1}</b> {e.name}
+                              {gi < groupExercises.length - 1 ? ' + ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {supOpen && (byRounds ? (
                         <SupersetRounds
                           group={groupExercises}
                           rounds={row.supRounds?.plan ?? 3}
@@ -6530,14 +6570,16 @@ export default function FitnessPage() {
                         />
                       ) : (
                         group.map(g => g.card)
+                      ))}
+                      {supOpen && (
+                        <button
+                          type="button"
+                          className="tx-supmode"
+                          onClick={() => setSupersetByRounds(prev => ({ ...prev, [supKey]: !byRounds }))}
+                        >
+                          {byRounds ? 'показать упражнения по отдельности' : 'вернуться к кругам'}
+                        </button>
                       )}
-                      <button
-                        type="button"
-                        className="tx-supmode"
-                        onClick={() => setSupersetByRounds(prev => ({ ...prev, [supKey]: !byRounds }))}
-                      >
-                        {byRounds ? 'показать упражнения по отдельности' : 'вернуться к кругам'}
-                      </button>
                     </div>
                   );
                   return out;
