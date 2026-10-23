@@ -256,6 +256,15 @@ model FitnessData {
   programArchive  Json?    // История программ тренировок: [{id, archivedAt, label, workouts}]
   nutritionProfile Json?   // Анкета питания/здоровья: {conditions, intolerances, mealsPerDay, snacking, trainingTime, dietStyle, dislikes, notes, completedAt}
   vitals          Json?    // Показатели здоровья: [{id, at, systolic, diastolic, pulse, spo2, tags[], note}]
+  /// Поля самонаблюдения, которые пользователь завёл сам:
+  /// [{id, name, kind: 'scale'|'number'|'yesno', unit?, labels?, archived?}]
+  checkinFields   Json?
+  /// Значения этих полей по дням: [{id, date: 'YYYY-MM-DD', values: {fieldId: value}, note?}]
+  checkinEntries  Json?
+  /// Курсы препаратов: [{id, name, dose?, form?, schedule?, days?, remindAt?, startedAt?, endedAt?, note?}]
+  medCourses      Json?
+  /// Отметки приёма: [{id, courseId, at, dose?, note?}]
+  medLogs         Json?
   recipes         Json?    // Рецепты пользователя: [{id, name, servings, ingredients[], steps[], perServing:{calories,protein,fat,carbs,sugar}, source, createdAt}]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

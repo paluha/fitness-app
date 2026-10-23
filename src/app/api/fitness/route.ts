@@ -51,6 +51,10 @@ export async function GET() {
         nutritionProfile: true,
         recipes: true,
         vitals: true,
+        checkinFields: true,
+        checkinEntries: true,
+        medCourses: true,
+        medLogs: true,
         updatedAt: true,
       },
     });
@@ -112,6 +116,10 @@ export async function GET() {
       nutritionProfile: fitnessData?.nutritionProfile || null,
       recipes: fitnessData?.recipes || null,
       vitals: fitnessData?.vitals || null,
+      checkinFields: fitnessData?.checkinFields || null,
+      checkinEntries: fitnessData?.checkinEntries || null,
+      medCourses: fitnessData?.medCourses || null,
+      medLogs: fitnessData?.medLogs || null,
       nutritionRecommendations: user.program?.nutritionRecommendations || null,
       settings: {
         language: user.language || 'ru',
@@ -241,6 +249,20 @@ export async function POST(request: Request) {
     if (body.vitals !== undefined && Array.isArray(body.vitals)) {
       updateData.vitals = body.vitals;
     }
+    // Самонаблюдение: свои поля и значения по дням
+    if (body.checkinFields !== undefined && Array.isArray(body.checkinFields)) {
+      updateData.checkinFields = body.checkinFields;
+    }
+    if (body.checkinEntries !== undefined && Array.isArray(body.checkinEntries)) {
+      updateData.checkinEntries = body.checkinEntries;
+    }
+    // Курсы препаратов и отметки приёма
+    if (body.medCourses !== undefined && Array.isArray(body.medCourses)) {
+      updateData.medCourses = body.medCourses;
+    }
+    if (body.medLogs !== undefined && Array.isArray(body.medLogs)) {
+      updateData.medLogs = body.medLogs;
+    }
     // exerciseLibrary: merge — new images added, existing preserved
     if (body.exerciseLibrary !== undefined) {
       const existingLib = (existing?.exerciseLibrary as Record<string, string>) || {};
@@ -270,7 +292,11 @@ export async function POST(request: Request) {
         programArchive: body.programArchive || [],
         nutritionProfile: body.nutritionProfile || null,
         recipes: body.recipes || [],
-        vitals: body.vitals || []
+        vitals: body.vitals || [],
+        checkinFields: body.checkinFields || [],
+        checkinEntries: body.checkinEntries || [],
+        medCourses: body.medCourses || [],
+        medLogs: body.medLogs || [],
       }
     });
 

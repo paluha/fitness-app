@@ -373,6 +373,80 @@ function buildOuraText(rows: unknown): string {
   return `${head}\n${lines.join('\n')}`;
 }
 
+/**
+ * Самонаблюдение: поля пользователь заводит сам, поэтому их названия и
+ * шкалы приходят вместе со значениями — иначе «отёчность: 2» ничего не
+ * говорит.
+ */
+export function buildCheckins(fields: unknown, entries: unknown, limit = 8): string {
+  const fs = Array.isArray(fields)
+    ? (fields as { id: string; name: string; kind: string; unit?: string; labels?: string[]; archived?: boolean }[])
+    : [];
+  const es = Array.isArray(entries)
+    ? (entries as { date: string; values: Record<string, number | string>; note?: string }[])
+    : [];
+  if (fs.length === 0 || es.length === 0) {
+    return 'Пользователь ещё ничего не отслеживает сам. Не выдумывай эти данные.';
+  }
+  const byId = new Map(fs.map(f => [f.id, f]));
+  const SCALE = ['нет', 'слегка', 'заметно', 'сильно'];
+  const show = (fid: string, v: number | string) => {
+    const f = byId.get(fid);
+    if (!f) return null;
+    if (f.kind === 'scale') return `${f.name}: ${(f.labels ?? SCALE)[Number(v)] ?? v}`;
+    if (f.kind === 'yesno') return `${f.name}: ${Number(v) ? 'да' : 'нет'}`;
+    return `${f.name}: ${v}${f.unit ? ' ' + f.unit : ''}`;
+  };
+  const lines = [...es]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit)
+    .map(e => {
+      const parts = Object.entries(e.values || {}).map(([k, v]) => show(k, v)).filter(Boolean);
+      if (parts.length === 0 && !e.note) return null;
+      return `  ${e.date}: ${parts.join(', ')}${e.note ? ` · ${e.note}` : ''}`;
+    })
+    .filter(Boolean);
+  if (lines.length === 0) return 'Поля заведены, но записей пока нет.';
+  const names = fs.filter(f => !f.archived).map(f => f.name).join(', ');
+  return `Отслеживает: ${names}\n${lines.join('\n')}`;
+}
+
+/** Что пользователь колет и принимает + когда отмечал приём. */
+export function buildMeds(courses: unknown, logs: unknown): string {
+  const cs = Array.isArray(courses)
+    ? (courses as { id: string; name: string; dose?: string; form?: string; schedule?: string; startedAt?: string; endedAt?: string; note?: string }[])
+    : [];
+  const ls = Array.isArray(logs) ? (logs as { courseId: string; at: string }[]) : [];
+  if (cs.length === 0) {
+    return 'Список препаратов пуст. Если для ответа важно, что человек принимает, — спроси, не домысливай.';
+  }
+  const lastOf = (id: string) => ls
+    .filter(l => l.courseId === id)
+    .map(l => l.at)
+    .sort()
+    .pop();
+  const countOf = (id: string) => ls.filter(l => l.courseId === id).length;
+
+  const fmt = (c: typeof cs[number]) => {
+    const head = [c.name, c.dose, c.form, c.schedule].filter(Boolean).join(' · ');
+    const last = lastOf(c.id);
+    const tail = c.endedAt
+      ? `завершён ${c.endedAt}`
+      : last
+        ? `последний приём ${last.slice(0, 10)}, всего отметок ${countOf(c.id)}`
+        : 'отметок приёма нет';
+    const started = c.startedAt ? `с ${c.startedAt}; ` : '';
+    return `  ${head} — ${started}${tail}${c.note ? ` · ${c.note}` : ''}`;
+  };
+
+  const active = cs.filter(c => !c.endedAt);
+  const done = cs.filter(c => c.endedAt);
+  const out: string[] = [];
+  if (active.length) out.push('Принимает сейчас:', ...active.map(fmt));
+  if (done.length) out.push('Завершённые курсы:', ...done.map(fmt));
+  return out.join('\n');
+}
+
 function buildFoodLog(dayLogs: unknown, days = 7): string {
   if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
   const entries = Object.entries(dayLogs as Record<string, { meals?: unknown; steps?: number | null }>);
@@ -521,6 +595,11 @@ export async function POST(request: Request) {
         // и что было до неё: без этого он не отличает программу, которую
         // сам же составил, от заданной тренером или собранной вручную.
         programArchive: true,
+        // Самонаблюдение и препараты: без них ассистент разбирает анализы
+        // и самочувствие вслепую — не зная, что человек принимает и что
+        // сам у себя отмечает неделю к неделе.
+        checkinFields: true, checkinEntries: true,
+        medCourses: true, medLogs: true,
         updatedAt: true,
       },
     }),
@@ -646,6 +725,12 @@ ${compactJson(fitness?.progressHistory, 1500)}
 
 📏 ЗАМЕРЫ ТЕЛА (вес, талия и т.д.):
 ${compactJson(fitness?.bodyMeasurements, 1500)}
+
+📝 САМОНАБЛЮДЕНИЕ (пользователь сам выбрал, что отслеживать):
+${buildCheckins(fitness?.checkinFields, fitness?.checkinEntries)}
+
+💊 ПРЕПАРАТЫ И ДОБАВКИ (что колет и что принимает):
+${buildMeds(fitness?.medCourses, fitness?.medLogs)}
 
 ✅ ПРИВЫЧКИ:
 ${compactJson(fitness?.habits, 800)}

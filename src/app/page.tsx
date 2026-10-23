@@ -9,7 +9,8 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
   Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2
+  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2,
+  ClipboardList, Pill
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat, type WorkoutEdit } from '@/components/AssistantChat';
@@ -535,6 +536,69 @@ interface NutritionProfile {
 
 // Рецепт пользователя (введён вручную или распарсен ИИ с фото)
 // Показатель здоровья: давление и/или пульсоксиметр, с тегами контекста
+/**
+ * Поле самонаблюдения, которое пользователь заводит сам.
+ *
+ * Готового списка нет намеренно: что отслеживать — решает он (отёчность,
+ * настроение, акне, сон, что угодно). Здесь только описание поля, сами
+ * значения по дням лежат в CheckinEntry.
+ */
+interface CheckinField {
+  id: string;
+  name: string;
+  /** Как записывать: шкала 0-3, число с единицей или «было/не было». */
+  kind: 'scale' | 'number' | 'yesno';
+  /** Единица для kind:'number' («кг», «часов», «мг»). */
+  unit?: string;
+  /** Подписи делений для шкалы; пусто — «нет / слегка / заметно / сильно». */
+  labels?: string[];
+  /** Поле больше не заполняется, но прошлые записи остаются. */
+  archived?: boolean;
+}
+
+/** Значения полей за один день. Ключ в values — id поля. */
+interface CheckinEntry {
+  id: string;
+  /** YYYY-MM-DD: привязка к дню календаря, а не к моменту. */
+  date: string;
+  values: Record<string, number | string>;
+  note?: string;
+}
+
+/**
+ * Курс: что колю и что принимаю.
+ *
+ * Отдельно от приёмов: препарат заводится один раз, а отметок у него
+ * десятки. Доза и график хранятся текстом — «250 мг», «пн и чт»: это
+ * справка для себя и для ИИ, считать по ней ничего не нужно.
+ */
+interface MedCourse {
+  id: string;
+  name: string;
+  dose?: string;
+  /** Как принимается: укол, таблетка, капли… — свободный текст. */
+  form?: string;
+  /** Когда: «пн и чт», «каждый день», «через день». */
+  schedule?: string;
+  /** Дни недели для напоминаний: 1 — пн … 7 — вс. Пусто — каждый день. */
+  days?: number[];
+  /** Во сколько напоминать, «HH:MM». Пусто — без напоминаний. */
+  remindAt?: string;
+  startedAt?: string; // YYYY-MM-DD
+  endedAt?: string;   // YYYY-MM-DD, курс завершён
+  note?: string;
+}
+
+/** Факт приёма: одна отметка по курсу. */
+interface MedLog {
+  id: string;
+  courseId: string;
+  /** ISO-момент: для укола важно и время, не только день. */
+  at: string;
+  dose?: string;
+  note?: string;
+}
+
 interface VitalEntry {
   id: string;
   at: string; // ISO
@@ -1478,6 +1542,494 @@ const viewerAction: React.CSSProperties = {
   background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff',
   fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
 };
+
+/** Деления шкалы по умолчанию — если пользователь не задал свои. */
+const SCALE_LABELS = ['нет', 'слегка', 'заметно', 'сильно'];
+
+/**
+ * Идентификатор для новой записи.
+ *
+ * randomUUID, а не Date.now(): две записи в одну миллисекунду получали
+ * бы одинаковый id. Плюс линтер справедливо ругается на Date.now() в
+ * теле компонента — он не отличает обработчик от рендера.
+ */
+function newId(prefix: string): string {
+  const rnd = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+  return `${prefix}${rnd}`;
+}
+
+/**
+ * Самонаблюдение: свои поля, значения по дням.
+ *
+ * Готового списка пунктов нет намеренно — что отслеживать, решает
+ * пользователь. Запись привязана к ДНЮ (выбранному в календаре), а не к
+ * моменту: «в пятницу отметил» — это про день.
+ */
+function CheckinSection({ fields, entries, date, onSave }: {
+  fields: CheckinField[];
+  entries: CheckinEntry[];
+  date: string;
+  onSave: (fields: CheckinField[], entries: CheckinEntry[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState<{ name: string; kind: CheckinField['kind']; unit: string }>({
+    name: '', kind: 'scale', unit: '',
+  });
+  const [manage, setManage] = useState(false);
+
+  const live = fields.filter(f => !f.archived);
+  const today = entries.find(e => e.date === date);
+  const values = today?.values ?? {};
+
+  const setValue = (fieldId: string, v: number | string | undefined) => {
+    const nextValues = { ...values };
+    if (v === undefined || v === '') delete nextValues[fieldId];
+    else nextValues[fieldId] = v;
+    const rest = entries.filter(e => e.date !== date);
+    // Пустую запись не храним: иначе в календаре день помечался бы
+    // заполненным, хотя в нём ничего нет.
+    const hasAny = Object.keys(nextValues).length > 0 || (today?.note ?? '').trim();
+    const next = hasAny
+      ? [...rest, { id: today?.id ?? newId('c'), date, values: nextValues, note: today?.note }]
+      : rest;
+    onSave(fields, next.sort((a, b) => a.date.localeCompare(b.date)));
+  };
+
+  const setNote = (note: string) => {
+    const rest = entries.filter(e => e.date !== date);
+    const hasAny = Object.keys(values).length > 0 || note.trim();
+    const next = hasAny
+      ? [...rest, { id: today?.id ?? newId('c'), date, values, note }]
+      : rest;
+    onSave(fields, next.sort((a, b) => a.date.localeCompare(b.date)));
+  };
+
+  const addField = () => {
+    const name = form.name.trim();
+    if (!name) return;
+    onSave([...fields, {
+      id: newId('f'),
+      name,
+      kind: form.kind,
+      ...(form.kind === 'number' && form.unit.trim() ? { unit: form.unit.trim() } : {}),
+    }], entries);
+    setForm({ name: '', kind: 'scale', unit: '' });
+    setAdding(false);
+  };
+
+  // Прошлые записи этого поля — чтобы видеть динамику, не уходя с экрана.
+  const trend = (fieldId: string) => entries
+    .filter(e => e.values[fieldId] !== undefined && e.date !== date)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 4);
+
+  const dayLabel = (() => {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  })();
+
+  return (
+    <div style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: '16px', padding: '16px', marginBottom: '20px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <ClipboardList size={16} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>Самонаблюдение</span>
+        {live.length > 0 && (
+          <button
+            onClick={() => setManage(v => !v)}
+            style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          >{manage ? 'готово' : 'изменить'}</button>
+        )}
+      </div>
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>{dayLabel}</div>
+
+      {live.length === 0 && !adding && (
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+          Заведи то, что хочешь отслеживать: отёчность, настроение, акне —
+          что угодно. Отмечать можно в любой день.
+        </div>
+      )}
+
+      {live.map(f => (
+        <div key={f.id} style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, flex: 1 }}>{f.name}</span>
+            {trend(f.id).length > 0 && (
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                было: {trend(f.id).map(e => {
+                  const v = e.values[f.id];
+                  return f.kind === 'scale' ? (f.labels ?? SCALE_LABELS)[Number(v)] ?? v
+                    : f.kind === 'yesno' ? (v ? 'да' : 'нет') : v;
+                }).join(' · ')}
+              </span>
+            )}
+            {manage && (
+              <button
+                onClick={() => onSave(fields.map(x => x.id === f.id ? { ...x, archived: true } : x), entries)}
+                aria-label={`Убрать поле ${f.name}`}
+                style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+              ><X size={13} /></button>
+            )}
+          </div>
+          {f.kind === 'scale' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+              {(f.labels ?? SCALE_LABELS).map((label, i) => {
+                const on = values[f.id] === i;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setValue(f.id, on ? undefined : i)}
+                    style={{
+                      padding: '9px 4px', borderRadius: '9px', cursor: 'pointer',
+                      fontSize: '11px', fontWeight: on ? 700 : 500, fontFamily: 'inherit',
+                      border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                      background: on ? 'var(--accent)' : 'var(--bg-elevated)',
+                      color: on ? '#fff' : 'var(--text-secondary)',
+                    }}
+                  >{label}</button>
+                );
+              })}
+            </div>
+          )}
+          {f.kind === 'yesno' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+              {[['да', 1], ['нет', 0]].map(([label, v]) => {
+                const on = values[f.id] === v;
+                return (
+                  <button
+                    key={String(v)}
+                    onClick={() => setValue(f.id, on ? undefined : (v as number))}
+                    style={{
+                      padding: '9px 4px', borderRadius: '9px', cursor: 'pointer',
+                      fontSize: '12px', fontWeight: on ? 700 : 500, fontFamily: 'inherit',
+                      border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                      background: on ? 'var(--accent)' : 'var(--bg-elevated)',
+                      color: on ? '#fff' : 'var(--text-secondary)',
+                    }}
+                  >{label}</button>
+                );
+              })}
+            </div>
+          )}
+          {f.kind === 'number' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={values[f.id] ?? ''}
+                onChange={(e) => setValue(f.id, e.target.value === '' ? undefined : Number(e.target.value))}
+                placeholder="0"
+                style={{
+                  flex: 1, minWidth: 0, height: '38px', padding: '0 10px',
+                  borderRadius: '9px', border: '1px solid var(--border)',
+                  background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                  fontSize: '14px', fontWeight: 600, fontFamily: 'inherit',
+                }}
+              />
+              {f.unit && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{f.unit}</span>}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {live.length > 0 && (
+        <input
+          value={today?.note ?? ''}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Заметка к дню…"
+          style={{
+            width: '100%', height: '38px', padding: '0 10px', marginBottom: '10px',
+            borderRadius: '9px', border: '1px solid var(--border)',
+            background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+            fontSize: '12px', fontFamily: 'inherit',
+          }}
+        />
+      )}
+
+      {adding ? (
+        <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px' }}>
+          <input
+            autoFocus
+            value={form.name}
+            onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="Название: отёчность, настроение…"
+            style={{
+              width: '100%', height: '38px', padding: '0 10px', marginBottom: '8px',
+              borderRadius: '9px', border: '1px solid var(--border)',
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              fontSize: '13px', fontFamily: 'inherit',
+            }}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginBottom: '8px' }}>
+            {([['scale', 'шкала'], ['yesno', 'да / нет'], ['number', 'число']] as const).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setForm(f => ({ ...f, kind: k }))}
+                style={{
+                  padding: '8px 4px', borderRadius: '9px', cursor: 'pointer',
+                  fontSize: '11px', fontWeight: form.kind === k ? 700 : 500, fontFamily: 'inherit',
+                  border: `1px solid ${form.kind === k ? 'var(--accent)' : 'var(--border)'}`,
+                  background: form.kind === k ? 'var(--accent)' : 'var(--bg-card)',
+                  color: form.kind === k ? '#fff' : 'var(--text-secondary)',
+                }}
+              >{label}</button>
+            ))}
+          </div>
+          {form.kind === 'number' && (
+            <input
+              value={form.unit}
+              onChange={(e) => setForm(f => ({ ...f, unit: e.target.value }))}
+              placeholder="Единица: часов, кг, мг…"
+              style={{
+                width: '100%', height: '36px', padding: '0 10px', marginBottom: '8px',
+                borderRadius: '9px', border: '1px solid var(--border)',
+                background: 'var(--bg-card)', color: 'var(--text-primary)',
+                fontSize: '12px', fontFamily: 'inherit',
+              }}
+            />
+          )}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={addField} disabled={!form.name.trim()} style={{
+              flex: 1, height: '38px', borderRadius: '9px', border: 0, cursor: 'pointer',
+              background: form.name.trim() ? 'var(--accent)' : 'var(--border)',
+              color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+            }}>Добавить</button>
+            <button onClick={() => { setAdding(false); setForm({ name: '', kind: 'scale', unit: '' }); }} style={{
+              height: '38px', padding: '0 14px', borderRadius: '9px',
+              border: '1px solid var(--border)', background: 'transparent',
+              color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer',
+            }}>Отмена</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} style={{
+          width: '100%', height: '38px', borderRadius: '9px',
+          border: '1px dashed var(--border)', background: 'transparent',
+          color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
+          fontFamily: 'inherit', cursor: 'pointer',
+        }}>+ Добавить поле</button>
+      )}
+    </div>
+  );
+}
+
+/** Дни недели для графика приёма: 1 — понедельник. */
+const WEEK_DAYS: [number, string][] = [[1, 'пн'], [2, 'вт'], [3, 'ср'], [4, 'чт'], [5, 'пт'], [6, 'сб'], [7, 'вс']];
+
+/**
+ * Что колю и что принимаю: курсы и отметки приёма.
+ *
+ * Курс заводится один раз, отметок у него десятки — поэтому они разделены.
+ * Доза и график хранятся текстом: это справка для себя и для ИИ, считать
+ * по ней ничего не нужно.
+ */
+function MedsSection({ courses, logs, onSave }: {
+  courses: MedCourse[];
+  logs: MedLog[];
+  onSave: (courses: MedCourse[], logs: MedLog[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const empty = { name: '', dose: '', form: '', schedule: '', days: [] as number[], remindAt: '', note: '' };
+  const [form, setForm] = useState(empty);
+
+  const active = courses.filter(c => !c.endedAt);
+  const finished = courses.filter(c => c.endedAt);
+
+  const lastLog = (courseId: string) => logs
+    .filter(l => l.courseId === courseId)
+    .sort((a, b) => b.at.localeCompare(a.at))[0];
+
+  const markTaken = (c: MedCourse) => {
+    onSave(courses, [...logs, {
+      id: newId('m'),
+      courseId: c.id,
+      at: new Date().toISOString(),
+      ...(c.dose ? { dose: c.dose } : {}),
+    }]);
+  };
+
+  const save = () => {
+    const name = form.name.trim();
+    if (!name) return;
+    const data: MedCourse = {
+      id: editId ?? newId('k'),
+      name,
+      ...(form.dose.trim() ? { dose: form.dose.trim() } : {}),
+      ...(form.form.trim() ? { form: form.form.trim() } : {}),
+      ...(form.schedule.trim() ? { schedule: form.schedule.trim() } : {}),
+      ...(form.days.length ? { days: form.days } : {}),
+      ...(form.remindAt ? { remindAt: form.remindAt } : {}),
+      ...(form.note.trim() ? { note: form.note.trim() } : {}),
+      startedAt: editId ? courses.find(c => c.id === editId)?.startedAt : new Date().toISOString().slice(0, 10),
+    };
+    onSave(editId ? courses.map(c => c.id === editId ? { ...c, ...data } : c) : [...courses, data], logs);
+    setForm(empty); setAdding(false); setEditId(null);
+  };
+
+  const when = (iso: string) => {
+    const d = new Date(iso);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = new Date(d); day.setHours(0, 0, 0, 0);
+    const diff = Math.round((today.getTime() - day.getTime()) / 86400000);
+    const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    if (diff === 0) return `сегодня в ${time}`;
+    if (diff === 1) return `вчера в ${time}`;
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  };
+
+  return (
+    <div style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: '16px', padding: '16px', marginBottom: '20px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <Pill size={16} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>Препараты и добавки</span>
+      </div>
+
+      {active.length === 0 && !adding && (
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+          Что колешь и что принимаешь: доза, график, отметки приёма.
+          ИИ видит этот список, когда разбирает анализы и самочувствие.
+        </div>
+      )}
+
+      {active.map(c => {
+        const last = lastLog(c.id);
+        return (
+          <div key={c.id} style={{
+            padding: '12px', marginBottom: '8px', borderRadius: '12px',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700 }}>{c.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {[c.dose, c.form, c.schedule].filter(Boolean).join(' · ')}
+                  {c.remindAt ? ` · напомню в ${c.remindAt}` : ''}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditId(c.id); setAdding(true);
+                  setForm({
+                    name: c.name, dose: c.dose ?? '', form: c.form ?? '',
+                    schedule: c.schedule ?? '', days: c.days ?? [],
+                    remindAt: c.remindAt ?? '', note: c.note ?? '',
+                  });
+                }}
+                aria-label={`Изменить ${c.name}`}
+                style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', lineHeight: 1 }}
+              ><Settings size={13} /></button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ flex: 1, fontSize: '11px', color: last ? 'var(--green)' : 'var(--text-muted)' }}>
+                {last ? `последний: ${when(last.at)}` : 'ещё не отмечено'}
+              </span>
+              <button onClick={() => markTaken(c)} style={{
+                height: '32px', padding: '0 14px', borderRadius: '8px', border: 0,
+                background: 'var(--accent)', color: '#fff',
+                fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+              }}>Отметить</button>
+            </div>
+          </div>
+        );
+      })}
+
+      {finished.length > 0 && (
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', marginBottom: '8px' }}>
+          Завершённые: {finished.map(c => c.name).join(', ')}
+        </div>
+      )}
+
+      {adding ? (
+        <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px', marginTop: '8px' }}>
+          {([['name', 'Название'], ['dose', 'Доза: 250 мг, 5000 МЕ…'], ['form', 'Форма: укол, таблетка…'], ['schedule', 'График: пн и чт, каждый день…']] as const).map(([k, ph]) => (
+            <input
+              key={k}
+              autoFocus={k === 'name'}
+              value={form[k]}
+              onChange={(e) => setForm(f => ({ ...f, [k]: e.target.value }))}
+              placeholder={ph}
+              style={{
+                width: '100%', height: '36px', padding: '0 10px', marginBottom: '7px',
+                borderRadius: '9px', border: '1px solid var(--border)',
+                background: 'var(--bg-card)', color: 'var(--text-primary)',
+                fontSize: '12px', fontFamily: 'inherit',
+              }}
+            />
+          ))}
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '4px 0 5px' }}>
+            Напоминание (необязательно)
+          </div>
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '7px' }}>
+            {WEEK_DAYS.map(([n, label]) => {
+              const on = form.days.includes(n);
+              return (
+                <button
+                  key={n}
+                  onClick={() => setForm(f => ({ ...f, days: on ? f.days.filter(d => d !== n) : [...f.days, n] }))}
+                  style={{
+                    flex: 1, height: '30px', borderRadius: '8px', cursor: 'pointer',
+                    fontSize: '10px', fontWeight: on ? 700 : 500, fontFamily: 'inherit',
+                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                    background: on ? 'var(--accent)' : 'var(--bg-card)',
+                    color: on ? '#fff' : 'var(--text-secondary)',
+                  }}
+                >{label}</button>
+              );
+            })}
+          </div>
+          <input
+            type="time"
+            value={form.remindAt}
+            onChange={(e) => setForm(f => ({ ...f, remindAt: e.target.value }))}
+            style={{
+              width: '100%', height: '36px', padding: '0 10px', marginBottom: '8px',
+              borderRadius: '9px', border: '1px solid var(--border)',
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              fontSize: '12px', fontFamily: 'inherit',
+            }}
+          />
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={save} disabled={!form.name.trim()} style={{
+              flex: 1, height: '38px', borderRadius: '9px', border: 0, cursor: 'pointer',
+              background: form.name.trim() ? 'var(--accent)' : 'var(--border)',
+              color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+            }}>{editId ? 'Сохранить' : 'Добавить'}</button>
+            {editId && (
+              <button onClick={() => {
+                onSave(courses.map(c => c.id === editId ? { ...c, endedAt: new Date().toISOString().slice(0, 10) } : c), logs);
+                setForm(empty); setAdding(false); setEditId(null);
+              }} style={{
+                height: '38px', padding: '0 12px', borderRadius: '9px',
+                border: '1px solid var(--border)', background: 'transparent',
+                color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer',
+              }}>Завершить</button>
+            )}
+            <button onClick={() => { setAdding(false); setEditId(null); setForm(empty); }} style={{
+              height: '38px', padding: '0 12px', borderRadius: '9px',
+              border: '1px solid var(--border)', background: 'transparent',
+              color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer',
+            }}>Отмена</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} style={{
+          width: '100%', height: '38px', borderRadius: '9px', marginTop: '4px',
+          border: '1px dashed var(--border)', background: 'transparent',
+          color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
+          fontFamily: 'inherit', cursor: 'pointer',
+        }}>+ Добавить препарат</button>
+      )}
+    </div>
+  );
+}
 
 /** Подписи техник: как называется в интерфейсе и как подписаны ступени. */
 const TECH_META: Record<SetTechnique, { label: string; step: string; hint: string }> = {
@@ -3327,6 +3879,12 @@ export default function FitnessPage() {
   };
 
   const [vitals, setVitals] = useState<VitalEntry[]>([]);
+  // Самонаблюдение: свои поля и значения по дням
+  const [checkinFields, setCheckinFields] = useState<CheckinField[]>([]);
+  const [checkinEntries, setCheckinEntries] = useState<CheckinEntry[]>([]);
+  // Курсы препаратов и отметки приёма
+  const [medCourses, setMedCourses] = useState<MedCourse[]>([]);
+  const [medLogs, setMedLogs] = useState<MedLog[]>([]);
   // '' = форма скрыта; иначе тип устройства/процедуры
   const [vitalsKind, setVitalsKind] = useState<'' | 'bp' | 'oxi' | 'body' | 'sym' | 'custom'>('');
   const [vitalsForm, setVitalsForm] = useState({ systolic: '', diastolic: '', pulse: '', spo2: '', fatPct: '', customName: '', customValue: '', customUnit: '', tags: [] as string[], note: '' });
@@ -3847,6 +4405,10 @@ export default function FitnessPage() {
           if (data.nutritionProfile) setNutritionProfile(data.nutritionProfile);
           if (Array.isArray(data.recipes)) setRecipes(data.recipes);
           if (Array.isArray(data.vitals)) setVitals(data.vitals);
+          if (Array.isArray(data.checkinFields)) setCheckinFields(data.checkinFields);
+          if (Array.isArray(data.checkinEntries)) setCheckinEntries(data.checkinEntries);
+          if (Array.isArray(data.medCourses)) setMedCourses(data.medCourses);
+          if (Array.isArray(data.medLogs)) setMedLogs(data.medLogs);
           if (data.workouts) setWorkouts(withPlannedTechniques(data.workouts));
           // Библиотека картинок и архив программ приезжают отдельными
           // запросами: это мегабайты, которые не нужны, чтобы показать
@@ -4535,6 +5097,35 @@ export default function FitnessPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vitals: next }),
+      });
+    } catch { /* офлайн — доедет позже */ }
+  };
+
+  /**
+   * Самонаблюдение и препараты — тем же путём, что vitals: кладём в
+   * состояние сразу, отправляем следом. Офлайн не теряется: данные уже
+   * на экране, запрос уйдёт при следующем сохранении.
+   */
+  const saveCheckins = async (fields: CheckinField[], entries: CheckinEntry[]) => {
+    setCheckinFields(fields);
+    setCheckinEntries(entries);
+    try {
+      await fetch('/api/fitness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkinFields: fields, checkinEntries: entries }),
+      });
+    } catch { /* офлайн — доедет позже */ }
+  };
+
+  const saveMeds = async (courses: MedCourse[], logs: MedLog[]) => {
+    setMedCourses(courses);
+    setMedLogs(logs);
+    try {
+      await fetch('/api/fitness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ medCourses: courses, medLogs: logs }),
       });
     } catch { /* офлайн — доедет позже */ }
   };
@@ -7213,6 +7804,21 @@ export default function FitnessPage() {
                   </div>
                 );
               })()}
+
+              {/* Самонаблюдение: поля заводит сам пользователь */}
+              <CheckinSection
+                fields={checkinFields}
+                entries={checkinEntries}
+                date={formatDate(selectedDate)}
+                onSave={saveCheckins}
+              />
+
+              {/* Что колю и что принимаю */}
+              <MedsSection
+                courses={medCourses}
+                logs={medLogs}
+                onSave={saveMeds}
+              />
 
               {/* Показатели здоровья: любые приборы и процедуры */}
               <div style={{

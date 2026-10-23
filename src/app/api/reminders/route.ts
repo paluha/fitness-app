@@ -85,12 +85,48 @@ export async function GET(request: Request) {
 
     const fitnessData = await prisma.fitnessData.findUnique({
       where: { userId: user.id },
-      select: { plannerEvents: true }
+      select: { plannerEvents: true, medCourses: true, medLogs: true }
     });
 
     const events = (fitnessData?.plannerEvents as unknown as PlannerEvent[]) || [];
     let sent = 0;
     let updated = false;
+
+    /**
+     * Напоминания о препаратах.
+     *
+     * Отдельного флага «отправлено» не держим: признак — есть ли сегодня
+     * отметка приёма. Если человек уже отметил, напоминание не нужно; если
+     * нет — шлём один раз в минуту срабатывания (окно 2 минуты, как у
+     * событий планера, потому что cron ходит раз в минуту).
+     */
+    type MedCourse = {
+      id: string; name: string; dose?: string; form?: string;
+      days?: number[]; remindAt?: string; endedAt?: string;
+    };
+    type MedLog = { courseId: string; at: string };
+    const courses = (fitnessData?.medCourses as unknown as MedCourse[]) || [];
+    const medLogs = (fitnessData?.medLogs as unknown as MedLog[]) || [];
+    // 1 — понедельник … 7 — воскресенье (как в интерфейсе).
+    const isoDow = ((new Date(`${nowStr}T12:00:00`).getDay()) + 6) % 7 + 1;
+
+    for (const c of courses) {
+      if (c.endedAt || !c.remindAt) continue;
+      // Пустой список дней — каждый день.
+      if (c.days?.length && !c.days.includes(isoDow)) continue;
+      const [rh, rm] = c.remindAt.split(':').map(Number);
+      if (!Number.isFinite(rh) || !Number.isFinite(rm)) continue;
+      const triggerMinutes = rh * 60 + rm;
+      if (nowMinutes < triggerMinutes || nowMinutes >= triggerMinutes + 2) continue;
+      // Уже отмечен сегодня — напоминать не о чем.
+      const takenToday = medLogs.some(l =>
+        l.courseId === c.id
+        && new Date(l.at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === nowStr);
+      if (takenToday) continue;
+      const what = [c.dose, c.form].filter(Boolean).join(' · ');
+      await sendTelegram(`💊 *${c.name}*${what ? `\n${what}` : ''}\n\nОтметь приём в приложении.`);
+      sent++;
+    }
 
     for (const event of events) {
       if (!event.date || !event.time || event.done || !event.reminder) continue;
