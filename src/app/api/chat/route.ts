@@ -866,7 +866,7 @@ const EDIT_WORKOUT_TOOL: Anthropic.Tool = {
           type: 'object',
           properties: {
             name: { type: 'string', description: 'Название упражнения по-русски' },
-            plannedSets: { type: 'string', description: 'План: «80кг 3x8-10» или «3x12»' },
+            plannedSets: { type: 'string', description: 'План: «80кг 3x8-10» или «3x12». Упражнения с весом тела (планка, подъём ног в висе, скручивания на полу, отжимания) — БЕЗ килограммов: «4x12-15».' },
             restTime: { type: 'string', description: 'Отдых: «2-3 мин»' },
             notes: { type: 'string', description: 'Короткая приписка: группа мышц или техника' },
             supersetId: { type: 'string', description: 'Метка суперсета («A»), одинаковая у упражнений связки; иначе пустая строка' },
@@ -911,7 +911,7 @@ const PROGRAM_TOOL: Anthropic.Tool = {
                 type: 'object',
                 properties: {
                   name: { type: 'string', description: 'Название упражнения по-русски' },
-                  plannedSets: { type: 'string', description: 'План: «40кг 3x10-12» или «3x15»; опирайся на рабочие веса пользователя' },
+                  plannedSets: { type: 'string', description: 'План: «40кг 3x10-12» или «3x15»; опирайся на рабочие веса пользователя. Упражнения с весом тела (планка, подъём ног в висе, скручивания на полу, отжимания) — БЕЗ килограммов: «4x12-15». Вес с тренажёра на них переносить нельзя.' },
                   restTime: { type: 'string', description: 'Отдых: «2-3 мин»' },
                   notes: { type: 'string', description: 'Короткая приписка: группа мышц или техника' },
                   supersetId: { type: 'string', description: 'Только в продвинутом режиме: одинаковая метка («A», «B») у двух упражнений связки, идущих подряд. Иначе пустая строка.' },

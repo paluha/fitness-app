@@ -2347,11 +2347,19 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup, onRestDone }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup, onRestDone, isLastPending }: {
   ex: Exercise;
   idx: number;
   /** Отдых после закрытого упражнения истёк — родитель откроет следующее. */
   onRestDone?: () => void;
+  /**
+   * Не осталось невыполненных упражнений в тренировке.
+   *
+   * Тогда отдых не запускаем: отдыхать не от чего, а таймер после
+   * последнего упражнения продолжал тикать и выглядел как «приложение
+   * чего-то ждёт».
+   */
+  isLastPending?: boolean;
   onToggle: () => void;
   onUpdate: (updates: Partial<Exercise>) => void;
   progressHistory: ExerciseProgress[];
@@ -2491,7 +2499,13 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
             <span className="muscle">{muscleLabel || '\u00A0'}</span>
           ) : (
             <span className={['tx-collapsed', setsTotal > 0 && setsDone === setsTotal ? 'is-complete' : ''].filter(Boolean).join(' ')}>
-              {setsDone}/{setsTotal} подхода{bestSet ? ` · ${bestSet.weight} lb × ${bestSet.reps}` : ' · ещё не начато'}
+              {/* Вес показываем, только если он есть: у упражнений с весом
+                  тела (планка, подъём ног, скручивания) ноль — это не
+                  «забыл записать», а норма, и «0 lb × 22» читается как
+                  ошибка. */}
+              {setsDone}/{setsTotal} подхода{bestSet
+                ? (bestSet.weight > 0 ? ` · ${bestSet.weight} lb × ${bestSet.reps}` : ` · ${bestSet.reps} повт`)
+                : ' · ещё не начато'}
             </span>
           )}
         </div>
@@ -2640,7 +2654,10 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               // упражнение, либо конец тренировки, и пауза всё равно
               // нужна. Гасим только когда отметку СНИМАЮТ.
               if (patch.completed === true) {
-                if (supersetPos === 'inner') setRestStop(v => v + 1);
+                // Последнее упражнение тренировки и это его последний
+                // подход — отдыхать не от чего, впереди ничего нет.
+                const closesWorkout = isLastPending && next.every(s => s.completed);
+                if (supersetPos === 'inner' || closesWorkout) setRestStop(v => v + 1);
                 else setRestStart(v => v + 1);
               } else if (patch.completed === false) {
                 setRestStop(v => v + 1);
@@ -7325,6 +7342,9 @@ export default function FitnessPage() {
                       expanded={expandedExerciseId === ex.id}
                       onToggleExpand={() => setExpandedExerciseId(prev => prev === ex.id ? null : ex.id)}
                       onRestDone={() => goToNextExercise(currentWorkout.id, ex.id)}
+                      /* Кроме этого упражнения незакрытых не осталось —
+                         значит, оно закрывает тренировку. */
+                      isLastPending={displayExercises.every(o => o.id === ex.id || o.completed)}
                       muscleLabel={muscleGroups[ex.name.trim().toLowerCase()]}
                       lastLabel={t('lastTimeCol') as string}
                     />
