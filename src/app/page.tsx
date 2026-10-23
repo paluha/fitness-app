@@ -1507,12 +1507,10 @@ const TECH_META: Record<SetTechnique, { label: string; step: string; hint: strin
  * следующей ступени подставляется сам.
  */
 function SetTechPanel({
-  set, setNo, planned, onToggleFailure, onToggleNegative, onSetNegative,
+  set, planned, onToggleFailure, onToggleNegative, onSetNegative,
   onAddStep, onUpdateStep, onRemoveStep,
 }: {
   set: ExerciseSet;
-  /** Номер подхода — панель висит под строкой и без подписи «ничья». */
-  setNo: number;
   /** Техника, запланированная программой на этот подход. */
   planned?: SetTechnique;
   onToggleFailure: () => void;
@@ -1531,74 +1529,79 @@ function SetTechPanel({
   // Итог по подходу: сколько всего повторов с учётом ступеней. В зале
   // это единственное число, которое хочется видеть сразу.
   const totalReps = (set.reps || 0) + steps.reduce((s, d) => s + (d.reps || 0), 0);
-  // Что показываем сразу: отметка отказа и техника этого подхода
-  // (запланированная или уже начатая). Остальное — под «ещё».
-  const extras = (['drop', 'restPause', 'cluster'] as SetTechnique[]).filter(k => k !== tech);
-  const showExtras = more && steps.length === 0;
+
+  // Что уже отмечено на подходе — одной строкой.
+  const marks: string[] = [];
+  if (set.toFailure) marks.push('до отказа');
+  if (steps.length > 0) marks.push(`${meta.label} ${steps.length}`);
+  if (set.negativeSec) marks.push(`негатив ${set.negativeSec} сек`);
 
   return (
     <div className="tx-techwrap">
-      <div className="tx-tech">
-        <span className="tx-techfor">подход {setNo}:</span>
-        <button
-          type="button"
-          className={['tx-techbtn', set.toFailure ? 'is-on' : ''].filter(Boolean).join(' ')}
-          onClick={onToggleFailure}
-          title="Последнее повторение далось на пределе"
-        >
-          <Flame size={11} /> до отказа
-        </button>
-        <button
-          type="button"
-          className={['tx-techbtn', steps.length > 0 ? 'is-on' : ''].filter(Boolean).join(' ')}
-          onClick={() => onAddStep(tech)}
-          title={meta.hint}
-        >
-          <ChevronsDown size={11} /> {steps.length > 0 ? meta.label : `+ ${meta.label}`}
-        </button>
-        {/* Техника выбирается только пока ступеней нет: менять её на
-            полпути значило бы переписать смысл уже записанного. */}
-        {steps.length === 0 && !more && (
-          <button type="button" className="tx-techmore" onClick={() => setMore(true)}>
-            ещё…
-          </button>
-        )}
-        {showExtras && (
+      {/* Вместо россыпи пилюль — одна строка: что отмечено и ссылка
+          «Техника». Пилюли занимали две-три строки под каждым подходом
+          и спорили с самой таблицей за внимание. */}
+      <button
+        type="button"
+        className={['tx-techline', marks.length ? 'is-on' : ''].filter(Boolean).join(' ')}
+        onClick={() => setMore(v => !v)}
+        aria-expanded={more}
+      >
+        {marks.length > 0 ? (
           <>
-            {extras.map(k => (
+            <Flame size={11} />
+            <span>{marks.join(' · ')}</span>
+          </>
+        ) : (
+          <span className="tx-techadd">+ техника подхода</span>
+        )}
+        <ChevronsDown size={11} className={more ? 'is-flip' : ''} />
+      </button>
+
+      {more && (
+        <div className="tx-techmenu">
+          <button
+            type="button"
+            className={['tx-techitem', set.toFailure ? 'is-on' : ''].filter(Boolean).join(' ')}
+            onClick={onToggleFailure}
+          >
+            <Flame size={13} />
+            <span><b>До отказа</b><i>последнее повторение на пределе</i></span>
+            {set.toFailure && <Check size={13} strokeWidth={3} />}
+          </button>
+          <button
+            type="button"
+            className={['tx-techitem', set.negativeSec ? 'is-on' : ''].filter(Boolean).join(' ')}
+            onClick={onToggleNegative}
+          >
+            <Hourglass size={13} />
+            <span><b>Негатив</b><i>медленное опускание</i></span>
+            {!!set.negativeSec && <Check size={13} strokeWidth={3} />}
+          </button>
+          {/* Техника со ступенями — одна на подход: пока ступени
+              записаны, менять её значило бы переписать смысл. */}
+          {(['drop', 'restPause', 'cluster'] as SetTechnique[]).map(k => {
+            const active = steps.length > 0 && tech === k;
+            const locked = steps.length > 0 && tech !== k;
+            return (
               <button
                 key={k}
                 type="button"
-                className="tx-techbtn"
-                onClick={() => onAddStep(k)}
-                title={TECH_META[k].hint}
+                className={['tx-techitem', active ? 'is-on' : '', locked ? 'is-off' : ''].filter(Boolean).join(' ')}
+                disabled={locked}
+                onClick={() => { onAddStep(k); setMore(false); }}
               >
-                + {TECH_META[k].label}
+                <ChevronsDown size={13} />
+                <span>
+                  <b>{TECH_META[k].label[0].toUpperCase() + TECH_META[k].label.slice(1)}</b>
+                  <i>{TECH_META[k].hint}</i>
+                </span>
+                {active && <Check size={13} strokeWidth={3} />}
               </button>
-            ))}
-            <button
-              type="button"
-              className={['tx-techbtn', set.negativeSec ? 'is-on' : ''].filter(Boolean).join(' ')}
-              onClick={onToggleNegative}
-              title="Медленная уступающая фаза"
-            >
-              <Hourglass size={11} /> негатив
-            </button>
-          </>
-        )}
-        {/* Негатив мог быть включён раньше — тогда кнопка видна всегда,
-            иначе его нельзя было бы выключить, не открывая «ещё». */}
-        {!showExtras && !!set.negativeSec && (
-          <button
-            type="button"
-            className="tx-techbtn is-on"
-            onClick={onToggleNegative}
-            title="Медленная уступающая фаза"
-          >
-            <Hourglass size={11} /> негатив
-          </button>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Негативы: свойство подхода, а не ступень — отдельной строкой. */}
       {!!set.negativeSec && (
@@ -2282,11 +2285,14 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       На запланированном программой подходе показываем
                       сразу, не дожидаясь отметки: иначе кнопки «дроп»
                       не видно именно тогда, когда она нужна. */}
-                  {(s.completed || s.toFailure || (s.drops?.length ?? 0) > 0 || s.negativeSec
-                    || ((ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1)) && (
+                  {/* Техники — только на ПОСЛЕДНЕМ подходе (и там, где
+                      уже что-то записано). Раньше условие начиналось с
+                      s.completed, и кнопки вылезали под каждым отмеченным
+                      подходом: дропсет делают в последнем, а не во всех. */}
+                  {((s.drops?.length ?? 0) > 0 || s.toFailure || s.negativeSec
+                    || i === sets.length - 1) && (
                     <SetTechPanel
                       set={s}
-                      setNo={i + 1}
                       planned={i === sets.length - 1
                         ? (ex.planDropSet ? 'drop' : ex.planTech)
                         : undefined}
