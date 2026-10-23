@@ -63,7 +63,7 @@ function formatTime(seconds: number): string {
 }
 
 // Rest Timer Component
-function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLabel }: {
+function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLabel, onFinish }: {
   restTime: string;
   // Подпись до запуска: в суперсете отдых относится к КРУГУ, а не к
   // подходу, и «Отдых после подхода» там читается неверно.
@@ -76,6 +76,10 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLab
   stopSignal?: number;
   // Сообщает родителю выбранное время в секундах (для настройки в карточке).
   onSecondsChange?: (sec: number) => void;
+  // Отдых закончился. Карточка закрытого упражнения по этому сигналу
+  // схлопывается и раскрывает следующее — но не раньше, иначе таймер
+  // исчезал бы вместе с ней сразу после последнего подхода.
+  onFinish?: () => void;
 } = { restTime: '' }) {
   const totalSeconds = parseRestTime(restTime);
   /**
@@ -176,7 +180,8 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLab
     setTimeLeft(0);
     setIsFinished(true);
     if (withSound) playBeep();
-  }, [playBeep]);
+    onFinish?.();
+  }, [playBeep, onFinish]);
 
   useEffect(() => {
     if (deadline === null) return;
@@ -2342,9 +2347,11 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
 }
 
 // Beautiful Exercise Card Component
-function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup }: {
+function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHistory, lastSets, exerciseLibrary, onImageSaved, dayClosed, onShowImage, expanded: expandedProp, onToggleExpand, muscleLabel, lastLabel, supersetPos, supersetGroup, onRestDone }: {
   ex: Exercise;
   idx: number;
+  /** Отдых после закрытого упражнения истёк — родитель откроет следующее. */
+  onRestDone?: () => void;
   onToggle: () => void;
   onUpdate: (updates: Partial<Exercise>) => void;
   progressHistory: ExerciseProgress[];
@@ -2537,7 +2544,15 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
           ничего не сделала. */}
       {expanded && supersetPos !== 'inner' && (
         <div style={{ padding: '0 12px', marginTop: '8px' }}>
-          <RestTimer restTime={ex.restTime} startSignal={restStart} stopSignal={restStop} />
+          <RestTimer
+            restTime={ex.restTime}
+            startSignal={restStart}
+            stopSignal={restStop}
+            /* Отдых закончился на ЗАКРЫТОМ упражнении — пора к
+               следующему. Пока упражнение не закрыто, остаёмся: впереди
+               ещё подходы. */
+            onFinish={ex.completed ? onRestDone : undefined}
+          />
         </div>
       )}
 
@@ -5901,12 +5916,10 @@ export default function FitnessPage() {
     // карточка схлопывалась бы посреди кругов, после первого же
     // упражнения.
     //
-    // Обычное упражнение раньше схлопывалось сразу, как отмечен
-    // последний подход, и открывалось следующее. Но вместе с карточкой
-    // исчезал и таймер отдыха, который как раз в этот момент
-    // запускается, — выглядело как «отметил, а время не пошло».
-    // Поэтому закрытое упражнение остаётся раскрытым: там видно сводку
-    // и идущий отдых, а дальше человек сам нажмёт следующее.
+    // Обычное упражнение НЕ схлопываем прямо здесь: в этот момент как
+    // раз запускается отдых, и вместе с карточкой исчезал бы таймер —
+    // выглядело как «отметил, а время не пошло». Переход к следующему
+    // делает goToNextExercise, когда отдых закончится.
     if (updates.completed === true) {
       setExpandedExerciseId(prevId => {
         const list = workouts.find(w => w.id === workoutId)?.exercises ?? [];
@@ -6390,6 +6403,29 @@ export default function FitnessPage() {
   };
 
   // Workout Editor Functions
+  /**
+   * Отдых после закрытого упражнения истёк — сворачиваем его и
+   * раскрываем следующее невыполненное.
+   *
+   * Почему не сразу после последнего подхода: в тот момент отдых только
+   * запускается, и карточка унесла бы таймер с собой. Ждём, пока он
+   * отработает, — тогда переход и уместен.
+   *
+   * Ищем по кругу: после последнего упражнения возвращаемся к
+   * пропущенным в начале списка.
+   */
+  const goToNextExercise = useCallback((workoutId: string, fromExerciseId: string) => {
+    setExpandedExerciseId(prevId => {
+      if (prevId !== fromExerciseId) return prevId; // пользователь уже ушёл сам
+      const list = workouts.find(w => w.id === workoutId)?.exercises ?? [];
+      const from = list.findIndex(e => e.id === fromExerciseId);
+      if (from < 0) return null;
+      const ordered = [...list.slice(from + 1), ...list.slice(0, from)];
+      const next = ordered.find(e => !e.completed);
+      return next ? next.id : null;
+    });
+  }, [workouts]);
+
   const openWorkoutEditor = (workoutId: string) => {
     setEditingWorkoutId(workoutId);
     setShowWorkoutEditor(true);
@@ -7288,6 +7324,7 @@ export default function FitnessPage() {
                       onShowImage={(url, name) => { setImageModal({ url, name }); document.body.style.overflow = 'hidden'; }}
                       expanded={expandedExerciseId === ex.id}
                       onToggleExpand={() => setExpandedExerciseId(prev => prev === ex.id ? null : ex.id)}
+                      onRestDone={() => goToNextExercise(currentWorkout.id, ex.id)}
                       muscleLabel={muscleGroups[ex.name.trim().toLowerCase()]}
                       lastLabel={t('lastTimeCol') as string}
                     />
