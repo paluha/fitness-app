@@ -988,10 +988,15 @@ button:disabled {
    самой таблицей подходов за внимание. */
 .tx-techline {
   display: flex; align-items: center; gap: 6px; width: 100%;
-  padding: 5px 2px; border: 0; background: transparent;
+  /* Прижата к строке своего подхода и подчёркнута слева: иначе висела
+     под таблицей и читалась как подпись ко всему упражнению. */
+  padding: 7px 10px; margin-top: -2px;
+  border: 0; border-left: 2px solid #e6dfd5;
+  border-radius: 0 8px 8px 0; background: #faf7f2;
   font-size: 11px; font-weight: 600; color: #a79b8c;
   font-family: inherit; cursor: pointer; text-align: left;
 }
+.tx-techline.is-on { border-left-color: #e0a33c; background: #fff8ec; }
 .tx-techline.is-on { color: #8a5a12; }
 .tx-techline svg { flex: none; transition: transform 0.15s ease; }
 .tx-techline svg.is-flip { transform: rotate(180deg); }

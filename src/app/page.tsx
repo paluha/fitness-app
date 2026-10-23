@@ -2059,10 +2059,12 @@ const TECH_META: Record<SetTechnique, { label: string; step: string; hint: strin
  * следующей ступени подставляется сам.
  */
 function SetTechPanel({
-  set, planned, onToggleFailure, onToggleNegative, onSetNegative,
+  set, setNo, planned, onToggleFailure, onToggleNegative, onSetNegative,
   onAddStep, onUpdateStep, onRemoveStep,
 }: {
   set: ExerciseSet;
+  /** Номер подхода — строка висит под таблицей и без него «ничья». */
+  setNo: number;
   /** Техника, запланированная программой на этот подход. */
   planned?: SetTechnique;
   onToggleFailure: () => void;
@@ -2105,7 +2107,12 @@ function SetTechPanel({
             <span>{marks.join(' · ')}</span>
           </>
         ) : (
-          <span className="tx-techadd">+ техника подхода</span>
+          /* Номер подхода в самой строке: без него она висела под
+             таблицей и читалась как подпись ко всему упражнению, а не
+             к последнему подходу — непонятно, что именно отмечать. */
+          <span className="tx-techadd">
+            + техника для подхода {setNo}
+          </span>
         )}
         <ChevronsDown size={11} className={more ? 'is-flip' : ''} />
       </button>
@@ -2732,24 +2739,24 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                           <b>Подход {sets.length}</b> — дропсет: доведи до отказа,
                           сбрось вес на 20-25% <i>без отдыха</i> и сделай ещё
                           столько повторов, сколько получится. Запиши ступени
-                          кнопкой <b>+ дропсет</b> под подходом.
+                          через <b>+ техника подхода</b> под таблицей → <b>Дропсет</b>.
                           {ex.planToFailure ? ' Он же — до отказа.' : ''}
                         </>
                       ) : ex.planTech === 'restPause' ? (
                         <>
                           <b>Подход {sets.length}</b> — rest-pause: доведи до отказа,
                           пауза 10-20 сек <i>не меняя вес</i>, и ещё блок повторов.
-                          Обычно 2-3 блока. Записывай кнопкой <b>+ rest-pause</b>.
+                          Обычно 2-3 блока. Записывай через <b>+ техника подхода</b> → <b>Rest-pause</b>.
                         </>
                       ) : ex.planTech === 'cluster' ? (
                         <>
                           <b>Подход {sets.length}</b> — кластер: разбей подход на
                           блоки с паузами 10-15 сек (например 3+3+3 вместо 9).
-                          Записывай блоки кнопкой <b>+ кластер</b>.
+                          Записывай через <b>+ техника подхода</b> → <b>Кластер</b>.
                         </>
                       ) : (
                         <><b>Подход {sets.length}</b> — до отказа: работай, пока
-                        повтор не перестанет получаться. Отметь кнопкой <b>до отказа</b>.</>
+                        повтор не перестанет получаться. Отметь через <b>+ техника подхода</b> → <b>До отказа</b>.</>
                       )}
                     </span>
                   </div>
@@ -2845,6 +2852,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     || i === sets.length - 1) && (
                     <SetTechPanel
                       set={s}
+                      setNo={i + 1}
                       planned={i === sets.length - 1
                         ? (ex.planDropSet ? 'drop' : ex.planTech)
                         : undefined}
