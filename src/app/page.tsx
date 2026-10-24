@@ -4148,16 +4148,6 @@ export default function FitnessPage() {
     }
   }, [userSettings.timezone, isLoaded]);
 
-  // Вкладка ИИ — страница целиком белая: чат без капсулы лежит прямо на ней
-  useEffect(() => {
-    const bg = view === 'chat' ? 'var(--bg-card)' : '';
-    document.documentElement.style.background = bg;
-    document.body.style.background = bg;
-    return () => {
-      document.documentElement.style.background = '';
-      document.body.style.background = '';
-    };
-  }, [view]);
 
   // Автообновление WebView: iOS держит приложение в фоне днями и страницу не
   // перезагружает — свежие деплои не доезжают до пользователя. При возврате
@@ -6276,11 +6266,6 @@ export default function FitnessPage() {
       suppressHydrationWarning
       style={{
         minHeight: '100vh',
-        // В чате высота фиксированная, иначе height:100% у потомков не
-        // сработает и область сообщений схлопнется. dvh вместо vh: на
-        // телефоне vh не учитывает панели браузера, и при скролле строка
-        // ввода уезжала за край экрана.
-        ...(view === 'chat' ? { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' } : {}),
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--bg-primary)'
@@ -6557,19 +6542,13 @@ export default function FitnessPage() {
         />
       )}
 
-      {/* Content.
-          В чате внешнюю прокрутку выключаем: внутри чата своя область
-          скролла, а две вложенные на телефоне дёргались — при скролле
-          браузер прятал и показывал панели, 100vh менялась, и строка
-          ввода прыгала вверх-вниз. Нижний отступ там тоже свой: 92px
-          заложены под меню, которого в чате нет. */}
+      {/* Content. Нижний отступ 92px — под меню; оно теперь видно на всех
+          вкладках, включая ИИ. */}
       <div className={view === 'nutrition' ? 'content-flush' : undefined} style={{
         flex: 1,
-        overflow: view === 'chat' ? 'hidden' : 'auto',
+        overflow: 'auto',
         padding: '4px 20px 16px',
-        paddingBottom: view === 'chat'
-          ? 'calc(12px + env(safe-area-inset-bottom, 0px))'
-          : 'calc(92px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'calc(92px + env(safe-area-inset-bottom, 0px))',
         maxWidth: '600px',
         margin: '0 auto',
         width: '100%',
@@ -7416,15 +7395,12 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* CHAT VIEW — AI-ассистент как полноэкранная вкладка.
-            Высоту берём от родителя (100%), а не как calc(100vh - …):
-            на телефоне 100vh меняется, когда браузер прячет свои панели
-            при скролле, и строка ввода из-за этого прыгала. */}
+        {/* CHAT VIEW — вкладка «ИИ» по макету: обычная страница с нижним
+            меню; длинную переписку панель диалога разворачивает поверх. */}
         {view === 'chat' && (
-          <div className="view-content" style={{ height: '100%', minHeight: 0 }}>
+          <div className="view-content">
             <AssistantChat
               muscleGroups={muscleGroups}
-              onGoHome={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
               onProgramReady={(p) => {
                 // Ассистент собрал программу — показываем её на экране
                 // «Программа», где уже есть просмотр и кнопки «Принять»
@@ -9545,11 +9521,7 @@ export default function FitnessPage() {
       {/* Нижнее меню по макету: четыре равные вкладки в одной панели.
           ИИ раньше жила ОТДЕЛЬНОЙ кнопкой вне flex-контейнера и забирала
           всю свободную ширину — 205px против 50px у соседей.
-
-          В чате меню скрыто: там внизу своя строка ввода, и две панели
-          друг над другом съедали экран. Вернуться на главную можно
-          кнопкой рядом со скрепкой. */}
-      {view !== 'chat' && (
+          Видно на всех вкладках, включая ИИ (по макету редизайна). */}
       <nav className="tx-tabbar">
         {/* Капсула: скруглённая панель с тенью, как было раньше. */}
         <div className="tx-tabcap">
@@ -9578,7 +9550,6 @@ export default function FitnessPage() {
         })}
         </div>
       </nav>
-      )}
     </main>
   );
 }

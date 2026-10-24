@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Send, Paperclip, X, Home, FileText, FolderOpen, Image as ImageIcon, Dumbbell } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Paperclip, X, FileText, Image as ImageIcon, Dumbbell, Utensils, TrendingUp, Sparkles,
+  ChevronRight, ChevronDown, Maximize2, Minimize2, ArrowUp,
+} from 'lucide-react';
+import { TxDialog } from './TxDialog';
 
 type Msg = { id?: string; role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -92,12 +96,11 @@ function fmtWhen(iso?: string): string | null {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '') + ', ' + time;
 }
 
-// AI-ассистент. Режим `embedded` — полноэкранная вкладка (как в Superpower),
-// рендерится внутри контентной области под нижним таб-баром.
+// AI-ассистент — вкладка «ИИ» по макету редизайна: готовые вопросы,
+// контекст и панель диалога (свернуть / развернуть поверх экрана).
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
-// Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
-// белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkoutEdit, pendingProgram, initialInput, onInitialInputUsed }: {
+// Подтянутые данные в ответах — оформленные карточки.
+export function AssistantChat({ muscleGroups, onProgramReady, onWorkoutEdit, pendingProgram, initialInput, onInitialInputUsed }: {
   muscleGroups?: Record<string, string>;
   /**
    * Готовый вопрос из другого раздела (например, «Обсудить цель с ИИ»).
@@ -107,9 +110,6 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
   initialInput?: string;
   /** Вопрос подставлен — родитель сбрасывает его, чтобы не подставить повторно. */
   onInitialInputUsed?: () => void;
-  // Возврат на главную. В чате нижнее меню скрыто, поэтому выход даёт
-  // кнопка в строке ввода. Без обработчика кнопка не показывается.
-  onGoHome?: () => void;
   /**
    * Программа готова — родитель открывает экран «Программа», где её
    * можно посмотреть целиком и принять или отклонить. Чат сам ничего не
@@ -479,11 +479,12 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
     setImages((prev) => prev.filter((_, j) => j !== i));
   };
 
-  const send = async () => {
-    const text = input.trim();
+  /** Отправка: текст из поля ввода или готовый вопрос (кнопки-подсказки). */
+  const send = async (preset?: string) => {
+    const text = (preset ?? input).trim();
     if ((!text && images.length === 0) || busy) return;
     const imgs = images;
-    setInput('');
+    if (preset === undefined) setInput('');
     setImages([]);
     setAttachError(null);
     setBusy(true);
@@ -497,6 +498,17 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
       { role: 'user', content: (text || '') + note, createdAt: new Date().toISOString() },
       { role: 'assistant', content: '' },
     ]);
+    // Сообщение об ошибке вместо ответа. Цель подачи обнуляем: иначе по
+    // окончании (busy=false) эффект «дорисовать остаток» затирал текст
+    // ошибки пустой строкой, и сбой пропадал из ленты молча.
+    const fail = (content: string) => {
+      targetRef.current = null;
+      setMessages((m) => {
+        const copy = [...m];
+        copy[copy.length - 1] = { ...copy[copy.length - 1], content };
+        return copy;
+      });
+    };
 
     try {
       const res = await fetch('/api/chat', {
@@ -509,26 +521,12 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
       if (res.status === 415) {
         const info = await res.json().catch(() => null);
         const names = Array.isArray(info?.files) && info.files.length ? `: ${info.files.join(', ')}` : '';
-        setMessages((m) => {
-          const copy = [...m];
-          copy[copy.length - 1] = {
-            ...copy[copy.length - 1],
-            content: `Такой формат файла я прочитать не могу${names}. Подойдут фото, PDF или текстовый файл.`,
-          };
-          return copy;
-        });
+        fail(`Такой формат файла я прочитать не могу${names}. Подойдут фото, PDF или текстовый файл.`);
         return;
       }
       // Запрос тяжелее лимита Vercel не доходит до кода и возвращает HTML.
       if (res.status === 413) {
-        setMessages((m) => {
-          const copy = [...m];
-          copy[copy.length - 1] = {
-            ...copy[copy.length - 1],
-            content: 'Файлы слишком тяжёлые. Пришли их по одному или сделай фото меньше.',
-          };
-          return copy;
-        });
+        fail('Файлы слишком тяжёлые. Пришли их по одному или сделай фото меньше.');
         return;
       }
       if (!res.ok || !res.body) throw new Error('chat failed');
@@ -584,11 +582,7 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
         } catch { /* битый хвост — экран не открываем */ }
       }
     } catch {
-      setMessages((m) => {
-        const copy = [...m];
-        copy[copy.length - 1] = { ...copy[copy.length - 1], content: 'Ошибка. Попробуйте ещё раз.' };
-        return copy;
-      });
+      fail('Ошибка. Попробуйте ещё раз.');
     } finally {
       setBusy(false);
       setStage(null);
@@ -599,403 +593,243 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  // Размер кнопок строки ввода. Три кнопки по 46px на узком экране
-  // оставляли полю ввода 114px, поэтому там ужимаем до 38px. Значение
-  // инлайновое, а не классом: класс в globals.css не попал в прод-сборку.
-  const [btnSize, setBtnSize] = useState(46);
-  useLayoutEffect(() => {
-    // useLayoutEffect, а не useEffect: иначе на узком экране кнопки
-    // мелькнули бы крупными до первой перерисовки.
-    // Кнопок в строке четыре (домой, файлы, скрепка, отправка), поэтому
-    // на узких экранах ужимаем сильнее: иначе полю ввода остаётся ~96px.
-    const apply = () => setBtnSize(
-      window.innerWidth <= 340 ? 34 : window.innerWidth <= 380 ? 38 : 44,
-    );
-    apply();
-    window.addEventListener('resize', apply);
-    return () => window.removeEventListener('resize', apply);
-  }, []);
+  // Панель диалога по макету: свёрнута — видны подсказки, развёрнута —
+  // поверх экрана для длинной переписки. Пришли с готовым вопросом
+  // (например, «Обсудить цель») — сразу разворачиваем.
+  const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState(Boolean(initialInput));
+  const panelRef = useRef<HTMLElement>(null);
+  const showPanel = () => {
+    setCollapsed(false);
+    requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  };
+  const ask = (text: string) => { showPanel(); void send(text); };
 
   const canSend = !busy && (!!input.trim() || images.length > 0);
 
+  // Что ИИ видит — одной строкой из снапшота данных
+  const contextLine = (() => {
+    if (!snapshot) return 'ИИ видит программу, дневник питания, замеры и анализы.';
+    const parts: string[] = [];
+    // День «YYYY-MM-DD» — как есть; ISO-момент (дата сдачи анализа) — по местному времени
+    const d = (s: string) => new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+    if (snapshot.lastWorkout) parts.push(`последняя тренировка — ${d(snapshot.lastWorkout.date)}, ${snapshot.lastWorkout.done} из ${snapshot.lastWorkout.total}`);
+    const days = Object.entries(snapshot.macros.byDate ?? {})
+      .filter(([date, v]) => v.meals > 0 && date <= snapshot.today && date > new Date(new Date(snapshot.today + 'T12:00:00').getTime() - 7 * 86400000).toISOString().slice(0, 10)).length;
+    parts.push(`питание за ${days} из 7 дней`);
+    if (snapshot.labs) parts.push(`анализы от ${d(snapshot.labs.date)}`);
+    return parts.join(' · ');
+  })();
+
+  const PROMPTS: { icon: React.ReactNode; title: string; hint: string; text: string }[] = [
+    { icon: <Dumbbell />, title: 'Разобрать тренировку', hint: 'Нагрузка, подходы и прогресс', text: 'Разбери мою последнюю тренировку: нагрузка, подходы и прогресс по сравнению с прошлым разом.' },
+    { icon: <Utensils />, title: 'Посмотреть питание', hint: 'Калории и баланс БЖУ', text: 'Посмотри моё питание за последние дни: калории и баланс БЖУ относительно цели.' },
+    { icon: <TrendingUp />, title: 'Подвести итоги', hint: 'Что изменилось за последнее время', text: 'Подведи итоги: что изменилось за последние две недели в тренировках, питании и весе?' },
+  ];
+
   return (
-    // Чат лежит прямо на белой странице (фон страницы красит page.tsx,
-    // когда открыта вкладка ИИ) — без собственной капсулы и без шапки.
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* сообщения */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
-        {messages.length === 0 && (
-          <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', marginTop: 32, lineHeight: 1.5 }}>
-            Спроси меня про тренировки, питание, прогресс.<br />Я вижу твои данные.
-          </div>
-        )}
-        {messages.map((m, i) => {
-          // Сообщение, от которого после вычистки служебной пометки
-          // ничего не осталось, пропускаем целиком: иначе в ленте
-          // повисает пустой блок с отступами.
-          if (m.role === 'assistant'
-              && !m.content.replace(SERVICE_NOTE_RE, '').trim()
-              && !(busy && i === messages.length - 1)) {
-            return null;
-          }
-          if (m.role === 'user') {
-            const when = fmtWhen(m.createdAt);
-            return (
-              /* Ответ пользователя — белая капсула, снизу время отправки */
-              <div key={m.id ?? i} style={{ alignSelf: 'flex-end', maxWidth: '88%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                <div style={{
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-strong)',
-                  boxShadow: '0 1px 2px rgba(26, 23, 18, 0.05)',
-                  padding: '10px 13px', borderRadius: '14px 14px 4px 14px',
-                  fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word',
-                }}>
-                  <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>
-                </div>
-                {when && <span style={{ fontSize: 10, color: 'var(--text-muted)', paddingRight: 4 }}>{when}</span>}
-              </div>
-            );
-          }
-          return (
-            /* Текст ИИ — без капсулы, обычный текст; капсулы остаются только
-               у подтягиваемых данных (карточки питания/тренировки/анализов) */
-            <div
-              key={m.id ?? i}
-              style={{
-                alignSelf: 'stretch',
-                color: 'var(--text-primary)',
-                fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word',
-              }}
-            >
-              {(() => {
-                // Пометка о собранной программе нужна модели, чтобы в
-                // следующем сообщении помнить про неё, но пользователю
-                // показывать её незачем — он видел саму карточку.
-                const shown = m.content.replace(SERVICE_NOTE_RE, '').trim();
-                return shown ? renderWithCards(shown, snapshot, muscleGroups) : null;
-              })()}
-              {/* Индикатор работы держим, пока идёт ответ, а не только
-                  пока сообщение пустое: текст может уже прийти, а ИИ всё
-                  ещё собирает программу — это занимает секунд пятнадцать,
-                  и без индикатора экран выглядит замершим. */}
-              {busy && i === messages.length - 1 && (
-                <span
-                  className="chat-typing"
-                  role="status"
-                  aria-label={stage || 'ИИ печатает'}
-                  style={m.content ? { marginTop: 4 } : undefined}
-                >
-                  <span className="chat-dot" /><span className="chat-dot" /><span className="chat-dot" />
-                  {/* Стиль инлайновый: CSS-класс однажды не доехал до
-                      прод-сборки, а подпись должна быть видна наверняка. */}
-                  {stage && (
-                    <span style={{ marginLeft: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                      {stage}
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-          );
-        })}
+    <div className="tx ai-view">
+      <div className="page-title">
+        <div>
+          <h1>Твой ИИ-ассистент</h1>
+          <p>Тренировки, питание и личный прогресс</p>
+        </div>
+        {/* Все присланные файлы: к анализу или фото еды часто нужно
+            вернуться позже, а в переписке остаётся только пометка. */}
+        <button type="button" className="round big" onClick={openFiles} aria-label="Файлы из чата" title="Файлы, присланные в чат">
+          <FileText />
+        </button>
       </div>
 
+      <div className="assistant-hero">
+        <span className="spark-mark"><Sparkles /></span>
+        <h2>Твой прогресс — в&nbsp;диалоге.</h2>
+        <p>Выбери вопрос или напиши свой.</p>
+      </div>
 
-      {/* Хранилище файлов чата: всё, что присылали, с возможностью
-          открыть заново. Поверх чата, чтобы не занимать место в ленте. */}
-      {filesOpen && (
-        <div
-          onClick={() => { setFilesOpen(false); setOpenedFile(null); }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 120,
-            background: 'rgba(26, 23, 18, 0.45)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%', maxWidth: 600, maxHeight: '82vh',
-              background: 'var(--bg-secondary)',
-              borderRadius: '18px 18px 0 0',
-              padding: '16px 18px',
-              paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-              display: 'flex', flexDirection: 'column', gap: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <FolderOpen size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-              <span style={{ fontSize: 14, fontWeight: 700 }}>Файлы из чата</span>
-              <button
-                onClick={() => { setFilesOpen(false); setOpenedFile(null); }}
-                aria-label="закрыть"
-                style={{
-                  marginLeft: 'auto', width: 30, height: 30, borderRadius: 9,
-                  border: '1px solid var(--border)', background: 'var(--bg-elevated)',
-                  color: 'var(--text-secondary)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <X size={15} />
-              </button>
-            </div>
+      <div className="prompt-list">
+        {PROMPTS.map(p => (
+          <button key={p.title} type="button" className="prompt" disabled={busy} onClick={() => ask(p.text)}>
+            {p.icon}
+            <span><strong>{p.title}</strong><small>{p.hint}</small></span>
+            <ChevronRight />
+          </button>
+        ))}
+      </div>
 
-            {openedFile ? (
-              <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button
-                  onClick={() => setOpenedFile(null)}
-                  style={{
-                    alignSelf: 'flex-start', padding: '7px 11px', borderRadius: 9,
-                    border: '1px solid var(--border)', background: 'var(--bg-elevated)',
-                    color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >← К списку</button>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
-                  {openedFile.name}
-                </div>
-                {openedFile.mimeType.startsWith('image/') ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={openedFile.data} alt={openedFile.name}
-                       /* Ограничиваем высотой и вписываем по размеру:
-                          иначе картинка в один пиксель растягивается на
-                          весь экран. */
-                       style={{
-                         maxWidth: '100%', maxHeight: '58vh', objectFit: 'contain',
-                         borderRadius: 10, border: '1px solid var(--border)',
-                         background: 'var(--bg-elevated)',
-                       }} />
-                ) : (
-                  /* PDF и текст открываем в новой вкладке: встроенный
-                     просмотр на телефоне работает плохо. */
-                  <a
-                    href={openedFile.data}
-                    target="_blank"
-                    rel="noreferrer"
-                    download={openedFile.name}
-                    style={{
-                      padding: '12px', borderRadius: 11, textAlign: 'center',
-                      background: 'var(--text-primary)', color: 'var(--bg-primary)',
-                      fontSize: 13, fontWeight: 700, textDecoration: 'none',
-                    }}
-                  >Открыть файл</a>
-                )}
-              </div>
-            ) : savedFiles === null ? (
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '14px 0' }}>Загружаю…</div>
-            ) : savedFiles.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '14px 0', lineHeight: 1.5 }}>
-                Пока ничего не присылали. Файлы из чата — фото, PDF, документы — будут собираться здесь.
-              </div>
-            ) : (
-              <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {savedFiles.map((f) => (
-                  <div key={f.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', borderRadius: 11,
-                    background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  }}>
-                    {f.mimeType.startsWith('image/')
-                      ? <ImageIcon size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                      : <FileText size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
-                    <button
-                      onClick={async () => {
-                        const r = await fetch(`/api/chat/files?id=${encodeURIComponent(f.id)}`);
-                        if (r.ok) setOpenedFile(await r.json());
-                      }}
-                      style={{
-                        flex: 1, minWidth: 0, textAlign: 'left', background: 'none',
-                        border: 0, padding: 0, cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {f.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-                        {fmtSize(f.size)} · {fmtFileDate(f.createdAt)}
-                      </div>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await fetch(`/api/chat/files?id=${encodeURIComponent(f.id)}`, { method: 'DELETE' });
-                        setSavedFiles((prev) => (prev ?? []).filter((x) => x.id !== f.id));
-                      }}
-                      aria-label={`удалить ${f.name}`}
-                      style={{
-                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                        border: 0, background: 'none', color: 'var(--text-muted)',
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <section className="card">
+        <div className="section-title"><h2>Контекст диалога</h2></div>
+        <div className="context-tags"><span>Тренировки</span><span>Питание</span><span>Здоровье</span><span>Анализы</span></div>
+        <p className="muted">{contextLine}</p>
+      </section>
 
       {/* Программа ждёт решения: напоминаем и даём путь обратно. Без
           этого после «Обсудить» вернуться к ней было бы нечем. */}
       {pendingProgram && (
-        <button
-          onClick={pendingProgram.open}
-          style={{
-            marginTop: 10, padding: '11px 13px', borderRadius: 12,
-            display: 'flex', alignItems: 'center', gap: 9, width: '100%',
-            background: 'var(--yellow-dim)', border: '1px solid var(--yellow)',
-            cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-          }}
-        >
-          <Dumbbell size={15} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.35 }}>
-            Программа на {pendingProgram.days} трен. ждёт решения
-            <span style={{ color: 'var(--text-muted)' }}> — открыть и подтвердить</span>
-          </span>
+        <button type="button" className="ai-pending" onClick={pendingProgram.open}>
+          <Dumbbell />
+          <span>Программа на {pendingProgram.days} трен. ждёт решения <em>— открыть и подтвердить</em></span>
         </button>
       )}
 
-      {/* Превью прикреплённых фото — лентой, каждое снимается крестиком.
-          Крестик висит над углом картинки, поэтому между превью нужен
-          зазор шире него: иначе крестик соседа перекрывает кнопку и по ней
-          невозможно попасть. Отступ сверху — по той же причине.
-          minWidth у картинки — чтобы узкое фото не схлопнулось в полоску. */}
-      {images.length > 0 && (
-        <div style={{ paddingTop: 18, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-          {images.map((f, i) => (
-            <div key={i} style={{ position: 'relative', display: 'inline-block' }}>
-              {f.data.startsWith('data:image/') ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={f.data} alt={`вложение ${i + 1}`} style={{ height: 84, minWidth: 48, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', display: 'block' }} />
-              ) : (
-                /* У PDF и текста превью нет — показываем плашку с именем,
-                   чтобы было видно, что именно прикреплено. */
-                <div style={{
-                  height: 84, minWidth: 96, maxWidth: 150, boxSizing: 'border-box',
-                  borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-elevated)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 6, padding: '8px 10px',
-                }}>
-                  <FileText size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                  <span style={{
-                    fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.25, textAlign: 'center',
-                    overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                    wordBreak: 'break-all',
-                  }}>{f.name}</span>
-                </div>
+      <section ref={panelRef} className={'ux-chat-panel' + (collapsed ? ' is-collapsed' : '') + (expanded ? ' is-expanded' : '')}>
+        <header className="ux-chat-head">
+          <button type="button" aria-expanded={!collapsed} onClick={() => { setCollapsed(c => !c); setExpanded(false); }}>
+            <span className="ux-ai-spark">✦</span>
+            <span>
+              <b>Диалог с ИИ</b>
+              <small>{busy ? (stage || 'Думаю') : 'Видит твои данные · отвечает по ним'}</small>
+            </span>
+            <ChevronDown className="chev" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => { setCollapsed(false); setExpanded(e => !e); }}
+            aria-label={expanded ? 'Уменьшить чат' : 'Развернуть чат'}>
+            {expanded ? <Minimize2 /> : <Maximize2 />}
+          </button>
+        </header>
+
+        {collapsed ? (
+          <button type="button" className="ux-chat-resume" onClick={showPanel}>Продолжить диалог ↑</button>
+        ) : (
+          <div className="ux-chat-content">
+            {/* сообщения */}
+            <div ref={scrollRef} className="chat-messages" aria-live="polite">
+              {messages.length === 0 && (
+                <div className="chat-empty">Спроси про тренировки, питание или прогресс.<br />Я вижу твои данные.</div>
               )}
-              <button
-                onClick={() => removeImage(i)}
-                aria-label={`убрать фото ${i + 1}`}
-                style={{
-                  position: 'absolute', top: -8, right: -8, width: 22, height: 22, borderRadius: '50%',
-                  border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)', zIndex: 1,
-                }}
-              >
-                <X size={14} />
+              {messages.map((m, i) => {
+                // Сообщение, от которого после вычистки служебной пометки
+                // ничего не осталось, пропускаем целиком: иначе в ленте
+                // повисает пустой блок с отступами.
+                if (m.role === 'assistant'
+                    && !m.content.replace(SERVICE_NOTE_RE, '').trim()
+                    && !(busy && i === messages.length - 1)) {
+                  return null;
+                }
+                if (m.role === 'user') {
+                  const when = fmtWhen(m.createdAt);
+                  return (
+                    <div key={m.id ?? i} className="msg-user">
+                      <div className="user-bubble">{m.content}</div>
+                      {when && <span className="msg-time">{when}</span>}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={m.id ?? i} className="msg-ai">
+                    {(() => {
+                      // Пометка о собранной программе нужна модели, чтобы в
+                      // следующем сообщении помнить про неё, но пользователю
+                      // показывать её незачем — он видел саму карточку.
+                      const shown = m.content.replace(SERVICE_NOTE_RE, '').trim();
+                      return shown ? renderWithCards(shown, snapshot, muscleGroups) : null;
+                    })()}
+                    {/* Индикатор держим, пока идёт ответ, а не только пока
+                        сообщение пустое: ИИ может ещё собирать программу. */}
+                    {busy && i === messages.length - 1 && (
+                      <span className="chat-typing" role="status" aria-label={stage || 'ИИ печатает'}
+                        style={m.content ? { marginTop: 4 } : undefined}>
+                        <span className="chat-dot" /><span className="chat-dot" /><span className="chat-dot" />
+                        {stage && <span style={{ marginLeft: 4, fontSize: 11, color: 'var(--text-muted)' }}>{stage}</span>}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="ux-chat-chips">
+              {PROMPTS.map(p => (
+                <button key={p.title} type="button" disabled={busy} onClick={() => ask(p.text)}>{p.title}</button>
+              ))}
+            </div>
+
+            {/* Превью вложений: крестик висит над углом, поэтому между
+                превью зазор шире него, иначе крестик соседа перекрывает. */}
+            {images.length > 0 && (
+              <div className="chat-attachments">
+                {images.map((f, i) => (
+                  <div key={i} className="chat-attachment">
+                    {f.data.startsWith('data:image/') ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={f.data} alt={`вложение ${i + 1}`} />
+                    ) : (
+                      // У PDF и текста превью нет — плашка с именем файла
+                      <div className="chat-attachment-file"><FileText /><span>{f.name}</span></div>
+                    )}
+                    <button type="button" onClick={() => removeImage(i)} aria-label={`убрать вложение ${i + 1}`}><X /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {attachError && <div className="chat-attach-error">{attachError}</div>}
+
+            <div className="chat-form">
+              <input ref={fileRef} type="file" multiple onChange={onPickFile} style={{ display: 'none' }} />
+              <button type="button" className="round" onClick={() => fileRef.current?.click()} disabled={busy}
+                aria-label="прикрепить файл" style={images.length ? { color: 'var(--accent)' } : undefined}>
+                <Paperclip />
+              </button>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKey}
+                onFocus={() => setCollapsed(false)}
+                placeholder="Спроси о своём прогрессе…"
+                rows={1}
+                autoFocus={Boolean(initialInput)}
+              />
+              <button type="button" className="round primary" onClick={() => send()} disabled={!canSend} aria-label="отправить">
+                <ArrowUp />
               </button>
             </div>
-          ))}
-        </div>
-      )}
-      {attachError && (
-        <div style={{ paddingTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>{attachError}</div>
-      )}
-
-      {/* ввод */}
-      {/* Строка ввода. Нижний отступ — по безопасной зоне плюс запас:
-          у телефона там скруглённые углы и домашняя полоска, кнопки не
-          должны к ним прижиматься. */}
-      <div style={{
-        display: 'flex', gap: 6, paddingTop: 10, alignItems: 'flex-end',
-        borderTop: '1px solid var(--border)', flexShrink: 0,
-        paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
-      }}>
-        <input ref={fileRef} type="file" multiple onChange={onPickFile} style={{ display: 'none' }} />
-        {/* Возврат на главную: в чате нижнее меню скрыто, поэтому выход
-            живёт здесь, рядом со скрепкой. */}
-        {onGoHome && (
-          <button
-            onClick={onGoHome}
-            className="chat-iconbtn"
-            aria-label="на главную"
-            title="На главную"
-            style={{
-              width: btnSize, height: btnSize, borderRadius: 12, flexShrink: 0,
-              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-              color: 'var(--text-secondary)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <Home size={18} />
-          </button>
+          </div>
         )}
-        {/* Все присланные файлы: к анализу или фото еды часто нужно
-            вернуться позже, а в переписке остаётся только пометка. */}
-        <button
-          onClick={openFiles}
-          className="chat-iconbtn"
-          aria-label="мои файлы"
-          title="Файлы, присланные в чат"
-          style={{
-            width: btnSize, height: btnSize, borderRadius: 12, flexShrink: 0,
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-            color: 'var(--text-secondary)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <FolderOpen size={18} />
-        </button>
-        {/* attach: прикрепить фото */}
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-          className="chat-iconbtn"
-          aria-label="прикрепить фото"
-          style={{
-            width: btnSize, height: btnSize, borderRadius: 12, flexShrink: 0,
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-            color: images.length ? 'var(--yellow)' : 'var(--text-secondary)',
-            cursor: busy ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Paperclip size={18} />
-        </button>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKey}
-          placeholder="Спроси что-нибудь…"
-          rows={1}
-          style={{
-            flex: 1, resize: 'none', background: 'var(--bg-elevated)', color: 'var(--text-primary)',
-            border: '1px solid var(--border)', borderRadius: 12,
-            padding: '11px 13px', fontSize: 14, outline: 'none', maxHeight: 120,
-          }}
-        />
-        {/* отправить — графитовая, не оранжевая */}
-        <button
-          onClick={send}
-          disabled={!canSend}
-          className="chat-iconbtn"
-          aria-label="отправить"
-          style={{
-            width: btnSize, height: btnSize, borderRadius: 12, border: 'none', flexShrink: 0,
-            cursor: canSend ? 'pointer' : 'not-allowed',
-            background: canSend ? 'var(--text-primary)' : 'var(--bg-elevated)',
-            color: canSend ? 'var(--bg-primary)' : 'var(--text-secondary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Send size={18} />
-        </button>
-      </div>
+      </section>
+
+      {/* Хранилище файлов чата: всё, что присылали, с возможностью
+          открыть заново. */}
+      {filesOpen && (
+        <TxDialog title="Файлы из чата" onClose={() => { setFilesOpen(false); setOpenedFile(null); }}>
+          {openedFile ? (
+            <div className="chat-file-open">
+              <button type="button" className="chat-file-back" onClick={() => setOpenedFile(null)}>← К списку</button>
+              <p>{openedFile.name}</p>
+              {openedFile.mimeType.startsWith('image/') ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={openedFile.data} alt={openedFile.name} />
+              ) : (
+                // PDF и текст открываем в новой вкладке: встроенный
+                // просмотр на телефоне работает плохо.
+                <a href={openedFile.data} target="_blank" rel="noreferrer" download={openedFile.name} className="primary chat-file-link">Открыть файл</a>
+              )}
+            </div>
+          ) : savedFiles === null ? (
+            <p>Загружаю…</p>
+          ) : savedFiles.length === 0 ? (
+            <p>Пока ничего не присылали. Файлы из чата — фото, PDF, документы — будут собираться здесь.</p>
+          ) : (
+            <div className="chat-file-list">
+              {savedFiles.map((f) => (
+                <div key={f.id} className="chat-file-row">
+                  {f.mimeType.startsWith('image/') ? <ImageIcon /> : <FileText />}
+                  <button type="button" onClick={async () => {
+                    const r = await fetch(`/api/chat/files?id=${encodeURIComponent(f.id)}`);
+                    if (r.ok) setOpenedFile(await r.json());
+                  }}>
+                    <b>{f.name}</b>
+                    <small>{fmtSize(f.size)} · {fmtFileDate(f.createdAt)}</small>
+                  </button>
+                  <button type="button" className="chat-file-del" aria-label={`удалить ${f.name}`} onClick={async () => {
+                    await fetch(`/api/chat/files?id=${encodeURIComponent(f.id)}`, { method: 'DELETE' });
+                    setSavedFiles((prev) => (prev ?? []).filter((x) => x.id !== f.id));
+                  }}><X /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </TxDialog>
+      )}
     </div>
   );
 }
