@@ -4,17 +4,18 @@ import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallba
 import { signOut } from 'next-auth/react';
 import {
   Plus, X, Dumbbell, Apple, ChevronLeft, ChevronRight, Check, CheckCheck,
-  Target, TrendingUp, Edit2, Trash2, Save, ChevronDown,
+  TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
-  Zap, Timer, Play, Pause, RotateCcw, Settings, User, LogOut,
-  Heart, BarChart3, Scale, Ruler, Globe, Languages, Pencil,
+  Zap, Timer, Play, Pause, RotateCcw, Settings, User,
+  Heart, BarChart3, Scale, Ruler, Pencil,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, Sun, Moon, MonitorSmartphone, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2,
+  Home, Trophy, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2,
   ClipboardList, Pill
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat, type WorkoutEdit } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
+import { ProfileView } from '@/components/ProfileView';
 import { WeightChart } from '@/components/WeightChart';
 import NutritionPage from '@/components/NutritionPage';
 import AddMealDialog from '@/components/AddMealDialog';
@@ -3616,153 +3617,6 @@ function mergeServerDayLogs(
   return next;
 }
 
-// Goal editor card shown in the Profile view. Holds its own draft state so
-// the user can type freely without each keystroke debouncing through the
-// server PUT. Save flushes the draft up to the parent + /api/settings; the
-// cleanup useEffect resyncs the draft when the server-side goal changes
-// (e.g. another device updated it).
-function GoalEditor({
-  goal,
-  language,
-  onSave,
-}: {
-  goal: MacroGoal;
-  language: 'ru' | 'en';
-  onSave: (next: MacroGoal) => void | Promise<void>;
-}) {
-  const [draft, setDraft] = useState<{ protein: string; fat: string; carbs: string; calories: string }>({
-    protein: String(goal.protein),
-    fat: String(goal.fat),
-    carbs: String(goal.carbs),
-    calories: String(goal.calories),
-  });
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-
-  // Re-seed the draft if the upstream goal changes from elsewhere (server
-  // pull, another device). Don't clobber the user's in-progress typing —
-  // only resync when they're not actively editing (saving===false and the
-  // draft matches the previous remote value).
-  const prevGoalRef = useRef(goal);
-  useEffect(() => {
-    const prev = prevGoalRef.current;
-    if (prev.protein === goal.protein && prev.fat === goal.fat && prev.carbs === goal.carbs && prev.calories === goal.calories) return;
-    prevGoalRef.current = goal;
-    setDraft({
-      protein: String(goal.protein),
-      fat: String(goal.fat),
-      carbs: String(goal.carbs),
-      calories: String(goal.calories),
-    });
-  }, [goal]);
-
-  const t = (ru: string, en: string) => (language === 'ru' ? ru : en);
-
-  const parsed: MacroGoal = {
-    protein: Math.max(0, Math.round(Number(draft.protein) || 0)),
-    fat: Math.max(0, Math.round(Number(draft.fat) || 0)),
-    carbs: Math.max(0, Math.round(Number(draft.carbs) || 0)),
-    calories: Math.max(0, Math.round(Number(draft.calories) || 0)),
-  };
-  const dirty = parsed.protein !== goal.protein
-    || parsed.fat !== goal.fat
-    || parsed.carbs !== goal.carbs
-    || parsed.calories !== goal.calories;
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onSave(parsed);
-      setSavedAt(Date.now());
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const fields: Array<{ key: 'protein' | 'fat' | 'carbs' | 'calories'; label: string; unit: string; color: string }> = [
-    { key: 'protein',  label: t('Белок', 'Protein'),    unit: t('г', 'g'),     color: 'var(--red)' },
-    { key: 'fat',      label: t('Жиры', 'Fat'),         unit: t('г', 'g'),     color: 'var(--yellow)' },
-    { key: 'carbs',    label: t('Углеводы', 'Carbs'),   unit: t('г', 'g'),     color: 'var(--blue)' },
-    { key: 'calories', label: t('Калории', 'Calories'), unit: t('ккал', 'kcal'), color: 'var(--green)' },
-  ];
-
-  return (
-    <div style={{
-      marginBottom: '20px',
-      padding: '18px',
-      background: 'var(--bg-card)',
-      borderRadius: '16px',
-      border: '1px solid var(--border)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Target size={18} style={{ color: 'var(--green)' }} />
-          <div style={{ fontSize: '14px', fontWeight: 700 }}>{t('Моя цель', 'My Goal')}</div>
-        </div>
-        {savedAt && Date.now() - savedAt < 2500 && (
-          <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>
-            ✓ {t('сохранено', 'saved')}
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-        {fields.map(f => (
-          <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {f.label} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({f.unit})</span>
-            </span>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={draft[f.key]}
-              onChange={(e) => setDraft(d => ({ ...d, [f.key]: e.target.value }))}
-              style={{
-                padding: '10px 12px',
-                background: 'var(--bg-elevated)',
-                border: `1px solid var(--border)`,
-                borderRadius: '10px',
-                color: f.color,
-                fontSize: '16px',
-                fontWeight: 700,
-                width: '100%',
-                boxSizing: 'border-box',
-              }}
-            />
-          </label>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={!dirty || saving}
-        style={{
-          marginTop: '14px',
-          width: '100%',
-          minHeight: '46px',
-          padding: '12px 14px',
-          background: dirty
-            ? 'linear-gradient(135deg, #5eead4 0%, #14b8a6 100%)'
-            : 'var(--bg-elevated)',
-          border: dirty ? 'none' : '1px solid var(--border)',
-          borderRadius: '12px',
-          color: dirty ? '#053b3a' : 'var(--text-muted)',
-          fontSize: '14px',
-          fontWeight: 800,
-          cursor: dirty && !saving ? 'pointer' : 'default',
-          textTransform: 'uppercase',
-          letterSpacing: '0.3px',
-          touchAction: 'manipulation',
-          boxShadow: dirty ? '0 6px 22px rgba(20, 184, 166, 0.35)' : 'none',
-        }}
-      >
-        {saving ? t('Сохраняем…', 'Saving…') : t('Сохранить цель', 'Save goal')}
-      </button>
-    </div>
-  );
-}
-
 export default function FitnessPage() {
   const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner' | 'chat' | 'labs'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -3957,6 +3811,9 @@ export default function FitnessPage() {
    * только по кнопке: подменять тренировку молча нельзя.
    */
   const [workoutEdit, setWorkoutEdit] = useState<WorkoutEdit | null>(null);
+  /** Вопрос, который другой раздел подставляет в чат ИИ («Обсудить цель с ИИ»). */
+  const [chatDraft, setChatDraft] = useState<string | null>(null);
+  const clearChatDraft = useCallback(() => setChatDraft(null), []);
   /** Состояние кольца Oura: подключено ли и последние дни показателей. */
   const [oura, setOura] = useState<{
     configured: boolean;
@@ -4270,6 +4127,26 @@ export default function FitnessPage() {
   // means every existing reference to MACRO_TARGETS below picks up the
   // user's numbers without touching every call site.
   const MACRO_TARGETS: MacroGoal = userSettings.goal ?? MACRO_TARGETS_FALLBACK;
+  // Настройки профиля: сразу в состояние, затем на сервер. Офлайн не страшен —
+  // локальное значение уже применено, при следующем изменении уйдёт снова.
+  const updateSettings = (patch: Partial<Pick<UserSettings, 'language' | 'theme' | 'timezone' | 'goalType' | 'goal' | 'name'>>) => {
+    setUserSettings(s => ({ ...s, ...patch }));
+    fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).catch(() => { /* офлайн */ });
+  };
+  // Последний записанный вес — для блока «На чём основана цель» в профиле.
+  const latestWeight = useMemo(() => {
+    const last = bodyMeasurements
+      .filter(m => typeof m.weight === 'number' && m.weight > 0)
+      .reduce<BodyMeasurement | null>((best, m) => (!best || m.date > best.date ? m : best), null);
+    if (!last?.weight) return null;
+    const date = new Date(last.date.slice(0, 10) + 'T12:00:00')
+      .toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' });
+    return { kg: last.weight, date };
+  }, [bodyMeasurements, userSettings.language]);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Theme — applied via .night-mode on <body>. 'auto' tracks the clock
@@ -7749,6 +7626,32 @@ export default function FitnessPage() {
         )}
 
 
+        {/* Под-навигация раздела «Я»: Профиль · Здоровье · Статистика.
+            Стоит над всеми тремя экранами (раньше на «Здоровье» и
+            «Статистике» оказывалась внизу — блок шёл после них). */}
+        {(view === 'profile' || view === 'gains' || view === 'analytics') && (
+          <div className="tx">
+            <div className="segmented" role="tablist">
+              {([
+                { key: 'profile', ru: 'Профиль', en: 'Profile' },
+                { key: 'gains', ru: 'Здоровье', en: 'Health' },
+                { key: 'analytics', ru: 'Статистика', en: 'Stats' },
+              ] as { key: typeof view; ru: string; en: string }[]).map((sub) => (
+                <button
+                  key={sub.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === sub.key}
+                  className={view === sub.key ? 'active' : undefined}
+                  onClick={() => { setView(sub.key); localStorage.setItem('fitness_view', sub.key); }}
+                >
+                  {userSettings.language === 'ru' ? sub.ru : sub.en}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ANALYTICS VIEW */}
         {view === 'analytics' && (
           <div className="view-content">
@@ -8168,526 +8071,103 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* Под-навигация раздела «Я»: Профиль · Прогресс · Статистика.
-            Переехала сюда из старого верхнего дропдауна. Показывается на всех
-            трёх вложенных экранах. */}
-        {(view === 'profile' || view === 'gains' || view === 'analytics') && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            {([
-              { key: 'profile',   icon: <Settings size={15} />,  label: t('settings') },
-              { key: 'gains',     icon: <Scale size={15} />,     label: t('gains') },
-              { key: 'analytics', icon: <BarChart3 size={15} />, label: t('statistics') },
-            ] as { key: typeof view; icon: React.ReactNode; label: string }[]).map((sub) => (
-              <button
-                key={sub.key}
-                className="btn-press"
-                onClick={() => { setView(sub.key); localStorage.setItem('fitness_view', sub.key); }}
-                style={{
-                  flex: 1,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  padding: '10px',
-                  background: view === sub.key ? 'var(--yellow)' : 'var(--bg-elevated)',
-                  border: view === sub.key ? 'none' : '1px solid var(--border)',
-                  borderRadius: '12px',
-                  color: view === sub.key ? '#fff' : 'var(--text-secondary)',
-                  fontWeight: view === sub.key ? 700 : 500,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                {sub.icon}
-                {sub.label}
-              </button>
-            ))}
-          </div>
-        )}
 
-        {/* PROFILE VIEW */}
+        {/* PROFILE VIEW — по макету редизайна: цель, питание, свёрнутые настройки */}
         {view === 'profile' && (
           <div className="view-content">
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <User size={20} />
-                {t('profile')}
-              </h2>
-
-              {/* Avatar */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginBottom: '24px',
-                padding: '24px',
-                background: 'var(--bg-card)',
-                borderRadius: '16px',
-                border: '1px solid var(--border)'
-              }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, var(--yellow), var(--orange))',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '32px',
-                  fontWeight: 700,
-                  color: '#fff',
-                  marginBottom: '12px'
-                }}>
-                  {userSettings.name?.[0]?.toUpperCase() || '👤'}
-                </div>
-                <div style={{ fontSize: '18px', fontWeight: 600 }}>{userSettings.name || 'User'}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{userSettings.email || 'fitness@app.local'}</div>
-              </div>
-
-              {/* Замеры и прогресс — перенесено из хедера */}
-              <button
-                onClick={() => { setView('gains'); localStorage.setItem('fitness_view', 'gains'); }}
-                style={{
-                  width: '100%',
-                  marginBottom: '24px',
-                  padding: '16px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '16px',
-                  color: 'var(--text-primary)',
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  cursor: 'pointer'
-                }}
-              >
-                <Ruler size={18} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
-                {t('gains')}
-                <ChevronRight size={18} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
-              </button>
-
-              {/* Цель питания — похудение / поддержание / набор. На неё
-                  опираются ИИ-рекомендации «что и когда есть». */}
-              <div style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                borderRadius: '16px', padding: '16px', marginBottom: '24px'
-              }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>
-                  {userSettings.language === 'ru' ? 'Моя цель' : 'My goal'}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {([
-                    { key: 'lose' as const, ru: 'Похудение', en: 'Lose fat' },
-                    { key: 'maintain' as const, ru: 'Поддержание', en: 'Maintain' },
-                    { key: 'gain' as const, ru: 'Набор массы', en: 'Gain' },
-                    { key: 'recomp' as const, ru: 'Атлетика (мышцы + сушка)', en: 'Recomp' },
-                  ]).map(g => {
-                    const active = (userSettings.goalType ?? 'maintain') === g.key;
+            <ProfileView
+              lang={userSettings.language === 'ru' ? 'ru' : 'en'}
+              name={userSettings.name}
+              email={userSettings.email}
+              goalType={userSettings.goalType ?? 'maintain'}
+              goal={MACRO_TARGETS}
+              theme={themePref}
+              timezone={userSettings.timezone}
+              about={aboutMe}
+              latestWeight={latestWeight}
+              onSettings={updateSettings}
+              onAbout={(next) => {
+                setAboutMe(next);
+                const year = parseInt(next.birthYear, 10);
+                const height = parseInt(next.heightCm, 10);
+                saveAboutMe({
+                  birthYear: Number.isFinite(year) ? year : null,
+                  heightCm: Number.isFinite(height) ? height : null,
+                  sex: next.sex || null,
+                });
+              }}
+              onDiscussGoal={(prompt) => {
+                setChatDraft(prompt);
+                setView('chat');
+              }}
+              onSignOut={() => {
+                if (confirm(t('signOutConfirm') as string)) {
+                  localStorage.clear();
+                  signOut({ callbackUrl: '/login' });
+                }
+              }}
+              extraSettings={oura && (oura.configured || oura.days.length > 0) ? (
+                // Кольцо Oura: сон, готовность, пульс покоя и ВСР. Блок есть,
+                // только если ключи заданы на сервере или остались выгрузки.
+                <div className="setting-block">
+                  <b>Кольцо Oura</b>
+                  <p className="muted">
+                    {oura.connected
+                      ? 'Сон, готовность, пульс покоя и ВСР подтягиваются автоматически. ИИ учитывает их, когда советует нагрузку.'
+                      : 'Подключи, чтобы ИИ видел сон и восстановление: застой в весах часто идёт от недосыпа, а не от программы.'}
+                  </p>
+                  {oura.days.length > 0 && (() => {
+                    const last = oura.days[0];
+                    const hhmm = (m: number | null) => m == null ? '—' : `${Math.floor(m / 60)}ч ${String(m % 60).padStart(2, '0')}м`;
                     return (
-                      <button
-                        key={g.key}
-                        onClick={async () => {
-                          setUserSettings(s => ({ ...s, goalType: g.key }));
-                          await fetch('/api/settings', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ goalType: g.key })
-                          });
-                        }}
-                        style={{
-                          padding: '10px 4px',
-                          background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
-                          border: '1px solid var(--border)', borderRadius: '10px',
-                          color: active ? '#fff' : 'var(--text-secondary)',
-                          fontWeight: active ? 700 : 500, fontSize: '12px', cursor: 'pointer'
-                        }}
-                      >
-                        {userSettings.language === 'ru' ? g.ru : g.en}
-                      </button>
+                      <div className="oura-metrics">
+                        {[
+                          ['Сон', hhmm(last.totalSleepMin)],
+                          ['Готовность', last.readinessScore ?? '—'],
+                          ['Пульс покоя', last.restingHr ?? '—'],
+                          ['ВСР', last.hrvMs != null ? `${last.hrvMs} мс` : '—'],
+                        ].map(([k, v]) => (
+                          <div key={String(k)}><small>{k}</small><b>{v}</b></div>
+                        ))}
+                        <small className="oura-date">за {last.date}</small>
+                      </div>
                     );
-                  })}
-                </div>
-              </div>
-
-              {/* My Goal — per-user daily macro targets */}
-              <GoalEditor
-                goal={MACRO_TARGETS}
-                language={userSettings.language}
-                onSave={async (next) => {
-                  setUserSettings(s => ({ ...s, goal: next }));
-                  await fetch('/api/settings', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ goal: next }),
-                  });
-                }}
-              />
-
-              {/* Settings */}
-              <div style={{
-                background: 'var(--bg-card)',
-                borderRadius: '16px',
-                border: '1px solid var(--border)',
-                overflow: 'hidden'
-              }}>
-                {/* Language */}
-                <div style={{
-                  padding: '16px',
-                  borderBottom: '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Languages size={20} style={{ color: 'var(--blue)' }} />
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {t('language')}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {userSettings.language === 'ru' ? t('russian') : t('english')}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={async () => {
-                        const newLang = 'ru';
-                        setUserSettings(s => ({ ...s, language: newLang }));
-                        await fetch('/api/settings', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ language: newLang })
-                        });
-                      }}
-                      style={{
-                        padding: '8px 12px',
-                        background: userSettings.language === 'ru' ? 'var(--yellow)' : 'var(--bg-elevated)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        color: userSettings.language === 'ru' ? '#fff' : 'var(--text-secondary)',
-                        fontWeight: userSettings.language === 'ru' ? 700 : 500,
-                        cursor: 'pointer',
-                        fontSize: '13px'
-                      }}
-                    >
-                      RU
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const newLang = 'en';
-                        setUserSettings(s => ({ ...s, language: newLang }));
-                        await fetch('/api/settings', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ language: newLang })
-                        });
-                      }}
-                      style={{
-                        padding: '8px 12px',
-                        background: userSettings.language === 'en' ? 'var(--yellow)' : 'var(--bg-elevated)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        color: userSettings.language === 'en' ? '#fff' : 'var(--text-secondary)',
-                        fontWeight: userSettings.language === 'en' ? 700 : 500,
-                        cursor: 'pointer',
-                        fontSize: '13px'
-                      }}
-                    >
-                      EN
-                    </button>
-                  </div>
-                </div>
-
-                {/* Theme */}
-                <div style={{
-                  padding: '16px',
-                  borderBottom: '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                    {themePref === 'dark' ? (
-                      <Moon size={20} style={{ color: 'var(--purple)' }} />
-                    ) : themePref === 'light' ? (
-                      <Sun size={20} style={{ color: 'var(--yellow)' }} />
-                    ) : (
-                      <MonitorSmartphone size={20} style={{ color: 'var(--text-secondary)' }} />
-                    )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {userSettings.language === 'ru' ? 'Тема' : 'Theme'}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {themePref === 'dark'
-                          ? (userSettings.language === 'ru' ? 'Тёмная' : 'Dark')
-                          : themePref === 'light'
-                          ? (userSettings.language === 'ru' ? 'Светлая' : 'Light')
-                          : (userSettings.language === 'ru' ? 'Авто (по времени)' : 'Auto (by time)')}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                    {(['light', 'dark', 'auto'] as const).map(opt => {
-                      const active = themePref === opt;
-                      const Icon = opt === 'light' ? Sun : opt === 'dark' ? Moon : MonitorSmartphone;
-                      return (
-                        <button
-                          key={opt}
-                          onClick={async () => {
-                            setUserSettings(s => ({ ...s, theme: opt }));
-                            try {
-                              await fetch('/api/settings', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ theme: opt })
-                              });
-                            } catch { /* offline — local state still applies */ }
-                          }}
-                          title={opt}
-                          style={{
-                            width: '36px', height: '36px',
-                            background: active ? 'var(--yellow)' : 'var(--bg-elevated)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            color: active ? '#fff' : 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <Icon size={16} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Timezone */}
-                <div style={{
-                  padding: '16px',
-                  borderBottom: '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Globe size={20} style={{ color: 'var(--green)' }} />
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {t('timezone')}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {userSettings.timezone}
-                      </div>
-                    </div>
-                  </div>
-                  <select
-                    value={userSettings.timezone}
-                    onChange={async (e) => {
-                      const newTz = e.target.value;
-                      setUserSettings(s => ({ ...s, timezone: newTz }));
-                      await fetch('/api/settings', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ timezone: newTz })
-                      });
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      color: 'var(--text-primary)',
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="Europe/Moscow">Moscow (UTC+3)</option>
-                    <option value="Europe/Kiev">Kyiv (UTC+2)</option>
-                    <option value="Europe/London">London (UTC+0)</option>
-                    <option value="America/New_York">New York (UTC-5)</option>
-                    <option value="America/Los_Angeles">Los Angeles (UTC-8)</option>
-                    <option value="Asia/Dubai">Dubai (UTC+4)</option>
-                    <option value="Asia/Tokyo">Tokyo (UTC+9)</option>
-                  </select>
-                </div>
-
-                {/* Кольцо Oura: сон, готовность, пульс покоя и ВСР.
-                    Раздел показывается, только если ключи приложения
-                    заданы на сервере — иначе кнопка вела бы в никуда. */}
-                {oura && (oura.configured || oura.days.length > 0) && (
-                  <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
-                      Кольцо Oura
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.45 }}>
-                      {oura.connected
-                        ? 'Сон, готовность, пульс покоя и ВСР подтягиваются автоматически. ИИ учитывает их, когда советует нагрузку.'
-                        : 'Подключи, чтобы ИИ видел сон и восстановление: застой в весах часто идёт от недосыпа, а не от программы.'}
-                    </div>
-
-                    {/* Показатели видны и без активного подключения:
-                        выгруженная история остаётся и после отключения. */}
-                    {oura.days.length > 0 && (() => {
-                      const last = oura.days[0];
-                      const hhmm = (m: number | null) => m == null ? '—' : `${Math.floor(m / 60)}ч ${String(m % 60).padStart(2, '0')}м`;
-                      return (
-                        <div style={{
-                          display: 'flex', gap: '14px', flexWrap: 'wrap', marginBottom: '12px',
-                          padding: '11px 13px', borderRadius: '11px',
-                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                        }}>
-                          {[
-                            ['Сон', hhmm(last.totalSleepMin)],
-                            ['Готовность', last.readinessScore ?? '—'],
-                            ['Пульс покоя', last.restingHr ?? '—'],
-                            ['ВСР', last.hrvMs != null ? `${last.hrvMs} мс` : '—'],
-                          ].map(([k, v]) => (
-                            <div key={String(k)}>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{k}</div>
-                              <div style={{ fontSize: '14px', fontWeight: 700 }}>{v}</div>
-                            </div>
-                          ))}
-                          <div style={{ width: '100%', fontSize: '10px', color: 'var(--text-muted)' }}>
-                            за {last.date}
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {oura.connected ? (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={async () => {
-                            setOuraBusy(true);
-                            try {
-                              await fetch('/api/oura', { method: 'POST' });
-                              const r = await fetch('/api/oura');
-                              if (r.ok) setOura(await r.json());
-                            } finally { setOuraBusy(false); }
-                          }}
-                          disabled={ouraBusy}
-                          style={{
-                            flex: 1, padding: '12px', borderRadius: '11px',
-                            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                            color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px',
-                            cursor: ouraBusy ? 'not-allowed' : 'pointer',
-                          }}
-                        >{ouraBusy ? 'Обновляю…' : 'Обновить данные'}</button>
-                        <button
-                          onClick={async () => {
-                            await fetch('/api/oura', { method: 'DELETE' });
+                  })()}
+                  {oura.connected ? (
+                    <div className="setting-actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={ouraBusy}
+                        onClick={async () => {
+                          setOuraBusy(true);
+                          try {
+                            await fetch('/api/oura', { method: 'POST' });
                             const r = await fetch('/api/oura');
                             if (r.ok) setOura(await r.json());
-                          }}
-                          style={{
-                            padding: '12px 14px', borderRadius: '11px',
-                            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                            color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer',
-                          }}
-                        >Отключить</button>
-                      </div>
-                    ) : oura.configured ? (
-                      <a
-                        href="/api/oura/connect"
-                        style={{
-                          display: 'block', padding: '13px', borderRadius: '11px', textAlign: 'center',
-                          background: 'var(--text-primary)', color: 'var(--bg-primary)',
-                          fontWeight: 700, fontSize: '14px', textDecoration: 'none',
+                          } finally { setOuraBusy(false); }
                         }}
-                      >Подключить Oura</a>
-                    ) : (
-                      // Ключей приложения нет — кнопка вела бы в никуда,
-                      // но показанные выше данные остаются доступными.
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                        Подключение пока не настроено. Показатели выше — из прошлых выгрузок.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* О себе — параметры для ИИ (возраст, рост, пол) */}
-                <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
-                    {userSettings.language === 'ru' ? 'О себе' : 'About you'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                    {userSettings.language === 'ru'
-                      ? 'ИИ использует это в рекомендациях. Вес берётся из замеров.'
-                      : 'Used by AI recommendations. Weight comes from measurements.'}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: '96px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        {userSettings.language === 'ru' ? 'Год рождения' : 'Birth year'}
-                      </div>
-                      <input type="number" inputMode="numeric" placeholder="1990" value={aboutMe.birthYear}
-                        onChange={e => setAboutMe(a => ({ ...a, birthYear: e.target.value }))}
-                        onBlur={() => { const n = parseInt(aboutMe.birthYear, 10); saveAboutMe({ birthYear: Number.isFinite(n) ? n : null }); }}
-                        style={{ width: '100%', textAlign: 'center' }} />
+                      >{ouraBusy ? 'Обновляю…' : 'Обновить данные'}</button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={async () => {
+                          await fetch('/api/oura', { method: 'DELETE' });
+                          const r = await fetch('/api/oura');
+                          if (r.ok) setOura(await r.json());
+                        }}
+                      >Отключить</button>
                     </div>
-                    <div style={{ flex: 1, minWidth: '84px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        {userSettings.language === 'ru' ? 'Рост, см' : 'Height, cm'}
-                      </div>
-                      <input type="number" inputMode="numeric" placeholder="180" value={aboutMe.heightCm}
-                        onChange={e => setAboutMe(a => ({ ...a, heightCm: e.target.value }))}
-                        onBlur={() => { const n = parseInt(aboutMe.heightCm, 10); saveAboutMe({ heightCm: Number.isFinite(n) ? n : null }); }}
-                        style={{ width: '100%', textAlign: 'center' }} />
-                    </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        {userSettings.language === 'ru' ? 'Пол' : 'Sex'}
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        {([['m', 'М'], ['f', 'Ж']] as const).map(([v, label]) => (
-                          <button key={v}
-                            onClick={() => {
-                              const next = aboutMe.sex === v ? '' : v;
-                              setAboutMe(a => ({ ...a, sex: next }));
-                              saveAboutMe({ sex: next || null });
-                            }}
-                            style={{
-                              width: '46px', height: '46px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px',
-                              background: aboutMe.sex === v ? 'var(--yellow)' : 'var(--bg-elevated)',
-                              border: '1px solid ' + (aboutMe.sex === v ? 'var(--yellow)' : 'var(--border)'),
-                              color: aboutMe.sex === v ? '#fff' : 'var(--text-secondary)',
-                              fontWeight: aboutMe.sex === v ? 700 : 500,
-                            }}>{label}</button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                  ) : oura.configured ? (
+                    <a href="/api/oura/connect" className="dark-action oura-connect">Подключить Oura</a>
+                  ) : (
+                    // Ключей приложения нет — кнопка вела бы в никуда,
+                    // но показанные выше данные остаются доступными.
+                    <p className="muted">Подключение пока не настроено. Показатели выше — из прошлых выгрузок.</p>
+                  )}
                 </div>
-
-                {/* Logout */}
-                <button
-                  onClick={() => {
-                    if (confirm(t('signOutConfirm') as string)) {
-                      localStorage.clear();
-                      signOut({ callbackUrl: '/login' });
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    background: 'none',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    cursor: 'pointer',
-                    color: 'var(--red)'
-                  }}
-                >
-                  <LogOut size={20} />
-                  <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                    {t('signOut')}
-                  </span>
-                </button>
-              </div>
-            </div>
+              ) : null}
+            />
           </div>
         )}
 
@@ -8714,6 +8194,8 @@ export default function FitnessPage() {
                 days: programProposal.workouts.length,
                 open: () => setShowProgramModal(true),
               } : undefined}
+              initialInput={chatDraft ?? undefined}
+              onInitialInputUsed={clearChatDraft}
             />
           </div>
         )}

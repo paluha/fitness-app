@@ -97,8 +97,16 @@ function fmtWhen(iso?: string): string | null {
 // Цепляет данные пользователя на сервере (/api/chat) и помнит историю.
 // Дизайн: белый «лист» чата; текст ИИ — без капсул; ответы пользователя —
 // белая капсула с временем снизу; подтянутые данные — оформленные карточки.
-export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkoutEdit, pendingProgram }: {
+export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkoutEdit, pendingProgram, initialInput, onInitialInputUsed }: {
   muscleGroups?: Record<string, string>;
+  /**
+   * Готовый вопрос из другого раздела (например, «Обсудить цель с ИИ»).
+   * Подставляется в строку ввода, но не отправляется — человек сам
+   * решает, отправить или поправить.
+   */
+  initialInput?: string;
+  /** Вопрос подставлен — родитель сбрасывает его, чтобы не подставить повторно. */
+  onInitialInputUsed?: () => void;
   // Возврат на главную. В чате нижнее меню скрыто, поэтому выход даёт
   // кнопка в строке ввода. Без обработчика кнопка не показывается.
   onGoHome?: () => void;
@@ -120,7 +128,10 @@ export function AssistantChat({ muscleGroups, onGoHome, onProgramReady, onWorkou
   pendingProgram?: { days: number; open: () => void };
 } = {}) {
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialInput ?? '');
+  useEffect(() => {
+    if (initialInput) onInitialInputUsed?.();
+  }, [initialInput, onInitialInputUsed]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   // Прикреплённые файлы как data-URL вместе с именем. Их может быть
