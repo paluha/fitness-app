@@ -68,6 +68,8 @@ export type WorkoutEdit = {
 export type ProgramProposal = {
   rationale: string;
   advanced: boolean;
+  /** Срок программы в неделях — ИИ предлагает, человек может поменять при принятии. */
+  weeks?: number;
   workouts: { focus: string; exercises: ProposedExercise[] }[];
 };
 

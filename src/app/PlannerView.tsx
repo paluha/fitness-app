@@ -22,6 +22,12 @@ export interface PlannerEvent {
   remindersSent?: string[]; // track which reminders were already sent
   archived?: boolean;
   archivedAt?: string;
+  /**
+   * Это дело — «Пора сменить программу»: дата дела — конец срока.
+   * Откуда считать недели и сколько их — хранится здесь же, чтобы срок
+   * программы жил вместе с напоминанием (Планер + Telegram).
+   */
+  programEnd?: { startedAt: string; weeks: number };
 }
 
 export type HabitSchedule = 'daily' | 'weekdays' | 'weekends' | 'custom';

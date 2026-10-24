@@ -16,8 +16,10 @@ import { AssistantChat, type WorkoutEdit } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
 import { ProfileView } from '@/components/ProfileView';
 import { HealthView } from '@/components/HealthView';
+import { TxDialog } from '@/components/TxDialog';
 import {
   type BodyMeasurement, type CheckinField, type CheckinEntry, type MedCourse, type MedLog, type VitalEntry,
+  newId,
 } from '@/lib/health-types';
 import { WeightChart, ProgressChart } from '@/components/WeightChart';
 import NutritionPage from '@/components/NutritionPage';
@@ -3563,6 +3565,8 @@ export default function FitnessPage() {
   const [programError, setProgramError] = useState<string | null>(null);
   const [programProposal, setProgramProposal] = useState<{
     rationale: string;
+    /** Срок от ИИ в неделях; при принятии его можно поменять. */
+    weeks?: number;
     workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[];
   } | null>(null);
   const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(null);
@@ -4924,7 +4928,7 @@ export default function FitnessPage() {
       });
       const data = await res.json();
       if (data?.success && Array.isArray(data.workouts) && data.workouts.length) {
-        setProgramProposal({ rationale: data.rationale || '', workouts: data.workouts });
+        setProgramProposal({ rationale: data.rationale || '', weeks: data.weeks, workouts: data.workouts });
       } else {
         setProgramError('Не получилось сгенерировать программу. Попробуй ещё раз.');
       }
@@ -5022,12 +5026,76 @@ export default function FitnessPage() {
     await saveProgramChange(newWorkouts, newArchive);
   };
 
+  // ---------- Срок программы ----------
+  // Срок живёт в деле Планера «Пора сменить программу» (PlannerEvent.
+  // programEnd): дата дела — конец срока, там же напоминание в Telegram
+  // за день. Отдельного поля в базе для этого не нужно.
+  const shiftDay = (ymd: string, n: number) => { const [y, m, d] = ymd.split('-').map(Number); return formatDate(new Date(y, m - 1, d + n)); };
+  const daysBetween = (a: string, b: string) => {
+    const [y1, m1, d1] = a.split('-').map(Number); const [y2, m2, d2] = b.split('-').map(Number);
+    return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
+  };
+  const shortDay = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const programTerm = useMemo(() => {
+    const ev = plannerEvents.find(e => e.programEnd && !e.archived);
+    if (!ev?.programEnd || !todayStr) return null;
+    const { startedAt, weeks } = ev.programEnd;
+    const passed = Math.max(0, daysBetween(startedAt, todayStr));
+    return {
+      start: startedAt, weeks, end: ev.date,
+      week: Math.min(weeks, Math.floor(passed / 7) + 1),
+      left: daysBetween(todayStr, ev.date),
+      pct: Math.min(100, Math.round((passed / (weeks * 7)) * 100)),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plannerEvents, todayStr]);
+  const setProgramTerm = (startedAt: string, weeks: number) => {
+    const end = shiftDay(startedAt, weeks * 7);
+    const stamp = new Date().toISOString();
+    setPlannerEvents([
+      // Прежний срок уходит в архив: у программы один срок
+      ...plannerEvents.map(e => e.programEnd && !e.archived ? { ...e, archived: true, archivedAt: stamp } : e),
+      {
+        id: newId('prog'),
+        date: end,
+        time: '10:00',
+        title: 'Пора сменить программу',
+        description: `Программа с ${shortDay(startedAt)}, срок ${weeks} нед. Собери новую с ИИ на главной или продли срок.`,
+        category: 'fitness',
+        done: false,
+        reminder: true,
+        type: 'event',
+        reminderOffsets: ['1d'],
+        remindersSent: [],
+        programEnd: { startedAt, weeks },
+      },
+    ]);
+  };
+  const removeProgramTerm = () => {
+    const stamp = new Date().toISOString();
+    setPlannerEvents(plannerEvents.map(e => e.programEnd && !e.archived ? { ...e, archived: true, archivedAt: stamp } : e));
+  };
+  const [termDialog, setTermDialog] = useState<{ start: string; weeks: number } | null>(null);
+  // Выбор срока на экране подтверждения новой программы; null — как советует ИИ
+  const [programWeeksChoice, setProgramWeeksChoice] = useState<number | null>(null);
+  const openTermDialog = async () => {
+    if (programTerm) { setTermDialog({ start: programTerm.start, weeks: programTerm.weeks }); return; }
+    // Начало текущей программы — день последней смены (дата архива старой)
+    await loadProgramArchive();
+    const last = programArchiveRef.current.map(p => (p.archivedAt || '').slice(0, 10)).filter(Boolean).sort().pop();
+    setTermDialog({ start: last && last <= todayStr ? last : todayStr, weeks: 8 });
+  };
+
   const acceptProgram = async () => {
     if (!programProposal) return;
     const proposal = programProposal;
+    const weeks = programWeeksChoice ?? proposal.weeks ?? 8;
     setProgramProposal(null);
+    setProgramWeeksChoice(null);
     setShowProgramModal(false);
     await applyProposedProgram(proposal);
+    // Срок новой программы: напоминание о смене в Планере и Telegram
+    setProgramTerm(todayStr, weeks);
     // Отмечаем решение в переписке: иначе ассистент видит только «собрал
     // программу, пользователь решает» и при следующем вопросе предлагает
     // составить её заново, хотя она уже принята.
@@ -6843,6 +6911,38 @@ export default function FitnessPage() {
                 {' · '}
                 {(currentWorkout?.name || '').replace('Тренировка ', 'T')}
               </div>
+
+              {/* Срок программы: неделя N из M; ближе к концу — плашка
+                  «Пора сменить программу» с действиями. */}
+              {programTerm ? (
+                programTerm.left <= 7 ? (
+                  <div className="tx-term is-due">
+                    <div className="tx-term-head">
+                      <b>{programTerm.left < 0
+                        ? 'Пора сменить программу'
+                        : programTerm.left === 0
+                          ? 'Сегодня — срок смены программы'
+                          : `Смена программы через ${programTerm.left} дн.`}</b>
+                      <span>{programTerm.weeks} нед. с {shortDay(programTerm.start)}</span>
+                    </div>
+                    <div className="tx-term-actions">
+                      <button type="button" onClick={() => setShowProgramModal(true)}><Sparkles size={13} /> Собрать новую с ИИ</button>
+                      <button type="button" onClick={() => setProgramTerm(programTerm.start, programTerm.weeks + 2)}>Продлить на 2 нед.</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="tx-term" onClick={openTermDialog} aria-label="Срок программы">
+                    <span>Неделя {programTerm.week} из {programTerm.weeks}</span>
+                    <i><em style={{ width: `${programTerm.pct}%` }} /></i>
+                    <span>смена {shortDay(programTerm.end)}</span>
+                  </button>
+                )
+              ) : (
+                <button type="button" className="tx-term tx-term-unset" onClick={openTermDialog}>
+                  <span>Срок программы не задан</span>
+                  <b>Задать</b>
+                </button>
+              )}
               </>
             )}
 
@@ -8234,6 +8334,32 @@ export default function FitnessPage() {
         );
       })()}
 
+      {termDialog && (
+        <TxDialog title="Срок программы" onClose={() => setTermDialog(null)}>
+          <form className="term-form" onSubmit={e => { e.preventDefault(); setProgramTerm(termDialog.start, termDialog.weeks); setTermDialog(null); }}>
+            <label>Программа начата
+              <input type="date" value={termDialog.start} max={todayStr} required
+                onChange={e => setTermDialog({ ...termDialog, start: e.target.value })} />
+            </label>
+            <span className="field-label">Сколько недель её делать</span>
+            <div className="chips">
+              {[4, 6, 8, 10, 12, 16].map(w => (
+                <button key={w} type="button" className={w === termDialog.weeks ? 'is-on' : undefined}
+                  onClick={() => setTermDialog({ ...termDialog, weeks: w })}>{w} нед.</button>
+              ))}
+            </div>
+            <p className="term-note">
+              Смена — {new Date(`${shiftDay(termDialog.start, termDialog.weeks * 7)}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}.
+              На главной будет видно, какая сейчас неделя; в Планере появится «Пора сменить программу», в Telegram — напоминание за день.
+            </p>
+            <button type="submit" className="primary">Сохранить</button>
+            {programTerm && (
+              <button type="button" className="term-remove" onClick={() => { removeProgramTerm(); setTermDialog(null); }}>Убрать срок</button>
+            )}
+          </form>
+        </TxDialog>
+      )}
+
       {showProgramModal && (
         <div className="modal-overlay" onClick={() => setShowProgramModal(false)}>
           <div
@@ -8372,6 +8498,33 @@ export default function FitnessPage() {
                     разговор — что-то поменять, о чём-то спросить.
                     Предложение при этом НЕ теряется: вернёшься к нему
                     из чата, когда договоритесь. */}
+                {/* Срок программы: ИИ советует, человек решает. По нему
+                    напоминание о смене в Планере и в Telegram. */}
+                <div style={{ marginTop: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    Срок программы{programProposal.weeks ? ` · ИИ советует ${programProposal.weeks} нед.` : ''}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[...new Set([4, 6, 8, 10, 12, ...(programProposal.weeks ? [programProposal.weeks] : [])])].sort((a, b) => a - b).map(w => {
+                      const on = (programWeeksChoice ?? programProposal.weeks ?? 8) === w;
+                      return (
+                        <button
+                          key={w}
+                          onClick={() => setProgramWeeksChoice(w)}
+                          style={{
+                            flex: 1, padding: '9px 0', borderRadius: '10px', cursor: 'pointer', fontSize: '12px',
+                            background: on ? 'var(--yellow)' : 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
+                            color: on ? '#fff' : 'var(--text-secondary)', fontWeight: on ? 700 : 500,
+                          }}
+                        >{w} нед.</button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                    Напомню о смене в Планере и в Telegram за день до конца срока.
+                  </div>
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                   <button
                     onClick={acceptProgram}

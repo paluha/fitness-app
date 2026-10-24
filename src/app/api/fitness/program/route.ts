@@ -25,6 +25,10 @@ const PROGRAM_SCHEMA = {
       type: 'string' as const,
       description: 'Короткое объяснение (3-5 предложений): что за сплит, чем отличается от старой программы и почему это качественный следующий шаг',
     },
+    weeks: {
+      type: 'integer' as const,
+      description: 'Сколько недель делать программу, прежде чем менять: обычно 6-8; новичку или после перерыва — 8-12. Целое число от 3 до 16.',
+    },
     workouts: {
       type: 'array' as const,
       description: 'Тренировки новой программы, по числу дней в неделю',
@@ -64,7 +68,7 @@ const PROGRAM_SCHEMA = {
       },
     },
   },
-  required: ['rationale', 'workouts'],
+  required: ['rationale', 'weeks', 'workouts'],
   additionalProperties: false,
 };
 
@@ -159,7 +163,7 @@ export async function POST(request: Request) {
     }
     const textBlock = response.content.find(b => b.type === 'text');
     const parsed = textBlock
-      ? JSON.parse(textBlock.text) as { rationale: string; workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[] }
+      ? JSON.parse(textBlock.text) as { rationale: string; weeks?: number; workouts: { focus: string; exercises: { name: string; plannedSets: string; restTime: string; notes: string; supersetId?: string; toFailure?: boolean; dropSet?: boolean }[] }[] }
       : null;
     if (!parsed || !Array.isArray(parsed.workouts) || parsed.workouts.length === 0) {
       return NextResponse.json({ error: 'empty program' }, { status: 502 });
@@ -168,6 +172,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       rationale: parsed.rationale || '',
+      // Срок программы: модель предлагает, держим в разумных пределах
+      weeks: Number.isFinite(parsed.weeks) ? Math.min(16, Math.max(3, Math.round(parsed.weeks as number))) : 8,
       workouts: parsed.workouts.slice(0, 7).map(w => ({
         focus: String(w.focus || '').slice(0, 60),
         exercises: (w.exercises || []).slice(0, 10).map(e => ({

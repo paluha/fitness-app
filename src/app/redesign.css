@@ -646,6 +646,25 @@ body.night-mode .tx-dialog .archive-pagination button { background: #30281f; bor
 .tx-stepper b { min-width: 42px; font-size: 13px; }
 .tx-restset { align-items: center; }
 .tx-day .tag:empty, .tx-monthday small:empty { min-height: 12px; }
+/* Срок программы под «Моя программа» */
+.tx-term { display: flex; align-items: center; gap: 10px; width: 100%; margin: 8px 0 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg-card); font: inherit; font-size: 11px; color: var(--text-muted); cursor: pointer; text-align: left; }
+.tx-term > span:first-child { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+.tx-term > i { flex: 1; height: 4px; border-radius: 3px; background: var(--bg-elevated); overflow: hidden; display: block; }
+.tx-term > i > em { display: block; height: 100%; background: var(--yellow); border-radius: 3px; }
+.tx-term > span:last-child { white-space: nowrap; }
+.tx-term-unset { justify-content: space-between; border-style: dashed; }
+.tx-term-unset > span:first-child { color: var(--text-muted); font-weight: 500; }
+.tx-term-unset b { color: var(--yellow); font-weight: 600; }
+.tx-term.is-due { display: block; cursor: default; background: #fff4ec; border-color: #f2c5b4; }
+body.night-mode .tx-term.is-due { background: #2c1d16; border-color: #6b3a28; }
+.tx-term-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tx-term-head b { font-size: 13px; color: var(--text-primary); }
+.tx-term-head span { font-size: 10px; white-space: nowrap; }
+.tx-term-actions { display: flex; gap: 8px; margin-top: 10px; }
+.tx-term-actions button { flex: 1; min-height: 38px; border-radius: 9px; border: 1px solid #e9c9b6; background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.tx-term-actions button:first-child { background: var(--yellow); border-color: var(--yellow); color: #fff; }
+.tx-dialog .term-note { margin-top: 12px; }
+.tx-dialog .term-remove { width: 100%; margin-top: 8px; min-height: 40px; border: 0; background: none; color: #c4534e; font: inherit; font-size: 12px; cursor: pointer; }
 /* Дропсет: прошлый раз — строкой под техникой и у каждой ступени */
 .tx-techlast { font-size: 11px; color: var(--text-muted); padding: 5px 4px 0; font-variant-numeric: tabular-nums; }
 .tx-stepname { flex-wrap: wrap; }

@@ -412,6 +412,25 @@ export function buildCheckins(fields: unknown, entries: unknown, limit = 8): str
 }
 
 /** Что пользователь колет и принимает + когда отмечал приём. */
+/**
+ * Срок текущей программы — из дела Планера «Пора сменить программу»
+ * (programEnd). По нему ассистент отвечает, не пора ли менять программу.
+ */
+export function buildProgramTerm(events: unknown, todayIso: string): string {
+  const list = Array.isArray(events)
+    ? (events as { date?: string; archived?: boolean; programEnd?: { startedAt: string; weeks: number } }[])
+    : [];
+  const ev = list.find(e => e?.programEnd && !e.archived);
+  if (!ev?.programEnd || !ev.date) return 'Срок программы: не задан.';
+  const day = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  const { startedAt, weeks } = ev.programEnd;
+  const passed = Math.max(0, Math.round((day(todayIso) - day(startedAt)) / 86400000));
+  const left = Math.round((day(ev.date) - day(todayIso)) / 86400000);
+  const week = Math.min(weeks, Math.floor(passed / 7) + 1);
+  return `Срок программы: начата ${startedAt}, ${weeks} нед., смена ${ev.date} (сейчас неделя ${week} из ${weeks}; ` +
+    (left < 0 ? `срок прошёл ${-left} дн. назад — пора предложить новую программу` : `до смены ${left} дн.`) + ').';
+}
+
 export function buildMeds(courses: unknown, logs: unknown): string {
   const cs = Array.isArray(courses)
     ? (courses as { id: string; name: string; dose?: string; form?: string; schedule?: string; startedAt?: string; endedAt?: string; note?: string }[])
@@ -600,6 +619,8 @@ export async function POST(request: Request) {
         // сам у себя отмечает неделю к неделе.
         checkinFields: true, checkinEntries: true,
         medCourses: true, medLogs: true,
+        // Отсюда только срок программы (дело «Пора сменить программу»)
+        plannerEvents: true,
         updatedAt: true,
       },
     }),
@@ -703,6 +724,7 @@ ${buildOuraText(oura)}
 
 📋 ДЕЙСТВУЮЩАЯ ПРОГРАММА (это текущие тренировки пользователя — на вопросы «сколько дней», «что в программе» отвечай по ней):
 ${programOrigin}
+${buildProgramTerm(fitness?.plannerEvents, todayIso)}
 ${buildProgramText(fitness?.workouts)}
 
 🗂 ИСТОРИЯ ПРОГРАММ (что было раньше; вернуть любую можно на экране «Программа»):
@@ -898,6 +920,12 @@ const PROGRAM_TOOL: Anthropic.Tool = {
         type: 'boolean',
         description: 'true — продвинутый режим с суперсетами, дропсетами и работой до отказа; false — обычные прямые подходы',
       },
+      weeks: {
+        type: 'integer',
+        minimum: 3,
+        maximum: 16,
+        description: 'Сколько недель делать эту программу, прежде чем менять: обычно 6-8; новичку или после перерыва — 8-12. Приложение напомнит о смене за день до срока.',
+      },
       workouts: {
         type: 'array',
         description: 'Тренировки программы, по числу дней в неделю',
@@ -926,7 +954,7 @@ const PROGRAM_TOOL: Anthropic.Tool = {
         },
       },
     },
-    required: ['rationale', 'advanced', 'workouts'],
+    required: ['rationale', 'advanced', 'weeks', 'workouts'],
   },
 };
 
