@@ -293,6 +293,33 @@ body.night-mode .tx .health-filter select { background: var(--soft); border-colo
 .tx .health-log-pages span { font-size: 11px; color: #a38c6a; }
 .tx .health-log-pages button { min-width: 36px; min-height: 32px; border: 1px solid var(--line); border-radius: 8px; }
 
+/* ---------- Раздел «Я»: Статистика ---------- */
+.tx .stats-view .pills { margin: 0 0 18px; }
+.tx .stat-cards { margin-bottom: 16px; }
+.tx .stats-nav { display: flex; gap: 6px; flex-shrink: 0; }
+.tx .stats-nav .round { width: 32px; height: 32px; min-height: 32px; border-radius: 9px; }
+.tx .stats-nav svg { width: 15px; height: 15px; }
+.tx .demo-bars { height: 140px; display: flex; align-items: flex-end; gap: 10px; padding: 5px 5px 0; margin: 10px 0 8px; }
+.tx .demo-bars > div { flex: 1; min-width: 0; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.tx .demo-bars span { display: block; background: #f7ac91; border-radius: 5px 5px 0 0; min-height: 3px; }
+.tx .demo-bars span.is-today { background: var(--accent); }
+.tx .demo-bars span.is-future { background: var(--soft); }
+.tx .demo-bars em { font-style: normal; font-size: 9px; color: var(--muted); min-height: 13px; margin-bottom: 3px; }
+.tx .demo-bars small { display: block; font-size: 9px; color: var(--muted); margin-top: 7px; white-space: nowrap; }
+.tx .activity-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin: 2px 0 12px; }
+.tx .activity-grid > * { display: flex; align-items: center; justify-content: center; height: 34px; background: var(--soft); border-radius: 7px; font-size: 11px; color: var(--muted); border: 1px solid transparent; }
+.tx .activity-grid .is-empty { background: transparent; }
+.tx .activity-grid .logged { background: var(--accent-soft); color: #c6593e; border-color: #f1cbbd; font-weight: 600; }
+.tx .activity-grid .partial { background: #fbf1e6; color: #b9845a; border: 1px dashed #ecd2b8; }
+.tx .activity-grid .is-today { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.tx .activity-grid button:disabled { opacity: .45; }
+body.night-mode .tx .activity-grid .partial { background: #3a2b20; border-color: #5a4330; }
+.tx .legend { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin: 0 3px 0 6px; vertical-align: -1px; }
+.tx .legend:first-child { margin-left: 0; }
+.tx .legend.logged { background: var(--accent-soft); border: 1px solid #f1cbbd; }
+.tx .legend.partial { background: #fbf1e6; border: 1px dashed #ecd2b8; }
+.tx .stats-workout { width: 100%; text-align: left; }
+
 /* Окна записи «Здоровья» (рендерятся в body, поэтому под .tx-dialog) */
 .tx-dialog .ux-unit-input { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
 .tx-dialog .ux-unit-input input { margin-top: 0; flex: 1; min-width: 0; }

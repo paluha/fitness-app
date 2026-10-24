@@ -7,7 +7,7 @@ import {
   TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User,
-  Heart, BarChart3, Scale,
+  BarChart3, Scale,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
   Home, Trophy, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2,
 } from 'lucide-react';
@@ -2573,6 +2573,235 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
 }
 
 // Beautiful Calendar Component
+/**
+ * Название тренировки по двум главным группам мышц («Спина и бицепс»).
+ * Группы упражнений определяет ИИ (muscleGroups); если их ещё нет — null.
+ */
+function muscleHeading(exercises: Exercise[], muscleGroups: Record<string, string>, lang: 'ru' | 'en'): string | null {
+  const counts = new Map<string, number>();
+  for (const ex of exercises) {
+    const raw = muscleGroups[ex.name.trim().toLowerCase()];
+    if (!raw) continue;
+    for (const part of String(raw).split(/[·,/]+/)) {
+      const g = part.trim().toLowerCase();
+      if (g) counts.set(g, (counts.get(g) || 0) + 1);
+    }
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(e => e[0]);
+  if (top.length === 0) return null;
+  const joined = top.join(lang === 'ru' ? ' и ' : ' & ');
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+}
+
+/**
+ * Статистика по макету редизайна: неделя или месяц, три итога, активность
+ * по дням (выполненные подходы), питание и последние тренировки. Считается
+ * из тех же dayLogs, что календарь; «выполнено» — общий getDayStatus.
+ * Стрелки листают прошлые недели и месяцы, тап по дню или тренировке
+ * открывает этот день на главной.
+ */
+function StatsView({ dayLogs, workouts, muscleGroups, todayStr, onSelectDate }: {
+  dayLogs: Record<string, DayLog>;
+  workouts: Workout[];
+  muscleGroups: Record<string, string>;
+  todayStr: string;
+  onSelectDate: (date: Date) => void;
+}) {
+  const [period, setPeriod] = useState<'week' | 'month'>('week');
+  const [offset, setOffset] = useState(0);
+
+  const ymd = (d: Date) => formatDate(d);
+  const parse = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const today = parse(todayStr);
+
+  // Дни периода: неделя пн–вс или календарный месяц, со сдвигом назад
+  const days: string[] = [];
+  if (period === 'week') {
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) - offset * 7);
+    for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); days.push(ymd(d)); }
+  } else {
+    const first = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    for (let i = 1; i <= last; i++) days.push(ymd(new Date(first.getFullYear(), first.getMonth(), i)));
+  }
+  const elapsed = days.filter(d => d <= todayStr);
+
+  // Выполненные подходы за день: по отмеченным подходам, а у старых
+  // записей без подходов — по отмеченному упражнению и плану «4x10».
+  const setsDone = (log: DayLog | undefined) => {
+    const exercises = log?.workoutSnapshot?.exercises ?? log?.workoutDraft?.exercises ?? [];
+    return exercises.reduce((sum, ex) => {
+      const list = Array.isArray(ex.sets) ? ex.sets : Array.isArray(ex.actualSets) ? (ex.actualSets as unknown as ExerciseSet[]) : null;
+      if (list) return sum + list.filter(s => s?.completed).length;
+      return sum + (ex.completed ? parsePlannedSetCount(ex.plannedSets) : 0);
+    }, 0);
+  };
+
+  const statusOf = (d: string) => getDayStatus(dayLogs[d], d, todayStr);
+  const trained = elapsed.filter(d => { const s = statusOf(d).status; return s === 'done' || s === 'active'; }).length;
+  const perWeek = Math.min(Math.max(workouts.length, 1), 7);
+  const target = period === 'week' ? perWeek : Math.round(perWeek * days.length / 7);
+  const stepDays = elapsed.map(d => dayLogs[d]?.steps ?? 0).filter(s => s > 0);
+  const totalSets = elapsed.reduce((s, d) => s + setsDone(dayLogs[d]), 0);
+  const mealDays = elapsed.filter(d => (dayLogs[d]?.meals?.length ?? 0) > 0);
+  const avg = (f: (m: Meal) => number) => mealDays.length
+    ? Math.round(mealDays.reduce((s, d) => s + dayLogs[d].meals.reduce((a, m) => a + (Number(f(m)) || 0), 0), 0) / mealDays.length)
+    : null;
+  const kcal = avg(m => m.calories);
+  const protein = avg(m => m.protein);
+
+  // Столбики: дни недели или отрезки месяца по 7 дней
+  const bars: { label: string; value: number; future: boolean; date?: string }[] = period === 'week'
+    ? days.map((d, i) => ({ label: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i], value: setsDone(dayLogs[d]), future: d > todayStr, date: d }))
+    : Array.from({ length: Math.ceil(days.length / 7) }, (_, i) => {
+      const chunk = days.slice(i * 7, i * 7 + 7);
+      return {
+        label: `${i * 7 + 1}–${i * 7 + chunk.length}`,
+        value: chunk.reduce((s, d) => s + setsDone(dayLogs[d]), 0),
+        future: chunk[0] > todayStr,
+      };
+    });
+  const maxBar = Math.max(1, ...bars.map(b => b.value));
+
+  const fmtDay = (d: string, opts: Intl.DateTimeFormatOptions) => parse(d).toLocaleDateString('ru-RU', opts);
+  const rangeLabel = period === 'week'
+    ? `${parse(days[0]).getDate()}${days[0].slice(5, 7) === days[6].slice(5, 7) ? '' : ' ' + fmtDay(days[0], { month: 'short' })}–${fmtDay(days[6], { day: 'numeric', month: 'long' })}`
+    : fmtDay(days[0], { month: 'long', year: offset > 0 && days[0].slice(0, 4) !== todayStr.slice(0, 4) ? 'numeric' : undefined });
+
+  // Последние тренировки — независимо от периода, свежие сверху
+  const recent = Object.keys(dayLogs)
+    .filter(d => d <= todayStr)
+    .sort((a, b) => b.localeCompare(a))
+    .map(d => ({ d, ...statusOf(d) }))
+    .filter(x => x.status === 'done' || x.status === 'active')
+    .slice(0, 3);
+  // Как на главной: «T4 · Ноги и трицепс», без групп — имя тренировки
+  const workoutName = (d: string) => {
+    const log = dayLogs[d];
+    const snap = log?.workoutSnapshot ?? log?.workoutDraft;
+    const id = snap?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
+    const name = snap?.workoutName || workouts.find(w => w.id === id)?.name || 'Тренировка';
+    const heading = muscleHeading(snap?.exercises ?? [], muscleGroups, 'ru');
+    return heading ? `${name.replace('Тренировка ', 'T')} · ${heading}` : name;
+  };
+
+  // Любимые блюда остаются здесь: в «Питании» их можно отметить, но не увидеть списком
+  const favorites: Meal[] = [];
+  Object.values(dayLogs).forEach(log => log.meals?.forEach(m => {
+    if (m.isFavorite && !favorites.some(f => f.name === m.name)) favorites.push(m);
+  }));
+
+  const leadDays = period === 'month' ? (parse(days[0]).getDay() + 6) % 7 : 0;
+
+  return (
+    <div className="tx stats-view">
+      <div className="page-title">
+        <div>
+          <h1>Статистика</h1>
+          <p>Твой прогресс в одном месте</p>
+        </div>
+      </div>
+
+      <div className="pills">
+        {(['week', 'month'] as const).map(p => (
+          <button key={p} type="button" className={'pill' + (period === p ? ' active' : '')}
+            onClick={() => { setPeriod(p); setOffset(0); }}>{p === 'week' ? 'Неделя' : 'Месяц'}</button>
+        ))}
+      </div>
+
+      <div className="three-col stat-cards">
+        <div className="metric"><strong>{trained} / {target}</strong><small>Тренировок</small></div>
+        {stepDays.length > 0 ? (
+          <div className="metric"><strong>{Math.round(stepDays.reduce((a, b) => a + b, 0) / stepDays.length).toLocaleString('ru-RU')}</strong><small>Шагов / день</small></div>
+        ) : (
+          <div className="metric"><strong>{totalSets}</strong><small>Подходов</small></div>
+        )}
+        <div className="metric"><strong>{mealDays.length} / {elapsed.length}</strong><small>Дней питания</small></div>
+      </div>
+
+      <section className="card">
+        <div className="section-title">
+          <h2>Активность · {rangeLabel}</h2>
+          <div className="stats-nav">
+            <button type="button" className="round" aria-label="Раньше" onClick={() => setOffset(o => o + 1)}><ChevronLeft /></button>
+            <button type="button" className="round" aria-label="Позже" disabled={offset === 0} onClick={() => setOffset(o => Math.max(0, o - 1))}><ChevronRight /></button>
+          </div>
+        </div>
+        <div className="demo-bars">
+          {bars.map((b, i) => (
+            <div key={i}>
+              <em>{b.value > 0 ? b.value : ''}</em>
+              <span className={b.future ? 'is-future' : b.date === todayStr ? 'is-today' : undefined}
+                style={{ height: `${Math.max(3, Math.round((b.value / maxBar) * 88))}px` }} />
+              <small>{b.label}</small>
+            </div>
+          ))}
+        </div>
+        <p className="muted">Выполненные подходы {period === 'week' ? 'по дням' : 'по неделям месяца'}</p>
+      </section>
+
+      {period === 'month' && (
+        <section className="card">
+          <div className="section-title"><h2>Дни тренировок</h2></div>
+          <div className="activity-grid">
+            {Array.from({ length: leadDays }, (_, i) => <span key={'e' + i} className="is-empty" />)}
+            {days.map(d => {
+              const s = statusOf(d).status;
+              return (
+                <button key={d} type="button" disabled={d > todayStr}
+                  className={[s === 'done' ? 'logged' : s === 'active' ? 'partial' : '', d === todayStr ? 'is-today' : ''].filter(Boolean).join(' ') || undefined}
+                  onClick={() => onSelectDate(parse(d))}
+                  aria-label={fmtDay(d, { day: 'numeric', month: 'long' }) + (s === 'done' ? ', выполнено' : s === 'active' ? ', частично' : '')}>
+                  {parse(d).getDate()}
+                </button>
+              );
+            })}
+          </div>
+          <p className="muted"><i className="legend logged" /> выполнено <i className="legend partial" /> частично · тап открывает день</p>
+        </section>
+      )}
+
+      <section className="card">
+        <div className="section-title"><h2>Питание</h2></div>
+        <div className="two-col">
+          <div className="metric"><strong>{kcal != null ? kcal.toLocaleString('ru-RU') : '—'}</strong><small>Среднее, ккал / день</small></div>
+          <div className="metric"><strong>{protein != null ? `${protein} г` : '—'}</strong><small>Средний белок / день</small></div>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="section-title"><h2>Последние тренировки</h2></div>
+        {recent.length === 0 ? (
+          <p className="muted">Пока нет отмеченных тренировок.</p>
+        ) : recent.map(r => (
+          <button key={r.d} type="button" className="row stats-workout" onClick={() => onSelectDate(parse(r.d))}>
+            <div className="row-copy">
+              <strong>{fmtDay(r.d, { day: 'numeric', month: 'long' })}</strong>
+              <small>{workoutName(r.d)} · {r.exDone} из {r.exTotal} упр.</small>
+            </div>
+            <span className={'badge' + (r.status === 'done' ? ' green' : '')}>{r.status === 'done' ? 'Готово' : 'Частично'}</span>
+          </button>
+        ))}
+      </section>
+
+      {favorites.length > 0 && (
+        <section className="card">
+          <div className="section-title"><h2>Любимые блюда</h2></div>
+          {favorites.map(m => (
+            <div key={m.name} className="row">
+              <div className="row-copy">
+                <strong>{m.name}</strong>
+                <small>Б {m.protein} · Ж {m.fat} · У {m.carbs} г · {m.calories} ккал</small>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+    </div>
+  );
+}
+
 function FitnessCalendar({
   dayLogs,
   selectedDate,
@@ -5872,22 +6101,11 @@ export default function FitnessPage() {
   // Заголовок тренировки по макету: не «Тренировка 1», а какие мышцы
   // сегодня работают. Берём ИИ-группы упражнений дня, самые частые —
   // вперёд. Групп нет (ИИ ещё не разметил) — показываем имя тренировки.
-  const workoutHeading = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const ex of displayExercises) {
-      const raw = muscleGroups[ex.name.trim().toLowerCase()];
-      if (!raw) continue;
-      for (const part of String(raw).split(/[·,/]+/)) {
-        const g = part.trim().toLowerCase();
-        if (g) counts.set(g, (counts.get(g) || 0) + 1);
-      }
-    }
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(e => e[0]);
-    if (top.length === 0) return currentWorkout?.name || String(t('workout'));
-    const joined = top.join(userSettings.language === 'ru' ? ' и ' : ' & ');
-    return joined.charAt(0).toUpperCase() + joined.slice(1);
+  const workoutHeading = useMemo(() =>
+    muscleHeading(displayExercises, muscleGroups, userSettings.language)
+      ?? (currentWorkout?.name || String(t('workout'))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayExercises, muscleGroups, currentWorkout, userSettings.language]);
+  [displayExercises, muscleGroups, currentWorkout, userSettings.language]);
 
   const lastSetsByExerciseId = useMemo(() => {
     const map: Record<string, ExerciseSet[]> = {};
@@ -7045,73 +7263,20 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* ANALYTICS VIEW */}
+        {/* СТАТИСТИКА — по макету редизайна (StatsView) */}
         {view === 'analytics' && (
           <div className="view-content">
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BarChart3 size={20} />
-                {t('statistics')}
-              </h2>
-
-              {/* Calendar mini */}
-              <FitnessCalendar
-                dayLogs={dayLogs}
-                selectedDate={selectedDate}
-                onSelectDate={(date) => {
-                  setSelectedDate(date);
-                  setView('workout');
-                  localStorage.setItem('fitness_view', 'workout');
-                }}
-                workouts={workouts}
-                timezone={userSettings.timezone}
-              />
-
-              {/* Favorite Meals */}
-              <div style={{ marginTop: '20px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--red)' }}>
-                  <Heart size={16} />
-                  {t('favoriteMeals')}
-                </h3>
-                {(() => {
-                  const favMeals: Meal[] = [];
-                  Object.values(dayLogs).forEach(log => {
-                    log.meals?.forEach(meal => {
-                      if (meal.isFavorite && !favMeals.find(m => m.name === meal.name)) {
-                        favMeals.push(meal);
-                      }
-                    });
-                  });
-                  if (favMeals.length === 0) {
-                    return (
-                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                        {t('favoriteMealsHint')}
-                      </div>
-                    );
-                  }
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {favMeals.map((meal, i) => (
-                        <div key={i} style={{
-                          background: 'var(--bg-card)',
-                          padding: '12px',
-                          borderRadius: '10px',
-                          border: '1px solid var(--border)'
-                        }}>
-                          <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{meal.name}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '12px' }}>
-                            <span style={{ color: 'var(--blue)' }}>Б: {meal.protein}г</span>
-                            <span style={{ color: 'var(--yellow)' }}>Ж: {meal.fat}г</span>
-                            <span style={{ color: 'var(--green)' }}>У: {meal.carbs}г</span>
-                            <span style={{ color: 'var(--red)' }}>{meal.calories} ккал</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
+            <StatsView
+              dayLogs={dayLogs}
+              workouts={workouts}
+              muscleGroups={muscleGroups}
+              todayStr={todayStr}
+              onSelectDate={(date) => {
+                setSelectedDate(date);
+                setView('workout');
+                localStorage.setItem('fitness_view', 'workout');
+              }}
+            />
           </div>
         )}
 
