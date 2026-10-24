@@ -19,7 +19,7 @@ import { HealthView } from '@/components/HealthView';
 import {
   type BodyMeasurement, type CheckinField, type CheckinEntry, type MedCourse, type MedLog, type VitalEntry,
 } from '@/lib/health-types';
-import { WeightChart } from '@/components/WeightChart';
+import { WeightChart, ProgressChart } from '@/components/WeightChart';
 import NutritionPage from '@/components/NutritionPage';
 import AddMealDialog from '@/components/AddMealDialog';
 import NutritionPlanSection from '@/components/NutritionPlanSection';
@@ -34,18 +34,21 @@ function parseRestTime(restTime: string | undefined | null): number {
   const raw = String(restTime ?? '').trim();
   // Точное значение из карточки: «1:45», «0:15». Пишется степпером отдыха,
   // поэтому проверяется первым — иначе настройка откатывалась бы к 2 минутам.
-  const exact = raw.match(/^(\d+):([0-5]\d)$/);
+  // ИИ пишет и «3:30 мин»: без хвоста в выражении такая строка уходила в
+  // ветку «N мин» ниже, та брала «30 мин» — и отдых показывался 30:00.
+  const exact = raw.match(/^(\d+):([0-5]\d)(?!\d)/);
   if (exact) {
     const sec = parseInt(exact[1], 10) * 60 + parseInt(exact[2], 10);
     if (sec > 0) return Math.min(600, sec);
   }
-  // Формат программы: «2-3 мин», «3 мин» — середина диапазона.
-  const match = raw.match(/(\d+)(?:-(\d+))?\s*мин/);
+  // Формат программы: «2-3 мин», «3 мин» — середина диапазона. Число не
+  // должно стоять после двоеточия: это секунды из «м:сс», а не минуты.
+  const match = raw.match(/(?<![:\d])(\d+)(?:-(\d+))?\s*мин/);
   if (match) {
     const min = parseInt(match[1]);
     const max = match[2] ? parseInt(match[2]) : min;
-    // Use the middle value for range, or exact value
-    return Math.round((min + max) / 2) * 60;
+    // Середина диапазона в секундах: «2-3 мин» — это 2:30, а не 3:00
+    return Math.round(((min + max) / 2) * 60);
   }
   // Секунды: ассистент пишет и так («30 сек до A2», «45-60 сек»). Без
   // этой ветки любое значение в секундах молча превращалось в 2 минуты.
@@ -1536,7 +1539,11 @@ function SetTechPanel({
              таблицей и читалась как подпись ко всему упражнению, а не
              к последнему подходу — непонятно, что именно отмечать. */
           <span className="tx-techadd">
-            + техника для подхода {setNo}
+            {/* Запланированная техника называется прямо: «Дроп-сет к
+                подходу 4» понятнее абстрактной «техники» (по макету). */}
+            {planned
+              ? `+ ${meta.label.charAt(0).toUpperCase() + meta.label.slice(1)} к подходу ${setNo}`
+              : `+ техника для подхода ${setNo}`}
           </span>
         )}
         <ChevronsDown size={11} className={more ? 'is-flip' : ''} />
@@ -7068,7 +7075,11 @@ export default function FitnessPage() {
                       <span className="tx-eyebrow">{userSettings.language === 'ru' ? 'Вес тела и замеры' : 'Body & measurements'}</span>
                       <h4>{userSettings.language === 'ru' ? 'Мой прогресс' : 'My progress'}</h4>
                     </div>
-                    <span className="tx-badge">{new Date().toLocaleDateString('ru-RU', { month: 'long' })}</span>
+                    <button
+                      type="button"
+                      className="tx-badge tx-badge-btn"
+                      onClick={() => { setView('gains'); localStorage.setItem('fitness_view', 'gains'); }}
+                    >{userSettings.language === 'ru' ? 'История веса' : 'Weight history'}</button>
                   </div>
                   <div className="tx-modes" role="group">
                     {([
@@ -7094,9 +7105,11 @@ export default function FitnessPage() {
                     )}
                   </div>
                   {series.length > 1 ? (
-                    <WeightChart
+                    <ProgressChart
+                      key={bodyMetric}
                       data={series.map(m => metricOf(m) as number)}
-                      labels={series.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+                      dates={series.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
+                      unit={unit}
                     />
                   ) : (
                     <p className="tx-empty">

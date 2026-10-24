@@ -1,5 +1,86 @@
 'use client';
 
+import { useState } from 'react';
+
+/**
+ * График «Мой прогресс» по макету редизайна: плавная линия с заливкой,
+ * период «Все / последние 3», ползунок по точкам — под графиком дата и
+ * значение выбранного замера. data/dates — старые→новые.
+ */
+export function ProgressChart({ data, dates, unit }: { data: number[]; dates: string[]; unit: string }) {
+  const [range, setRange] = useState<'all' | 'last3'>('all');
+  const [picked, setPicked] = useState<number | null>(null);
+  const from = range === 'last3' ? Math.max(0, data.length - 3) : 0;
+  const vals = data.slice(from);
+  const labs = dates.slice(from);
+  const idx = picked == null || picked >= vals.length ? vals.length - 1 : picked;
+
+  const W = 310, H = 150, L = 36, R = 14, T = 16, B = 24;
+  const cw = W - L - R, ch = H - T - B;
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.15, 0.5);
+  const min = lo - pad, max = hi + pad;
+  const pts = vals.map((v, i) => ({
+    x: L + (vals.length === 1 ? cw / 2 : (i / (vals.length - 1)) * cw),
+    y: T + ch - ((v - min) / (max - min)) * ch,
+  }));
+  // Плавная кривая через точки (кардинальный сплайн → кубические Безье)
+  const line = pts.map((p, i) => {
+    if (i === 0) return `M${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+    const p0 = pts[i - 2] ?? pts[i - 1], p1 = pts[i - 1], p3 = pts[i + 1] ?? p;
+    const c1x = p1.x + (p.x - p0.x) / 6, c1y = p1.y + (p.y - p0.y) / 6;
+    const c2x = p.x - (p3.x - p1.x) / 6, c2y = p.y - (p3.y - p1.y) / 6;
+    return `C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+  }).join(' ');
+  const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${T + ch} L${pts[0].x.toFixed(1)},${T + ch} Z`;
+  const sel = pts[idx];
+  const fmt = (v: number) => v.toLocaleString('ru-RU', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+
+  return (
+    <div className="ux-progress">
+      <svg className="ux-progress-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`График: от ${fmt(lo)} до ${fmt(hi)} ${unit}`}>
+        <defs>
+          <linearGradient id="ux-progress-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ff5c35" stopOpacity=".2" />
+            <stop offset="100%" stopColor="#ff5c35" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[max - pad, (min + max) / 2, min + pad].map((v, i) => {
+          const y = T + ch - ((v - min) / (max - min)) * ch;
+          return (
+            <g key={i}>
+              <line x1={L} x2={W - R} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 4" />
+              <text x={L - 6} y={y + 3} fontSize="9" textAnchor="end" fill="var(--text-muted)">{fmt(v)}</text>
+            </g>
+          );
+        })}
+        <path d={area} fill="url(#ux-progress-fill)" className="ux-progress-area" />
+        <path d={line} fill="none" stroke="#ff5c35" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="ux-progress-line" />
+        <line x1={sel.x} x2={sel.x} y1={T} y2={T + ch} stroke="#ff5c35" strokeOpacity=".35" strokeDasharray="2 3" />
+        <circle className="ux-chart-halo" cx={sel.x} cy={sel.y} r="10" fill="#ff5c35" opacity=".16" />
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === idx ? 5 : 3} fill={i === idx ? '#ff5c35' : 'var(--bg-card)'} stroke="#ff5c35" strokeWidth="2"
+            style={{ cursor: 'pointer' }} onClick={() => setPicked(i)} />
+        ))}
+        <text x={L} y={H - 6} fontSize="9" fill="var(--text-muted)">{labs[0]}</text>
+        {labs.length > 1 && <text x={W - R} y={H - 6} fontSize="9" textAnchor="end" fill="var(--text-muted)">{labs[labs.length - 1]}</text>}
+      </svg>
+      <div className="ux-progress-controls">
+        <span><b>{fmt(vals[idx])} {unit}</b> · {labs[idx]}</span>
+        <div>
+          <button type="button" className={range === 'last3' ? 'is-active' : undefined} onClick={() => { setRange('last3'); setPicked(null); }}>Последние 3</button>
+          <button type="button" className={range === 'all' ? 'is-active' : undefined} onClick={() => { setRange('all'); setPicked(null); }}>Все</button>
+          <button type="button" aria-label="Сбросить" onClick={() => { setRange('all'); setPicked(null); }}>↻</button>
+        </div>
+      </div>
+      {vals.length > 1 && (
+        <input className="ux-progress-scrub" type="range" min={0} max={vals.length - 1} step={1} value={idx}
+          onChange={e => setPicked(Number(e.target.value))} aria-label="Выбрать замер" />
+      )}
+    </div>
+  );
+}
+
 // График веса по замерам (bodyMeasurements). Самодостаточный SVG,
 // тема через CSS-переменные. data — веса по датам (старые→новые), labels — даты.
 export function WeightChart({ data, labels }: { data: number[]; labels: string[] }) {
