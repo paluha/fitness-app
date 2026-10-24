@@ -1487,12 +1487,14 @@ const TECH_META: Record<SetTechnique, { label: string; step: string; hint: strin
  * следующей ступени подставляется сам.
  */
 function SetTechPanel({
-  set, setNo, planned, onToggleFailure, onToggleNegative, onSetNegative,
+  set, setNo, planned, last, onToggleFailure, onToggleNegative, onSetNegative,
   onAddStep, onUpdateStep, onRemoveStep,
 }: {
   set: ExerciseSet;
   /** Номер подхода — строка висит под таблицей и без него «ничья». */
   setNo: number;
+  /** Этот же подход в прошлый раз — ступени дропсета берём отсюда. */
+  last?: ExerciseSet;
   /** Техника, запланированная программой на этот подход. */
   planned?: SetTechnique;
   onToggleFailure: () => void;
@@ -1511,6 +1513,11 @@ function SetTechPanel({
   // Итог по подходу: сколько всего повторов с учётом ступеней. В зале
   // это единственное число, которое хочется видеть сразу.
   const totalReps = (set.reps || 0) + steps.reduce((s, d) => s + (d.reps || 0), 0);
+  // Ступени прошлого раза: в колонке «В прошлый раз» виден только
+  // основной подход, а сбросы веса из неё не прочитать.
+  const lastSteps = (last?.drops ?? []).filter(d => (d.reps || 0) > 0 || (d.weight || 0) > 0);
+  const lastTech = last?.tech ?? 'drop';
+  const fmtStep = (d: { reps?: number; weight?: number }) => `${d.reps || 0}×${d.weight || 0}`;
 
   // Что уже отмечено на подходе — одной строкой.
   const marks: string[] = [];
@@ -1548,6 +1555,16 @@ function SetTechPanel({
         )}
         <ChevronsDown size={11} className={more ? 'is-flip' : ''} />
       </button>
+
+      {/* Прошлый раз целиком, пока ступени ещё не начаты: видно, с какого
+          веса и до какого сбрасывал. Когда ступени есть — подсказка у
+          каждой ступени отдельно. */}
+      {lastSteps.length > 0 && steps.length === 0 && (
+        <div className="tx-techlast">
+          В прошлый раз: {fmtStep(last!)} → {lastSteps.map(fmtStep).join(' → ')}
+          {lastTech !== 'drop' ? ` (${TECH_META[lastTech].label})` : ''}
+        </div>
+      )}
 
       {more && (
         <div className="tx-techmenu">
@@ -1621,13 +1638,14 @@ function SetTechPanel({
             <div className="tx-steprow" key={di}>
               <span className="tx-stepname">
                 <ChevronsDown size={10} /> {meta.step} {di + 1}
+                {lastSteps[di] && <i className="tx-stepwas">было {fmtStep(lastSteps[di])}</i>}
               </span>
               <span className="tx-stepinputs">
                 <input
                   type="number"
                   inputMode="numeric"
                   value={d.reps || ''}
-                  placeholder="повт"
+                  placeholder={lastSteps[di]?.reps ? String(lastSteps[di].reps) : 'повт'}
                   onChange={(e) => onUpdateStep(di, { reps: parseInt(e.target.value, 10) || 0 })}
                   aria-label={`повторы, ${meta.step} ${di + 1}`}
                 />
@@ -1636,7 +1654,7 @@ function SetTechPanel({
                   type="number"
                   inputMode="numeric"
                   value={d.weight || ''}
-                  placeholder="вес"
+                  placeholder={lastSteps[di]?.weight ? String(lastSteps[di].weight) : 'вес'}
                   onChange={(e) => onUpdateStep(di, { weight: parseInt(e.target.value, 10) || 0 })}
                   aria-label={`вес, ${meta.step} ${di + 1}`}
                 />
@@ -2247,24 +2265,25 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                           <b>Подход {sets.length}</b> — дропсет: доведи до отказа,
                           сбрось вес на 20-25% <i>без отдыха</i> и сделай ещё
                           столько повторов, сколько получится. Запиши ступени
-                          через <b>+ техника подхода</b> под таблицей → <b>Дропсет</b>.
+                          через <b>+ Дропсет к подходу {sets.length}</b> под таблицей —
+                          там же видно, как было в прошлый раз.
                           {ex.planToFailure ? ' Он же — до отказа.' : ''}
                         </>
                       ) : ex.planTech === 'restPause' ? (
                         <>
                           <b>Подход {sets.length}</b> — rest-pause: доведи до отказа,
                           пауза 10-20 сек <i>не меняя вес</i>, и ещё блок повторов.
-                          Обычно 2-3 блока. Записывай через <b>+ техника подхода</b> → <b>Rest-pause</b>.
+                          Обычно 2-3 блока. Записывай через <b>+ Rest-pause к подходу {sets.length}</b>.
                         </>
                       ) : ex.planTech === 'cluster' ? (
                         <>
                           <b>Подход {sets.length}</b> — кластер: разбей подход на
                           блоки с паузами 10-15 сек (например 3+3+3 вместо 9).
-                          Записывай через <b>+ техника подхода</b> → <b>Кластер</b>.
+                          Записывай через <b>+ Кластер к подходу {sets.length}</b>.
                         </>
                       ) : (
                         <><b>Подход {sets.length}</b> — до отказа: работай, пока
-                        повтор не перестанет получаться. Отметь через <b>+ техника подхода</b> → <b>До отказа</b>.</>
+                        повтор не перестанет получаться. Отметь через <b>+ техника для подхода {sets.length}</b> → <b>До отказа</b>.</>
                       )}
                     </span>
                   </div>
@@ -2361,6 +2380,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                     <SetTechPanel
                       set={s}
                       setNo={i + 1}
+                      last={last}
                       planned={i === sets.length - 1
                         ? (ex.planDropSet ? 'drop' : ex.planTech)
                         : undefined}

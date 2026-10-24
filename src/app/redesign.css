@@ -646,6 +646,10 @@ body.night-mode .tx-dialog .archive-pagination button { background: #30281f; bor
 .tx-stepper b { min-width: 42px; font-size: 13px; }
 .tx-restset { align-items: center; }
 .tx-day .tag:empty, .tx-monthday small:empty { min-height: 12px; }
+/* Дропсет: прошлый раз — строкой под техникой и у каждой ступени */
+.tx-techlast { font-size: 11px; color: var(--text-muted); padding: 5px 4px 0; font-variant-numeric: tabular-nums; }
+.tx-stepname { flex-wrap: wrap; }
+.tx-stepwas { flex-basis: 100%; font-style: normal; font-size: 10px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text-muted); padding-left: 13px; font-variant-numeric: tabular-nums; }
 /* Суперсет: вкладки кругов и переход к следующему (по макету) */
 .tx-roundtabs { display: flex; gap: 6px; padding: 2px 2px 8px; }
 .tx-roundtabs button { flex: 1; min-height: 36px; padding: 7px 4px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
