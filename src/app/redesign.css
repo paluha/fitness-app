@@ -320,6 +320,69 @@ body.night-mode .tx .activity-grid .partial { background: #3a2b20; border-color:
 .tx .legend.partial { background: #fbf1e6; border: 1px dashed #ecd2b8; }
 .tx .stats-workout { width: 100%; text-align: left; }
 
+/* ---------- Планер ---------- */
+.tx .planner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.tx .planner-actions svg { width: 20px; height: 20px; }
+.tx .round.is-on { background: var(--accent-soft); border-color: #f2c5b4; color: #c34b2d; }
+.tx .planner-back { margin: -8px 0 6px; gap: 5px; }
+.tx .planner-back svg { width: 14px; height: 14px; }
+.tx .calendar-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.tx .calendar-top strong { font-size: 13px; font-weight: 650; }
+.tx .calendar-tools { display: flex; gap: 14px; align-items: center; }
+.tx .calendar-top .text-button svg { width: 14px; height: 14px; }
+.tx .text-button.quiet { color: var(--muted); }
+.tx .week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin-bottom: 22px; }
+.tx .week-strip .day { display: flex; flex-direction: column; gap: 7px; padding: 10px 0 7px; border-radius: 11px; color: var(--muted); border: 1px solid transparent; min-height: 72px; }
+.tx .week-strip .day small { font-size: 9px; }
+.tx .week-strip .day strong { font-size: 17px; font-weight: 550; }
+.tx .week-strip .day i { width: 4px; height: 4px; background: transparent; border-radius: 50%; }
+.tx .week-strip .day i.has { background: var(--accent); }
+.tx .week-strip .day.is-today:not(.active) { color: var(--ink); border-color: var(--line); }
+.tx .week-strip .day.active { background: var(--accent); color: #fff; }
+.tx .week-strip .day.active i.has { background: #fff; }
+.tx .month-card { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 20px; }
+.tx .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.tx .month-nav span { font-size: 12px; font-weight: 600; }
+.tx .month-nav .round { width: 32px; height: 32px; min-height: 32px; border-radius: 9px; }
+.tx .month-nav svg { width: 15px; height: 15px; }
+.tx .month-card .month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.tx .month-card .month-grid .dow { font-size: 9px; color: var(--muted); text-align: center; padding-bottom: 4px; }
+.tx .month-card .month-grid button { height: 36px; border-radius: 8px; font-size: 12px; background: var(--soft); position: relative; }
+.tx .month-card .month-grid button.has-tasks::after { content: ''; position: absolute; bottom: 4px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+.tx .month-card .month-grid button.is-today { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.tx .month-card .month-grid button.active { background: var(--accent); color: #fff; }
+.tx .month-card .month-grid button.active.has-tasks::after { background: #fff; }
+.tx .filter-bar { display: flex; gap: 5px; margin: 0 0 23px; flex-wrap: wrap; }
+.tx .filter-bar .pill { padding: 7px 10px; font-size: 11px; }
+.tx .task-list { margin-bottom: 14px; }
+.tx .task-item { display: flex; align-items: center; gap: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 13px; padding: 15px; margin-bottom: 10px; }
+.tx .task-copy { flex: 1; min-width: 0; display: block; text-align: left; }
+.tx .task-copy strong, .tx .undated-row .row-copy strong { display: block; font-size: 12px; font-weight: 600; }
+.tx .task-copy small { display: block; font-size: 10px; color: var(--muted); margin-top: 3px; }
+.tx .task-item.done strong, .tx .undated-row.is-done strong { text-decoration: line-through; color: var(--muted); }
+.tx .tx-box { appearance: none; -webkit-appearance: none; flex: 0 0 22px; width: 22px; height: 22px; min-height: 0; margin: 0; padding: 0; border: 1px solid #d8cebf; border-radius: 6px; background: var(--paper); cursor: pointer; box-shadow: none; }
+.tx .tx-box:checked { border-color: #ff5c35; background: #ff5c35 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='m4 9 3 3 7-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
+.tx .tx-box:focus-visible { outline: 2px solid #e94c27; outline-offset: 2px; }
+body.night-mode .tx .tx-box { border-color: #5a4c3c; }
+.tx .planner-empty { padding: 30px 15px; }
+.tx .planner-empty .primary svg { width: 16px; height: 16px; }
+.tx .undated-row { gap: 12px; }
+.tx .undated-row .row-copy { display: block; text-align: left; }
+.tx .undated-more { width: 100%; justify-content: flex-start; margin-top: 6px; color: var(--muted); }
+.tx .undated-done > summary { font-size: 11px; color: var(--muted); padding: 12px 0 4px; }
+.tx .upcoming-row { width: 100%; text-align: left; justify-content: flex-start; }
+.tx .upcoming-row .icon-tile svg { width: 17px; height: 17px; }
+.tx .planner-ai { margin-top: 4px; }
+.tx-dialog .planner-form .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tx-dialog .field-label { display: block; font-size: 12px; font-weight: 550; margin: 14px 0 7px; }
+.tx-dialog .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tx-dialog .chips button { border: 1px solid #e2dacf; background: #fff; border-radius: 14px; padding: 7px 11px; font: inherit; font-size: 12px; color: #57534c; cursor: pointer; }
+.tx-dialog .chips button.is-on { background: #fff1ea; border-color: #f2c5b4; color: #c34b2d; }
+body.night-mode .tx-dialog .chips button { background: #191510; border-color: #3e352c; color: #eee8df; }
+.tx-dialog .form-actions { display: flex; gap: 10px; margin-top: 16px; }
+.tx-dialog .form-actions .primary { margin-top: 0; flex: 1; }
+.tx-dialog .form-actions .delete { width: 52px; border: 1px solid #f1c7c2; background: #fbecea; color: #c4534e; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
 /* Окна записи «Здоровья» (рендерятся в body, поэтому под .tx-dialog) */
 .tx-dialog .ux-unit-input { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
 .tx-dialog .ux-unit-input input { margin-top: 0; flex: 1; min-width: 0; }

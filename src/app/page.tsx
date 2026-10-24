@@ -7311,6 +7311,7 @@ export default function FitnessPage() {
               todayStr={todayStr}
               lang={userSettings.language === 'ru' ? 'ru' : 'en'}
               timezone={userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
+              medCourses={medCourses}
             />
           </div>
         )}
