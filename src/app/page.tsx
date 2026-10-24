@@ -7,15 +7,18 @@ import {
   TrendingUp, Edit2, Trash2, Save, ChevronDown,
   ChevronUp, Calendar, Cloud, CloudOff, Footprints, History,
   Zap, Timer, Play, Pause, RotateCcw, Settings, User,
-  Heart, BarChart3, Scale, Ruler, Pencil,
+  Heart, BarChart3, Scale,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
   Home, Trophy, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2,
-  ClipboardList, Pill
 } from 'lucide-react';
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat, type WorkoutEdit } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
 import { ProfileView } from '@/components/ProfileView';
+import { HealthView } from '@/components/HealthView';
+import {
+  type BodyMeasurement, type CheckinField, type CheckinEntry, type MedCourse, type MedLog, type VitalEntry,
+} from '@/lib/health-types';
 import { WeightChart } from '@/components/WeightChart';
 import NutritionPage from '@/components/NutritionPage';
 import AddMealDialog from '@/components/AddMealDialog';
@@ -541,88 +544,6 @@ interface NutritionProfile {
 }
 
 // Рецепт пользователя (введён вручную или распарсен ИИ с фото)
-// Показатель здоровья: давление и/или пульсоксиметр, с тегами контекста
-/**
- * Поле самонаблюдения, которое пользователь заводит сам.
- *
- * Готового списка нет намеренно: что отслеживать — решает он (отёчность,
- * настроение, акне, сон, что угодно). Здесь только описание поля, сами
- * значения по дням лежат в CheckinEntry.
- */
-interface CheckinField {
-  id: string;
-  name: string;
-  /** Как записывать: шкала 0-3, число с единицей или «было/не было». */
-  kind: 'scale' | 'number' | 'yesno';
-  /** Единица для kind:'number' («кг», «часов», «мг»). */
-  unit?: string;
-  /** Подписи делений для шкалы; пусто — «нет / слегка / заметно / сильно». */
-  labels?: string[];
-  /** Поле больше не заполняется, но прошлые записи остаются. */
-  archived?: boolean;
-}
-
-/** Значения полей за один день. Ключ в values — id поля. */
-interface CheckinEntry {
-  id: string;
-  /** YYYY-MM-DD: привязка к дню календаря, а не к моменту. */
-  date: string;
-  values: Record<string, number | string>;
-  note?: string;
-}
-
-/**
- * Курс: что колю и что принимаю.
- *
- * Отдельно от приёмов: препарат заводится один раз, а отметок у него
- * десятки. Доза и график хранятся текстом — «250 мг», «пн и чт»: это
- * справка для себя и для ИИ, считать по ней ничего не нужно.
- */
-interface MedCourse {
-  id: string;
-  name: string;
-  dose?: string;
-  /** Как принимается: укол, таблетка, капли… — свободный текст. */
-  form?: string;
-  /** Когда: «пн и чт», «каждый день», «через день». */
-  schedule?: string;
-  /** Дни недели для напоминаний: 1 — пн … 7 — вс. Пусто — каждый день. */
-  days?: number[];
-  /** Во сколько напоминать, «HH:MM». Пусто — без напоминаний. */
-  remindAt?: string;
-  startedAt?: string; // YYYY-MM-DD
-  endedAt?: string;   // YYYY-MM-DD, курс завершён
-  note?: string;
-}
-
-/** Факт приёма: одна отметка по курсу. */
-interface MedLog {
-  id: string;
-  courseId: string;
-  /** ISO-момент: для укола важно и время, не только день. */
-  at: string;
-  dose?: string;
-  note?: string;
-}
-
-interface VitalEntry {
-  id: string;
-  at: string; // ISO
-  systolic?: number;
-  diastolic?: number;
-  pulse?: number;
-  spo2?: number;
-  fatPct?: number;      // % жира (анализатор состава тела)
-  symptom?: string;     // симптом (головная боль, жидкий стул…) — фиксируется тапом, время автоматом
-  customName?: string;  // произвольный показатель/процедура
-  customValue?: number;
-  customUnit?: string;
-  tags: string[];
-  note?: string;
-}
-
-const SYMPTOM_PRESETS = ['Головная боль', 'Жидкий стул', 'Запор', 'Тошнота', 'Изжога', 'Боль в животе', 'Головокружение', 'Слабость', 'Плохой сон', 'Судороги'];
-
 interface Recipe {
   id: string;
   name: string;
@@ -739,20 +660,6 @@ const fmtSpanDate = (v: string) => {
       .replace(/\s*г\.$/, '').replace(/\.$/, '');
   } catch { return v; }
 };
-
-interface BodyMeasurement {
-  id: string;
-  date: string;
-  weight?: number;
-  waist?: number;
-  chest?: number;
-  biceps?: number;        // legacy - kept for backwards compatibility
-  bicepsLeft?: number;
-  bicepsRight?: number;
-  thighs?: number;
-  hips?: number;
-  notes?: string;
-}
 
 interface MacroGoal {
   protein: number;
@@ -1548,494 +1455,6 @@ const viewerAction: React.CSSProperties = {
   background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff',
   fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
 };
-
-/** Деления шкалы по умолчанию — если пользователь не задал свои. */
-const SCALE_LABELS = ['нет', 'слегка', 'заметно', 'сильно'];
-
-/**
- * Идентификатор для новой записи.
- *
- * randomUUID, а не Date.now(): две записи в одну миллисекунду получали
- * бы одинаковый id. Плюс линтер справедливо ругается на Date.now() в
- * теле компонента — он не отличает обработчик от рендера.
- */
-function newId(prefix: string): string {
-  const rnd = typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID().slice(0, 8)
-    : Math.random().toString(36).slice(2, 10);
-  return `${prefix}${rnd}`;
-}
-
-/**
- * Самонаблюдение: свои поля, значения по дням.
- *
- * Готового списка пунктов нет намеренно — что отслеживать, решает
- * пользователь. Запись привязана к ДНЮ (выбранному в календаре), а не к
- * моменту: «в пятницу отметил» — это про день.
- */
-function CheckinSection({ fields, entries, date, onSave }: {
-  fields: CheckinField[];
-  entries: CheckinEntry[];
-  date: string;
-  onSave: (fields: CheckinField[], entries: CheckinEntry[]) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState<{ name: string; kind: CheckinField['kind']; unit: string }>({
-    name: '', kind: 'scale', unit: '',
-  });
-  const [manage, setManage] = useState(false);
-
-  const live = fields.filter(f => !f.archived);
-  const today = entries.find(e => e.date === date);
-  const values = today?.values ?? {};
-
-  const setValue = (fieldId: string, v: number | string | undefined) => {
-    const nextValues = { ...values };
-    if (v === undefined || v === '') delete nextValues[fieldId];
-    else nextValues[fieldId] = v;
-    const rest = entries.filter(e => e.date !== date);
-    // Пустую запись не храним: иначе в календаре день помечался бы
-    // заполненным, хотя в нём ничего нет.
-    const hasAny = Object.keys(nextValues).length > 0 || (today?.note ?? '').trim();
-    const next = hasAny
-      ? [...rest, { id: today?.id ?? newId('c'), date, values: nextValues, note: today?.note }]
-      : rest;
-    onSave(fields, next.sort((a, b) => a.date.localeCompare(b.date)));
-  };
-
-  const setNote = (note: string) => {
-    const rest = entries.filter(e => e.date !== date);
-    const hasAny = Object.keys(values).length > 0 || note.trim();
-    const next = hasAny
-      ? [...rest, { id: today?.id ?? newId('c'), date, values, note }]
-      : rest;
-    onSave(fields, next.sort((a, b) => a.date.localeCompare(b.date)));
-  };
-
-  const addField = () => {
-    const name = form.name.trim();
-    if (!name) return;
-    onSave([...fields, {
-      id: newId('f'),
-      name,
-      kind: form.kind,
-      ...(form.kind === 'number' && form.unit.trim() ? { unit: form.unit.trim() } : {}),
-    }], entries);
-    setForm({ name: '', kind: 'scale', unit: '' });
-    setAdding(false);
-  };
-
-  // Прошлые записи этого поля — чтобы видеть динамику, не уходя с экрана.
-  const trend = (fieldId: string) => entries
-    .filter(e => e.values[fieldId] !== undefined && e.date !== date)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 4);
-
-  const dayLabel = (() => {
-    const [y, m, d] = date.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-  })();
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: '16px', padding: '16px', marginBottom: '20px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-        <ClipboardList size={16} style={{ color: 'var(--accent)' }} />
-        <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>Самонаблюдение</span>
-        {live.length > 0 && (
-          <button
-            onClick={() => setManage(v => !v)}
-            style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-          >{manage ? 'готово' : 'изменить'}</button>
-        )}
-      </div>
-      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>{dayLabel}</div>
-
-      {live.length === 0 && !adding && (
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-          Заведи то, что хочешь отслеживать: отёчность, настроение, акне —
-          что угодно. Отмечать можно в любой день.
-        </div>
-      )}
-
-      {live.map(f => (
-        <div key={f.id} style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, flex: 1 }}>{f.name}</span>
-            {trend(f.id).length > 0 && (
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                было: {trend(f.id).map(e => {
-                  const v = e.values[f.id];
-                  return f.kind === 'scale' ? (f.labels ?? SCALE_LABELS)[Number(v)] ?? v
-                    : f.kind === 'yesno' ? (v ? 'да' : 'нет') : v;
-                }).join(' · ')}
-              </span>
-            )}
-            {manage && (
-              <button
-                onClick={() => onSave(fields.map(x => x.id === f.id ? { ...x, archived: true } : x), entries)}
-                aria-label={`Убрать поле ${f.name}`}
-                style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, lineHeight: 1 }}
-              ><X size={13} /></button>
-            )}
-          </div>
-          {f.kind === 'scale' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-              {(f.labels ?? SCALE_LABELS).map((label, i) => {
-                const on = values[f.id] === i;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setValue(f.id, on ? undefined : i)}
-                    style={{
-                      padding: '9px 4px', borderRadius: '9px', cursor: 'pointer',
-                      fontSize: '11px', fontWeight: on ? 700 : 500, fontFamily: 'inherit',
-                      border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                      background: on ? 'var(--accent)' : 'var(--bg-elevated)',
-                      color: on ? '#fff' : 'var(--text-secondary)',
-                    }}
-                  >{label}</button>
-                );
-              })}
-            </div>
-          )}
-          {f.kind === 'yesno' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-              {[['да', 1], ['нет', 0]].map(([label, v]) => {
-                const on = values[f.id] === v;
-                return (
-                  <button
-                    key={String(v)}
-                    onClick={() => setValue(f.id, on ? undefined : (v as number))}
-                    style={{
-                      padding: '9px 4px', borderRadius: '9px', cursor: 'pointer',
-                      fontSize: '12px', fontWeight: on ? 700 : 500, fontFamily: 'inherit',
-                      border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                      background: on ? 'var(--accent)' : 'var(--bg-elevated)',
-                      color: on ? '#fff' : 'var(--text-secondary)',
-                    }}
-                  >{label}</button>
-                );
-              })}
-            </div>
-          )}
-          {f.kind === 'number' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={values[f.id] ?? ''}
-                onChange={(e) => setValue(f.id, e.target.value === '' ? undefined : Number(e.target.value))}
-                placeholder="0"
-                style={{
-                  flex: 1, minWidth: 0, height: '38px', padding: '0 10px',
-                  borderRadius: '9px', border: '1px solid var(--border)',
-                  background: 'var(--bg-elevated)', color: 'var(--text-primary)',
-                  fontSize: '14px', fontWeight: 600, fontFamily: 'inherit',
-                }}
-              />
-              {f.unit && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{f.unit}</span>}
-            </div>
-          )}
-        </div>
-      ))}
-
-      {live.length > 0 && (
-        <input
-          value={today?.note ?? ''}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Заметка к дню…"
-          style={{
-            width: '100%', height: '38px', padding: '0 10px', marginBottom: '10px',
-            borderRadius: '9px', border: '1px solid var(--border)',
-            background: 'var(--bg-elevated)', color: 'var(--text-primary)',
-            fontSize: '12px', fontFamily: 'inherit',
-          }}
-        />
-      )}
-
-      {adding ? (
-        <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px' }}>
-          <input
-            autoFocus
-            value={form.name}
-            onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Название: отёчность, настроение…"
-            style={{
-              width: '100%', height: '38px', padding: '0 10px', marginBottom: '8px',
-              borderRadius: '9px', border: '1px solid var(--border)',
-              background: 'var(--bg-card)', color: 'var(--text-primary)',
-              fontSize: '13px', fontFamily: 'inherit',
-            }}
-          />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginBottom: '8px' }}>
-            {([['scale', 'шкала'], ['yesno', 'да / нет'], ['number', 'число']] as const).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setForm(f => ({ ...f, kind: k }))}
-                style={{
-                  padding: '8px 4px', borderRadius: '9px', cursor: 'pointer',
-                  fontSize: '11px', fontWeight: form.kind === k ? 700 : 500, fontFamily: 'inherit',
-                  border: `1px solid ${form.kind === k ? 'var(--accent)' : 'var(--border)'}`,
-                  background: form.kind === k ? 'var(--accent)' : 'var(--bg-card)',
-                  color: form.kind === k ? '#fff' : 'var(--text-secondary)',
-                }}
-              >{label}</button>
-            ))}
-          </div>
-          {form.kind === 'number' && (
-            <input
-              value={form.unit}
-              onChange={(e) => setForm(f => ({ ...f, unit: e.target.value }))}
-              placeholder="Единица: часов, кг, мг…"
-              style={{
-                width: '100%', height: '36px', padding: '0 10px', marginBottom: '8px',
-                borderRadius: '9px', border: '1px solid var(--border)',
-                background: 'var(--bg-card)', color: 'var(--text-primary)',
-                fontSize: '12px', fontFamily: 'inherit',
-              }}
-            />
-          )}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={addField} disabled={!form.name.trim()} style={{
-              flex: 1, height: '38px', borderRadius: '9px', border: 0, cursor: 'pointer',
-              background: form.name.trim() ? 'var(--accent)' : 'var(--border)',
-              color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
-            }}>Добавить</button>
-            <button onClick={() => { setAdding(false); setForm({ name: '', kind: 'scale', unit: '' }); }} style={{
-              height: '38px', padding: '0 14px', borderRadius: '9px',
-              border: '1px solid var(--border)', background: 'transparent',
-              color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer',
-            }}>Отмена</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)} style={{
-          width: '100%', height: '38px', borderRadius: '9px',
-          border: '1px dashed var(--border)', background: 'transparent',
-          color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
-          fontFamily: 'inherit', cursor: 'pointer',
-        }}>+ Добавить поле</button>
-      )}
-    </div>
-  );
-}
-
-/** Дни недели для графика приёма: 1 — понедельник. */
-const WEEK_DAYS: [number, string][] = [[1, 'пн'], [2, 'вт'], [3, 'ср'], [4, 'чт'], [5, 'пт'], [6, 'сб'], [7, 'вс']];
-
-/**
- * Что колю и что принимаю: курсы и отметки приёма.
- *
- * Курс заводится один раз, отметок у него десятки — поэтому они разделены.
- * Доза и график хранятся текстом: это справка для себя и для ИИ, считать
- * по ней ничего не нужно.
- */
-function MedsSection({ courses, logs, onSave }: {
-  courses: MedCourse[];
-  logs: MedLog[];
-  onSave: (courses: MedCourse[], logs: MedLog[]) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const empty = { name: '', dose: '', form: '', schedule: '', days: [] as number[], remindAt: '', note: '' };
-  const [form, setForm] = useState(empty);
-
-  const active = courses.filter(c => !c.endedAt);
-  const finished = courses.filter(c => c.endedAt);
-
-  const lastLog = (courseId: string) => logs
-    .filter(l => l.courseId === courseId)
-    .sort((a, b) => b.at.localeCompare(a.at))[0];
-
-  const markTaken = (c: MedCourse) => {
-    onSave(courses, [...logs, {
-      id: newId('m'),
-      courseId: c.id,
-      at: new Date().toISOString(),
-      ...(c.dose ? { dose: c.dose } : {}),
-    }]);
-  };
-
-  const save = () => {
-    const name = form.name.trim();
-    if (!name) return;
-    const data: MedCourse = {
-      id: editId ?? newId('k'),
-      name,
-      ...(form.dose.trim() ? { dose: form.dose.trim() } : {}),
-      ...(form.form.trim() ? { form: form.form.trim() } : {}),
-      ...(form.schedule.trim() ? { schedule: form.schedule.trim() } : {}),
-      ...(form.days.length ? { days: form.days } : {}),
-      ...(form.remindAt ? { remindAt: form.remindAt } : {}),
-      ...(form.note.trim() ? { note: form.note.trim() } : {}),
-      startedAt: editId ? courses.find(c => c.id === editId)?.startedAt : new Date().toISOString().slice(0, 10),
-    };
-    onSave(editId ? courses.map(c => c.id === editId ? { ...c, ...data } : c) : [...courses, data], logs);
-    setForm(empty); setAdding(false); setEditId(null);
-  };
-
-  const when = (iso: string) => {
-    const d = new Date(iso);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const day = new Date(d); day.setHours(0, 0, 0, 0);
-    const diff = Math.round((today.getTime() - day.getTime()) / 86400000);
-    const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    if (diff === 0) return `сегодня в ${time}`;
-    if (diff === 1) return `вчера в ${time}`;
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-  };
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: '16px', padding: '16px', marginBottom: '20px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <Pill size={16} style={{ color: 'var(--accent)' }} />
-        <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>Препараты и добавки</span>
-      </div>
-
-      {active.length === 0 && !adding && (
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-          Что колешь и что принимаешь: доза, график, отметки приёма.
-          ИИ видит этот список, когда разбирает анализы и самочувствие.
-        </div>
-      )}
-
-      {active.map(c => {
-        const last = lastLog(c.id);
-        return (
-          <div key={c.id} style={{
-            padding: '12px', marginBottom: '8px', borderRadius: '12px',
-            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 700 }}>{c.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {[c.dose, c.form, c.schedule].filter(Boolean).join(' · ')}
-                  {c.remindAt ? ` · напомню в ${c.remindAt}` : ''}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setEditId(c.id); setAdding(true);
-                  setForm({
-                    name: c.name, dose: c.dose ?? '', form: c.form ?? '',
-                    schedule: c.schedule ?? '', days: c.days ?? [],
-                    remindAt: c.remindAt ?? '', note: c.note ?? '',
-                  });
-                }}
-                aria-label={`Изменить ${c.name}`}
-                style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', lineHeight: 1 }}
-              ><Settings size={13} /></button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ flex: 1, fontSize: '11px', color: last ? 'var(--green)' : 'var(--text-muted)' }}>
-                {last ? `последний: ${when(last.at)}` : 'ещё не отмечено'}
-              </span>
-              <button onClick={() => markTaken(c)} style={{
-                height: '32px', padding: '0 14px', borderRadius: '8px', border: 0,
-                background: 'var(--accent)', color: '#fff',
-                fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-              }}>Отметить</button>
-            </div>
-          </div>
-        );
-      })}
-
-      {finished.length > 0 && (
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', marginBottom: '8px' }}>
-          Завершённые: {finished.map(c => c.name).join(', ')}
-        </div>
-      )}
-
-      {adding ? (
-        <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px', marginTop: '8px' }}>
-          {([['name', 'Название'], ['dose', 'Доза: 250 мг, 5000 МЕ…'], ['form', 'Форма: укол, таблетка…'], ['schedule', 'График: пн и чт, каждый день…']] as const).map(([k, ph]) => (
-            <input
-              key={k}
-              autoFocus={k === 'name'}
-              value={form[k]}
-              onChange={(e) => setForm(f => ({ ...f, [k]: e.target.value }))}
-              placeholder={ph}
-              style={{
-                width: '100%', height: '36px', padding: '0 10px', marginBottom: '7px',
-                borderRadius: '9px', border: '1px solid var(--border)',
-                background: 'var(--bg-card)', color: 'var(--text-primary)',
-                fontSize: '12px', fontFamily: 'inherit',
-              }}
-            />
-          ))}
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '4px 0 5px' }}>
-            Напоминание (необязательно)
-          </div>
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '7px' }}>
-            {WEEK_DAYS.map(([n, label]) => {
-              const on = form.days.includes(n);
-              return (
-                <button
-                  key={n}
-                  onClick={() => setForm(f => ({ ...f, days: on ? f.days.filter(d => d !== n) : [...f.days, n] }))}
-                  style={{
-                    flex: 1, height: '30px', borderRadius: '8px', cursor: 'pointer',
-                    fontSize: '10px', fontWeight: on ? 700 : 500, fontFamily: 'inherit',
-                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                    background: on ? 'var(--accent)' : 'var(--bg-card)',
-                    color: on ? '#fff' : 'var(--text-secondary)',
-                  }}
-                >{label}</button>
-              );
-            })}
-          </div>
-          <input
-            type="time"
-            value={form.remindAt}
-            onChange={(e) => setForm(f => ({ ...f, remindAt: e.target.value }))}
-            style={{
-              width: '100%', height: '36px', padding: '0 10px', marginBottom: '8px',
-              borderRadius: '9px', border: '1px solid var(--border)',
-              background: 'var(--bg-card)', color: 'var(--text-primary)',
-              fontSize: '12px', fontFamily: 'inherit',
-            }}
-          />
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={save} disabled={!form.name.trim()} style={{
-              flex: 1, height: '38px', borderRadius: '9px', border: 0, cursor: 'pointer',
-              background: form.name.trim() ? 'var(--accent)' : 'var(--border)',
-              color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
-            }}>{editId ? 'Сохранить' : 'Добавить'}</button>
-            {editId && (
-              <button onClick={() => {
-                onSave(courses.map(c => c.id === editId ? { ...c, endedAt: new Date().toISOString().slice(0, 10) } : c), logs);
-                setForm(empty); setAdding(false); setEditId(null);
-              }} style={{
-                height: '38px', padding: '0 12px', borderRadius: '9px',
-                border: '1px solid var(--border)', background: 'transparent',
-                color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer',
-              }}>Завершить</button>
-            )}
-            <button onClick={() => { setAdding(false); setEditId(null); setForm(empty); }} style={{
-              height: '38px', padding: '0 12px', borderRadius: '9px',
-              border: '1px solid var(--border)', background: 'transparent',
-              color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'inherit', cursor: 'pointer',
-            }}>Отмена</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)} style={{
-          width: '100%', height: '38px', borderRadius: '9px', marginTop: '4px',
-          border: '1px dashed var(--border)', background: 'transparent',
-          color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
-          fontFamily: 'inherit', cursor: 'pointer',
-        }}>+ Добавить препарат</button>
-      )}
-    </div>
-  );
-}
 
 /** Подписи техник: как называется в интерфейсе и как подписаны ступени. */
 const TECH_META: Record<SetTechnique, { label: string; step: string; hint: string }> = {
@@ -3779,9 +3198,6 @@ export default function FitnessPage() {
   // Курсы препаратов и отметки приёма
   const [medCourses, setMedCourses] = useState<MedCourse[]>([]);
   const [medLogs, setMedLogs] = useState<MedLog[]>([]);
-  // '' = форма скрыта; иначе тип устройства/процедуры
-  const [vitalsKind, setVitalsKind] = useState<'' | 'bp' | 'oxi' | 'body' | 'sym' | 'custom'>('');
-  const [vitalsForm, setVitalsForm] = useState({ systolic: '', diastolic: '', pulse: '', spo2: '', fatPct: '', customName: '', customValue: '', customUnit: '', tags: [] as string[], note: '' });
 
     // Рецепты: свои и распарсенные ИИ с фото
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -4143,7 +3559,7 @@ export default function FitnessPage() {
       .filter(m => typeof m.weight === 'number' && m.weight > 0)
       .reduce<BodyMeasurement | null>((best, m) => (!best || m.date > best.date ? m : best), null);
     if (!last?.weight) return null;
-    const date = new Date(last.date.slice(0, 10) + 'T12:00:00')
+    const date = new Date(last.date)
       .toLocaleDateString(userSettings.language === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' });
     return { kg: last.weight, date };
   }, [bodyMeasurements, userSettings.language]);
@@ -5047,41 +4463,18 @@ export default function FitnessPage() {
     } catch { /* офлайн — доедет позже */ }
   };
 
-  const addVitalEntry = async () => {
-    const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : undefined; };
-    const entry: VitalEntry = {
-      id: Date.now().toString(),
-      at: new Date().toISOString(),
-      systolic: num(vitalsForm.systolic),
-      diastolic: num(vitalsForm.diastolic),
-      pulse: num(vitalsForm.pulse),
-      spo2: num(vitalsForm.spo2),
-      fatPct: num(vitalsForm.fatPct),
-      customName: vitalsForm.customName.trim() || undefined,
-      customValue: num(vitalsForm.customValue),
-      customUnit: vitalsForm.customUnit.trim() || undefined,
-      tags: vitalsForm.tags,
-      note: vitalsForm.note.trim() || undefined,
-    };
-    if (!entry.systolic && !entry.diastolic && !entry.pulse && !entry.spo2 && !entry.fatPct && entry.customValue === undefined) return;
-    await saveVitals([entry, ...vitals].slice(0, 500));
-    setVitalsKind('');
-    setVitalsForm({ systolic: '', diastolic: '', pulse: '', spo2: '', fatPct: '', customName: '', customValue: '', customUnit: '', tags: [], note: '' });
+  // Замеры тела уходят на сервер общим синком (как и раньше из окна замера).
+  const saveMeasurement = (m: BodyMeasurement) => {
+    userMadeChangeRef.current = true;
+    setBodyMeasurements(prev => prev.some(x => x.id === m.id) ? prev.map(x => x.id === m.id ? m : x) : [...prev, m]);
   };
-
-  // Симптом фиксируется одним тапом — дата и время ставятся автоматически
-  const addSymptomEntry = async (name: string) => {
-    const clean = name.trim();
-    if (!clean) return;
-    const entry: VitalEntry = {
-      id: Date.now().toString(),
-      at: new Date().toISOString(),
-      symptom: clean.slice(0, 60),
-      tags: [],
-    };
-    await saveVitals([entry, ...vitals].slice(0, 500));
-    setVitalsKind('');
-    setVitalsForm(f => ({ ...f, customName: '' }));
+  const deleteMeasurement = (id: string) => {
+    userMadeChangeRef.current = true;
+    setBodyMeasurements(prev => prev.filter(x => x.id !== id));
+  };
+  const editMeasurement = (m: BodyMeasurement) => {
+    setEditingMeasurement(m);
+    setShowMeasurementModal(true);
   };
 
     const saveRecipes = async (next: Recipe[]) => {
@@ -7722,339 +7115,25 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* GAINS VIEW - Body Measurements */}
+        {/* ЗДОРОВЬЕ (бывшие «Замеры») — по макету редизайна: обзор,
+            препараты и общий журнал. Данные и сохранение прежние. */}
         {view === 'gains' && (
           <div className="view-content">
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Scale size={20} />
-                {t('gains')}
-              </h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                {t('trackProgress')}
-              </p>
-
-              {/* Add Measurement Button */}
-              <button
-                onClick={() => setShowMeasurementModal(true)}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: 'var(--yellow)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  marginBottom: '20px'
-                }}
-              >
-                <Plus size={18} />
-                {t('addMeasurements')}
-              </button>
-
-              {/* График веса по замерам (старые→новые) */}
-              {(() => {
-                const withWeight = bodyMeasurements
-                  .filter(m => typeof m.weight === 'number' && m.weight! > 0)
-                  .slice()
-                  .sort((a, b) => (a.date < b.date ? -1 : 1));
-                if (withWeight.length === 0) return null;
-                return (
-                  <div style={{
-                    background: 'var(--bg-card)', border: '1px solid var(--border)',
-                    borderRadius: '16px', padding: '16px', marginBottom: '20px',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>
-                      <TrendingUp size={16} style={{ color: 'var(--yellow)' }} />
-                      {userSettings.language === 'ru' ? 'Динамика веса' : 'Weight trend'}
-                    </div>
-                    <WeightChart
-                      data={withWeight.map(m => m.weight!)}
-                      labels={withWeight.map(m => new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }))}
-                    />
-                  </div>
-                );
-              })()}
-
-              {/* Самонаблюдение: поля заводит сам пользователь */}
-              <CheckinSection
-                fields={checkinFields}
-                entries={checkinEntries}
-                date={formatDate(selectedDate)}
-                onSave={saveCheckins}
-              />
-
-              {/* Что колю и что принимаю */}
-              <MedsSection
-                courses={medCourses}
-                logs={medLogs}
-                onSave={saveMeds}
-              />
-
-              {/* Показатели здоровья: любые приборы и процедуры */}
-              <div style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                borderRadius: '16px', padding: '16px', marginBottom: '20px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <Heart size={16} style={{ color: 'var(--red)' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, flex: 1 }}>
-                    {userSettings.language === 'ru' ? 'Показатели здоровья' : 'Health metrics'}
-                  </span>
-                </div>
-
-                {/* Выбор прибора/процедуры — форма раскрывается прямо тут */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: vitalsKind ? '12px' : '4px' }}>
-                  {([['bp', 'Тонометр'], ['oxi', 'Пульсоксиметр'], ['body', 'Состав тела'], ['sym', 'Симптом'], ['custom', 'Другое']] as const).map(([k, label]) => (
-                    <button key={k}
-                      onClick={() => setVitalsKind(prev => prev === k ? '' : k)}
-                      style={{
-                        padding: '9px 13px', borderRadius: '10px', cursor: 'pointer', fontSize: '12px',
-                        background: vitalsKind === k ? 'var(--yellow)' : 'var(--bg-elevated)',
-                        border: '1px solid ' + (vitalsKind === k ? 'var(--yellow)' : 'var(--border)'),
-                        color: vitalsKind === k ? '#fff' : 'var(--text-primary)',
-                        fontWeight: vitalsKind === k ? 700 : 500,
-                      }}>{label}</button>
-                  ))}
-                </div>
-
-                {vitalsKind && (
-                  <div style={{ marginBottom: '14px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '12px' }}>
-                    {vitalsKind === 'bp' && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                        {([['systolic', 'Верхнее'], ['diastolic', 'Нижнее'], ['pulse', 'Пульс']] as const).map(([k, label]) => (
-                          <div key={k}>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>{label}</div>
-                            <input type="number" inputMode="decimal" placeholder="—" value={vitalsForm[k]}
-                              onChange={e => setVitalsForm(f => ({ ...f, [k]: e.target.value }))}
-                              style={{ width: '100%', textAlign: 'center', background: 'var(--bg-primary)' }} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {vitalsKind === 'oxi' && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                        {([['spo2', 'SpO2 %'], ['pulse', 'Пульс']] as const).map(([k, label]) => (
-                          <div key={k}>
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>{label}</div>
-                            <input type="number" inputMode="decimal" placeholder="—" value={vitalsForm[k]}
-                              onChange={e => setVitalsForm(f => ({ ...f, [k]: e.target.value }))}
-                              style={{ width: '100%', textAlign: 'center', background: 'var(--bg-primary)' }} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {vitalsKind === 'body' && (
-                      <div style={{ marginBottom: '10px' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Жир, % (анализатор состава тела / InBody)</div>
-                        <input type="number" inputMode="decimal" placeholder="—" value={vitalsForm.fatPct}
-                          onChange={e => setVitalsForm(f => ({ ...f, fatPct: e.target.value }))}
-                          style={{ width: '100%', textAlign: 'center', background: 'var(--bg-primary)' }} />
-                      </div>
-                    )}
-                    {vitalsKind === 'custom' && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Показатель</div>
-                          <input type="text" placeholder="Глюкоза, ЧСС покоя…" value={vitalsForm.customName}
-                            onChange={e => setVitalsForm(f => ({ ...f, customName: e.target.value }))}
-                            style={{ width: '100%', background: 'var(--bg-primary)' }} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Значение</div>
-                          <input type="number" inputMode="decimal" placeholder="—" value={vitalsForm.customValue}
-                            onChange={e => setVitalsForm(f => ({ ...f, customValue: e.target.value }))}
-                            style={{ width: '100%', textAlign: 'center', background: 'var(--bg-primary)' }} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Ед.</div>
-                          <input type="text" placeholder="ммоль/л" value={vitalsForm.customUnit}
-                            onChange={e => setVitalsForm(f => ({ ...f, customUnit: e.target.value }))}
-                            style={{ width: '100%', textAlign: 'center', background: 'var(--bg-primary)' }} />
-                        </div>
-                      </div>
-                    )}
-                    {vitalsKind === 'sym' && (
-                      <div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                          Тап по симптому — записывается сразу, дата и время ставятся автоматически
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
-                          {SYMPTOM_PRESETS.map(sym => (
-                            <button key={sym}
-                              onClick={() => addSymptomEntry(sym)}
-                              style={{
-                                padding: '8px 12px', borderRadius: '14px', cursor: 'pointer', fontSize: '12px',
-                                background: 'var(--bg-primary)', border: '1px solid var(--border)',
-                                color: 'var(--text-primary)', fontWeight: 500,
-                              }}>{sym}</button>
-                          ))}
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <input type="text" placeholder="Свой симптом…" value={vitalsForm.customName}
-                            onChange={e => setVitalsForm(f => ({ ...f, customName: e.target.value }))}
-                            style={{ flex: 1, background: 'var(--bg-primary)', fontSize: '13px' }} />
-                          <button
-                            onClick={() => addSymptomEntry(vitalsForm.customName)}
-                            style={{ padding: '0 18px', background: 'var(--yellow)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-                          >
-                            <Check size={16} strokeWidth={3} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {vitalsKind !== 'sym' && (<>
-                    {/* Теги контекста */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
-                      {['до тренировки', 'после тренировки', 'левая рука', 'правая рука', 'сидя', 'лёжа', 'утро', 'вечер'].map(t2 => (
-                        <button key={t2}
-                          onClick={() => setVitalsForm(f => ({ ...f, tags: f.tags.includes(t2) ? f.tags.filter(x => x !== t2) : [...f.tags, t2] }))}
-                          style={{
-                            padding: '6px 10px', borderRadius: '14px', cursor: 'pointer', fontSize: '11px',
-                            background: vitalsForm.tags.includes(t2) ? 'var(--yellow)' : 'var(--bg-primary)',
-                            border: '1px solid ' + (vitalsForm.tags.includes(t2) ? 'var(--yellow)' : 'var(--border)'),
-                            color: vitalsForm.tags.includes(t2) ? '#fff' : 'var(--text-secondary)',
-                            fontWeight: vitalsForm.tags.includes(t2) ? 700 : 500,
-                          }}>{t2}</button>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input type="text" placeholder="Заметка (необязательно)" value={vitalsForm.note}
-                        onChange={e => setVitalsForm(f => ({ ...f, note: e.target.value }))}
-                        style={{ flex: 1, background: 'var(--bg-primary)', fontSize: '13px' }} />
-                      <button
-                        onClick={addVitalEntry}
-                        style={{ padding: '0 18px', background: 'var(--yellow)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        <Check size={16} strokeWidth={3} />
-                      </button>
-                    </div>
-                    </>)}
-                  </div>
-                )}
-
-                {vitals.length === 0 && !vitalsKind ? (
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    Выбери прибор или симптом. Давление, кислород, состав тела — вбей значения;
-                    симптом (головная боль, жидкий стул…) просто тапни — дата и время встанут сами.
-                  </div>
-                ) : vitals.slice(0, 30).map(v => {
-                  const d = new Date(v.at);
-                  return (
-                    <div key={v.id} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px',
-                      padding: '10px 0', borderBottom: '1px solid var(--border)'
-                    }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                          {v.systolic !== undefined && v.diastolic !== undefined && (
-                            <span style={{ color: (v.systolic >= 140 || v.diastolic >= 90) ? 'var(--red)' : (v.systolic >= 130 || v.diastolic >= 85) ? 'var(--yellow)' : 'var(--text-primary)' }}>
-                              {v.systolic}/{v.diastolic}
-                            </span>
-                          )}
-                          {v.pulse !== undefined && <span style={{ color: 'var(--blue)' }}>♥ {v.pulse}</span>}
-                          {v.spo2 !== undefined && <span style={{ color: v.spo2 < 94 ? 'var(--red)' : 'var(--green)' }}>SpO2 {v.spo2}%</span>}
-                          {v.fatPct !== undefined && <span style={{ color: 'var(--purple)' }}>жир {v.fatPct}%</span>}
-                          {v.symptom && <span style={{ color: 'var(--orange)' }}>{v.symptom}</span>}
-                          {v.customValue !== undefined && (
-                            <span style={{ color: 'var(--text-primary)' }}>{v.customName || 'показатель'}: {v.customValue}{v.customUnit ? ' ' + v.customUnit : ''}</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                          {d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, {d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                          {v.tags.length ? ' · ' + v.tags.join(', ') : ''}
-                          {v.note ? ' · ' + v.note : ''}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => saveVitals(vitals.filter(x => x.id !== v.id))}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Measurements List */}
-              {bodyMeasurements.length === 0 ? (
-                <div style={{
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                  color: 'var(--text-muted)',
-                  background: 'var(--bg-card)',
-                  borderRadius: '16px',
-                  border: '1px solid var(--border)'
-                }}>
-                  <Ruler size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                  <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                    {t('noMeasurements')}
-                  </div>
-                  <div style={{ fontSize: '12px' }}>
-                    {t('addFirst')}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {bodyMeasurements.slice().reverse().map((m) => (
-                    <div key={m.id} style={{
-                      background: 'var(--bg-card)',
-                      borderRadius: '12px',
-                      padding: '10px 14px',
-                      border: '1px solid var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px'
-                    }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', alignItems: 'baseline', fontSize: '13px', fontWeight: 600 }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, minWidth: '58px' }}>
-                            {new Date(m.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: '2-digit' })}
-                          </span>
-                          {m.weight ? <span style={{ color: 'var(--yellow)' }}>{m.weight} кг</span> : null}
-                          {m.waist ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>талия </span>{m.waist}</span> : null}
-                          {m.chest ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>грудь </span>{m.chest}</span> : null}
-                          {m.biceps ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>бицепс </span>{m.biceps}</span> : null}
-                          {m.bicepsLeft ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>биц. Л </span>{m.bicepsLeft}</span> : null}
-                          {m.bicepsRight ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>биц. П </span>{m.bicepsRight}</span> : null}
-                          {m.thighs ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>бедро </span>{m.thighs}</span> : null}
-                          {m.hips ? <span><span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '11px' }}>таз </span>{m.hips}</span> : null}
-                        </div>
-                        {m.notes && (
-                          <div style={{ marginTop: '2px', fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {m.notes}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => { setEditingMeasurement(m); setShowMeasurementModal(true); }}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', flexShrink: 0 }}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(t('deleteMeasurementConfirm') as string)) {
-                            userMadeChangeRef.current = true;
-                            setBodyMeasurements(prev => prev.filter(item => item.id !== m.id));
-                          }
-                        }}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '6px', flexShrink: 0 }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <HealthView
+              today={todayStr}
+              measurements={bodyMeasurements}
+              vitals={vitals}
+              checkinFields={checkinFields}
+              checkinEntries={checkinEntries}
+              medCourses={medCourses}
+              medLogs={medLogs}
+              onSaveMeasurement={saveMeasurement}
+              onDeleteMeasurement={deleteMeasurement}
+              onEditMeasurement={editMeasurement}
+              onSaveVitals={saveVitals}
+              onSaveCheckins={saveCheckins}
+              onSaveMeds={saveMeds}
+            />
           </div>
         )}
 
@@ -8243,7 +7322,9 @@ export default function FitnessPage() {
               const dateValue = formData.get('date') as string;
               const measurement: BodyMeasurement = {
                 id: editingMeasurement?.id || Date.now().toString(),
-                date: dateValue ? new Date(dateValue).toISOString() : new Date().toISOString(),
+                // Местный полдень выбранного дня: полночь UTC в западных
+                // поясах показывалась предыдущим днём.
+                date: dateValue ? new Date(`${dateValue}T12:00:00`).toISOString() : new Date().toISOString(),
                 weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
                 waist: formData.get('waist') ? Number(formData.get('waist')) : undefined,
                 chest: formData.get('chest') ? Number(formData.get('chest')) : undefined,
@@ -8270,7 +7351,7 @@ export default function FitnessPage() {
                 <input
                   type="date"
                   name="date"
-                  defaultValue={editingMeasurement ? new Date(editingMeasurement.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                  defaultValue={editingMeasurement ? formatDate(new Date(editingMeasurement.date)) : todayStr}
                   style={{
                     width: '100%',
                     padding: '12px',

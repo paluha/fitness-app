@@ -226,6 +226,119 @@ body.night-mode .tx .avatar { background: #30281f; border-color: #3e352c; color:
 body.night-mode .tx-dialog .direction-list label { border-color: #3e352c; }
 body.night-mode .tx-dialog .direction-list label.is-active { background: #40291f; border-color: #6b4535; }
 
+/* ---------- Раздел «Я»: Здоровье ---------- */
+.tx .health-tabs { display: flex; gap: 4px; background: #eee8de; border-radius: 9px; padding: 4px; margin-bottom: 16px; }
+.tx .health-tabs button { flex: 1; font-size: 11px; padding: 9px 5px; min-height: 36px; color: #a08c70; border-radius: 7px; font-weight: 500; }
+.tx .health-tabs .active { background: #fffdf8; color: #544735; box-shadow: 0 1px 4px #6d4f2210; }
+body.night-mode .tx .health-tabs { background: #30281f; }
+body.night-mode .tx .health-tabs .active { background: #241e18; color: var(--ink); }
+.tx .ux-measure-hero .hero-value { display: flex; align-items: baseline; justify-content: space-between; margin: 12px 0 16px; gap: 10px; }
+.tx .ux-measure-hero strong { font-size: 35px; letter-spacing: -1.2px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tx .ux-measure-hero strong small { font-size: 15px; font-weight: 400; color: #aa987f; letter-spacing: 0; }
+.tx .ux-measure-hero .hero-value > span { font-size: 10px; color: #a18e73; }
+.tx .weight-spark { margin: -4px 0 16px; }
+.tx .weight-spark svg { width: 100%; height: 48px; display: block; overflow: visible; }
+.tx .weight-spark path { fill: none; stroke: var(--accent); stroke-width: 2; }
+.tx .weight-spark circle { fill: var(--accent); stroke: var(--paper); stroke-width: 2; }
+.tx .weight-spark small { display: block; font-size: 10px; color: var(--muted); margin-top: 6px; }
+.tx .health-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.tx .health-action-grid button { padding: 13px; text-align: left; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); display: grid; grid-template-columns: 28px 1fr; gap: 4px 7px; justify-content: stretch; align-items: center; min-height: 70px; }
+.tx .health-action-grid button > span { grid-row: span 2; color: #b29c7c; display: flex; }
+.tx .health-action-grid button > span svg { width: 20px; height: 20px; }
+.tx .health-action-grid b { font-size: 12px; font-weight: 600; }
+.tx .health-action-grid small { font-size: 10px; color: #a8957a; line-height: 1.4; }
+.tx .health-meds-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 11px; width: 100%; padding: 14px; background: #f2ecdf; margin-bottom: 18px; text-align: left; }
+.tx .health-meds-link > span { display: block; }
+.tx .health-meds-link b { display: block; font-size: 12px; font-weight: 600; }
+.tx .health-meds-link small { display: block; font-size: 10px; color: #a18a66; margin-top: 5px; }
+.tx .health-meds-link svg { width: 16px; height: 16px; }
+body.night-mode .tx .health-meds-link { background: var(--soft); }
+.tx .health-caption { font-size: 11px; line-height: 1.6; color: #a38f71; margin: 0 0 6px; }
+.tx .health-meds .section-title { margin-bottom: 8px; }
+.tx .health-empty { text-align: center; padding: 22px 5px; }
+.tx .health-empty strong { font-size: 14px; font-weight: 550; }
+.tx .health-empty p { font-size: 11px; color: #a08c6c; line-height: 1.7; margin: 6px 0 14px; }
+.tx .health-med { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.tx .health-med > div:first-child { min-width: 0; }
+.tx .health-med b { display: block; font-size: 13px; font-weight: 600; }
+.tx .health-med small { display: block; font-size: 10px; color: #a18b6b; margin-top: 4px; }
+.tx .health-med small.is-logged { color: var(--ok); }
+.tx .health-type { font-size: 8px; color: #b39c7a; letter-spacing: .4px; text-transform: uppercase; display: block; margin-bottom: 4px; }
+.tx .health-med-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.tx .health-med-actions button:first-child:not(:last-child) { padding: 7px 11px; border: 1px solid #dfd3be; border-radius: 7px; color: #8c7048; font-size: 11px; min-height: 34px; }
+.tx .health-med-actions button:last-child { color: #ad9674; min-height: 30px; padding: 0 4px; }
+.tx .health-med-actions svg { width: 18px; height: 18px; }
+.tx .health-med.is-paused { opacity: .65; }
+.tx .health-finished { margin-top: 6px; }
+.tx .health-finished > summary { font-size: 11px; color: var(--muted); padding: 10px 0; }
+.tx .health-text-action { font-size: 11px; color: #9c7c4d; width: 100%; justify-content: flex-start; padding: 13px 0 4px; min-height: 40px; }
+.tx .ux-measure-log .section-title { margin-bottom: 10px; }
+.tx .health-filter { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #a18a69; margin-bottom: 6px; }
+.tx .health-filter select { max-width: 65%; font-size: 12px; color: #6e5a3e; padding: 7px; border: 1px solid #e1d5c2; border-radius: 6px; background: #fffdf8; }
+body.night-mode .tx .health-filter select { background: var(--soft); border-color: var(--line); color: var(--ink); }
+.tx .health-log-entry { border-bottom: 1px solid var(--line); }
+.tx .health-log-entry > summary { display: flex; gap: 10px; align-items: center; list-style: none; padding: 12px 0; }
+.tx .health-log-entry > summary::-webkit-details-marker { display: none; }
+.tx .health-log-entry > summary > span { flex: 1; min-width: 0; }
+.tx .health-log-entry b { display: block; font-size: 12px; font-weight: 500; }
+.tx .health-log-entry small { font-size: 10px; display: block; color: #ac987b; margin-top: 4px; }
+.tx .health-log-entry strong { font-size: 12px; max-width: 55%; text-align: right; line-height: 1.4; overflow-wrap: anywhere; font-weight: 600; }
+.tx .health-log-entry strong.is-out { color: var(--out); }
+.tx .health-log-entry .chev { width: 13px; height: 13px; color: #b6a58c; transition: transform .2s; }
+.tx .health-log-entry[open] .chev { transform: rotate(180deg); }
+.tx .health-log-entry p { font-size: 11px; color: #a08b6b; line-height: 1.6; margin: 0 0 6px; }
+.tx .health-log-actions { display: flex; gap: 18px; padding: 2px 0 10px; }
+.tx .health-log-actions button { font-size: 11px; color: #b37d62; min-height: 30px; }
+.tx .health-log-pages { display: flex; justify-content: center; align-items: center; gap: 14px; padding: 12px 0 2px; }
+.tx .health-log-pages span { font-size: 11px; color: #a38c6a; }
+.tx .health-log-pages button { min-width: 36px; min-height: 32px; border: 1px solid var(--line); border-radius: 8px; }
+
+/* Окна записи «Здоровья» (рендерятся в body, поэтому под .tx-dialog) */
+.tx-dialog .ux-unit-input { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.tx-dialog .ux-unit-input input { margin-top: 0; flex: 1; min-width: 0; }
+.tx-dialog .ux-unit-input > span { font-size: 11px; color: #9b8c78; white-space: nowrap; }
+.tx-dialog .health-form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tx-dialog .health-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.tx-dialog .health-form-grid label { margin: 8px 0; }
+.tx-dialog .health-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.tx-dialog .health-chips button { border: 1px solid #e2dacf; background: #fff; border-radius: 14px; padding: 7px 11px; font: inherit; font-size: 12px; color: #57534c; cursor: pointer; }
+.tx-dialog .health-chips.small button { font-size: 11px; padding: 6px 10px; }
+.tx-dialog .health-chips button.is-on { background: #fff1ea; border-color: #f2c5b4; color: #c34b2d; }
+.tx-dialog .ux-form-status { color: #b96a46 !important; margin-top: 6px; }
+.tx-dialog .health-caption { font-size: 11px; line-height: 1.6; color: #a38f71; }
+.tx-dialog .health-label { display: block; font-size: 12px; font-weight: 550; margin: 14px 0 7px; }
+.tx-dialog .health-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.tx-dialog .health-weekdays button { min-height: 34px; border: 1px solid #e2dacf; border-radius: 8px; background: #fff; font: inherit; font-size: 11px; cursor: pointer; color: #57534c; }
+.tx-dialog .health-weekdays button.is-on { background: #ff5c35; border-color: #ff5c35; color: #fff; font-weight: 600; }
+.tx-dialog input:disabled { opacity: .6; }
+.tx-dialog .health-day-pick { margin-top: 0; }
+.tx-dialog .checkin-field { margin: 14px 0; }
+.tx-dialog .checkin-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+.tx-dialog .checkin-head b { font-size: 13px; flex: 1; }
+.tx-dialog .checkin-head small { font-size: 10px; color: #a18e73; }
+.tx-dialog .checkin-remove { border: 0; background: #f4f0ea; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; color: inherit; font-size: 15px; }
+.tx-dialog .checkin-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.tx-dialog .checkin-options.four { grid-template-columns: repeat(4, 1fr); }
+.tx-dialog .checkin-options.three { grid-template-columns: repeat(3, 1fr); margin: 8px 0; }
+.tx-dialog .checkin-options button { min-height: 38px; border: 1px solid #e2dacf; border-radius: 9px; background: #fff; font: inherit; font-size: 12px; cursor: pointer; color: #57534c; padding: 0 4px; }
+.tx-dialog .checkin-options button.is-on { background: #ff5c35; border-color: #ff5c35; color: #fff; font-weight: 600; }
+.tx-dialog .checkin-add { background: #f6f2eb; border-radius: 12px; padding: 12px; margin-top: 12px; }
+.tx-dialog .checkin-add input { margin-top: 0; }
+.tx-dialog .checkin-add-actions { display: flex; gap: 8px; margin-top: 8px; }
+.tx-dialog .checkin-add-actions button { flex: 1; min-height: 40px; border-radius: 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.tx-dialog .secondary-btn { border: 1px solid #e2dacf; background: #fff; color: #57534c; }
+.tx-dialog .accent-btn { border: 0; background: #ff5c35; color: #fff; font-weight: 600; }
+.tx-dialog .accent-btn:disabled { opacity: .45; cursor: default; }
+.tx-dialog .checkin-tools { display: flex; justify-content: space-between; margin-top: 12px; }
+.tx-dialog .checkin-tools button { border: 0; background: none; font: inherit; font-size: 12px; color: #9c7c4d; cursor: pointer; min-height: 36px; padding: 0; }
+body.night-mode .tx-dialog .health-chips button,
+body.night-mode .tx-dialog .checkin-options button,
+body.night-mode .tx-dialog .health-weekdays button,
+body.night-mode .tx-dialog .secondary-btn { background: #191510; border-color: #3e352c; color: #eee8df; }
+body.night-mode .tx-dialog .checkin-options button.is-on,
+body.night-mode .tx-dialog .health-weekdays button.is-on { background: #ff6a44; border-color: #ff6a44; color: #fff; }
+body.night-mode .tx-dialog .checkin-add, body.night-mode .tx-dialog .checkin-remove { background: #30281f; }
+
 @media (max-width: 480px) {
   .tx h2 { font-size: 17px; }
 }
