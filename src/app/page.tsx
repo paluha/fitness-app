@@ -7422,7 +7422,7 @@ export default function FitnessPage() {
         )}
 
         {/* LABS VIEW — анализы: загрузка, парсинг, динамика */}
-        {view === 'labs' && <LabsView />}
+        {view === 'labs' && <LabsView onDiscuss={(prompt) => { setChatDraft(prompt); setView('chat'); }} />}
 
       </div>
 

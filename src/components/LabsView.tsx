@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { FlaskConical, Upload, Loader2, Trash2, Check, X, Search, FileText } from 'lucide-react';
-import LabMarkerList, { hasRef, isOutOfRange, reading } from './LabMarkerList';
+import { FlaskConical, Loader2, Trash2, Check, X, Search, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { hasRef, isOutOfRange, reading, refText } from './LabMarkerList';
 import type { LabMarkerRow } from './LabMarkerList';
 import LabMarkerDetail from './LabMarkerDetail';
 import { latestByMarker, historyFor, groupOf, dayKey as dayOf } from './labMatching';
 import type { RawReport } from './labMatching';
 import { HealthMap } from './HealthMap';
+import { TxDialog } from './TxDialog';
+import { OrganismView, BodySvg, SYSTEMS, systemOf, markersWord, type SystemKey } from './LabsOrganism';
 
 type Marker = {
   /** Стабильный идентификатор аналита — по нему собирается история. */
@@ -45,38 +47,65 @@ type Draft = { panelName: string; lab: string; collectedAt: string; markers: Mar
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
 
+/**
+ * Один показатель может стоять в бланке дважды (билирубин — и в
+ * биохимии, и во фракциях). Ключ строки должен быть уникальным: по нему
+ * React различает строки, а экран показателя ищет открытую.
+ */
+function uniqueKeys(list: LabMarkerRow[]): LabMarkerRow[] {
+  const seen = new Map<string, number>();
+  return list.map(r => {
+    const n = seen.get(r.key) ?? 0;
+    seen.set(r.key, n + 1);
+    return n ? { ...r, key: `${r.key}#${n}` } : r;
+  });
+}
 
-// Раздел «Анализы»: загрузка фото/скана результата → AI извлекает показатели →
-// пользователь подтверждает → сохранение и просмотр динамики. Данные также
-// попадают в контекст AI-чата (видит анализы).
-export function LabsView() {
+
+/**
+ * Раздел «Анализы» по макету редизайна: «Результаты» (сводка, строки
+ * показателей с раскрытием, история бланков и архив) и «Организм»
+ * (показатели по системам на схеме тела). Загрузка: фото/PDF → ИИ
+ * извлекает показатели → подтверждение → сохранение. Данные также
+ * попадают в контекст ИИ-чата.
+ */
+export function LabsView({ onDiscuss }: {
+  /** Открыть ИИ-чат с готовым вопросом про показатель или группу. */
+  onDiscuss?: (prompt: string) => void;
+} = {}) {
   const [results, setResults] = useState<LabResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [tab, setTab] = useState<'markers' | 'documents'>('markers');
+  const [section, setSection] = useState<'results' | 'organism'>('results');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'flagged' | 'unknown'>('all');
-  // «Один бланк» показывает выбранный документ, «Последние значения» —
-  // самое свежее измерение каждого показателя из разных дат.
-  const [scope, setScope] = useState<'report' | 'latest' | 'map'>('report');
+  const [filter, setFilter] = useState<'all' | 'flagged' | SystemKey>('all');
+  // Один бланк или самое свежее измерение каждого показателя из разных дат.
+  const [scope, setScope] = useState<'report' | 'latest'>('report');
   /**
    * Данные для карты связей: препараты и самонаблюдение лежат не в
-   * анализах, а в FitnessData. Грузим их только когда карту открыли —
-   * на экране со списком показателей они не нужны.
+   * анализах, а в FitnessData. Грузим их только когда карту открыли.
    */
+  const [mapOpen, setMapOpen] = useState(false);
   const [mapData, setMapData] = useState<{
     courses: { id: string; name: string; dose?: string; endedAt?: string }[];
     fields: { id: string; name: string; kind: string; archived?: boolean }[];
     entries: { date: string; values: Record<string, number | string> }[];
   } | null>(null);
-  const [group, setGroup] = useState<string>('all');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  // Индекс открытого показателя в текущем отфильтрованном списке.
+  // Открытый показатель: индекс в списке, по которому ходят стрелки.
+  const [detailRows, setDetailRows] = useState<LabMarkerRow[] | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const [pointIndex, setPointIndex] = useState(0);
-  const [aiOpen, setAiOpen] = useState(false);
+  // Архив бланков
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveQuery, setArchiveQuery] = useState('');
+  const [archiveYear, setArchiveYear] = useState('all');
+  const [archiveSize, setArchiveSize] = useState(10);
+  const [archivePage, setArchivePage] = useState(0);
+  const [archiveItem, setArchiveItem] = useState<LabResult | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLElement>(null);
   // Позиция списка: после закрытия деталей возвращаемся точно на неё.
   const listScrollRef = useRef(0);
 
@@ -92,7 +121,7 @@ export function LabsView() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (scope !== 'map' || mapData) return;
+    if (!mapOpen || mapData) return;
     fetch('/api/fitness')
       .then(r => r.ok ? r.json() : null)
       .then(d => d && setMapData({
@@ -101,9 +130,8 @@ export function LabsView() {
         entries: Array.isArray(d.checkinEntries) ? d.checkinEntries : [],
       }))
       .catch(() => setMapData({ courses: [], fields: [], entries: [] }));
-  }, [scope, mapData]);
+  }, [mapOpen, mapData]);
 
-  // Самый свежий бланк — он и открыт по умолчанию.
   // Бланки от новых к старым: первый открыт по умолчанию.
   const sorted = useMemo(
     () => [...results].sort((a, b) => dayOf(b.collectedAt).localeCompare(dayOf(a.collectedAt))),
@@ -124,84 +152,69 @@ export function LabsView() {
     markers: r.markers,
   })), [results]);
 
-  /**
-   * Показатели текущего режима.
-   *
-   * «Один бланк» — строки выбранного документа. «Последние значения» —
-   * самое свежее сопоставимое измерение каждого показателя, у каждой
-   * строки видна своя дата и лаборатория.
-   */
-  const rows: LabMarkerRow[] = useMemo(() => {
-    const build = (m: typeof results[number]['markers'][number], r: RawReport, withSource: boolean, conflict?: string) => {
-      const history = historyFor(m, asRaw, withSource ? undefined : r.collectedAt);
-      return {
-        key: `${r.id}|${m.key || m.name}|${m.unit}|${m.specimen || ''}|${m.method || ''}`,
-        name: m.name,
+  /** Строка показателя с историей. withSource — показать дату и лабораторию строки. */
+  const build = useCallback((m: Marker, r: RawReport, withSource: boolean, conflict?: string): LabMarkerRow => {
+    const history = historyFor(m, asRaw, withSource ? undefined : r.collectedAt);
+    return {
+      key: `${r.id}|${m.key || m.name}|${m.unit}|${m.specimen || ''}|${m.method || ''}`,
+      name: m.name,
+      value: m.value,
+      unit: m.unit,
+      refLow: m.refLow ?? null,
+      refHigh: m.refHigh ?? null,
+      // Оптимум переносится как есть: сам он нигде не выдумывается.
+      optimalLow: m.optimalLow ?? null,
+      optimalHigh: m.optimalHigh ?? null,
+      specimen: m.specimen,
+      method: m.method,
+      rawValue: m.rawValue ?? null,
+      bound: m.bound,
+      // Конфликт двух бланков за день — тоже повод свериться с оригиналом.
+      needsReview: m.needsReview || !!conflict,
+      group: groupOf(m),
+      sourceDate: withSource ? dayOf(r.collectedAt) : undefined,
+      sourceLab: withSource ? (conflict || r.lab || undefined) : undefined,
+      history: history.length ? history : [{
+        date: dayOf(r.collectedAt),
         value: m.value,
-        unit: m.unit,
         refLow: m.refLow ?? null,
         refHigh: m.refHigh ?? null,
-        // Оптимум переносится как есть: сам он нигде не выдумывается.
-        optimalLow: m.optimalLow ?? null,
-        optimalHigh: m.optimalHigh ?? null,
-        specimen: m.specimen,
-        method: m.method,
-        rawValue: m.rawValue ?? null,
-        bound: m.bound,
-        // Конфликт двух бланков за день — тоже повод свериться с оригиналом.
-        needsReview: m.needsReview || !!conflict,
-        group: groupOf(m),
-        sourceDate: withSource ? dayOf(r.collectedAt) : undefined,
-        sourceLab: withSource ? (conflict || r.lab || undefined) : undefined,
-        history: history.length ? history : [{
-          date: dayOf(r.collectedAt),
-          value: m.value,
-          refLow: m.refLow ?? null,
-          refHigh: m.refHigh ?? null,
-          lab: r.lab || undefined,
-        }],
-      } as LabMarkerRow;
+        lab: r.lab || undefined,
+      }],
     };
+  }, [asRaw]);
 
-    if (scope === 'latest') {
-      return latestByMarker(asRaw).map(({ marker, report, conflict }) => build(
-        marker as typeof results[number]['markers'][number],
-        report,
-        true,
-        conflict ? `${conflict.count} результата за день: ${conflict.labs.join(', ')}` : undefined,
-      ));
-    }
+  /** Самое свежее сопоставимое измерение каждого показателя — для «Организма». */
+  const latestRows: LabMarkerRow[] = useMemo(() => uniqueKeys(latestByMarker(asRaw).map(({ marker, report, conflict }) => build(
+    marker as Marker,
+    report,
+    true,
+    conflict ? `${conflict.count} результата за день: ${conflict.labs.join(', ')}` : undefined,
+  ))), [asRaw, build]);
+
+  /** Показатели списка: выбранный бланк или последние значения. */
+  const rows: LabMarkerRow[] = useMemo(() => {
+    if (scope === 'latest') return latestRows;
     if (!current) return [];
     const raw = asRaw.find(r => r.id === current.id);
     if (!raw) return [];
-    return current.markers.map(m => build(m, raw, false));
-  }, [scope, current, asRaw]);
-
-  /** Разделы бланка для выпадающего списка групп. */
-  const groups = useMemo(() => [...new Set(rows.map(m => m.group || 'Другое'))], [rows]);
+    return uniqueKeys(current.markers.map(m => build(m, raw, false)));
+  }, [scope, current, asRaw, latestRows, build]);
 
   const visibleRows = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('ru');
     return rows.filter(m =>
       (filter === 'all'
         || (filter === 'flagged' && hasRef(m) && isOutOfRange(m))
-        || (filter === 'unknown' && !hasRef(m)))
-      && (group === 'all' || (m.group || 'Другое') === group)
+        || systemOf(m) === filter)
       && (!q || m.name.toLocaleLowerCase('ru').includes(q)));
-  }, [rows, search, filter, group]);
+  }, [rows, search, filter]);
 
-  // Открытый показатель берём из отфильтрованного списка: «предыдущий» и
-  // «следующий» ходят по тому, что пользователь видит.
-  const detail = detailIndex != null ? visibleRows[detailIndex] ?? null : null;
+  const detail = detailIndex != null && detailRows ? detailRows[detailIndex] ?? null : null;
 
   /** Выход за референс считаем только там, где референс есть. */
   const outsideCount = rows.filter(m => hasRef(m) && isOutOfRange(m)).length;
-  const unknownCount = rows.filter(m => !hasRef(m)).length;
-  /** До трёх отклонений в блоке внимания; порядок — не срочность. */
-  const attention = useMemo(
-    () => rows.map((m, i) => ({ m, i })).filter(({ m }) => hasRef(m) && isOutOfRange(m)),
-    [rows],
-  );
+  const inRangeCount = rows.filter(m => hasRef(m) && !isOutOfRange(m)).length;
 
   // Конвертируем выбранный файл в data-URL (фото) и шлём на парсинг.
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,66 +377,77 @@ export function LabsView() {
     if (!confirm('Удалить этот анализ?')) return;
     await fetch(`/api/labs?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (selectedReportId === id) setSelectedReportId(null);
+    setArchiveItem(null);
     await load();
   };
 
   /**
-   * Открыть показатель. Запоминаем позицию списка: после закрытия
-   * возвращаемся ровно туда, а не к началу.
+   * Открыть показатель. Список, по которому ходят «предыдущий/следующий»,
+   * — тот, откуда открыли: результаты или группа «Организма».
    */
-  const openDetailFor = (m: LabMarkerRow) => {
-    const i = visibleRows.findIndex(x => x.key === m.key);
+  const openDetail = (list: LabMarkerRow[], m: LabMarkerRow) => {
+    const i = list.findIndex(x => x.key === m.key);
     if (i < 0) return;
     listScrollRef.current = window.scrollY;
+    setDetailRows(list);
     setDetailIndex(i);
-    setPointIndex(Math.max(0, (visibleRows[i].history.length || 1) - 1));
+    setPointIndex(Math.max(0, (list[i].history.length || 1) - 1));
   };
 
   const closeDetail = () => {
     setDetailIndex(null);
+    setDetailRows(null);
     // Возврат на прежнее место после того, как список снова отрисован.
     requestAnimationFrame(() => window.scrollTo(0, listScrollRef.current));
   };
 
   const stepDetail = (delta: number) => {
+    if (!detailRows) return;
     setDetailIndex(prev => {
       if (prev == null) return prev;
       const next = prev + delta;
-      if (next < 0 || next >= visibleRows.length) return prev;
-      setPointIndex(Math.max(0, (visibleRows[next].history.length || 1) - 1));
+      if (next < 0 || next >= detailRows.length) return prev;
+      setPointIndex(Math.max(0, (detailRows[next].history.length || 1) - 1));
       return next;
     });
   };
 
-  const refTextOf = (m: { refLow?: number | null; refHigh?: number | null }) =>
-    m.refLow != null && m.refHigh != null ? `${num(m.refLow)}–${num(m.refHigh)}`
-      : m.refLow != null ? `от ${num(m.refLow)}`
-        : m.refHigh != null ? `до ${num(m.refHigh)}`
-          : 'не указан';
+  const discussMarker = (m: LabMarkerRow) => onDiscuss?.(
+    `Объясни мой показатель «${m.name}»: ${reading(m)} ${m.unit}` +
+    (hasRef(m) ? ` при диапазоне ${refText(m)} ${m.unit}` : '') +
+    (m.history.length > 1 ? `; раньше: ${m.history.slice(0, -1).slice(-3).map(p => `${shortDate(p.date)} — ${num(p.value)}`).join(', ')}` : '') +
+    '. Что это значит и что спросить у врача?',
+  );
 
-  const flagColor = (f: string) => f === 'high' ? '#ef4444' : f === 'low' ? '#3b82f6' : 'var(--green)';
-  const fmtDate = (s: string) => { try { return new Date(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return s; } };
+  const fmtDate = (s: string) => { try { return new Date(`${dayOf(s)}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, ''); } catch { return s; } };
   const shortDate = (s: string) => { try { return new Date(`${s}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); } catch { return s; } };
   const num = (n: number) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(n);
-  const indicatorCount = (n: number) =>
-    `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'показатель' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'показателя' : 'показателей'}`;
+  const flagColor = (f: string) => f === 'high' ? 'var(--out)' : f === 'low' ? '#3b82f6' : 'var(--ok)';
+
+  // Архив: поиск по названию и лаборатории, год, постранично
+  const years = [...new Set(sorted.map(r => dayOf(r.collectedAt).slice(0, 4)))];
+  const archiveList = sorted.filter(r =>
+    (archiveYear === 'all' || dayOf(r.collectedAt).startsWith(archiveYear))
+    && (`${r.panelName || 'Анализ'} ${r.lab || ''}`).toLocaleLowerCase('ru').includes(archiveQuery.trim().toLocaleLowerCase('ru')));
+  const archivePages = Math.max(1, Math.ceil(archiveList.length / archiveSize));
+  const archivePageNow = Math.min(archivePage, archivePages - 1);
+
+  const latestDate = sorted[0] ? fmtDate(sorted[0].collectedAt) : '';
+  const latestShort = sorted[0] ? shortDate(dayOf(sorted[0].collectedAt)) : '';
+  const systemsHere = (Object.keys(SYSTEMS) as SystemKey[]).filter(k => rows.some(r => systemOf(r) === k));
 
   return (
-    <div className="view-content">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FlaskConical size={20} color="var(--yellow)" /> Анализы
-        </h2>
-        <label style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, cursor: parsing ? 'wait' : 'pointer',
-          fontSize: 13, fontWeight: 700, padding: '9px 14px', borderRadius: 10,
-          background: 'var(--yellow)', color: '#000', opacity: parsing ? 0.6 : 1,
-        }}>
-          {parsing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-          {parsing ? 'Распознаю…' : 'Загрузить'}
-          {/* accept без «image/*»: с ним iOS открывает галерею фото, и папки
-              iCloud Drive не видно. Перечисленные типы дают выбор
-              «Фото / Файлы», а из «Файлов» доступен iCloud. */}
+    <div className="view-content tx labs-view">
+      <div className="page-title">
+        <div>
+          <h1>Анализы</h1>
+          <p>{section === 'organism' ? 'Твоя общая картина' : sorted[0] ? `Последний чек-ап · ${latestShort}` : 'Загрузи первый бланк'}</p>
+        </div>
+        {/* accept без «image/*»: с ним iOS открывает галерею фото, и папки
+            iCloud Drive не видно. Перечисленные типы дают выбор
+            «Фото / Файлы», а из «Файлов» доступен iCloud. */}
+        <label className={'round big primary lab-upload' + (parsing ? ' is-busy' : '')} aria-label="Добавить анализ" title="Загрузить PDF или фото бланка">
+          {parsing ? <Loader2 className="spin" /> : <Plus />}
           <input
             ref={fileRef}
             type="file"
@@ -435,352 +459,183 @@ export function LabsView() {
         </label>
       </div>
 
+      {parsing && <p className="notice">Распознаю бланк — это займёт до минуты. Можно не закрывать экран.</p>}
+
       {/* Черновик на подтверждение */}
       {draft && (
-        <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--yellow)', borderRadius: 14,
-          padding: 14, marginBottom: 16,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Проверь и сохрани</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-            <input value={draft.panelName} onChange={e => setDraft({ ...draft, panelName: e.target.value })}
-              placeholder="Название панели" style={inp} />
-            <input value={draft.lab} onChange={e => setDraft({ ...draft, lab: e.target.value })}
-              placeholder="Лаборатория" style={inp} />
-            <input type="date" value={draft.collectedAt} onChange={e => setDraft({ ...draft, collectedAt: e.target.value })}
-              style={inp} />
+        <section className="card lab-draft">
+          <div className="section-title"><h2>Проверь и сохрани</h2></div>
+          <div className="lab-draft-fields">
+            <input value={draft.panelName} onChange={e => setDraft({ ...draft, panelName: e.target.value })} placeholder="Название панели" />
+            <input value={draft.lab} onChange={e => setDraft({ ...draft, lab: e.target.value })} placeholder="Лаборатория" />
+            <input type="date" value={draft.collectedAt} onChange={e => setDraft({ ...draft, collectedAt: e.target.value })} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 280, overflowY: 'auto' }}>
+          <div className="lab-draft-list">
             {draft.markers.map((m, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ flex: 1 }}>{m.name}</span>
-                <span style={{ fontWeight: 700, color: flagColor(m.flag) }}>{m.value} {m.unit}</span>
-                {(m.refLow != null || m.refHigh != null) && (
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 70, textAlign: 'right' }}>
-                    {m.refLow ?? '—'}–{m.refHigh ?? '—'}
-                  </span>
-                )}
+              <div key={i} className="lab-draft-row">
+                <span>{m.name}</span>
+                <b style={{ color: flagColor(m.flag) }}>{m.value} {m.unit}</b>
+                {(m.refLow != null || m.refHigh != null) && <small>{m.refLow ?? '—'}–{m.refHigh ?? '—'}</small>}
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={() => setDraft(null)} style={{ ...btn, background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
-              <X size={16} /> Отмена
-            </button>
-            <button onClick={saveDraft} style={{ ...btn, background: 'var(--yellow)', color: '#000' }}>
-              <Check size={16} /> Сохранить
+          <div className="lab-draft-actions">
+            <button type="button" className="secondary" onClick={() => setDraft(null)}><X /> Отмена</button>
+            <button type="button" className="primary" onClick={saveDraft}><Check /> Сохранить</button>
+          </div>
+        </section>
+      )}
+
+      <div className="segmented lab-switch">
+        <button type="button" className={section === 'results' ? 'active' : undefined} onClick={() => setSection('results')}>Результаты</button>
+        <button type="button" className={section === 'organism' ? 'active' : undefined} onClick={() => setSection('organism')}>Организм</button>
+      </div>
+
+      {loading ? (
+        <div className="center" style={{ padding: 40, color: 'var(--muted)' }}><Loader2 className="spin" /></div>
+      ) : !current ? (
+        !draft && (
+          <section className="card empty">
+            <span className="empty-icon"><FlaskConical /></span>
+            <h3>Пока нет анализов</h3>
+            <p>Загрузи PDF или фото бланка — ИИ извлечёт показатели, а приложение соберёт их историю.</p>
+            <button type="button" className="primary" onClick={() => fileRef.current?.click()}><Plus /> Загрузить бланк</button>
+          </section>
+        )
+      ) : section === 'organism' ? (
+        <>
+          <OrganismView
+            rows={latestRows}
+            dateLabel={latestDate}
+            onOpen={m => openDetail(latestRows, m)}
+            onDiscuss={p => onDiscuss?.(p)}
+          />
+          <button type="button" className="health-map-link" onClick={() => setMapOpen(true)}>
+            <span><b>Карта связей</b><small>Анализы, препараты и самочувствие — что с чем связано</small></span>
+            <ChevronRight />
+          </button>
+        </>
+      ) : (
+        <div className="results-main">
+          <div className="result-summary">
+            <div><strong>{rows.length}</strong><span>{markersWord(rows.length).replace(/^\d+ /, '')}</span></div>
+            <div><i className="status-dot status-okay" /><strong>{inRangeCount}</strong><span>в диапазоне</span></div>
+            <button type="button" onClick={() => setFilter('flagged')}>
+              <i className="status-dot status-out" /><strong>{outsideCount}</strong><span>вне диапазона ↗</span>
             </button>
           </div>
+
+          <button type="button" className="organism-teaser" onClick={() => setSection('organism')}>
+            <span className="teaser-copy">
+              <span className="scene-eyebrow">КАРТА ОРГАНИЗМА</span>
+              <strong>Увидеть<br />общую картину.</strong>
+              <small>Показатели и системы <span>↗</span></small>
+            </span>
+            <span className="teaser-body" aria-hidden="true">
+              <BodySvg id="teaser" systems={systemsHere} />
+            </span>
+          </button>
+
+          <label className="search-field">
+            <Search />
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Найти показатель" aria-label="Найти показатель" />
+          </label>
+
+          <div className="pills lab-filters">
+            <button type="button" className={'pill' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>Все</button>
+            <button type="button" className={'pill' + (filter === 'flagged' ? ' active' : '')} onClick={() => setFilter('flagged')}>Вне диапазона</button>
+            {systemsHere.map(k => (
+              <button key={k} type="button" className={'pill' + (filter === k ? ' active' : '')} onClick={() => setFilter(k)}>{SYSTEMS[k].name}</button>
+            ))}
+          </div>
+
+          <section className="card lab-results" ref={listRef}>
+            <div className="section-title">
+              <h2>{scope === 'report' ? fmtDate(current.collectedAt) : 'Последние значения'}</h2>
+              <select className="lab-scope" aria-label="Какие результаты показывать"
+                value={scope === 'latest' ? 'latest' : current.id}
+                onChange={e => {
+                  if (e.target.value === 'latest') setScope('latest');
+                  else { setScope('report'); setSelectedReportId(e.target.value); }
+                }}>
+                {sorted.map(r => <option key={r.id} value={r.id}>{shortDate(dayOf(r.collectedAt))} · {r.panelName || 'Анализ'}</option>)}
+                <option value="latest">Последние значения по всем</option>
+              </select>
+            </div>
+            <p className="lab-source">
+              {scope === 'report'
+                ? `${current.panelName || 'Анализ'} · ${current.lab || 'лаборатория не указана'} · ${markersWord(current.markers.length)}`
+                : 'Самые свежие измерения из разных бланков — дата у каждого показателя своя.'}
+            </p>
+            {visibleRows.length === 0 ? (
+              <p className="muted">Показатели не найдены. Попробуй другой запрос или фильтр.</p>
+            ) : visibleRows.map(m => {
+              const out = hasRef(m) && isOutOfRange(m);
+              const status = out ? (m.refHigh != null && m.value > m.refHigh ? 'Выше диапазона' : 'Ниже диапазона') : hasRef(m) ? 'В диапазоне' : 'Без диапазона';
+              const trail = m.history.slice(-3);
+              return (
+                <details key={m.key} className={'lab-inline ' + (out ? 'is-outside' : hasRef(m) ? 'is-normal' : 'is-unknown')}>
+                  <summary>
+                    <span className={'lab-status' + (out ? ' outside' : hasRef(m) ? '' : ' unknown')} role="img" aria-label={status}>
+                      {out ? (status === 'Ниже диапазона' ? '↓' : '↑') : hasRef(m) ? '✓' : '–'}
+                    </span>
+                    <strong>{m.name}</strong>
+                    <span className="lab-inline-value">{reading(m)} <small>{m.unit}</small></span>
+                    <ChevronDown className="lab-expand" aria-hidden="true" />
+                  </summary>
+                  <div className="lab-inline-body">
+                    <div className="lab-inline-meta">
+                      <span>{status}</span>
+                      <span>Диапазон: {refText(m)}{hasRef(m) && m.unit ? ` ${m.unit}` : ''}</span>
+                    </div>
+                    {m.sourceDate && <div className="lab-inline-meta"><span /><span>{shortDate(m.sourceDate)}{m.sourceLab ? ` · ${m.sourceLab}` : ''}</span></div>}
+                    {trail.length > 1 && (
+                      <div className="lab-trail">
+                        {trail.map((p, i) => (
+                          <span key={p.date + i} className="lab-trail-point">
+                            {i > 0 && <i>→</i>}
+                            <span><small>{shortDate(p.date)}</small><b>{num(p.value)}</b></span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {m.needsReview && <p className="lab-review">Распознано неуверенно — сверь с бланком.</p>}
+                    <div className="lab-inline-actions">
+                      <button type="button" onClick={() => openDetail(visibleRows, m)}>Динамика ↗</button>
+                      {onDiscuss && <button type="button" onClick={() => discussMarker(m)}>✦ Обсудить с ИИ</button>}
+                    </div>
+                  </div>
+                </details>
+              );
+            })}
+          </section>
+
+          <section className="card ux-lab-history">
+            <div className="section-title"><h2>История анализов</h2></div>
+            {sorted.slice(0, 3).map(r => (
+              <button key={r.id} type="button" className="document-row" onClick={() => {
+                setScope('report'); setSelectedReportId(r.id); setFilter('all'); setSearch('');
+                requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+              }}>
+                <time>{shortDate(dayOf(r.collectedAt))}</time>
+                <span>
+                  <strong>{r.panelName || 'Анализ'}</strong>
+                  <small>{markersWord(r.markers.length)}{r.lab ? ` · ${r.lab}` : ''}</small>
+                </span>
+                <span>↗</span>
+              </button>
+            ))}
+            <button type="button" className="archive-open" onClick={() => { setArchiveOpen(true); setArchiveItem(null); }}>Весь архив · поиск и фильтры →</button>
+          </section>
+
+          <p className="muted center">Открой показатель, чтобы увидеть его историю.</p>
         </div>
       )}
 
-      {loading ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
-          <Loader2 size={24} className="animate-spin" />
-        </div>
-      ) : !current && !draft ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px', fontSize: 14, lineHeight: 1.6 }}>
-          <FlaskConical size={32} style={{ opacity: 0.4, marginBottom: 8 }} /><br />
-          Загрузи PDF или фото результата анализа —<br />AI извлечёт показатели и сохранит динамику.
-        </div>
-      ) : current ? (
-        <>
-          {/* Режим: один бланк или последние значения из разных дат */}
-          <div className="labv2">
-            <div className="scope-switch" aria-label="Какие результаты показывать">
-              {([['report', 'Один бланк'], ['latest', 'Последние значения'], ['map', 'Карта']] as const).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={scope === id}
-                  onClick={() => { setScope(id); setFilter('all'); setGroup('all'); setSearch(''); }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Карта связей вместо списка показателей */}
-          {scope === 'map' ? (
-            <section style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 18, padding: '14px', marginBottom: 20,
-            }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 2px' }}>Карта связей</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
-                Анализы, препараты и самочувствие — и что с чем связано.
-              </p>
-              {mapData ? (
-                <HealthMap
-                  labs={sorted.map(r => ({
-                    collectedAt: dayOf(r.collectedAt),
-                    markers: (r.markers || []).map(m => ({
-                      name: m.name, value: m.value, flag: m.flag, unit: m.unit,
-                    })),
-                  }))}
-                  courses={mapData.courses}
-                  fields={mapData.fields}
-                  entries={mapData.entries}
-                />
-              ) : (
-                <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
-                  <Loader2 size={18} className="spin" /> Собираю карту…
-                </div>
-              )}
-            </section>
-          ) : (
-          <>
-          {/* Шапка: дата сдачи крупно, выбор бланка, сводка */}
-          <section style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 18, padding: '12px 14px', marginBottom: 4,
-          }}>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '.25px' }}>
-              {scope === 'report' ? 'Сейчас показан один бланк' : 'Сводка из нескольких бланков'}
-            </span>
-            <h3 style={{ fontSize: 18, fontWeight: 650, letterSpacing: '-.35px', margin: '7px 0' }}>
-              {scope === 'report' ? fmtDate(current.collectedAt) : 'Последние значения'}
-            </h3>
-            {scope === 'report' && (
-              <select
-                aria-label="Выбрать результат по дате"
-                value={current.id}
-                onChange={e => { setSelectedReportId(e.target.value); setGroup('all'); setFilter('all'); setSearch(''); }}
-                style={{
-                  width: '100%', minHeight: 44, fontSize: 12, border: '1px solid var(--border)',
-                  padding: 9, borderRadius: 8, background: 'var(--bg-card)', color: 'var(--text-primary)',
-                }}
-              >
-                {sorted.map(r => (
-                  <option key={r.id} value={r.id}>
-                    {(r.panelName || 'Анализ')} · {shortDate(dayOf(r.collectedAt))}
-                  </option>
-                ))}
-              </select>
-            )}
-            <span style={{ display: 'block', marginTop: 5, fontSize: 11, color: 'var(--text-muted)' }}>
-              {scope === 'report'
-                ? (current.lab || 'Лаборатория не указана')
-                : `${new Set(rows.map(m => m.sourceDate)).size} даты · дата указана у каждого результата`}
-            </span>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5, lineHeight: 1.55 }}>
-              {scope === 'report'
-                ? 'Показатели только из этого бланка. Дата сдачи, не дата загрузки.'
-                : 'Самые свежие доступные измерения. Даты могут отличаться.'}
-            </p>
-            <div style={{
-              borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center',
-              flexWrap: 'wrap', marginTop: 8, paddingTop: 7, fontSize: 11, color: 'var(--text-muted)',
-            }}>
-              <span>{indicatorCount(rows.length)}</span>
-              <button
-                type="button"
-                onClick={() => { setFilter('flagged'); setTab('markers'); }}
-                style={{
-                  minHeight: 32, fontSize: 11, padding: '4px 7px', borderRadius: 6, border: 0,
-                  background: '#fff0e8', color: '#ad593d', fontWeight: 550, cursor: 'pointer',
-                }}
-              >
-                {outsideCount} вне референса
-              </button>
-              <button
-                type="button"
-                onClick={() => { setFilter('unknown'); setTab('markers'); }}
-                style={{ minHeight: 32, fontSize: 11, border: 0, background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                {unknownCount} без диапазона
-              </button>
-            </div>
-          </section>
-
-          {/* Переключатель «Показатели / Документы» */}
-          <div role="tablist" aria-label="Раздел анализов" style={{
-            display: 'flex', gap: 3, background: '#eee8df', padding: 3, borderRadius: 10, margin: '15px 0 12px',
-          }}>
-            {(['markers', 'documents'] as const).map(id => (
-              <button
-                key={id}
-                role="tab"
-                type="button"
-                aria-selected={tab === id}
-                onClick={() => setTab(id)}
-                style={{
-                  flex: 1, minHeight: 39, borderRadius: 7, fontSize: 12, fontWeight: 550, cursor: 'pointer',
-                  border: 'none',
-                  background: tab === id ? '#fff' : 'transparent',
-                  color: tab === id ? 'var(--text-primary)' : 'var(--text-muted)',
-                  boxShadow: tab === id ? '0 1px 4px #302a2209' : 'none',
-                }}
-              >
-                {id === 'markers' ? 'Показатели' : `Документы ${results.length}`}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'markers' ? (
-            <div className="labv2">
-              {/* На что обратить внимание: до трёх выходов за референс. */}
-              <section className="attention">
-                <div className="attention-head">
-                  <h2>На что обратить внимание</h2>
-                  <span>{attention.length ? `${attention.length} вне референса` : 'Отклонений не отмечено'}</span>
-                </div>
-                <div className="attention-list">
-                  {attention.length ? attention.slice(0, 3).map(({ m, i }) => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      className="attention-item"
-                      onClick={() => openDetailFor(m)}
-                    >
-                      <em>{reading(m)} {m.unit}</em>
-                      <strong>{m.name}</strong>
-                      <small>
-                        {m.refHigh != null && m.value > m.refHigh ? 'Выше' : 'Ниже'} референса {refTextOf(m)}
-                        {m.sourceDate ? ` · ${shortDate(m.sourceDate)}` : ''}
-                      </small>
-                      <span hidden>{i}</span>
-                    </button>
-                  )) : (
-                    <div className="attention-item">
-                      <strong>Выходов за указанные диапазоны нет</strong>
-                      <small>Результаты без диапазона проверяются отдельно.</small>
-                    </div>
-                  )}
-                </div>
-                <p className="attention-foot">
-                  {attention.length > 3
-                    ? 'Первые 3 отклонения. Все доступны в фильтре «Вне референса». Порядок не означает медицинскую срочность.'
-                    : 'Выход за референс ≠ медицинская срочность.'}
-                </p>
-              </section>
-
-              <button type="button" className="ai-report" onClick={() => setAiOpen(true)}>
-                Разобрать с ИИ <span>Источники и правила →</span>
-              </button>
-
-              <div style={{ height: 16 }} />
-
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 9, minHeight: 44,
-                border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-card)', padding: '0 12px',
-              }}>
-                <Search size={17} color="var(--text-muted)" />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Найти показатель"
-                  aria-label="Найти показатель"
-                  style={{
-                    border: 0, background: 'none', outline: 'none', width: '100%', minWidth: 0,
-                    fontSize: 16, padding: '10px 0', color: 'var(--text-primary)',
-                  }}
-                />
-              </label>
-
-              {/* Счётчики считаем из того, что реально показано. */}
-              <div aria-label="Фильтр показателей" style={{ display: 'flex', gap: 3, flexWrap: 'wrap', margin: '11px 0 12px' }}>
-                {([['all', 'Все', rows.length], ['flagged', 'Вне референса', outsideCount], ['unknown', 'Без диапазона', unknownCount]] as const).map(([id, label, count]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={filter === id}
-                    onClick={() => setFilter(id)}
-                    style={{
-                      fontSize: 10, borderRadius: 7, padding: '7px 8px', minHeight: 34, cursor: 'pointer',
-                      border: 'none',
-                      background: filter === id ? '#eae4da' : 'transparent',
-                      color: filter === id ? 'var(--text-primary)' : 'var(--text-muted)',
-                      fontWeight: filter === id ? 550 : 400,
-                    }}
-                  >
-                    {label} <span style={{ marginLeft: 5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="group-row">
-                <select value={group} onChange={e => setGroup(e.target.value)} aria-label="Группа показателей">
-                  <option value="all">Все группы</option>
-                  {groups.map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
-                <span>Показано {visibleRows.length} из {rows.length}</span>
-              </div>
-
-              <LabMarkerList
-                markers={visibleRows}
-                selectedKey={detail?.key ?? null}
-                onSelect={m => openDetailFor(m)}
-                emptyText="Нет показателей по этому фильтру. Попробуй другую группу или поиск."
-              />
-
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '10px 2px 0', lineHeight: 1.5 }}>
-                Диапазон и дата взяты из бланка каждого показателя. Выход за диапазон сам по себе не определяет срочность.
-              </p>
-            </div>
-          ) : (
-            /* Документы: сохранённые бланки */
-            <div style={{ display: 'grid', gap: 10 }}>
-              {sorted.map(r => (
-                <article key={r.id} style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: 15,
-                }}>
-                  <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                    <span style={{
-                      width: 37, height: 42, background: 'var(--bg-elevated)', color: '#8f8171',
-                      borderRadius: 10, display: 'grid', placeItems: 'center', flex: 'none',
-                    }}>
-                      <FileText size={19} />
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <h3 style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.4 }}>{r.panelName || 'Анализ'}</h3>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                        {fmtDate(r.collectedAt)}{r.lab ? ` · ${r.lab}` : ''}
-                      </p>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                        {indicatorCount(r.markers.length)}
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 5,
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedReportId(r.id); setTab('markers'); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', minHeight: 34, fontSize: 11, color: 'var(--text-secondary)' }}
-                    >
-                      Показатели →
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(r.id)}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 34, fontSize: 11,
-                        background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer',
-                      }}
-                    >
-                      <Trash2 size={14} /> Удалить
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-          </>
-          )}
-        </>
-      ) : null}
-
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
-        Образовательная информация, не диагноз. Для интерпретации — обратись к врачу.
-      </div>
+      <p className="muted center lab-disclaimer">Образовательная информация, не диагноз. Для интерпретации — обратись к врачу.</p>
 
       {/* Отдельный экран показателя поверх списка */}
-      {detail && detailIndex != null && (
+      {detail && detailIndex != null && detailRows && (
         <LabMarkerDetail
           key={detail.key}
           marker={detail}
@@ -791,86 +646,102 @@ export function LabsView() {
             hasFile: false,
           }}
           position={detailIndex + 1}
-          total={visibleRows.length}
+          total={detailRows.length}
           selectedPoint={pointIndex}
           onClose={closeDetail}
           onPrev={() => stepDetail(-1)}
           onNext={() => stepDetail(1)}
           onSelectPoint={setPointIndex}
           onOpenSource={() => alert('Исходный файл бланка пока не сохраняется в приложении. Сейчас доступны распознанные значения.')}
-          onDiscuss={() => { closeDetail(); setAiOpen(true); }}
+          onDiscuss={() => { const m = detail; closeDetail(); discussMarker(m); }}
         />
       )}
 
-      {/* Что должно стоять за ИИ-разбором. Сам разбор не подключён —
-          показываем это прямо, а не подставляем демоответ. */}
-      {aiOpen && (
-        <div
-          onClick={() => setAiOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: '#241d1755', backdropFilter: 'blur(3px)',
-            display: 'grid', placeItems: 'center', zIndex: 60, padding: 12,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: '#fdfcfa', color: '#1a1712', borderRadius: 21, padding: 17,
-              width: '100%', maxWidth: 420, maxHeight: 'calc(100dvh - 28px)', overflow: 'auto',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
-              <h2 style={{ fontSize: 19, fontWeight: 650, margin: 0 }}>Разбор с ИИ</h2>
-              <button
-                type="button"
-                aria-label="Закрыть"
-                onClick={() => setAiOpen(false)}
-                style={{ width: 44, height: 44, border: 0, background: 'none', cursor: 'pointer', fontSize: 20 }}
-              >
-                ×
-              </button>
+      {archiveOpen && (
+        <TxDialog title={archiveItem ? (archiveItem.panelName || 'Анализ') : 'Архив анализов'} onClose={() => setArchiveOpen(false)} wide>
+          {archiveItem ? (
+            <div className="archive-detail">
+              <button type="button" onClick={() => setArchiveItem(null)}>← К результатам поиска</button>
+              <dl>
+                <dt>Дата сдачи</dt><dd>{fmtDate(archiveItem.collectedAt)}</dd>
+                <dt>Лаборатория</dt><dd>{archiveItem.lab || 'не указана'}</dd>
+                <dt>Показатели</dt><dd>{archiveItem.markers.length}</dd>
+                <dt>Вне диапазона</dt><dd>{archiveItem.markers.filter(m => hasRef(m) && isOutOfRange(m)).length}</dd>
+              </dl>
+              <button type="button" className="primary" onClick={() => {
+                setScope('report'); setSelectedReportId(archiveItem.id); setFilter('all'); setSearch('');
+                setSection('results'); setArchiveOpen(false);
+                requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+              }}>Открыть показатели</button>
+              <button type="button" className="archive-delete" onClick={() => remove(archiveItem.id)}><Trash2 size={14} /> Удалить бланк</button>
             </div>
-            <p style={{ fontSize: 11, color: '#82796d', lineHeight: 1.55 }}>
-              {scope === 'report'
-                ? `${current?.panelName || 'Бланк'} · ${current ? fmtDate(current.collectedAt) : ''}`
-                : `Последние значения · ${rows.length} показателей из разных дат`}
-            </p>
-            <div style={{ padding: 12, background: '#f4f0ea', borderRadius: 10, fontSize: 12, lineHeight: 1.6, margin: '12px 0' }}>
-              ИИ-разбор ещё не подключён. Сейчас доступны результаты из бланков и их история.
-              Медицинские выводы и подбор добавок здесь не сгенерированы.
-            </div>
-            <h3 style={{ fontSize: 13, fontWeight: 600 }}>На чём должен основываться разбор</h3>
-            <ul style={{ paddingLeft: 19, fontSize: 12, lineHeight: 1.8, color: '#57534c' }}>
-              <li>Клинические рекомендации и систематические обзоры.</li>
-              <li>
-                <a href="https://ods.od.nih.gov/factsheets/list-all/" target="_blank" rel="noopener noreferrer" style={{ color: '#8c5e47' }}>
-                  NIH: сведения о добавках
-                </a>.
-              </li>
-              <li>
-                Проверки конкретного продукта в{' '}
-                <a href="https://www.usp.org/verification-services/dietary-supplements-verification-program" target="_blank" rel="noopener noreferrer" style={{ color: '#8c5e47' }}>USP</a>
-                {' / '}
-                <a href="https://www.nsfsport.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#8c5e47' }}>NSF</a>.
-              </li>
-            </ul>
-            <p style={{ fontSize: 12, lineHeight: 1.65, color: '#57534c', margin: '12px 0' }}>
-              Сначала — значение результатов, ограничения и вопросы врачу. Продукты — только при
-              обоснованной необходимости. Проверка состава не гарантирует лечебный эффект или
-              отсутствие побочных реакций.
-            </p>
-          </div>
-        </div>
+          ) : (
+            <>
+              <label className="archive-search">
+                <Search size={16} />
+                <input type="search" value={archiveQuery} onChange={e => { setArchiveQuery(e.target.value); setArchivePage(0); }} placeholder="Название или лаборатория" aria-label="Поиск по архиву" />
+              </label>
+              <div className="archive-filters">
+                <label>Год
+                  <select value={archiveYear} onChange={e => { setArchiveYear(e.target.value); setArchivePage(0); }}>
+                    <option value="all">Все</option>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </label>
+                <label>На странице
+                  <select value={archiveSize} onChange={e => { setArchiveSize(Number(e.target.value)); setArchivePage(0); }}>
+                    {[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="archive-count" role="status">
+                {archiveList.length
+                  ? `${archivePageNow * archiveSize + 1}–${Math.min((archivePageNow + 1) * archiveSize, archiveList.length)} из ${archiveList.length}`
+                  : 'Записи не найдены'}
+              </div>
+              <div className="archive-results">
+                {archiveList.slice(archivePageNow * archiveSize, archivePageNow * archiveSize + archiveSize).map(r => {
+                  const d = dayOf(r.collectedAt);
+                  return (
+                    <button key={r.id} type="button" className="archive-row" onClick={() => setArchiveItem(r)}>
+                      <time>{d.slice(8)}.{d.slice(5, 7)}<small>{d.slice(0, 4)}</small></time>
+                      <span><b>{r.panelName || 'Анализ'}</b><small>{r.lab || 'Лаборатория не указана'} · {markersWord(r.markers.length)}</small></span>
+                      <span>↗</span>
+                    </button>
+                  );
+                })}
+                {archiveList.length === 0 && <p className="archive-empty">Измени запрос или выбери другой год.</p>}
+              </div>
+              {archivePages > 1 && (
+                <div className="archive-pagination">
+                  <button type="button" disabled={archivePageNow === 0} onClick={() => setArchivePage(archivePageNow - 1)} aria-label="Предыдущая страница">←</button>
+                  <span>{archivePageNow + 1} из {archivePages}</span>
+                  <button type="button" disabled={archivePageNow >= archivePages - 1} onClick={() => setArchivePage(archivePageNow + 1)} aria-label="Следующая страница">→</button>
+                </div>
+              )}
+            </>
+          )}
+        </TxDialog>
+      )}
+
+      {mapOpen && (
+        <TxDialog title="Карта связей" onClose={() => setMapOpen(false)} wide>
+          <p>Анализы, препараты и самочувствие — и что с чем связано.</p>
+          {mapData ? (
+            <HealthMap
+              labs={sorted.map(r => ({
+                collectedAt: dayOf(r.collectedAt),
+                markers: (r.markers || []).map(m => ({ name: m.name, value: m.value, flag: m.flag, unit: m.unit })),
+              }))}
+              courses={mapData.courses}
+              fields={mapData.fields}
+              entries={mapData.entries}
+            />
+          ) : (
+            <p className="center"><Loader2 className="spin" size={18} /> Собираю карту…</p>
+          )}
+        </TxDialog>
       )}
     </div>
   );
 }
-
-const inp: React.CSSProperties = {
-  flex: 1, minWidth: 120, background: 'var(--bg-elevated)', color: 'var(--text-primary)',
-  border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, outline: 'none',
-};
-const btn: React.CSSProperties = {
-  flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-  padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-};
