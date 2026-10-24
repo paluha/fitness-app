@@ -7,6 +7,7 @@ import type { LabMarkerRow } from './LabMarkerList';
 import LabMarkerDetail from './LabMarkerDetail';
 import { latestByMarker, historyFor, groupOf, dayKey as dayOf } from './labMatching';
 import type { RawReport } from './labMatching';
+import { HealthMap } from './HealthMap';
 
 type Marker = {
   /** Стабильный идентификатор аналита — по нему собирается история. */
@@ -58,7 +59,17 @@ export function LabsView() {
   const [filter, setFilter] = useState<'all' | 'flagged' | 'unknown'>('all');
   // «Один бланк» показывает выбранный документ, «Последние значения» —
   // самое свежее измерение каждого показателя из разных дат.
-  const [scope, setScope] = useState<'report' | 'latest'>('report');
+  const [scope, setScope] = useState<'report' | 'latest' | 'map'>('report');
+  /**
+   * Данные для карты связей: препараты и самонаблюдение лежат не в
+   * анализах, а в FitnessData. Грузим их только когда карту открыли —
+   * на экране со списком показателей они не нужны.
+   */
+  const [mapData, setMapData] = useState<{
+    courses: { id: string; name: string; dose?: string; endedAt?: string }[];
+    fields: { id: string; name: string; kind: string; archived?: boolean }[];
+    entries: { date: string; values: Record<string, number | string> }[];
+  } | null>(null);
   const [group, setGroup] = useState<string>('all');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   // Индекс открытого показателя в текущем отфильтрованном списке.
@@ -79,6 +90,18 @@ export function LabsView() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (scope !== 'map' || mapData) return;
+    fetch('/api/fitness')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setMapData({
+        courses: Array.isArray(d.medCourses) ? d.medCourses : [],
+        fields: Array.isArray(d.checkinFields) ? d.checkinFields : [],
+        entries: Array.isArray(d.checkinEntries) ? d.checkinEntries : [],
+      }))
+      .catch(() => setMapData({ courses: [], fields: [], entries: [] }));
+  }, [scope, mapData]);
 
   // Самый свежий бланк — он и открыт по умолчанию.
   // Бланки от новых к старым: первый открыт по умолчанию.
@@ -465,7 +488,7 @@ export function LabsView() {
           {/* Режим: один бланк или последние значения из разных дат */}
           <div className="labv2">
             <div className="scope-switch" aria-label="Какие результаты показывать">
-              {([['report', 'Один бланк'], ['latest', 'Последние значения']] as const).map(([id, label]) => (
+              {([['report', 'Один бланк'], ['latest', 'Последние значения'], ['map', 'Карта']] as const).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
@@ -478,6 +501,36 @@ export function LabsView() {
             </div>
           </div>
 
+          {/* Карта связей вместо списка показателей */}
+          {scope === 'map' ? (
+            <section style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 18, padding: '14px', marginBottom: 20,
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 2px' }}>Карта связей</h3>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                Анализы, препараты и самочувствие — и что с чем связано.
+              </p>
+              {mapData ? (
+                <HealthMap
+                  labs={sorted.map(r => ({
+                    collectedAt: dayOf(r.collectedAt),
+                    markers: (r.markers || []).map(m => ({
+                      name: m.name, value: m.value, flag: m.flag, unit: m.unit,
+                    })),
+                  }))}
+                  courses={mapData.courses}
+                  fields={mapData.fields}
+                  entries={mapData.entries}
+                />
+              ) : (
+                <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                  <Loader2 size={18} className="spin" /> Собираю карту…
+                </div>
+              )}
+            </section>
+          ) : (
+          <>
           {/* Шапка: дата сдачи крупно, выбор бланка, сводка */}
           <section style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)',
@@ -716,6 +769,8 @@ export function LabsView() {
                 </article>
               ))}
             </div>
+          )}
+          </>
           )}
         </>
       ) : null}
