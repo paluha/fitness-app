@@ -3,8 +3,9 @@
 import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ChevronRight } from 'lucide-react';
 
+// Вход по макету редизайна (all-screens.html, кадр «Вход»).
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,8 +30,6 @@ function LoginForm() {
         redirect: false,
       });
 
-      console.log('SignIn result:', result);
-
       if (result?.ok) {
         router.push(callbackUrl);
         router.refresh();
@@ -45,329 +44,85 @@ function LoginForm() {
     }
   };
 
+  const disabled = isLoading || !email || !password;
+
   return (
-    <div style={{
-      width: '100%',
-      maxWidth: '420px',
-      position: 'relative',
-      zIndex: 1
-    }}>
-      {/* Logo and Title */}
-      <div style={{
-        textAlign: 'center',
-        marginBottom: '40px'
-      }}>
-        <span style={{ textDecoration: 'none', display: 'inline-block' }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '24px',
-            background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-warm) 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 24px',
-            boxShadow: '0 20px 60px var(--yellow-glow)',
-            cursor: 'pointer',
-            transition: 'transform 0.2s ease'
-          }}>
-            {/* Trainx logo */}
-            <svg width="44" height="44" viewBox="0 0 26 26" fill="none" style={{ transform: 'translateY(-1px)' }}>
-              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#fff" />
-              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#fff" />
-              <path d="M15 14L22 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-              <path d="M22 14L15 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          </div>
-          <h1 style={{
-            fontSize: '32px',
-            fontWeight: 800,
-            color: 'var(--text-primary)',
-            margin: '0 0 8px',
-            letterSpacing: '-0.5px'
-          }}>
-            Trainx
-          </h1>
-        </span>
-        <p style={{
-          fontSize: '15px',
-          color: 'var(--text-secondary)',
-          margin: 0
-        }}>
-          Войдите в свой аккаунт
-        </p>
+    <>
+      <div className="auth-copy">
+        <span className="eyebrow">Рады тебя видеть</span>
+        <h1>Возвращайся<br />к себе.</h1>
+        <p>Тренировки, питание и прогресс —<br />в твоём ритме, в одном месте.</p>
       </div>
 
-      {/* Login Form */}
-      <form onSubmit={handleSubmit} style={{
-        background: 'var(--bg-card)',
-        backdropFilter: 'blur(20px)',
-        borderRadius: '24px',
-        padding: '32px',
-        border: '1px solid var(--border)'
-      }}>
-        {/* Error message */}
+      <form className="login-form card" onSubmit={handleSubmit}>
+        <h2>Вход в аккаунт</h2>
+
         {errorMessage && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '14px 16px',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: '12px',
-            marginBottom: '24px',
-            color: '#ef4444',
-            fontSize: '14px'
-          }}>
-            <AlertCircle size={18} />
+          <div className="auth-error" role="alert">
+            <AlertCircle strokeWidth={1.65} aria-hidden="true" />
             {errorMessage}
           </div>
         )}
 
-        {/* Email field */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '13px',
-            fontWeight: 600,
-            color: 'var(--text-secondary)',
-            marginBottom: '10px'
-          }}>
-            Email
-          </label>
-          <div style={{ position: 'relative' }}>
-            <Mail size={18} style={{
-              position: 'absolute',
-              left: '16px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)'
-            }} />
-            <input
-              type="email"
-              name="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-              style={{
-                width: '100%',
-                padding: '16px 16px 16px 48px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                borderRadius: '12px',
-                color: 'var(--text-primary)',
-                fontSize: '15px',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--accent)';
-                e.target.style.boxShadow = '0 0 0 3px var(--yellow-dim)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--border)';
-                e.target.style.boxShadow = 'none';
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Password field */}
-        <div style={{ marginBottom: '28px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '13px',
-            fontWeight: 600,
-            color: 'var(--text-secondary)',
-            marginBottom: '10px'
-          }}>
-            Пароль
-          </label>
-          <div style={{ position: 'relative' }}>
-            <Lock size={18} style={{
-              position: 'absolute',
-              left: '16px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)'
-            }} />
+        <label>
+          Email
+          <input
+            type="email"
+            name="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+        <label>
+          Пароль
+          <div className="password-field">
             <input
               type={showPassword ? 'text' : 'password'}
               name="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Введи пароль"
               required
-              style={{
-                width: '100%',
-                padding: '16px 48px 16px 48px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                borderRadius: '12px',
-                color: 'var(--text-primary)',
-                fontSize: '15px',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--accent)';
-                e.target.style.boxShadow = '0 0 0 3px var(--yellow-dim)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--border)';
-                e.target.style.boxShadow = 'none';
-              }}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={{
-                position: 'absolute',
-                right: '16px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex'
-              }}
+              aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPassword ? 'Скрыть' : 'Показать'}
             </button>
           </div>
-        </div>
+        </label>
 
-        {/* Submit button */}
-        <button
-          type="submit"
-          disabled={isLoading || !email || !password}
-          style={{
-            width: '100%',
-            padding: '16px',
-            background: isLoading || !email || !password
-              ? 'var(--yellow-dim)'
-              : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-warm) 100%)',
-            border: 'none',
-            borderRadius: '12px',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: 700,
-            cursor: isLoading || !email || !password ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            boxShadow: isLoading || !email || !password
-              ? 'none'
-              : '0 10px 40px var(--yellow-glow)'
-          }}
-        >
+        <button type="submit" className="wide primary" disabled={disabled}>
           {isLoading ? (
-            <>
-              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
-              Вход...
-            </>
+            <><Loader2 className="spin" strokeWidth={1.65} aria-hidden="true" /> Вход...</>
           ) : (
-            'Войти'
+            <>Войти <ChevronRight strokeWidth={1.65} aria-hidden="true" /></>
           )}
         </button>
+        <p className="muted center">Нет аккаунта? Обратись к своему тренеру</p>
       </form>
 
-      {/* Footer */}
-      <p style={{
-        textAlign: 'center',
-        marginTop: '32px',
-        fontSize: '13px',
-        color: 'var(--text-muted)'
-      }}>
-        Нет аккаунта? Обратитесь к вашему тренеру
-      </p>
-    </div>
-  );
-}
-
-function LoadingSpinner() {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh'
-    }}>
-      <Loader2 size={40} color="#ff5c35" style={{ animation: 'spin 1s linear infinite' }} />
-    </div>
+      <p className="center muted">Твой личный дневник тренировок и питания.</p>
+    </>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div style={{
-      height: '100dvh',
-      overflow: 'hidden',
-      background: 'var(--bg-primary)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      {/* Animated background elements */}
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        overflow: 'hidden',
-        pointerEvents: 'none'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: '10%',
-          left: '10%',
-          width: '300px',
-          height: '300px',
-          background: 'radial-gradient(circle, rgba(255, 92, 53, 0.1) 0%, transparent 70%)',
-          borderRadius: '50%',
-          filter: 'blur(60px)',
-          animation: 'pulse 4s ease-in-out infinite'
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: '20%',
-          right: '15%',
-          width: '250px',
-          height: '250px',
-          background: 'radial-gradient(circle, rgba(255, 92, 53, 0.08) 0%, transparent 70%)',
-          borderRadius: '50%',
-          filter: 'blur(50px)',
-          animation: 'pulse 5s ease-in-out infinite reverse'
-        }} />
-      </div>
-
-      <Suspense fallback={<LoadingSpinner />}>
+    <div className="tx auth">
+      <header className="auth-head">
+        <div className="welcome-text">Welcome to <b className="wordmark">Train<span>X</span></b></div>
+      </header>
+      <Suspense fallback={<div className="center" style={{ padding: 40 }}><Loader2 className="spin" color="#ff5c35" aria-label="Загрузка" /></div>}>
         <LoginForm />
       </Suspense>
-
-      <style jsx global>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(1.1); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        input::placeholder {
-          color: var(--text-muted);
-        }
-      `}</style>
+      <div className="auth-footer">Маленькие шаги. Заметный прогресс.</div>
     </div>
   );
 }

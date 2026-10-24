@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "./redesign.css";
 import SessionProvider from "@/components/SessionProvider";
 
 // Inter ships with a wide weight range (400-800 used across the app) and
