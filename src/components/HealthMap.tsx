@@ -146,7 +146,35 @@ export function HealthMap({ labs, courses, fields, entries }: {
 
     // Узлы без единой связи только засоряют круг.
     const linked = new Set(out.flatMap(l => [l.from, l.to]));
-    const list = [...present.values()].filter(n => linked.has(n.id));
+    let list = [...present.values()].filter(n => linked.has(n.id));
+
+    /**
+     * Ограничиваем круг: на 28 узлах подписи налезают друг на друга и
+     * карта перестаёт читаться (видно на первом же прогоне).
+     *
+     * Режем по пользе: сначала то, где есть данные и наблюдаемые связи,
+     * пустые справочные узлы отбрасываем первыми. Полностью убирать их
+     * нельзя — это и есть приглашение «начни отмечать».
+     */
+    const MAX_NODES = 16;
+    if (list.length > MAX_NODES) {
+      const observedIds = new Set(out.filter(l => l.kind === 'observed').flatMap(l => [l.from, l.to]));
+      const degree = new Map<string, number>();
+      for (const l of out) {
+        degree.set(l.from, (degree.get(l.from) ?? 0) + 1);
+        degree.set(l.to, (degree.get(l.to) ?? 0) + 1);
+      }
+      const score = (n: GraphNode) =>
+        (observedIds.has(n.id) ? 1000 : 0)        // связь видна в данных — важнее всего
+        + (n.filled ? 100 : 0)                     // есть данные
+        + ((n.flag === 'low' || n.flag === 'high') ? 50 : 0) // вне нормы — повод смотреть
+        + (degree.get(n.id) ?? 0);
+      list = [...list].sort((a, b) => score(b) - score(a)).slice(0, MAX_NODES);
+      const keep = new Set(list.map(n => n.id));
+      for (let i = out.length - 1; i >= 0; i--) {
+        if (!keep.has(out[i].from) || !keep.has(out[i].to)) out.splice(i, 1);
+      }
+    }
 
     // Порядок по кругу: группируем по типу, чтобы анализы, препараты и
     // самочувствие шли секторами — так читается легче, чем вперемешку.
@@ -155,16 +183,23 @@ export function HealthMap({ labs, courses, fields, entries }: {
     return { nodes: list, links: out };
   }, [labs, courses, fields, entries]);
 
-  const R = size / 2 - 46;
+  // Радиус меньше, чем половина холста: подписи выносятся наружу круга,
+  // и им нужно место, иначе они срезаются краем SVG.
+  const R = size / 2 - 68;
   const cx = size / 2, cy = size / 2;
+  const ang = useMemo(() => {
+    const m = new Map<string, number>();
+    nodes.forEach((n, i) => m.set(n.id, (i / nodes.length) * Math.PI * 2 - Math.PI / 2));
+    return m;
+  }, [nodes]);
   const pos = useMemo(() => {
     const m = new Map<string, { x: number; y: number }>();
-    nodes.forEach((n, i) => {
-      const a = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+    nodes.forEach(n => {
+      const a = ang.get(n.id)!;
       m.set(n.id, { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) });
     });
     return m;
-  }, [nodes, R, cx, cy]);
+  }, [nodes, ang, R, cx, cy]);
 
   const shown = picked ? links.filter(l => l.from === picked || l.to === picked) : links;
   const active = new Set(shown.flatMap(l => [l.from, l.to]));
@@ -230,13 +265,20 @@ export function HealthMap({ labs, courses, fields, entries }: {
                 <circle cx={p.x} cy={p.y} r={picked === n.id ? 19 : 15}
                   fill="none" stroke="#e8894a" strokeWidth={1.5} opacity={on ? 0.9 : 0.2} />
               )}
+              {/* Подпись выносим НАРУЖУ круга по радиусу: при подписях
+                  строго над/под узлом соседи на боках налезали друг на
+                  друга (видно было на 28 узлах). */}
               <text
-                x={p.x} y={p.y + (p.y < cy ? -21 : 26)}
-                textAnchor="middle"
+                x={cx + (R + 20) * Math.cos(ang.get(n.id)!)}
+                y={cy + (R + 20) * Math.sin(ang.get(n.id)!) + 3}
+                textAnchor={
+                  Math.abs(Math.cos(ang.get(n.id)!)) < 0.3 ? 'middle'
+                    : Math.cos(ang.get(n.id)!) > 0 ? 'start' : 'end'
+                }
                 fontSize={10}
                 fontWeight={600}
                 fill="var(--text-secondary)"
-                opacity={on ? 1 : 0.25}
+                opacity={on ? 1 : 0.3}
               >{n.label}</text>
             </g>
           );
