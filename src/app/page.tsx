@@ -6563,10 +6563,19 @@ export default function FitnessPage() {
     selectWorkout('t1');
   };
 
-  const currentWorkout = workouts.find(w => w.id === selectedWorkout) || workouts[0];
+  /**
+   * Текущая тренировка. Подстраховка на случай пустого списка: у нового
+   * аккаунта (и пока грузятся данные) workouts пуст, а без неё всё
+   * приложение падало с «Cannot read properties of undefined (reading
+   * exercises)» — белый экран вместо интерфейса.
+   */
+  const currentWorkout: Workout = workouts.find(w => w.id === selectedWorkout)
+    || workouts[0]
+    || { id: 't1', name: 'Тренировка 1', exercises: [] };
   const completedExercises = currentWorkout.exercises.filter(e => e.completed).length;
   const totalExercises = currentWorkout.exercises.length;
-  const progressPercent = (completedExercises / totalExercises) * 100;
+  // Без упражнений делить не на что — иначе NaN в ширине прогресс-бара.
+  const progressPercent = totalExercises > 0 ? (completedExercises / totalExercises) * 100 : 0;
 
   // Close day with workout snapshot
   // Функция «закрыть/переоткрыть день» убрана — прогресс дня теперь
