@@ -2630,6 +2630,21 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
 
 // Beautiful Calendar Component
 /**
+ * Одно и то же движение? Названия совпадают, или одно — начало другого
+ * по целым словам: «Горизонтальная тяга блока» и «Горизонтальная тяга
+ * блока узким хватом» — одно упражнение с уточнением хвата. Короче двух
+ * слов не сравниваем началом: «Тяга» — начало слишком многих движений.
+ */
+function sameMove(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+  const x = norm(a), y = norm(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length < y.length ? [x, y] : [y, x];
+  return short.split(' ').length >= 2 && long.startsWith(short + ' ');
+}
+
+/**
  * Название тренировки по двум главным группам мышц («Спина и бицепс»).
  * Группы упражнений определяет ИИ (muscleGroups); если их ещё нет — null.
  */
@@ -6157,17 +6172,19 @@ export default function FitnessPage() {
 
   const lastSetsByExerciseId = useMemo(() => {
     const map: Record<string, ExerciseSet[]> = {};
-    const norm = (n: string) => n.toLowerCase().trim();
     const hasReal = (sets?: ExerciseSet[]) =>
       Array.isArray(sets) && sets.some(st => (st.weight || 0) > 0 || (st.reps || 0) > 0);
+    const nameOf = new Map(displayExercises.map(e => [e.id, e.name]));
 
     const dates = Object.keys(dayLogs).filter(d => d < dateKey).sort().reverse();
     const needed = new Set(displayExercises.map(e => e.id));
 
     // ШАГ 1 — ГЛАВНЫЙ: последний раз, когда пользователь делал ЭТУ ЖЕ
     // тренировку (ту же ячейку T1–T7). Нажал T2 — видишь свою прошлую T2,
-    // подход к подходу, по позиции упражнения. Именно этого ждёт пользователь:
-    // ячейка для него и есть «тренировка», даже если состав в ней менялся.
+    // подход к подходу. Позиция засчитывается, только если на ней было ТО
+    // ЖЕ движение: новая программа занимает те же номера 1–7, и без этой
+    // проверки «в прошлый раз» у тяги гантели показывал румынскую тягу 9×140
+    // из старой программы.
     for (const d of dates) {
       if (needed.size === 0) break;
       for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
@@ -6178,6 +6195,7 @@ export default function FitnessPage() {
         for (const e of candidate.exercises) {
           const sets = (e as { sets?: ExerciseSet[] }).sets;
           if (!hasReal(sets) || !needed.has(e.id) || map[e.id]) continue;
+          if (!sameMove(nameOf.get(e.id) || '', e.name || '')) continue;
           map[e.id] = sets!;
           needed.delete(e.id);
         }
@@ -6186,30 +6204,20 @@ export default function FitnessPage() {
       if (Object.keys(map).length > 0) break;
     }
 
-    // ШАГ 2 — добор по НАЗВАНИЮ для позиций, которых не было в прошлой
-    // тренировке (например упражнение добавлено позже): ищем то же движение
-    // в любых других днях, чтобы не терять историю при перестановках.
-    if (needed.size > 0) {
-      const idsByName = new Map<string, string[]>();
-      for (const e of displayExercises) {
-        if (!needed.has(e.id)) continue;
-        const k = norm(e.name);
-        if (!k) continue;
-        if (!idsByName.has(k)) idsByName.set(k, []);
-        idsByName.get(k)!.push(e.id);
-      }
-      const remaining = new Set(idsByName.keys());
-      for (const d of dates) {
-        if (remaining.size === 0) break;
-        for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
-          if (!candidate?.exercises) continue;
-          for (const e of candidate.exercises) {
-            const k = norm(e.name || '');
-            if (!k || !remaining.has(k)) continue;
-            const sets = (e as { sets?: ExerciseSet[] }).sets;
-            if (!hasReal(sets)) continue;
-            for (const id of idsByName.get(k)!) { map[id] = sets!; needed.delete(id); }
-            remaining.delete(k);
+    // ШАГ 2 — добор по НАЗВАНИЮ для остальных позиций (упражнение добавлено
+    // позже или программа сменилась): ищем то же движение в любых других
+    // днях, самое свежее. Не нашлось — пусто, а не чужой вес.
+    for (const d of dates) {
+      if (needed.size === 0) break;
+      for (const candidate of [dayLogs[d]?.workoutDraft, dayLogs[d]?.workoutSnapshot]) {
+        if (!candidate?.exercises) continue;
+        for (const e of candidate.exercises) {
+          const sets = (e as { sets?: ExerciseSet[] }).sets;
+          if (!hasReal(sets)) continue;
+          for (const id of [...needed]) {
+            if (!sameMove(nameOf.get(id) || '', e.name || '')) continue;
+            map[id] = sets!;
+            needed.delete(id);
           }
         }
       }
