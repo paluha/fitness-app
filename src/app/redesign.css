@@ -646,6 +646,15 @@ body.night-mode .tx-dialog .archive-pagination button { background: #30281f; bor
 .tx-stepper b { min-width: 42px; font-size: 13px; }
 .tx-restset { align-items: center; }
 .tx-day .tag:empty, .tx-monthday small:empty { min-height: 12px; }
+/* Суперсет: вкладки кругов и переход к следующему (по макету) */
+.tx-roundtabs { display: flex; gap: 6px; padding: 2px 2px 8px; }
+.tx-roundtabs button { flex: 1; min-height: 36px; padding: 7px 4px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.tx-roundtabs button.is-active { background: var(--bg-elevated); color: var(--text-primary); border-color: #b9aa97; font-weight: 600; }
+.tx-roundrest { margin-top: 8px; border-top: 0; padding-top: 0; }
+.tx-roundnav { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 6px; }
+.tx-roundnav button { border: 0; background: none; font: inherit; font-size: 12px; color: var(--text-muted); cursor: pointer; min-height: 36px; padding: 0 10px; }
+.tx-roundnav button:first-child { font-weight: 600; color: var(--text-secondary); }
+.tx-roundnav button:disabled { opacity: .45; cursor: default; }
 .tx-badge-btn { border: 0; cursor: pointer; font-family: inherit; }
 .ux-progress { margin-top: 6px; }
 .ux-progress-svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }

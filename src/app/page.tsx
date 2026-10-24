@@ -1684,10 +1684,38 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
   // Круг пройден, когда отмечены подходы этого круга во ВСЕХ упражнениях.
   const roundDone = (r: number) => group.every(e => setsOf(e)[r]?.completed);
   const currentRound = Array.from({ length: rounds }, (_, r) => r).find(r => !roundDone(r));
+  /**
+   * По макету: вкладки «Круг 1 / 2 / 3» и один круг на экране. Пока
+   * человек не выбрал вкладку сам, показываем текущий круг — после
+   * отметки последнего упражнения экран сам переходит к следующему, туда
+   * же переезжает таймер отдыха. «Показать все круги» — прежний вид.
+   */
+  const [picked, setPicked] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const shown = picked ?? currentRound ?? rounds - 1;
+  const allDone = currentRound === undefined;
 
   return (
+    <>
+    {rounds > 1 && (
+      <div className="tx-roundtabs" role="tablist" aria-label="Круги суперсета">
+        {Array.from({ length: rounds }, (_, r) => (
+          <button
+            key={r}
+            type="button"
+            role="tab"
+            aria-selected={!showAll && r === shown}
+            className={!showAll && r === shown ? 'is-active' : undefined}
+            onClick={() => { setPicked(r); setShowAll(false); }}
+          >
+            {roundDone(r) ? '✓ ' : ''}Круг {r + 1}
+          </button>
+        ))}
+      </div>
+    )}
     <div className="tx-rounds">
       {Array.from({ length: rounds }, (_, r) => {
+        if (!showAll && r !== shown) return null;
         const done = roundDone(r);
         const isCurrent = r === currentRound;
         return (
@@ -1738,6 +1766,8 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
                         if (next && gi === group.length - 1
                           && group.slice(0, -1).every(o => setsOf(o)[r]?.completed)) {
                           onRest();
+                          // Круг закрыт — показываем следующий: там таймер
+                          setPicked(null);
                         }
                       }}
                       aria-label={`отметить ${e.name}, круг ${r + 1}`}
@@ -1754,13 +1784,8 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
               );
             })}
             {/* Отдых один на круг, а не после каждого упражнения —
-                в этом и смысл связки. Таймер показываем только у
-                текущего круга, чтобы не было трёх таймеров подряд. */}
-            {isCurrent ? (
-              <div className="tx-roundrestwrap">
-                <RestTimer restTime={restTime} startSignal={restSignal} idleLabel="Отдых после круга" />
-              </div>
-            ) : (
+                в этом и смысл связки. Сам таймер — общий, под кругами. */}
+            {showAll && !isCurrent && (
               <div className="tx-roundfoot">
                 <Timer size={10} />
                 <span>отдых после круга</span>
@@ -1770,6 +1795,30 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
         );
       })}
     </div>
+    {/* Таймер один и стоит вне карточек кругов. Внутри карточки он
+        пересоздавался, когда закрытый круг сменялся следующим, и новый
+        экземпляр пропускал сигнал «старт» — отдых после круга сам не
+        запускался. Здесь экземпляр живёт, пока открыт суперсет. */}
+    <div className="tx-roundrestwrap tx-roundrest">
+      <RestTimer restTime={restTime} startSignal={restSignal} idleLabel="Отдых после круга" />
+    </div>
+    {rounds > 1 && (
+      <div className="tx-roundnav">
+        <button type="button" onClick={() => { setShowAll(v => !v); setPicked(null); }}>
+          {showAll ? 'Показывать по одному кругу' : 'Показать все круги'}
+        </button>
+        {!showAll && (
+          <button
+            type="button"
+            disabled={!roundDone(shown) || shown >= rounds - 1}
+            onClick={() => setPicked(Math.min(rounds - 1, shown + 1))}
+          >
+            {shown >= rounds - 1 ? (allDone ? '✓ Суперсет выполнен' : 'Последний круг') : 'Следующий круг →'}
+          </button>
+        )}
+      </div>
+    )}
+    </>
   );
 }
 
