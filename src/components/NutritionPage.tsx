@@ -111,9 +111,13 @@ export interface NutritionPageProps {
   onSaveGoals: (goals: NutritionGoals) => void;
   onOpenProfile: () => void;
   onNavigateWorkout: () => void;
-  /** Блоки приложения, которые остаются как есть: «Когда есть» и «Рецепты». */
+  /** Блоки приложения: «Когда и что есть» и «Рецепты» — вкладками одной карточки. */
   rhythmSlot?: ReactNode;
   recipesSlot?: ReactNode;
+  /** Открытая вкладка «План дня / Рецепты»: ею управляет страница, чтобы «Открыть рецепт» переключал её. */
+  studioTab?: 'plan' | 'recipes';
+  onStudioTab?: (tab: 'plan' | 'recipes') => void;
+  recipesCount?: number;
 }
 
 export default function NutritionPage(props: NutritionPageProps) {
@@ -122,7 +126,7 @@ export default function NutritionPage(props: NutritionPageProps) {
     quickFrequent, quickFavorites,
     onSelectDate, onOpenAdd, onQuickAdd, onEditMeal, onDeleteMeal,
     onToggleFavorite, onSaveGoals, onOpenProfile, onNavigateWorkout,
-    rhythmSlot, recipesSlot,
+    rhythmSlot, recipesSlot, studioTab = 'plan', onStudioTab, recipesCount = 0,
   } = props;
 
   const [weekStart, setWeekStart] = useState(() => mondayOf(selectedDate));
@@ -477,8 +481,21 @@ export default function NutritionPage(props: NutritionPageProps) {
           </div>
         </section>
 
-        {rhythmSlot ?? null}
-        {recipesSlot ?? null}
+        {/* План дня и рецепты — одна карточка с вкладками (по макету редизайна) */}
+        {(rhythmSlot || recipesSlot) && (
+          <section className="nutrition-studio">
+            <div className="ux-studio-tabs" role="tablist">
+              <button type="button" role="tab" aria-selected={studioTab === 'plan'}
+                className={studioTab === 'plan' ? 'is-active' : undefined} onClick={() => onStudioTab?.('plan')}>План дня</button>
+              <button type="button" role="tab" aria-selected={studioTab === 'recipes'}
+                className={studioTab === 'recipes' ? 'is-active' : undefined} onClick={() => onStudioTab?.('recipes')}>
+                Рецепты{recipesCount ? ` · ${recipesCount}` : ''}
+              </button>
+            </div>
+            <div hidden={studioTab !== 'plan'}>{rhythmSlot ?? null}</div>
+            <div hidden={studioTab !== 'recipes'}>{recipesSlot ?? null}</div>
+          </section>
+        )}
       </main>
     </div>
   );

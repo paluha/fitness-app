@@ -3842,6 +3842,8 @@ export default function FitnessPage() {
   const [aiNutritionPlan, setAiNutritionPlan] = useState<PlanMeal[] | null>(null);
   // Раскрытые карточки рецептов в разделе «Рецепты».
   const [openRecipeCards, setOpenRecipeCards] = useState<string[]>([]);
+  // Вкладка «План дня / Рецепты» на экране питания
+  const [nutStudioTab, setNutStudioTab] = useState<'plan' | 'recipes'>('plan');
   // Последняя добавленная из рецепта порция — для «Отменить».
   const [recipeUndo, setRecipeUndo] = useState<{ meal: NutritionMeal; date: string; name: string } | null>(null);
   // ИИ-список рекомендуемых продуктов под цель (заменяет статичный DEFAULT_FOOD_PRODUCTS)
@@ -7148,6 +7150,9 @@ export default function FitnessPage() {
             onSaveGoals={g => setUserSettings(prev => ({ ...prev, goal: { protein: g.protein, fat: g.fat, carbs: g.carbs, calories: g.calories } }))}
             onOpenProfile={() => { setView('profile'); localStorage.setItem('fitness_view', 'profile'); }}
             onNavigateWorkout={() => { setView('workout'); localStorage.setItem('fitness_view', 'workout'); }}
+            studioTab={nutStudioTab}
+            onStudioTab={setNutStudioTab}
+            recipesCount={recipeCards.length}
             rhythmSlot={(
               <NutritionPlanSection
                 slots={planSlots}
@@ -7157,14 +7162,16 @@ export default function FitnessPage() {
                 onChangeSlot={updatePlanSlot}
                 onOpenSurvey={openSurvey}
                 onOpenRecipe={id => {
-                  // «Рецепт» в плане раскрывает карточку в разделе ниже и
-                  // подводит к ней — как в эталоне, без отдельного экрана.
+                  // «Открыть рецепт» переключает на вкладку «Рецепты»,
+                  // раскрывает карточку и подводит к ней.
+                  setNutStudioTab('recipes');
                   setOpenRecipeCards(prev => prev.includes(id) ? prev : [...prev, id]);
                   requestAnimationFrame(() => {
                     document.querySelector(`[data-recipe="${id}"]`)
                       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   });
                 }}
+                onAskAi={prompt => { setChatDraft(prompt); setView('chat'); }}
               />
             )}
             recipesSlot={(

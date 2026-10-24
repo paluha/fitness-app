@@ -13,7 +13,6 @@
  */
 
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 
 export interface PlanSlot {
   /** Время приёма, ЧЧ:ММ. */
@@ -53,6 +52,8 @@ export interface NutritionPlanSectionProps {
   onChangeSlot: (index: number, patch: { dishId?: string; portions?: number }) => void;
   onOpenSurvey: () => void;
   onOpenRecipe: (recipeId: string) => void;
+  /** Открыть ИИ-чат с готовым вопросом про приём пищи или предпочтения. */
+  onAskAi?: (prompt: string) => void;
 }
 
 const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
@@ -67,11 +68,6 @@ export function portionsText(count: number) {
   return `${value} ${form === 'one' ? 'порция' : form === 'few' || form === 'other' ? 'порции' : 'порций'}`;
 }
 
-const Ico = ({ d, cls }: { d: ReactNode; cls?: string }) => (
-  <svg className={cls} viewBox="0 0 24 24" aria-hidden="true">{d}</svg>
-);
-const IconClock = () => <Ico d={<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>} />;
-const IconBook = () => <Ico d={<path d="M12 5C9 3 5 3 2 5v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Zm0 0v15" />} />;
 const IconChevron = ({ flip }: { flip?: boolean }) => (
   <svg viewBox="0 0 24 24" aria-hidden="true" style={flip ? { transform: 'rotate(180deg)' } : undefined}>
     <path d="m8 5 7 7-7 7" />
@@ -80,11 +76,13 @@ const IconChevron = ({ flip }: { flip?: boolean }) => (
 
 export default function NutritionPlanSection({
   slots, dishes, preferencesText, loading,
-  onChangeSlot, onOpenSurvey, onOpenRecipe,
+  onChangeSlot, onOpenSurvey, onOpenRecipe, onAskAi,
 }: NutritionPlanSectionProps) {
-  // Какой слот сейчас редактируется. Замена блюда и порций идёт прямо в
-  // плане, без попапа — как в макете.
-  const [editing, setEditing] = useState<number | null>(null);
+  // Какой приём выбран. По умолчанию — ближайший по времени: «твой
+  // следующий выбор» (по макету редизайна).
+  const [picked, setPicked] = useState<number | null>(null);
+  // Замена блюда и порций идёт прямо в карточке, без попапа.
+  const [editing, setEditing] = useState(false);
 
   const byId = useMemo(() => new Map(dishes.map(d => [d.id, d])), [dishes]);
 
@@ -105,115 +103,113 @@ export default function NutritionPlanSection({
   }, [slots, byId]);
 
   const hasPlan = !!slots && slots.length > 0;
+  const nextIndex = useMemo(() => {
+    if (!slots?.length) return 0;
+    const now = new Date();
+    const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const i = slots.findIndex(s => s.time >= hm);
+    return i >= 0 ? i : 0;
+  }, [slots]);
+  const index = picked != null && slots && picked < slots.length ? picked : nextIndex;
+  const slot = hasPlan ? slots[index] : null;
+  const dish = slot?.dishId ? byId.get(slot.dishId) : undefined;
+  const portions = slot && slot.portions > 0 ? slot.portions : 1;
+
+  // Короткая сводка предпочтений для свёрнутой строки
+  const prefShort = hasPlan ? `${slots.length} ${slots.length === 1 ? 'приём' : slots.length < 5 ? 'приёма' : 'приёмов'}` : '';
 
   return (
     <section className="card rhythm" id="meal-rhythm" aria-labelledby="rhythmTitle">
       <div className="support-head">
-        <div className="support-title">
-          <IconClock />
+        <div>
+          <span className="ux-eyebrow">Твой следующий выбор</span>
           <h2 id="rhythmTitle">Когда и что есть</h2>
         </div>
-        <span className="subtle-tag">
-          {hasPlan ? `${slots.length} ${slots.length === 5 ? 'приёмов' : 'приёма'}` : 'Под тебя'}
-        </span>
+        <span className="subtle-tag">{hasPlan ? prefShort : 'Под тебя'}</span>
       </div>
-      <p className="rhythm-copy">
-        {hasPlan
-          ? 'Пример меню на обычный день. Блюда и порции можно менять.'
-          : 'Время, блюда и порции с учётом твоих привычек.'}
-      </p>
 
-      {hasPlan && (
-        <div className="schedule">
-          {slots.map((slot, index) => {
-            const dish = slot.dishId ? byId.get(slot.dishId) : undefined;
-            const portions = slot.portions > 0 ? slot.portions : 1;
-            const isEditing = editing === index;
-            return (
-              <article className="schedule-slot" key={`${slot.time}-${index}`}>
-                <time>{slot.time}</time>
-                <div className="plan-meal">
-                  <span className="plan-meal-type">{slot.label}</span>
-                  {dish ? (
-                    <>
-                      <h3>{dish.name}</h3>
-                      <p className="plan-portion">
-                        {portionsText(portions)}
-                        {dish.durationMinutes ? ` · ${num(dish.durationMinutes)} мин на приготовление` : ''}
-                      </p>
-                      <div className="plan-macros">
-                        <b>{num(dish.calories * portions)} ккал</b>
-                        <span>Б {num(dish.protein * portions)} г</span>
-                        <span>Ж {num(dish.fat * portions)} г</span>
-                        <span>У {num(dish.carbs * portions)} г</span>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="plan-empty">Выбери, что будешь есть</p>
-                  )}
-                  <div className="plan-actions">
-                    {dish?.recipeId && (
-                      <button type="button" className="text-btn" onClick={() => onOpenRecipe(dish.recipeId!)}>
-                        <IconBook />Рецепт
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="text-btn"
-                      aria-expanded={isEditing}
-                      aria-controls={`plan-picker-${index}`}
-                      onClick={() => setEditing(isEditing ? null : index)}
-                    >
-                      {dish ? 'Заменить' : 'Выбрать блюдо'}
-                    </button>
-                  </div>
-                </div>
-                {isEditing && (
-                  <PlanPicker
-                    index={index}
-                    dishes={dishes}
-                    dishId={slot.dishId}
-                    portions={portions}
-                    onSave={patch => { onChangeSlot(index, patch); setEditing(null); }}
-                    onCancel={() => setEditing(null)}
-                  />
-                )}
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {hasPlan && totals.planned > 0 && (
-        <div className="plan-total">
-          <div className="plan-total-top">
-            <span>
-              {totals.planned === slots.length
-                ? 'Итого по плану'
-                : `Выбрано ${totals.planned} из ${slots.length} приёмов`}
-            </span>
-            <strong>{num(totals.calories)} ккал</strong>
+      {hasPlan && slot ? (
+        <>
+          <div className="ux-meal-times" style={{ gridTemplateColumns: `repeat(${Math.min(slots.length, 3)}, 1fr)` }}>
+            {slots.map((s, i) => (
+              <button key={`${s.time}-${i}`} type="button" className={i === index ? 'is-active' : undefined}
+                aria-pressed={i === index} onClick={() => { setPicked(i); setEditing(false); }}>
+                <small>{s.time}</small>
+                <b>{s.label}</b>
+              </button>
+            ))}
           </div>
-          <p className="plan-total-macros">
-            Б {num(totals.protein)} г · Ж {num(totals.fat)} г · У {num(totals.carbs)} г
-          </p>
-          <p className="plan-note">Съеденное отмечай отдельно в дневнике.</p>
-        </div>
+
+          <article className="ux-next-meal">
+            <span className="ux-eyebrow">
+              {slot.label}{dish?.durationMinutes ? ` · ${num(dish.durationMinutes)} мин` : ''}
+            </span>
+            <h3>{dish ? dish.name : 'Выбери, что будешь есть'}</h3>
+            {dish && (
+              <p>
+                {num(dish.calories * portions)} ккал <i>·</i> {num(dish.protein * portions)} г белка <i>·</i> {portionsText(portions)}
+              </p>
+            )}
+            <div className="ux-food-actions">
+              {dish?.recipeId && (
+                <button type="button" onClick={() => onOpenRecipe(dish.recipeId!)}>Открыть рецепт ↗</button>
+              )}
+              <button type="button" aria-expanded={editing} aria-controls={`plan-picker-${index}`} onClick={() => setEditing(e => !e)}>
+                {dish ? '⇄ Заменить' : 'Выбрать блюдо'}
+              </button>
+            </div>
+          </article>
+
+          {editing && (
+            <PlanPicker
+              index={index}
+              dishes={dishes}
+              dishId={slot.dishId}
+              portions={portions}
+              onSave={patch => { onChangeSlot(index, patch); setEditing(false); }}
+              onCancel={() => setEditing(false)}
+            />
+          )}
+
+          {onAskAi && (
+            <button type="button" className="ux-inline-ai" onClick={() => onAskAi(
+              `Подбери мне блюдо на ${slot.label.toLowerCase()} (${slot.time}) под мои цели и предпочтения. Сейчас в плане: ${dish ? `${dish.name}, ${portionsText(portions)}` : 'ничего не выбрано'}.`,
+            )}>
+              ✦ Подобрать вместе с ИИ <span>→</span>
+            </button>
+          )}
+
+          {totals.planned > 0 && (
+            <p className="plan-total-line">
+              {totals.planned === slots.length ? 'Итого по плану' : `Выбрано ${totals.planned} из ${slots.length}`}: <b>{num(totals.calories)} ккал</b>
+              {' '}· Б {num(totals.protein)} · Ж {num(totals.fat)} · У {num(totals.carbs)} г. Съеденное отмечай в дневнике.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="rhythm-copy">Время, блюда и порции с учётом твоих привычек.</p>
+          {loading && <p className="plan-empty">Собираем план под твои цели…</p>}
+        </>
       )}
 
-      {loading && !hasPlan && <p className="plan-empty">Собираем план под твои цели…</p>}
-
-      {!!preferencesText && (
-        <div className="saved-preferences">
-          <h3>Твои предпочтения</h3>
-          <p>{preferencesText}</p>
-        </div>
+      {hasPlan || preferencesText ? (
+        <details className="ux-preferences">
+          <summary>Предпочтения {prefShort && <span>{prefShort}</span>}</summary>
+          {preferencesText && <p>{preferencesText}</p>}
+          <button type="button" onClick={onOpenSurvey}>Изменить расписание и предпочтения</button>
+          {onAskAi && (
+            <button type="button" onClick={() => onAskAi('Давай обсудим мои предпочтения в питании и расписание приёмов пищи: что стоит поменять под мою цель?')}>
+              Обсудить предпочтения с ИИ
+            </button>
+          )}
+        </details>
+      ) : (
+        <button className="survey-link" type="button" onClick={onOpenSurvey}>
+          <span>Пройти короткий опрос</span>
+          <IconChevron />
+        </button>
       )}
-
-      <button className="survey-link" type="button" onClick={onOpenSurvey}>
-        <span>{hasPlan ? 'Изменить расписание и предпочтения' : 'Пройти короткий опрос'}</span>
-        <IconChevron />
-      </button>
     </section>
   );
 }
