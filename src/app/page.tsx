@@ -9,8 +9,18 @@ import {
   Zap, Timer, Play, Pause, RotateCcw, Settings, User,
   BarChart3, Scale,
   Camera, ScanLine, Video, ExternalLink, Sparkles, CalendarDays,
-  Home, Trophy, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown, Link2,
+  Home, Trophy, FlaskConical, Hourglass, Brain, Loader2, Image as ImageIcon, BookOpen, Clock, AlertTriangle, Flame, ChevronsDown,
+  Repeat, ChartNoAxesColumnDecreasing,
 } from 'lucide-react';
+
+// Значки техник — одни и те же везде, где техника встречается.
+// Суперсет делается кругами (A1 → A2 → снова), дропсет — ступенями
+// вниз по весу.
+const SupersetIcon = Repeat;
+const DropsetIcon = ChartNoAxesColumnDecreasing;
+/** Дропсет есть по программе или записан хотя бы на одном подходе. */
+const hasDropset = (e: Exercise) => !!e.planDropSet
+  || (e.sets ?? []).some(s => (s.drops?.length ?? 0) > 0 && (s.tech ?? 'drop') === 'drop');
 import PlannerView, { PlannerEvent, Habit } from './PlannerView';
 import { AssistantChat, type WorkoutEdit } from '@/components/AssistantChat';
 import { LabsView } from '@/components/LabsView';
@@ -1601,7 +1611,7 @@ function SetTechPanel({
                 disabled={locked}
                 onClick={() => { onAddStep(k); setMore(false); }}
               >
-                <ChevronsDown size={13} />
+                {k === 'drop' ? <DropsetIcon size={13} /> : <ChevronsDown size={13} />}
                 <span>
                   <b>{TECH_META[k].label[0].toUpperCase() + TECH_META[k].label.slice(1)}</b>
                   <i>{TECH_META[k].hint}</i>
@@ -1639,7 +1649,7 @@ function SetTechPanel({
           {steps.map((d, di) => (
             <div className="tx-steprow" key={di}>
               <span className="tx-stepname">
-                <ChevronsDown size={10} /> {meta.step} {di + 1}
+                {tech === 'drop' ? <DropsetIcon size={10} /> : <ChevronsDown size={10} />} {meta.step} {di + 1}
                 {lastSteps[di] && <i className="tx-stepwas">было {fmtStep(lastSteps[di])}</i>}
               </span>
               <span className="tx-stepinputs">
@@ -1985,7 +1995,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               видно, с чего круг начинается и чем заканчивается. */}
           {ex.supersetId && supersetGroup && supersetGroup.length > 1 && (
             <span className="tx-superset" title="Порядок в связке">
-              <Link2 size={9} />{ex.supersetId}{supersetGroup.indexOf(ex.name) + 1}
+              <SupersetIcon size={9} />{ex.supersetId}{supersetGroup.indexOf(ex.name) + 1}
+            </span>
+          )}
+          {hasDropset(ex) && (
+            <span className="tx-dropset" title="В упражнении есть дропсет">
+              <DropsetIcon size={9} />Дропсет
             </span>
           )}
           {/* Подпись под названием есть ВСЕГДА и одной высоты: раскрытая —
@@ -2230,7 +2245,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       fontSize: 11, lineHeight: 1.4, color: '#3f6292',
                     }}
                   >
-                    <Link2 size={12} style={{ flex: 'none', marginTop: 1 }} />
+                    <SupersetIcon size={12} style={{ flex: 'none', marginTop: 1 }} />
                     <span>
                       {supersetPos === 'inner'
                         ? <>Без отдыха переходи к следующему: <b>{supersetGroup[supersetGroup.indexOf(ex.name) + 1] ?? supersetGroup[1]}</b></>
@@ -2254,7 +2269,9 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                   >
                     {ex.planPyramid
                       ? <TrendingUp size={12} style={{ flex: 'none', marginTop: 1 }} />
-                      : (ex.planDropSet || ex.planTech)
+                      : ex.planDropSet
+                        ? <DropsetIcon size={12} style={{ flex: 'none', marginTop: 1 }} />
+                      : ex.planTech
                         ? <ChevronsDown size={12} style={{ flex: 'none', marginTop: 1 }} />
                         : <Flame size={12} style={{ flex: 'none', marginTop: 1 }} />}
                     <span>
@@ -7048,8 +7065,13 @@ export default function FitnessPage() {
                           <div className="tx-exname" style={{ color: allDone ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                             {groupExercises.map(e => e.name).join(' + ')}
                             <span className="tx-superset">
-                              <Link2 size={9} />Суперсет
+                              <SupersetIcon size={9} />Суперсет
                             </span>
+                            {groupExercises.some(hasDropset) && (
+                              <span className="tx-dropset" title="В связке есть дропсет">
+                                <DropsetIcon size={9} />Дропсет
+                              </span>
+                            )}
                             <span className={['tx-collapsed', roundsComplete ? 'is-complete' : ''].filter(Boolean).join(' ')}>
                               {supDone}/{supPlan} круга{results.length > 0
                                 ? ` · ${results.join(' + ')}`
@@ -7085,7 +7107,7 @@ export default function FitnessPage() {
                         onClick={() => setExpandedExerciseId(null)}
                       >
                         <span className="tx-suptitle">
-                          <Link2 size={11} /> Суперсет {row.ex.supersetId}
+                          <SupersetIcon size={11} /> Суперсет {row.ex.supersetId}
                         </span>
                         {supPlan > 0 && (
                           <span className="tx-suprounds">

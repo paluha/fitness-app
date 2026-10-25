@@ -1130,6 +1130,15 @@ button:disabled {
   font-size: 9px; font-weight: 700; color: #3f6292; letter-spacing: .2px;
 }
 .tx-superset svg { flex: none; }
+/* Метка дропсета — рядом с меткой суперсета, в цвете плашки дропсета. */
+.tx-dropset {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 9px; margin-left: 6px;
+  background: #fdf0e8; border: 1px solid #f4d9c6;
+  font-size: 9px; font-weight: 700; color: #8a5327; letter-spacing: .2px;
+}
+.tx-dropset svg { flex: none; }
+.tx-superset + .tx-dropset { margin-left: 4px; }
 
 /* Кнопки строки ввода в чате ИИ: «домой», скрепка, отправка.
    На узком экране три кнопки по 46px оставляли полю ввода 114px —
