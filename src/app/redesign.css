@@ -609,7 +609,7 @@
    пустые клетки календарей, интерактивный график «Мой прогресс». */
 .tx-supwrap { background: var(--bg-card); border-color: var(--border); }
 .tx-suphead, .tx-suphead .tx-suprounds, .tx-roundhead, .tx-roundname b, .tx-roundgap,
-.tx-supsummary b, .tx-roundfoot { color: var(--text-muted); }
+.tx-roundfoot { color: var(--text-muted); }
 .tx-round { border-color: var(--border); }
 .tx-round.is-current { border-color: #cdbfae; box-shadow: 0 0 0 1px #eee8df; }
 .tx-round.is-done { background: var(--bg-card); }
