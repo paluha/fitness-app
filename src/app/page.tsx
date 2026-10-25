@@ -7064,14 +7064,18 @@ export default function FitnessPage() {
                         >
                           <div className="tx-exname" style={{ color: allDone ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                             {groupExercises.map(e => e.name).join(' + ')}
-                            <span className="tx-superset">
-                              <SupersetIcon size={9} />Суперсет
-                            </span>
-                            {groupExercises.some(hasDropset) && (
-                              <span className="tx-dropset" title="В связке есть дропсет">
-                                <DropsetIcon size={9} />Дропсет
+                            {/* Названий два и они длинные — метки всегда
+                                своей строкой, ровно по левому краю. */}
+                            <span className="tx-marks">
+                              <span className="tx-superset">
+                                <SupersetIcon size={9} />Суперсет
                               </span>
-                            )}
+                              {groupExercises.some(hasDropset) && (
+                                <span className="tx-dropset" title="В связке есть дропсет">
+                                  <DropsetIcon size={9} />Дропсет
+                                </span>
+                              )}
+                            </span>
                             <span className={['tx-collapsed', roundsComplete ? 'is-complete' : ''].filter(Boolean).join(' ')}>
                               {supDone}/{supPlan} круга{results.length > 0
                                 ? ` · ${results.join(' + ')}`

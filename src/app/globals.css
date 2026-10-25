@@ -1122,23 +1122,19 @@ button:disabled {
   font-family: inherit; cursor: pointer;
 }
 
-/* Метка суперсета в заголовке упражнения. */
-.tx-superset {
+/* Метки суперсета и дропсета в заголовке упражнения — просто значок
+   и текст своего цвета, без рамки и фона (просьба Павла). */
+.tx-superset, .tx-dropset {
   display: inline-flex; align-items: center; gap: 3px;
-  padding: 2px 7px; border-radius: 9px; margin-left: 6px;
-  background: #eef3fb; border: 1px solid #d6e2f3;
-  font-size: 9px; font-weight: 700; color: #3f6292; letter-spacing: .2px;
+  margin-left: 7px; vertical-align: 1px;
+  font-size: 10px; font-weight: 700; letter-spacing: .2px; white-space: nowrap;
 }
-.tx-superset svg { flex: none; }
-/* Метка дропсета — рядом с меткой суперсета, в цвете плашки дропсета. */
-.tx-dropset {
-  display: inline-flex; align-items: center; gap: 3px;
-  padding: 2px 7px; border-radius: 9px; margin-left: 6px;
-  background: #fdf0e8; border: 1px solid #f4d9c6;
-  font-size: 9px; font-weight: 700; color: #8a5327; letter-spacing: .2px;
-}
-.tx-dropset svg { flex: none; }
-.tx-superset + .tx-dropset { margin-left: 4px; }
+.tx-superset { color: #3f6292; }
+.tx-dropset { color: #a5582a; }
+.tx-superset svg, .tx-dropset svg { flex: none; }
+.tx-superset + .tx-dropset { margin-left: 9px; }
+.tx-marks { display: flex; gap: 9px; margin-top: 4px; }
+.tx-marks .tx-superset, .tx-marks .tx-dropset { margin-left: 0; }
 
 /* Кнопки строки ввода в чате ИИ: «домой», скрепка, отправка.
    На узком экране три кнопки по 46px оставляли полю ввода 114px —
