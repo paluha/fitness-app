@@ -45,7 +45,7 @@ const fmt = (n: number) => n.toLocaleString('ru-RU');
 const kcalOf = (p: number, f: number, c: number) => Math.round(p * 4 + f * 9 + c * 4);
 
 export function ProfileView({
-  lang, name, email, goalType, goal, theme, timezone, about, latestWeight,
+  lang, name, email, goalType, goal, timezone, about, latestWeight,
   onSettings, onAbout, onDiscussGoal, onSignOut, extraSettings,
 }: {
   lang: 'ru' | 'en';
@@ -53,12 +53,11 @@ export function ProfileView({
   email?: string;
   goalType: GoalType;
   goal: MacroGoal;
-  theme: 'light' | 'dark' | 'auto';
   timezone: string;
   about: AboutMe;
   /** Последний записанный вес — для блока «На чём основана цель». */
   latestWeight?: { kg: number; date: string } | null;
-  onSettings: (patch: { language?: 'ru' | 'en'; theme?: 'light' | 'dark' | 'auto'; timezone?: string; goalType?: GoalType; goal?: MacroGoal; name?: string }) => void;
+  onSettings: (patch: { language?: 'ru' | 'en'; timezone?: string; goalType?: GoalType; goal?: MacroGoal; name?: string }) => void;
   onAbout: (next: AboutMe) => void;
   /** Открыть ИИ-ассистента с подготовленным вопросом. */
   onDiscussGoal: (prompt: string) => void;
@@ -89,8 +88,7 @@ export function ProfileView({
   const draftKcal = kcalOf(num(macros.protein), num(macros.fat), num(macros.carbs));
 
   const tz = TIMEZONES.find(z => z.id === timezone);
-  const themeLabel = theme === 'dark' ? (ru ? 'Тёмное' : 'Dark') : theme === 'light' ? (ru ? 'Светлое' : 'Light') : (ru ? 'Авто' : 'Auto');
-  const summary = [ru ? 'Русский' : 'English', themeLabel, tz ? tz[lang] : timezone].join(' · ');
+  const summary = [ru ? 'Русский' : 'English', tz ? tz[lang] : timezone].join(' · ');
 
   const age = about.birthYear ? new Date().getFullYear() - parseInt(about.birthYear, 10) : null;
   const basisData = [
@@ -187,14 +185,6 @@ export function ProfileView({
               <select value={lang} onChange={e => onSettings({ language: e.target.value as 'ru' | 'en' })}>
                 <option value="ru">Русский</option>
                 <option value="en">English</option>
-              </select>
-            </label>
-            <label className="setting">
-              <span>{ru ? 'Оформление' : 'Appearance'}</span>
-              <select value={theme} onChange={e => onSettings({ theme: e.target.value as 'light' | 'dark' | 'auto' })}>
-                <option value="light">{ru ? 'Светлое' : 'Light'}</option>
-                <option value="dark">{ru ? 'Тёмное' : 'Dark'}</option>
-                <option value="auto">{ru ? 'Авто (тёмное 22:00–6:00)' : 'Auto (dark 22:00–6:00)'}</option>
               </select>
             </label>
             <label className="setting">

@@ -4,8 +4,8 @@
   "description": "Track your workouts, nutrition, and progress",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d0d0f",
-  "theme_color": "#0d0d0f",
+  "background_color": "#f6f3ee",
+  "theme_color": "#f6f3ee",
   "orientation": "portrait",
   "icons": [
     {

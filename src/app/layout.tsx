@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    // Тёмные часы и батарея на светлом фоне (black-translucent давал белые — их не видно)
+    statusBarStyle: "default",
     title: "Trainx",
   },
 };
@@ -32,7 +33,9 @@ export const viewport: Viewport = {
   userScalable: false,
   // Страница занимает весь экран iPhone (включая чёлку); отступы — через env(safe-area-inset-*)
   viewportFit: "cover",
-  themeColor: "#f5f6f8",
+  // Фон редизайна; тёмной схемы у приложения нет
+  themeColor: "#f6f3ee",
+  colorScheme: "light",
 };
 
 export default function RootLayout({

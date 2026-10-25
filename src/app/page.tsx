@@ -3362,7 +3362,6 @@ export default function FitnessPage() {
   const [view, setView] = useState<'workout' | 'nutrition' | 'analytics' | 'gains' | 'profile' | 'planner' | 'chat' | 'labs'>('workout');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [todayStr, setTodayStr] = useState(''); // Initialize on client to avoid hydration mismatch
-  const [isNightMode, setIsNightMode] = useState(false);
 
   // Load saved view from localStorage on client
   useEffect(() => {
@@ -3889,23 +3888,9 @@ export default function FitnessPage() {
   }, [bodyMeasurements, userSettings.language]);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  // Theme — applied via .night-mode on <body>. 'auto' tracks the clock
-  // (dark 22:00–06:00). 'light'/'dark' force the theme regardless of time.
-  const themePref: 'light' | 'dark' | 'auto' = userSettings.theme ?? 'auto';
-  useEffect(() => {
-    const apply = () => {
-      let dark: boolean;
-      if (themePref === 'dark') dark = true;
-      else if (themePref === 'light') dark = false;
-      else { const hour = new Date().getHours(); dark = hour >= 22 || hour < 6; }
-      setIsNightMode(dark);
-      document.body.classList.toggle('night-mode', dark);
-    };
-    apply();
-    if (themePref !== 'auto') return;
-    const interval = setInterval(apply, 60000);
-    return () => clearInterval(interval);
-  }, [themePref]);
+  // Тёмной («ночной») темы больше нет: приложение всегда в светлом стиле
+  // редизайна. Раньше «авто» включало старую тёмную схему с 22:00 до 6:00 —
+  // в том числе на первые секунды, пока не загрузились настройки.
   // Accordion: only one exercise expanded at a time. Clicking the same one
   // collapses it. Reset when the day or workout changes.
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
@@ -6443,7 +6428,7 @@ export default function FitnessPage() {
           gap: '10px'
         }}>
           <div className="tx-welcome" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      Welcome to <b>Train<span>X</span></b>, {userSettings.name || 'Атлет'}{isNightMode ? ' 🌙' : ''}
+                      Welcome to <b>Train<span>X</span></b>, {userSettings.name || 'Атлет'}
                     </div>
                     {/* Кружок юзера — открывает раздел «Я» */}
                     <button
@@ -7502,7 +7487,6 @@ export default function FitnessPage() {
               email={userSettings.email}
               goalType={userSettings.goalType ?? 'maintain'}
               goal={MACRO_TARGETS}
-              theme={themePref}
               timezone={userSettings.timezone}
               about={aboutMe}
               latestWeight={latestWeight}

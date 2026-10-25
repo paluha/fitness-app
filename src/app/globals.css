@@ -67,42 +67,9 @@
   --shadow-card: 0 1px 2px rgba(26, 23, 18, 0.04), 0 8px 24px rgba(26, 23, 18, 0.05);
 }
 
-/* Night mode - blue-tinted dark theme for easier on eyes at night */
-.night-mode {
-  /* Superpower dark — глубокий ТЁПЛЫЙ чёрный (не сине-чёрный), кремовый текст. */
-  --bg-primary: #0e0c0a;
-  --bg-secondary: #141210;
-  --bg-card: #1a1613;
-  --bg-elevated: #201b17;
-  --bg-input: #221d18;
-
-  /* Оранжевый акцент чуть приглушён для тёмного фона */
-  --yellow: #ff6a44;
-  --yellow-dim: rgba(255, 106, 68, 0.12);
-  --yellow-glow: rgba(255, 106, 68, 0.28);
-  --gold: #ff6a44; --gold-dim: rgba(255, 106, 68, 0.12); --gold-glow: rgba(255, 106, 68, 0.28);
-  --lime: #ff6a44; --lime-dim: rgba(255, 106, 68, 0.12); --lime-glow: rgba(255, 106, 68, 0.28);
-  --accent: #ff6a44; --accent-warm: #ff855f;
-
-  --green: #34c759;
-  --green-dim: rgba(52, 199, 89, 0.12);
-  --green-glow: rgba(52, 199, 89, 0.25);
-
-  /* Тёплый кремовый текст */
-  --text-primary: #f0ebe3;
-  --text-secondary: #a39d93;
-  --text-muted: #6b655c;
-
-  /* Мягкие тёплые границы */
-  --border: rgba(255, 248, 240, 0.06);
-  --border-strong: rgba(255, 248, 240, 0.11);
-
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.35);
-
-  --blue: #4a9eff;
-  --cyan: #2dd4bf;
-  --red: #ff5a5a;
-}
+/* Тёмной темы нет: приложение всегда светлое (редизайн, окт 2026).
+   color-scheme не даёт iOS в тёмном режиме красить поля и выпадашки. */
+:root { color-scheme: light; }
 
 * {
   box-sizing: border-box;
@@ -1828,7 +1795,7 @@ button:disabled {
    переопределяет переменные фона и текста глобально, а макет светлый.
    Фон задаём самой странице, чтобы не просвечивал тёмный корпус. */
 .nutv2 { background: var(--bg); color: var(--ink); min-height: 100svh; }
-.night-mode .nutv2, .night-mode .nutv2-dialog { color-scheme: light; }
+
 /* Родительские контейнеры приложения на этом экране тоже светлые, иначе
    тёмный фон ночной темы просвечивает вокруг карточек. */
 body:has(.nutv2) { background: #f6f3ee !important; }
