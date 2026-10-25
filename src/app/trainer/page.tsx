@@ -103,12 +103,12 @@ export default function TrainerDashboard() {
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+        background: 'var(--bg-primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <Loader2 size={40} color="#ffcc00" style={{ animation: 'spin 1s linear infinite' }} />
+        <Loader2 size={40} color="#ff5c35" style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -116,13 +116,13 @@ export default function TrainerDashboard() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+      background: 'var(--bg-primary)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       {/* Header */}
       <header style={{
         padding: '20px 24px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between'
@@ -132,30 +132,30 @@ export default function TrainerDashboard() {
             width: '40px',
             height: '40px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+            background: 'var(--yellow)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
             <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
-              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#000" />
-              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#000" />
-              <path d="M15 14L22 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
-              <path d="M22 14L15 21" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#1a1712" />
+              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#1a1712" />
+              <path d="M15 14L22 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+              <path d="M22 14L15 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
             </svg>
           </div>
           <div>
             <h1 style={{
               fontSize: '20px',
               fontWeight: 700,
-              color: '#fff',
+              color: 'var(--text-primary)',
               margin: 0
             }}>
               Trainx
             </h1>
             <p style={{
               fontSize: '13px',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'var(--text-muted)',
               margin: 0
             }}>
               Кабинет тренера
@@ -165,11 +165,11 @@ export default function TrainerDashboard() {
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}
           style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
             borderRadius: '10px',
             padding: '10px 16px',
-            color: 'rgba(255,255,255,0.7)',
+            color: 'var(--text-secondary)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -190,10 +190,10 @@ export default function TrainerDashboard() {
         gap: '16px'
       }}>
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '16px',
           padding: '20px',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: '1px solid var(--border)'
         }}>
           <div style={{
             display: 'flex',
@@ -205,21 +205,21 @@ export default function TrainerDashboard() {
               width: '36px',
               height: '36px',
               borderRadius: '10px',
-              background: 'rgba(255, 204, 0, 0.15)',
+              background: 'var(--yellow-dim)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Users size={18} color="#ffcc00" />
+              <Users size={18} color="#ff5c35" />
             </div>
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
               Всего клиентов
             </span>
           </div>
           <p style={{
             fontSize: '28px',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--text-primary)',
             margin: 0
           }}>
             {clients.length}
@@ -227,10 +227,10 @@ export default function TrainerDashboard() {
         </div>
 
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '16px',
           padding: '20px',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: '1px solid var(--border)'
         }}>
           <div style={{
             display: 'flex',
@@ -249,14 +249,14 @@ export default function TrainerDashboard() {
             }}>
               <Activity size={18} color="#22c55e" />
             </div>
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
               Активны сегодня
             </span>
           </div>
           <p style={{
             fontSize: '28px',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--text-primary)',
             margin: 0
           }}>
             {clients.filter(c => {
@@ -268,10 +268,10 @@ export default function TrainerDashboard() {
         </div>
 
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '16px',
           padding: '20px',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: '1px solid var(--border)'
         }}>
           <div style={{
             display: 'flex',
@@ -290,14 +290,14 @@ export default function TrainerDashboard() {
             }}>
               <Dumbbell size={18} color="#8b5cf6" />
             </div>
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
               Программы
             </span>
           </div>
           <p style={{
             fontSize: '28px',
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--text-primary)',
             margin: 0
           }}>
             0
@@ -316,7 +316,7 @@ export default function TrainerDashboard() {
           <h2 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#fff',
+            color: 'var(--text-primary)',
             margin: 0
           }}>
             Мои клиенты
@@ -324,11 +324,11 @@ export default function TrainerDashboard() {
           <button
             onClick={() => setShowAddModal(true)}
             style={{
-              background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+              background: 'var(--yellow)',
               border: 'none',
               borderRadius: '10px',
               padding: '10px 16px',
-              color: '#000',
+              color: '#fff',
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
@@ -349,7 +349,7 @@ export default function TrainerDashboard() {
             left: '14px',
             top: '50%',
             transform: 'translateY(-50%)',
-            color: 'rgba(255,255,255,0.4)'
+            color: 'var(--text-muted)'
           }} />
           <input
             type="text"
@@ -359,10 +359,10 @@ export default function TrainerDashboard() {
             style={{
               width: '100%',
               padding: '14px 14px 14px 44px',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
               borderRadius: '12px',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontSize: '14px',
               outline: 'none',
               boxSizing: 'border-box'
@@ -372,9 +372,9 @@ export default function TrainerDashboard() {
 
         {/* Client List */}
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--border)',
           overflow: 'hidden'
         }}>
           {filteredClients.length === 0 ? (
@@ -382,9 +382,9 @@ export default function TrainerDashboard() {
               padding: '60px 20px',
               textAlign: 'center'
             }}>
-              <Users size={48} style={{ color: 'rgba(255,255,255,0.2)', marginBottom: '16px' }} />
+              <Users size={48} style={{ color: 'var(--text-muted)', marginBottom: '16px' }} />
               <p style={{
-                color: 'rgba(255,255,255,0.5)',
+                color: 'var(--text-muted)',
                 fontSize: '15px',
                 margin: 0
               }}>
@@ -397,7 +397,7 @@ export default function TrainerDashboard() {
                     marginTop: '16px',
                     background: 'none',
                     border: 'none',
-                    color: '#ffcc00',
+                    color: 'var(--yellow)',
                     cursor: 'pointer',
                     fontSize: '14px',
                     fontWeight: 600
@@ -418,12 +418,12 @@ export default function TrainerDashboard() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   borderBottom: index < filteredClients.length - 1
-                    ? '1px solid rgba(255,255,255,0.06)'
+                    ? '1px solid var(--border)'
                     : 'none',
                   cursor: 'pointer',
                   transition: 'background 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -431,11 +431,11 @@ export default function TrainerDashboard() {
                     width: '44px',
                     height: '44px',
                     borderRadius: '12px',
-                    background: 'linear-gradient(135deg, rgba(255,204,0,0.2), rgba(255,165,0,0.2))',
+                    background: 'var(--yellow-dim)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#ffcc00',
+                    color: 'var(--yellow)',
                     fontWeight: 700,
                     fontSize: '16px'
                   }}>
@@ -446,7 +446,7 @@ export default function TrainerDashboard() {
                       <p style={{
                         fontSize: '15px',
                         fontWeight: 600,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                         margin: 0
                       }}>
                         {client.firstName && client.lastName
@@ -457,8 +457,8 @@ export default function TrainerDashboard() {
                         <span style={{
                           fontSize: '11px',
                           fontWeight: 600,
-                          color: '#ffcc00',
-                          background: 'rgba(255,204,0,0.15)',
+                          color: 'var(--yellow)',
+                          background: 'var(--yellow-dim)',
                           padding: '2px 6px',
                           borderRadius: '4px'
                         }}>
@@ -468,14 +468,14 @@ export default function TrainerDashboard() {
                     </div>
                     <p style={{
                       fontSize: '13px',
-                      color: 'rgba(255,255,255,0.5)',
+                      color: 'var(--text-muted)',
                       margin: '2px 0 0'
                     }}>
                       {client.email}
                     </p>
                   </div>
                 </div>
-                <ChevronRight size={20} color="rgba(255,255,255,0.3)" />
+                <ChevronRight size={20} color="#9b968d" />
               </div>
             ))
           )}
@@ -487,7 +487,7 @@ export default function TrainerDashboard() {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.8)',
+          background: 'rgba(33, 26, 20, 0.45)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
@@ -498,13 +498,13 @@ export default function TrainerDashboard() {
           <div style={{
             width: '100%',
             maxWidth: '420px',
-            background: '#1a1a2e',
+            background: 'var(--bg-card)',
             borderRadius: '24px',
-            border: '1px solid rgba(255,255,255,0.1)'
+            border: '1px solid var(--border)'
           }}>
             <div style={{
               padding: '20px 24px',
-              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              borderBottom: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
@@ -512,7 +512,7 @@ export default function TrainerDashboard() {
               <h3 style={{
                 fontSize: '18px',
                 fontWeight: 600,
-                color: '#fff',
+                color: 'var(--text-primary)',
                 margin: 0
               }}>
                 Новый клиент
@@ -526,7 +526,7 @@ export default function TrainerDashboard() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'rgba(255,255,255,0.5)',
+                  color: 'var(--text-muted)',
                   cursor: 'pointer',
                   padding: '4px'
                 }}
@@ -557,7 +557,7 @@ export default function TrainerDashboard() {
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: 'rgba(255,255,255,0.7)',
+                    color: 'var(--text-secondary)',
                     marginBottom: '8px'
                   }}>
                     Имя
@@ -571,10 +571,10 @@ export default function TrainerDashboard() {
                     style={{
                       width: '100%',
                       padding: '14px 16px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
                       borderRadius: '10px',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '14px',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -586,7 +586,7 @@ export default function TrainerDashboard() {
                     display: 'block',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: 'rgba(255,255,255,0.7)',
+                    color: 'var(--text-secondary)',
                     marginBottom: '8px'
                   }}>
                     Фамилия
@@ -600,10 +600,10 @@ export default function TrainerDashboard() {
                     style={{
                       width: '100%',
                       padding: '14px 16px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
                       borderRadius: '10px',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '14px',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -617,7 +617,7 @@ export default function TrainerDashboard() {
                   display: 'block',
                   fontSize: '13px',
                   fontWeight: 600,
-                  color: 'rgba(255,255,255,0.7)',
+                  color: 'var(--text-secondary)',
                   marginBottom: '8px'
                 }}>
                   Email
@@ -631,10 +631,10 @@ export default function TrainerDashboard() {
                   style={{
                     width: '100%',
                     padding: '14px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
                     borderRadius: '10px',
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     fontSize: '14px',
                     outline: 'none',
                     boxSizing: 'border-box'
@@ -647,7 +647,7 @@ export default function TrainerDashboard() {
                   display: 'block',
                   fontSize: '13px',
                   fontWeight: 600,
-                  color: 'rgba(255,255,255,0.7)',
+                  color: 'var(--text-secondary)',
                   marginBottom: '8px'
                 }}>
                   Пароль
@@ -663,10 +663,10 @@ export default function TrainerDashboard() {
                     style={{
                       width: '100%',
                       padding: '14px 44px 14px 16px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
                       borderRadius: '10px',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontSize: '14px',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -682,7 +682,7 @@ export default function TrainerDashboard() {
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
-                      color: 'rgba(255,255,255,0.4)',
+                      color: 'var(--text-muted)',
                       cursor: 'pointer',
                       padding: '4px'
                     }}
@@ -699,11 +699,11 @@ export default function TrainerDashboard() {
                   width: '100%',
                   padding: '14px',
                   background: isSubmitting
-                    ? 'rgba(255, 204, 0, 0.3)'
-                    : 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+                    ? 'var(--yellow-dim)'
+                    : 'var(--yellow)',
                   border: 'none',
                   borderRadius: '10px',
-                  color: '#000',
+                  color: '#fff',
                   fontWeight: 700,
                   fontSize: '15px',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
@@ -733,7 +733,7 @@ export default function TrainerDashboard() {
           to { transform: rotate(360deg); }
         }
         input::placeholder {
-          color: rgba(255,255,255,0.3);
+          color: #9b968d;
         }
       `}</style>
     </div>

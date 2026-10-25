@@ -95,11 +95,11 @@ interface NutritionRecommendation {
   emoji: string;
   title: string;
   description: string;
-  color: 'yellow' | 'green' | 'blue' | 'red' | 'purple';
+  color: 'var(--yellow)' | 'green' | 'blue' | 'red' | 'purple';
 }
 
 const RECOMMENDATION_COLORS = [
-  { value: 'yellow', label: '🌅 Желтый', bg: 'rgba(255,204,0,0.2)' },
+  { value: 'var(--yellow)', label: '🌅 Желтый', bg: 'var(--yellow-dim)' },
   { value: 'green', label: '💪 Зеленый', bg: 'rgba(34,197,94,0.2)' },
   { value: 'blue', label: '🏋️ Синий', bg: 'rgba(59,130,246,0.2)' },
   { value: 'red', label: '🌙 Красный', bg: 'rgba(239,68,68,0.2)' },
@@ -107,7 +107,7 @@ const RECOMMENDATION_COLORS = [
 ];
 
 const COLOR_BG_MAP: Record<string, string> = {
-  yellow: 'rgba(255,204,0,0.2)',
+  yellow: 'var(--yellow-dim)',
   green: 'rgba(34,197,94,0.2)',
   blue: 'rgba(59,130,246,0.2)',
   red: 'rgba(239,68,68,0.2)',
@@ -139,7 +139,7 @@ interface ClientData {
 type TabType = 'workouts' | 'nutrition' | 'measurements' | 'progress';
 
 // Sparkline component for progress visualization
-function Sparkline({ data, width = 80, height = 32, color = '#ffcc00' }: {
+function Sparkline({ data, width = 80, height = 32, color = 'var(--yellow)' }: {
   data: number[];
   width?: number;
   height?: number;
@@ -193,14 +193,14 @@ function WeightChart({ data, labels }: {
   if (data.length === 1) {
     return (
       <div style={{ textAlign: 'center', padding: '20px 0' }}>
-        <p style={{ fontSize: '32px', fontWeight: 700, color: '#fff', margin: 0 }}>
+        <p style={{ fontSize: '32px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
           {data[0].toFixed(1)}
-          <span style={{ fontSize: '14px', fontWeight: 400, color: 'rgba(255,255,255,0.4)', marginLeft: '4px' }}>кг</span>
+          <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '4px' }}>кг</span>
         </p>
-        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', margin: '8px 0 0' }}>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '8px 0 0' }}>
           {labels[0]}
         </p>
-        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', margin: '12px 0 0' }}>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '12px 0 0' }}>
           Добавьте ещё замеры для отображения графика
         </p>
       </div>
@@ -249,13 +249,13 @@ function WeightChart({ data, labels }: {
               y1={line.y}
               x2={width - padding.right}
               y2={line.y}
-              stroke="rgba(255,255,255,0.1)"
+              stroke="rgba(26,23,18,0.1)"
               strokeDasharray="4,4"
             />
             <text
               x={padding.left - 8}
               y={line.y + 4}
-              fill="rgba(255,255,255,0.4)"
+              fill="#9b968d"
               fontSize="10"
               textAnchor="end"
             >
@@ -295,7 +295,7 @@ function WeightChart({ data, labels }: {
               cx={p.x}
               cy={p.y}
               r="4"
-              fill="#1a1a1a"
+              fill="#fff"
               stroke={isDecreasing ? '#22c55e' : '#f59e0b'}
               strokeWidth="2"
             />
@@ -304,7 +304,7 @@ function WeightChart({ data, labels }: {
               <text
                 x={p.x}
                 y={p.y - 10}
-                fill="#fff"
+                fill="#1a1712"
                 fontSize="11"
                 fontWeight="600"
                 textAnchor="middle"
@@ -321,7 +321,7 @@ function WeightChart({ data, labels }: {
             key={i}
             x={padding.left + (i / (labels.length - 1)) * chartWidth}
             y={height - 8}
-            fill="rgba(255,255,255,0.4)"
+            fill="#9b968d"
             fontSize="9"
             textAnchor="middle"
           >
@@ -332,7 +332,7 @@ function WeightChart({ data, labels }: {
             <text
               x={padding.left}
               y={height - 8}
-              fill="rgba(255,255,255,0.4)"
+              fill="#9b968d"
               fontSize="9"
               textAnchor="start"
             >
@@ -341,7 +341,7 @@ function WeightChart({ data, labels }: {
             <text
               x={width - padding.right}
               y={height - 8}
-              fill="rgba(255,255,255,0.4)"
+              fill="#9b968d"
               fontSize="9"
               textAnchor="end"
             >
@@ -361,7 +361,7 @@ function WeightChart({ data, labels }: {
       }}>
         <span style={{
           fontSize: '12px',
-          color: 'rgba(255,255,255,0.5)'
+          color: 'var(--text-muted)'
         }}>
           Изменение:
         </span>
@@ -403,7 +403,7 @@ function GrowthRing({ value, goal, label }: { value: number; goal: number; label
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0" stopColor="#22c55e" />
-            <stop offset="0.6" stopColor="#facc15" />
+            <stop offset="0.6" stopColor="#ff5c35" />
             <stop offset="1" stopColor="#38bdf8" />
           </linearGradient>
           <filter id="ringGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -415,7 +415,7 @@ function GrowthRing({ value, goal, label }: { value: number; goal: number; label
           </filter>
         </defs>
 
-        <circle cx="37" cy="37" r={r} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="8" />
+        <circle cx="37" cy="37" r={r} fill="none" stroke="rgba(26,23,18,0.1)" strokeWidth="8" />
         <circle
           cx="37"
           cy="37"
@@ -433,13 +433,13 @@ function GrowthRing({ value, goal, label }: { value: number; goal: number; label
           y="41"
           textAnchor="middle"
           fontSize="12"
-          fill="rgba(255,255,255,0.88)"
+          fill="#1a1712"
           style={{ fontFamily: 'ui-sans-serif, system-ui' }}
         >
           {Math.round(pct * 100)}%
         </text>
       </svg>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: 'ui-sans-serif, system-ui' }}>
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'ui-sans-serif, system-ui' }}>
         {label}
       </div>
     </div>
@@ -496,9 +496,9 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
   return (
     <div style={{
       borderRadius: 18,
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #111 50%, #0a0a0a 100%)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      boxShadow: '0 18px 60px rgba(0,0,0,0.6)',
+      background: 'var(--bg-primary)',
+      border: '1px solid var(--border)',
+      boxShadow: '0 18px 60px rgba(33,26,20,0.18)',
       overflow: 'hidden',
       marginBottom: '16px'
     }}>
@@ -508,18 +508,18 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: '1px solid var(--border)',
         background: 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, transparent 50%, rgba(34,197,94,0.1) 100%)'
       }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'white' }}>🏋️ Прогресс тела</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>🏋️ Прогресс тела</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
             Последний замер: {formatDate(sortedMeasurements[sortedMeasurements.length - 1].date)}
           </div>
         </div>
         {curWeight > 0 && (
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#facc15' }}>{format1(curWeight)} кг</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--yellow)' }}>{format1(curWeight)} кг</div>
             {weightDelta !== 0 && (
               <div style={{ fontSize: 12, color: weightDelta > 0 ? '#22c55e' : '#f87171' }}>
                 {weightDelta > 0 ? '+' : ''}{format1(weightDelta)} кг
@@ -533,7 +533,7 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
       <div style={{
         position: 'relative',
         minHeight: 420,
-        background: 'linear-gradient(180deg, #0a0a0a 0%, #0d0d0d 50%, #0a0a0a 100%)',
+        background: 'var(--bg-primary)',
         padding: '20px 0'
       }}>
         {/* Body image in center */}
@@ -566,12 +566,12 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
           <defs>
             {/* Static gradients */}
             <linearGradient id="rayGradientLeft" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#facc15" stopOpacity="0.8"/>
-              <stop offset="100%" stopColor="#facc15" stopOpacity="0.1"/>
+              <stop offset="0%" stopColor="#ff5c35" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#ff5c35" stopOpacity="0.1"/>
             </linearGradient>
             <linearGradient id="rayGradientRight" x1="100%" y1="0%" x2="0%" y2="0%">
-              <stop offset="0%" stopColor="#facc15" stopOpacity="0.8"/>
-              <stop offset="100%" stopColor="#facc15" stopOpacity="0.1"/>
+              <stop offset="0%" stopColor="#ff5c35" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#ff5c35" stopOpacity="0.1"/>
             </linearGradient>
             {/* Animated progress gradients - green pulse */}
             <linearGradient id="rayProgressLeft" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -645,7 +645,7 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               width: 70,
               height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.8)',
+              background: 'rgba(33, 26, 20, 0.45)',
               border: '2px solid #22c55e',
               boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)',
               display: 'flex',
@@ -654,18 +654,18 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>Руки</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>
+              <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>Руки</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--yellow)' }}>
                 {format1(Math.max(curBicepsL, curBicepsR))}
               </div>
-              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
+              <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>см</div>
               {(bicepsLDelta !== 0 || bicepsRDelta !== 0) && (
                 <div style={{
                   position: 'absolute',
                   top: -6,
                   right: -6,
                   background: bicepsLDelta > 0 ? '#22c55e' : '#ef4444',
-                  color: 'white',
+                  color: '#fff',
                   fontSize: 9,
                   fontWeight: 600,
                   padding: '1px 5px',
@@ -685,7 +685,7 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               width: 70,
               height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.8)',
+              background: 'rgba(33, 26, 20, 0.45)',
               border: '2px solid #22c55e',
               boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)',
               display: 'flex',
@@ -694,16 +694,16 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>Талия</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{curWaist}</div>
-              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
+              <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>Талия</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--yellow)' }}>{curWaist}</div>
+              <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>см</div>
               {waistDelta !== 0 && (
                 <div style={{
                   position: 'absolute',
                   top: -6,
                   left: -6,
                   background: waistDelta < 0 ? '#22c55e' : '#ef4444',
-                  color: 'white',
+                  color: '#fff',
                   fontSize: 9,
                   fontWeight: 600,
                   padding: '1px 5px',
@@ -723,25 +723,25 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               width: 70,
               height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.8)',
-              border: '2px solid #facc15',
-              boxShadow: '0 0 15px rgba(250, 204, 21, 0.4)',
+              background: 'rgba(33, 26, 20, 0.45)',
+              border: '2px solid var(--yellow)',
+              boxShadow: '0 0 15px var(--yellow-glow)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>Грудь</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{curChest}</div>
-              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
+              <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>Грудь</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--yellow)' }}>{curChest}</div>
+              <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>см</div>
               {chestDelta !== 0 && (
                 <div style={{
                   position: 'absolute',
                   top: -6,
                   left: -6,
                   background: chestDelta > 0 ? '#22c55e' : '#ef4444',
-                  color: 'white',
+                  color: '#fff',
                   fontSize: 9,
                   fontWeight: 600,
                   padding: '1px 5px',
@@ -761,7 +761,7 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               width: 70,
               height: 70,
               borderRadius: '50%',
-              background: 'rgba(0,0,0,0.8)',
+              background: 'rgba(33, 26, 20, 0.45)',
               border: '2px solid #22c55e',
               boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)',
               display: 'flex',
@@ -770,16 +770,16 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>{curHips ? 'Бёдра' : 'Ноги'}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{curHips || curThighs}</div>
-              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>см</div>
+              <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>{curHips ? 'Бёдра' : 'Ноги'}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--yellow)' }}>{curHips || curThighs}</div>
+              <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>см</div>
               {(hipsDelta !== 0 || thighsDelta !== 0) && (
                 <div style={{
                   position: 'absolute',
                   top: -6,
                   right: -6,
                   background: (hipsDelta > 0 || thighsDelta > 0) ? '#22c55e' : '#ef4444',
-                  color: 'white',
+                  color: '#fff',
                   fontSize: 9,
                   fontWeight: 600,
                   padding: '1px 5px',
@@ -800,11 +800,11 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
             display: 'flex',
             justifyContent: 'space-between',
             fontSize: 11,
-            color: 'rgba(255,255,255,0.5)',
+            color: 'var(--text-muted)',
             marginBottom: 8
           }}>
             <span>📅 {formatDate(sortedMeasurements[0].date)}</span>
-            <span style={{ color: '#facc15' }}>⬤ Замер {selectedIdx + 1} из {sortedMeasurements.length}</span>
+            <span style={{ color: 'var(--yellow)' }}>⬤ Замер {selectedIdx + 1} из {sortedMeasurements.length}</span>
             <span>{formatDate(sortedMeasurements[sortedMeasurements.length - 1].date)} 📅</span>
           </div>
           <input
@@ -817,7 +817,7 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               width: '100%',
               height: 8,
               borderRadius: 4,
-              background: 'linear-gradient(90deg, #38bdf8, #22c55e, #facc15)',
+              background: 'linear-gradient(90deg, #38bdf8, #22c55e, #ff5c35)',
               cursor: 'pointer',
               WebkitAppearance: 'none',
               appearance: 'none'
@@ -847,14 +847,14 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
               style={{
                 padding: '12px',
                 borderRadius: 12,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
                 textAlign: 'center'
               }}
             >
               <div style={{ fontSize: 18, marginBottom: 4 }}>{item.icon}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{item.name}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>{item.v} см</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{item.name}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{item.v} см</div>
               {delta !== 0 && (
                 <div style={{ fontSize: 11, color: isGood ? '#22c55e' : '#f87171', marginTop: 2 }}>
                   {delta >= 0 ? '+' : ''}{format1(delta)}
@@ -869,12 +869,12 @@ function BodyProgressVisualization({ allMeasurements }: { allMeasurements: BodyM
       {sortedMeasurements.length > 1 && (
         <div style={{
           borderRadius: 12,
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
           padding: 12,
           margin: '0 16px 16px'
         }}>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 12, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, textAlign: 'center' }}>
             🎯 Прогресс к целям
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
@@ -944,7 +944,7 @@ export default function ClientDetailPage() {
         emoji: '🍽️',
         title: '',
         description: '',
-        color: 'yellow'
+        color: 'var(--yellow)'
       }
     ]);
   };
@@ -1233,12 +1233,12 @@ export default function ClientDetailPage() {
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+        background: 'var(--bg-primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <Loader2 size={40} color="#ffcc00" style={{ animation: 'spin 1s linear infinite' }} />
+        <Loader2 size={40} color="#ff5c35" style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -1247,7 +1247,7 @@ export default function ClientDetailPage() {
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+        background: 'var(--bg-primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1258,11 +1258,11 @@ export default function ClientDetailPage() {
         <button
           onClick={() => router.push('/trainer')}
           style={{
-            background: 'rgba(255,255,255,0.1)',
+            background: 'var(--bg-elevated)',
             border: 'none',
             borderRadius: '8px',
             padding: '10px 20px',
-            color: '#fff',
+            color: 'var(--text-primary)',
             cursor: 'pointer'
           }}
         >
@@ -1280,13 +1280,13 @@ export default function ClientDetailPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+      background: 'var(--bg-primary)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       {/* Header */}
       <header style={{
         padding: '20px 24px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         gap: '16px'
@@ -1294,11 +1294,11 @@ export default function ClientDetailPage() {
         <button
           onClick={() => router.push('/trainer')}
           style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
             borderRadius: '10px',
             padding: '10px',
-            color: 'rgba(255,255,255,0.7)',
+            color: 'var(--text-secondary)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center'
@@ -1311,7 +1311,7 @@ export default function ClientDetailPage() {
             <h1 style={{
               fontSize: '20px',
               fontWeight: 700,
-              color: '#fff',
+              color: 'var(--text-primary)',
               margin: 0
             }}>
               {clientName}
@@ -1320,8 +1320,8 @@ export default function ClientDetailPage() {
               <span style={{
                 fontSize: '12px',
                 fontWeight: 600,
-                color: '#ffcc00',
-                background: 'rgba(255,204,0,0.15)',
+                color: 'var(--yellow)',
+                background: 'var(--yellow-dim)',
                 padding: '3px 8px',
                 borderRadius: '6px'
               }}>
@@ -1331,7 +1331,7 @@ export default function ClientDetailPage() {
           </div>
           <p style={{
             fontSize: '13px',
-            color: 'rgba(255,255,255,0.5)',
+            color: 'var(--text-muted)',
             margin: '2px 0 0'
           }}>
             {client?.email}
@@ -1347,19 +1347,19 @@ export default function ClientDetailPage() {
         gap: '12px'
       }}>
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '14px',
           padding: '16px',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: '1px solid var(--border)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Dumbbell size={16} color="#ffcc00" />
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+            <Dumbbell size={16} color="#ff5c35" />
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               За неделю
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               {stats?.workoutsThisWeek || 0}
             </p>
             {stats && stats.workoutsLastWeek > 0 && stats.workoutsThisWeek !== stats.workoutsLastWeek && (
@@ -1379,25 +1379,25 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
             тренировок
           </p>
         </div>
 
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '14px',
           padding: '16px',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: '1px solid var(--border)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <Scale size={16} color="#22c55e" />
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               Вес
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               {stats?.latestWeight ? `${stats.latestWeight}` : '—'}
             </p>
             {stats?.latestWeight && stats?.previousWeight && stats.latestWeight !== stats.previousWeight && (
@@ -1417,25 +1417,25 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
             кг
           </p>
         </div>
 
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
+          background: 'var(--bg-card)',
           borderRadius: '14px',
           padding: '16px',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: '1px solid var(--border)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <Footprints size={16} color="#3b82f6" />
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               За неделю
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <p style={{ fontSize: '24px', fontWeight: 700, color: '#fff', margin: 0 }}>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               {stats?.weeklySteps ? stats.weeklySteps.toLocaleString() : '—'}
             </p>
             {stats && stats.lastWeekSteps > 0 && stats.weeklySteps !== stats.lastWeekSteps && (
@@ -1455,7 +1455,7 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
             шагов
           </p>
         </div>
@@ -1481,11 +1481,11 @@ export default function ClientDetailPage() {
               flex: 1,
               padding: '12px 8px',
               background: activeTab === tab.id
-                ? 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)'
-                : 'rgba(255,255,255,0.05)',
-              border: activeTab === tab.id ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                ? 'var(--yellow)'
+                : 'var(--bg-elevated)',
+              border: activeTab === tab.id ? 'none' : '1px solid var(--border)',
               borderRadius: '10px',
-              color: activeTab === tab.id ? '#000' : 'rgba(255,255,255,0.7)',
+              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1508,10 +1508,10 @@ export default function ClientDetailPage() {
           <div>
             {/* Full Month Calendar */}
             <div style={{
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-card)',
               borderRadius: '16px',
               padding: '16px',
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid var(--border)',
               marginBottom: '16px'
             }}>
               {/* Calendar Header with Navigation */}
@@ -1528,12 +1528,12 @@ export default function ClientDetailPage() {
                     return newDate;
                   })}
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'var(--bg-elevated)',
                     border: 'none',
                     borderRadius: '8px',
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    color: 'white',
+                    color: 'var(--text-primary)',
                     fontSize: '16px'
                   }}
                 >
@@ -1542,7 +1542,7 @@ export default function ClientDetailPage() {
                 <h3 style={{
                   fontSize: '16px',
                   fontWeight: 600,
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   margin: 0,
                   textTransform: 'capitalize'
                 }}>
@@ -1555,12 +1555,12 @@ export default function ClientDetailPage() {
                     return newDate;
                   })}
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'var(--bg-elevated)',
                     border: 'none',
                     borderRadius: '8px',
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    color: 'white',
+                    color: 'var(--text-primary)',
                     fontSize: '16px'
                   }}
                 >
@@ -1582,7 +1582,7 @@ export default function ClientDetailPage() {
                       textAlign: 'center',
                       fontSize: '11px',
                       fontWeight: 600,
-                      color: 'rgba(255,255,255,0.4)',
+                      color: 'var(--text-muted)',
                       padding: '4px'
                     }}
                   >
@@ -1626,7 +1626,7 @@ export default function ClientDetailPage() {
                     <p style={{
                       fontSize: '13px',
                       fontWeight: day.isToday ? 700 : 500,
-                      color: day.hasWorkout ? '#22c55e' : day.isToday ? '#3b82f6' : '#fff',
+                      color: day.hasWorkout ? '#22c55e' : day.isToday ? '#3b82f6' : 'var(--text-primary)',
                       margin: 0
                     }}>
                       {day.dayNum}
@@ -1663,35 +1663,35 @@ export default function ClientDetailPage() {
                 gap: '16px',
                 marginTop: '12px',
                 paddingTop: '12px',
-                borderTop: '1px solid rgba(255,255,255,0.06)',
+                borderTop: '1px solid var(--border)',
                 flexWrap: 'wrap'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: 'rgba(34, 197, 94, 0.3)' }} />
-                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Тренировка</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Тренировка</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: 'rgba(147, 112, 219, 0.3)' }} />
-                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Отдых</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Отдых</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.3)', border: '1px solid rgba(59, 130, 246, 0.5)' }} />
-                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Сегодня</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Сегодня</span>
                 </div>
               </div>
             </div>
 
             {/* Workout Details */}
             <div style={{
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-card)',
               borderRadius: '16px',
               padding: '16px',
-              border: '1px solid rgba(255,255,255,0.08)'
+              border: '1px solid var(--border)'
             }}>
               <h3 style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: 'rgba(255,255,255,0.7)',
+                color: 'var(--text-secondary)',
                 margin: '0 0 12px'
               }}>
                 История тренировок
@@ -1710,7 +1710,7 @@ export default function ClientDetailPage() {
                         onClick={() => setExpandedWorkoutDate(isExpanded ? null : date)}
                         style={{
                           padding: '12px 0',
-                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          borderBottom: '1px solid var(--border)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
@@ -1719,20 +1719,20 @@ export default function ClientDetailPage() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {snapshot && (
-                            isExpanded ? <ChevronUp size={14} color="rgba(255,255,255,0.4)" /> : <ChevronDown size={14} color="rgba(255,255,255,0.4)" />
+                            isExpanded ? <ChevronUp size={14} color="#9b968d" /> : <ChevronDown size={14} color="#9b968d" />
                           )}
                           <div>
                             <p style={{
                               fontSize: '14px',
                               fontWeight: 600,
-                              color: '#fff',
+                              color: 'var(--text-primary)',
                               margin: 0
                             }}>
                               {snapshot?.workoutName || log.workoutCompleted?.toUpperCase()}
                             </p>
                             <p style={{
                               fontSize: '12px',
-                              color: 'rgba(255,255,255,0.5)',
+                              color: 'var(--text-muted)',
                               margin: '2px 0 0'
                             }}>
                               {formatDate(date)}
@@ -1744,7 +1744,7 @@ export default function ClientDetailPage() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px',
-                            color: '#ffcc00'
+                            color: 'var(--yellow)'
                           }}>
                             {log.workoutRating === 1 && '😫'}
                             {log.workoutRating === 2 && '😐'}
@@ -1760,7 +1760,7 @@ export default function ClientDetailPage() {
                         <div style={{
                           padding: '12px',
                           marginBottom: '8px',
-                          background: 'rgba(255,255,255,0.02)',
+                          background: 'var(--bg-card)',
                           borderRadius: '8px',
                           borderLeft: '3px solid rgba(255,204,0,0.5)'
                         }}>
@@ -1772,27 +1772,27 @@ export default function ClientDetailPage() {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 padding: '6px 0',
-                                borderBottom: idx < snapshot.exercises.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
+                                borderBottom: idx < snapshot.exercises.length - 1 ? '1px solid var(--border)' : 'none'
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {ex.completed ? (
                                   <CheckCircle2 size={14} color="#22c55e" />
                                 ) : (
-                                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.3)' }} />
+                                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1px solid var(--border-strong)' }} />
                                 )}
-                                <span style={{ fontSize: '13px', color: ex.completed ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                                <span style={{ fontSize: '13px', color: ex.completed ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                                   {ex.name}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
                                 {ex.actualSets && (
-                                  <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>
                                     {ex.actualSets}
                                   </span>
                                 )}
                                 {ex.newWeight && (
-                                  <span style={{ color: '#ffcc00', fontWeight: 600 }}>
+                                  <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>
                                     {ex.newWeight} кг
                                   </span>
                                 )}
@@ -1805,7 +1805,7 @@ export default function ClientDetailPage() {
                   );
                 })}
               {Object.values(clientData?.fitnessData.dayLogs || {}).filter(l => l.workoutCompleted).length === 0 && (
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
                   Нет данных о тренировках
                 </p>
               )}
@@ -1817,15 +1817,15 @@ export default function ClientDetailPage() {
         {activeTab === 'nutrition' && (
           <div>
             <div style={{
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-card)',
               borderRadius: '16px',
               padding: '16px',
-              border: '1px solid rgba(255,255,255,0.08)'
+              border: '1px solid var(--border)'
             }}>
               <h3 style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: 'rgba(255,255,255,0.7)',
+                color: 'var(--text-secondary)',
                 margin: '0 0 16px'
               }}>
                 Питание за неделю
@@ -1841,12 +1841,12 @@ export default function ClientDetailPage() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         padding: '8px 0',
-                        borderBottom: idx < nutritionStats.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
+                        borderBottom: idx < nutritionStats.length - 1 ? '1px solid var(--border)' : 'none'
                       }}
                     >
                       <span style={{
                         fontSize: '13px',
-                        color: 'rgba(255,255,255,0.5)',
+                        color: 'var(--text-muted)',
                         textTransform: 'capitalize',
                         minWidth: '50px'
                       }}>
@@ -1871,7 +1871,7 @@ export default function ClientDetailPage() {
                           </span>
                         </div>
                       ) : (
-                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>—</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>
                       )}
                     </div>
                   );
@@ -1882,13 +1882,13 @@ export default function ClientDetailPage() {
               <div style={{
                 marginTop: '12px',
                 padding: '10px 12px',
-                background: 'rgba(255,204,0,0.08)',
+                background: 'var(--yellow-dim)',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
-                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Ср. за неделю:
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13px' }}>
@@ -1914,10 +1914,10 @@ export default function ClientDetailPage() {
             {/* Nutrition Recommendations Section */}
             <div style={{
               marginTop: '16px',
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-card)',
               borderRadius: '16px',
               padding: '16px',
-              border: '1px solid rgba(255,255,255,0.08)'
+              border: '1px solid var(--border)'
             }}>
               <div style={{
                 display: 'flex',
@@ -1930,7 +1930,7 @@ export default function ClientDetailPage() {
                   <h3 style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: 'rgba(255,255,255,0.7)',
+                    color: 'var(--text-secondary)',
                     margin: 0
                   }}>
                     Рекомендации по питанию
@@ -1939,11 +1939,11 @@ export default function ClientDetailPage() {
                 <button
                   onClick={openRecommendationsEditor}
                   style={{
-                    background: 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+                    background: 'var(--yellow)',
                     border: 'none',
                     borderRadius: '8px',
                     padding: '8px 12px',
-                    color: '#000',
+                    color: '#fff',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -1966,7 +1966,7 @@ export default function ClientDetailPage() {
                         display: 'flex',
                         gap: '12px',
                         padding: '12px',
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'var(--bg-card)',
                         borderRadius: '10px'
                       }}
                     >
@@ -1974,7 +1974,7 @@ export default function ClientDetailPage() {
                         width: '36px',
                         height: '36px',
                         borderRadius: '8px',
-                        background: COLOR_BG_MAP[rec.color] || 'rgba(255,204,0,0.2)',
+                        background: COLOR_BG_MAP[rec.color] || 'var(--yellow-dim)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1983,10 +1983,10 @@ export default function ClientDetailPage() {
                         <span style={{ fontSize: '16px' }}>{rec.emoji}</span>
                       </div>
                       <div>
-                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#fff', margin: '0 0 2px' }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px' }}>
                           {rec.title}
                         </p>
-                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
                           {rec.description}
                         </p>
                       </div>
@@ -1995,7 +1995,7 @@ export default function ClientDetailPage() {
                 </div>
               ) : (
                 <p style={{
-                  color: 'rgba(255,255,255,0.4)',
+                  color: 'var(--text-muted)',
                   fontSize: '13px',
                   textAlign: 'center',
                   padding: '20px 0'
@@ -2030,7 +2030,7 @@ export default function ClientDetailPage() {
                 color: string;
                 decreaseIsGood: boolean;
               }> = [
-                { key: 'weight', label: 'Вес', unit: 'кг', color: '#ffcc00', decreaseIsGood: true },
+                { key: 'weight', label: 'Вес', unit: 'кг', color: 'var(--yellow)', decreaseIsGood: true },
                 { key: 'waist', label: 'Талия', unit: 'см', color: '#3b82f6', decreaseIsGood: true },
                 { key: 'chest', label: 'Грудь', unit: 'см', color: '#22c55e', decreaseIsGood: false },
                 { key: 'bicepsLeft', label: 'Бицепс Л', unit: 'см', color: '#8b5cf6', decreaseIsGood: false },
@@ -2070,16 +2070,16 @@ export default function ClientDetailPage() {
 
               return (
                 <div style={{
-                  background: 'rgba(255,255,255,0.03)',
+                  background: 'var(--bg-card)',
                   borderRadius: '16px',
                   padding: '16px',
                   marginBottom: '16px',
-                  border: '1px solid rgba(255,255,255,0.08)'
+                  border: '1px solid var(--border)'
                 }}>
                   <h3 style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: 'rgba(255,255,255,0.7)',
+                    color: 'var(--text-secondary)',
                     margin: '0 0 16px'
                   }}>
                     Динамика замеров
@@ -2097,10 +2097,10 @@ export default function ClientDetailPage() {
                         <div
                           key={data.key}
                           style={{
-                            background: 'rgba(255,255,255,0.03)',
+                            background: 'var(--bg-card)',
                             borderRadius: '12px',
                             padding: '12px',
-                            border: '1px solid rgba(255,255,255,0.06)'
+                            border: '1px solid var(--border)'
                           }}
                         >
                           <div style={{
@@ -2111,7 +2111,7 @@ export default function ClientDetailPage() {
                           }}>
                             <span style={{
                               fontSize: '11px',
-                              color: 'rgba(255,255,255,0.5)',
+                              color: 'var(--text-muted)',
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px'
                             }}>
@@ -2150,7 +2150,7 @@ export default function ClientDetailPage() {
                                 <span style={{
                                   fontSize: '11px',
                                   fontWeight: 400,
-                                  color: 'rgba(255,255,255,0.4)',
+                                  color: 'var(--text-muted)',
                                   marginLeft: '2px'
                                 }}>
                                   {data.unit}
@@ -2159,7 +2159,7 @@ export default function ClientDetailPage() {
                               {data.hasMultiple && (
                                 <p style={{
                                   fontSize: '10px',
-                                  color: 'rgba(255,255,255,0.35)',
+                                  color: 'var(--text-muted)',
                                   margin: '4px 0 0'
                                 }}>
                                   было: {data.firstValue}
@@ -2185,15 +2185,15 @@ export default function ClientDetailPage() {
             })()}
 
             <div style={{
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-card)',
               borderRadius: '16px',
               padding: '16px',
-              border: '1px solid rgba(255,255,255,0.08)'
+              border: '1px solid var(--border)'
             }}>
               <h3 style={{
                 fontSize: '14px',
                 fontWeight: 600,
-                color: 'rgba(255,255,255,0.7)',
+                color: 'var(--text-secondary)',
                 margin: '0 0 16px'
               }}>
                 История замеров
@@ -2206,14 +2206,14 @@ export default function ClientDetailPage() {
                     style={{
                       padding: '14px',
                       marginBottom: '10px',
-                      background: 'rgba(255,255,255,0.03)',
+                      background: 'var(--bg-card)',
                       borderRadius: '12px',
-                      border: '1px solid rgba(255,255,255,0.06)'
+                      border: '1px solid var(--border)'
                     }}
                   >
                     <p style={{
                       fontSize: '13px',
-                      color: 'rgba(255,255,255,0.5)',
+                      color: 'var(--text-muted)',
                       margin: '0 0 10px'
                     }}>
                       {formatDate(measurement.date)}
@@ -2225,10 +2225,10 @@ export default function ClientDetailPage() {
                     }}>
                       {measurement.weight && (
                         <div>
-                          <p style={{ fontSize: '18px', fontWeight: 700, color: '#ffcc00', margin: 0 }}>
+                          <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--yellow)', margin: 0 }}>
                             {measurement.weight}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Вес, кг</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Вес, кг</p>
                         </div>
                       )}
                       {measurement.waist && (
@@ -2236,7 +2236,7 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6', margin: 0 }}>
                             {measurement.waist}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Талия, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Талия, см</p>
                         </div>
                       )}
                       {measurement.chest && (
@@ -2244,7 +2244,7 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e', margin: 0 }}>
                             {measurement.chest}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Грудь, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Грудь, см</p>
                         </div>
                       )}
                       {measurement.biceps && (
@@ -2252,7 +2252,7 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6', margin: 0 }}>
                             {measurement.biceps}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бицепс, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Бицепс, см</p>
                         </div>
                       )}
                       {measurement.bicepsLeft && (
@@ -2260,7 +2260,7 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6', margin: 0 }}>
                             {measurement.bicepsLeft}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бицепс Л, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Бицепс Л, см</p>
                         </div>
                       )}
                       {measurement.bicepsRight && (
@@ -2268,7 +2268,7 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#a855f7', margin: 0 }}>
                             {measurement.bicepsRight}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бицепс П, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Бицепс П, см</p>
                         </div>
                       )}
                       {measurement.thighs && (
@@ -2276,7 +2276,7 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#f59e0b', margin: 0 }}>
                             {measurement.thighs}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Бедра, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Бедра, см</p>
                         </div>
                       )}
                       {measurement.hips && (
@@ -2284,14 +2284,14 @@ export default function ClientDetailPage() {
                           <p style={{ fontSize: '18px', fontWeight: 700, color: '#06b6d4', margin: 0 }}>
                             {measurement.hips}
                           </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>Ягодицы, см</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Ягодицы, см</p>
                         </div>
                       )}
                     </div>
                     {measurement.notes && (
                       <p style={{
                         fontSize: '12px',
-                        color: 'rgba(255,255,255,0.5)',
+                        color: 'var(--text-muted)',
                         margin: '10px 0 0',
                         fontStyle: 'italic'
                       }}>
@@ -2301,7 +2301,7 @@ export default function ClientDetailPage() {
                   </div>
                 ))}
               {(clientData?.fitnessData.bodyMeasurements || []).length === 0 && (
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
                   Нет данных о замерах
                 </p>
               )}
@@ -2346,10 +2346,10 @@ export default function ClientDetailPage() {
                       key={exerciseId}
                       onClick={() => exerciseVideoUrl && window.open(exerciseVideoUrl, '_blank')}
                       style={{
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'var(--bg-card)',
                         borderRadius: '14px',
                         padding: '14px',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        border: '1px solid var(--border)',
                         cursor: exerciseVideoUrl ? 'pointer' : 'default',
                         transition: 'all 0.2s ease'
                       }}
@@ -2364,7 +2364,7 @@ export default function ClientDetailPage() {
                         <p style={{
                           fontSize: '12px',
                           fontWeight: 500,
-                          color: 'rgba(255,255,255,0.7)',
+                          color: 'var(--text-secondary)',
                           margin: 0,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -2389,12 +2389,12 @@ export default function ClientDetailPage() {
                           <p style={{
                             fontSize: '22px',
                             fontWeight: 700,
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                             margin: 0,
                             lineHeight: 1
                           }}>
                             {latestWeight || '—'}
-                            <span style={{ fontSize: '12px', fontWeight: 400, color: 'rgba(255,255,255,0.4)', marginLeft: '2px' }}>кг</span>
+                            <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '2px' }}>кг</span>
                           </p>
                           {totalChange !== 0 && (
                             <div style={{
@@ -2433,7 +2433,7 @@ export default function ClientDetailPage() {
                       {/* Date range */}
                       <p style={{
                         fontSize: '10px',
-                        color: 'rgba(255,255,255,0.35)',
+                        color: 'var(--text-muted)',
                         margin: '8px 0 0',
                         textAlign: 'right'
                       }}>
@@ -2444,7 +2444,7 @@ export default function ClientDetailPage() {
                 })
               ) : (
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
                     Нет данных о прогрессе
                   </p>
                 </div>
@@ -2459,7 +2459,7 @@ export default function ClientDetailPage() {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.8)',
+          background: 'rgba(33, 26, 20, 0.45)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
@@ -2471,16 +2471,16 @@ export default function ClientDetailPage() {
             width: '100%',
             maxWidth: '500px',
             maxHeight: '80vh',
-            background: '#1a1a2e',
+            background: 'var(--bg-card)',
             borderRadius: '24px',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid var(--border)',
             display: 'flex',
             flexDirection: 'column'
           }}>
             {/* Header */}
             <div style={{
               padding: '20px 24px',
-              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              borderBottom: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
@@ -2488,7 +2488,7 @@ export default function ClientDetailPage() {
               <h3 style={{
                 fontSize: '18px',
                 fontWeight: 600,
-                color: '#fff',
+                color: 'var(--text-primary)',
                 margin: 0
               }}>
                 Рекомендации по питанию
@@ -2498,7 +2498,7 @@ export default function ClientDetailPage() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'rgba(255,255,255,0.5)',
+                  color: 'var(--text-muted)',
                   cursor: 'pointer',
                   padding: '4px'
                 }}
@@ -2515,7 +2515,7 @@ export default function ClientDetailPage() {
             }}>
               {recommendations.length === 0 ? (
                 <p style={{
-                  color: 'rgba(255,255,255,0.4)',
+                  color: 'var(--text-muted)',
                   fontSize: '14px',
                   textAlign: 'center',
                   padding: '20px 0'
@@ -2529,9 +2529,9 @@ export default function ClientDetailPage() {
                       key={rec.id}
                       style={{
                         padding: '16px',
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'var(--bg-card)',
                         borderRadius: '12px',
-                        border: '1px solid rgba(255,255,255,0.08)'
+                        border: '1px solid var(--border)'
                       }}
                     >
                       <div style={{
@@ -2540,7 +2540,7 @@ export default function ClientDetailPage() {
                         justifyContent: 'space-between',
                         marginBottom: '12px'
                       }}>
-                        <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                           Рекомендация #{idx + 1}
                         </span>
                         <button
@@ -2569,10 +2569,10 @@ export default function ClientDetailPage() {
                           style={{
                             width: '50px',
                             padding: '10px',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                             fontSize: '18px',
                             textAlign: 'center',
                             outline: 'none'
@@ -2586,10 +2586,10 @@ export default function ClientDetailPage() {
                           style={{
                             flex: 1,
                             padding: '10px 12px',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                             fontSize: '14px',
                             outline: 'none'
                           }}
@@ -2605,10 +2605,10 @@ export default function ClientDetailPage() {
                         style={{
                           width: '100%',
                           padding: '10px 12px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border)',
                           borderRadius: '8px',
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                           fontSize: '13px',
                           outline: 'none',
                           resize: 'none',
@@ -2625,12 +2625,12 @@ export default function ClientDetailPage() {
                             onClick={() => updateRecommendation(rec.id, 'color', color.value)}
                             style={{
                               padding: '6px 10px',
-                              background: rec.color === color.value ? color.bg : 'rgba(255,255,255,0.05)',
+                              background: rec.color === color.value ? color.bg : 'var(--bg-elevated)',
                               border: rec.color === color.value
-                                ? '2px solid rgba(255,255,255,0.3)'
-                                : '1px solid rgba(255,255,255,0.1)',
+                                ? '2px solid var(--border-strong)'
+                                : '1px solid var(--border)',
                               borderRadius: '6px',
-                              color: '#fff',
+                              color: 'var(--text-primary)',
                               fontSize: '12px',
                               cursor: 'pointer'
                             }}
@@ -2651,10 +2651,10 @@ export default function ClientDetailPage() {
                   width: '100%',
                   marginTop: '16px',
                   padding: '12px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px dashed rgba(255,255,255,0.2)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px dashed var(--border-strong)',
                   borderRadius: '10px',
-                  color: 'rgba(255,255,255,0.6)',
+                  color: 'var(--text-secondary)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -2671,7 +2671,7 @@ export default function ClientDetailPage() {
             {/* Footer */}
             <div style={{
               padding: '16px 24px',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               gap: '12px'
             }}>
@@ -2680,10 +2680,10 @@ export default function ClientDetailPage() {
                 style={{
                   flex: 1,
                   padding: '12px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
                   borderRadius: '10px',
-                  color: 'rgba(255,255,255,0.7)',
+                  color: 'var(--text-secondary)',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: 600
@@ -2698,11 +2698,11 @@ export default function ClientDetailPage() {
                   flex: 1,
                   padding: '12px',
                   background: isSavingRecommendations
-                    ? 'rgba(255,204,0,0.3)'
-                    : 'linear-gradient(135deg, #ffcc00 0%, #ffa500 100%)',
+                    ? 'var(--yellow-dim)'
+                    : 'var(--yellow)',
                   border: 'none',
                   borderRadius: '10px',
-                  color: '#000',
+                  color: '#fff',
                   cursor: isSavingRecommendations ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
                   fontWeight: 600,
