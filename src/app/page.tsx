@@ -2790,7 +2790,7 @@ function StatsView({ dayLogs, workouts, muscleGroups, todayStr, onSelectDate }: 
   const workoutName = (d: string) => {
     const log = dayLogs[d];
     const snap = log?.workoutSnapshot ?? log?.workoutDraft;
-    const id = snap?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
+    const id = dayWorkoutId(log);
     const name = snap?.workoutName || workouts.find(w => w.id === id)?.name || 'Тренировка';
     const heading = muscleHeading(snap?.exercises ?? [], muscleGroups, 'ru');
     return heading ? `${name.replace('Тренировка ', 'T')} · ${heading}` : name;
@@ -2975,7 +2975,11 @@ function FitnessCalendar({
     monthDays.forEach(d => {
       if (d) {
         const log = dayLogs[d.dateStr];
-        if (log?.dayClosed) workoutDays++;
+        // Тренировкой считаем день с отметками — тот же статус, что у
+        // точек в сетке. Раньше считались только закрытые дни, а день
+        // почти никто не закрывает: месяц с тренировками показывал «0».
+        const { status } = getDayStatus(log, d.dateStr, today);
+        if (status === 'done' || status === 'active') workoutDays++;
         if (log?.steps && log.steps > 0) {
           totalSteps += log.steps;
           stepDays++;
@@ -2984,7 +2988,7 @@ function FitnessCalendar({
     });
 
     return { workoutDays, totalSteps, stepDays };
-  }, [monthDays, dayLogs]);
+  }, [monthDays, dayLogs, today]);
 
   // Don't render until currentMonth is initialized on client
   if (!currentMonth) {
@@ -3095,10 +3099,8 @@ function FitnessCalendar({
           // Прошлый день без тренировки = день отдыха (автоматически).
           const isRestDay = !isFuture && !isToday && !hasWorkout && !hasSteps;
 
-          // Метка тренировки: id из snapshot/draft, иначе выбранная
-          const completedWorkoutId = log?.workoutSnapshot?.workoutId
-            ?? log?.workoutCompleted
-            ?? log?.selectedWorkout;
+          // Метка тренировки — та, что реально делали (см. dayWorkoutId)
+          const completedWorkoutId = dayWorkoutId(log);
           const completedWorkout = completedWorkoutId
             ? workouts.find(w => w.id === completedWorkoutId)
             : null;
@@ -3209,6 +3211,23 @@ function getDayStatus(
   else status = 'none';
 
   return { status, exDone, exTotal, pct };
+}
+
+/**
+ * Какая тренировка у дня — для подписи в ленте дат и в календаре.
+ * Сначала то, что реально делали: снапшот закрытого дня или драфт, где
+ * отмечено хоть что-то. Выбранная вкладка — только если отметок нет:
+ * вкладку легко нажать, просто листая прошлые дни, и тогда день с
+ * сделанной T1 подписывался «T2».
+ */
+function dayWorkoutId(log: DayLog | undefined): string | null {
+  if (!log) return null;
+  if (log.workoutSnapshot?.workoutId) return log.workoutSnapshot.workoutId;
+  const draft = log.workoutDraft;
+  const draftHasProgress = !!draft?.exercises?.some(e =>
+    e.completed || (Array.isArray(e.sets) && e.sets.some(s => s.completed)));
+  if (draft?.workoutId && draftHasProgress) return draft.workoutId;
+  return log.workoutCompleted ?? log.selectedWorkout ?? draft?.workoutId ?? null;
 }
 
 function getDefaultWorkout(): string {
@@ -6792,10 +6811,9 @@ export default function FitnessPage() {
                   const hasWorkout = status === 'done' || status === 'active';
                   const fullyDone = status === 'done';
                   const isPlanned = status === 'planned';
-                  // workoutDraft — главный носитель: снапшота нет, пока день не
-                  // закрыт, а selectedWorkout пишется не каждый день. Без драфта
-                  // чип показывал «5/7» вместо «T1».
-                  const wId = log?.workoutSnapshot?.workoutId ?? log?.workoutDraft?.workoutId ?? log?.workoutCompleted ?? log?.selectedWorkout;
+                  // Та же подпись, что в календаре месяца: сделанная
+                  // тренировка, а не нажатая вкладка (см. dayWorkoutId).
+                  const wId = dayWorkoutId(log);
                   // Метку тренировки показываем и для запланированного дня —
                   // иначе «запланировано» выглядело бы как пустой день.
                   const cw = (hasWorkout || isPlanned) && wId ? workouts.find(w => w.id === wId) : null;
