@@ -481,6 +481,38 @@ export function AssistantChat({ muscleGroups, onProgramReady, onWorkoutEdit, pen
     setImages((prev) => prev.filter((_, j) => j !== i));
   };
 
+  /**
+   * Ответ, который сервер дописал без нас: связь оборвалась посреди
+   * потока. Ждём, пока он появится в истории (до минуты — столько живёт
+   * запрос на сервере), и показываем переписку оттуда. Задал новый
+   * вопрос — ждать перестаём, чтобы не затереть его.
+   */
+  const sendSeq = useRef(0);
+  const pullSavedAnswer = async (question: string, seq: number) => {
+    const head = question.slice(0, 40);
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      if (sendSeq.current !== seq) return;
+      try {
+        const r = await fetch('/api/chat');
+        if (!r.ok) continue;
+        const list: Msg[] = (await r.json()).messages ?? [];
+        const last = list[list.length - 1];
+        const asked = list[list.length - 2];
+        if (last?.role === 'assistant' && asked?.role === 'user' && asked.content.startsWith(head)) {
+          if (sendSeq.current === seq) setMessages(list);
+          return;
+        }
+      } catch { /* сети всё ещё нет — пробуем дальше */ }
+    }
+    if (sendSeq.current !== seq) return;
+    setMessages((m) => {
+      const copy = [...m];
+      copy[copy.length - 1] = { ...copy[copy.length - 1], content: 'Связь прервалась. Ответ появится в чате, когда откроешь его снова.' };
+      return copy;
+    });
+  };
+
   /** Отправка: текст из поля ввода или готовый вопрос (кнопки-подсказки). */
   const send = async (preset?: string) => {
     const text = (preset ?? input).trim();
@@ -512,12 +544,37 @@ export function AssistantChat({ muscleGroups, onProgramReady, onWorkoutEdit, pen
       });
     };
 
+    const post = () => fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, files: imgs }),
+    });
+
+    const seq = ++sendSeq.current;
+    let streaming = false;
+    let res: Response;
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, files: imgs }),
-      });
+      res = await post();
+    } catch {
+      // iOS после возврата приложения из фона рвёт первое соединение.
+      // GET система повторяет сама, а POST нет: вопрос не доходил до
+      // сервера, и в чате стояло «Ошибка». Сервер его не получал —
+      // повтор безопасен.
+      try {
+        await new Promise((r) => setTimeout(r, 800));
+        res = await post();
+      } catch {
+        // Связи нет — возвращаем текст и файлы, чтобы не набирать заново.
+        fail('Нет связи — вопрос не отправился. Вернул его в поле ввода, отправь ещё раз.');
+        setInput((cur) => cur || text);
+        setImages((cur) => (cur.length ? cur : imgs));
+        setBusy(false);
+        setStage(null);
+        return;
+      }
+    }
+
+    try {
       // Формат, который не прочитать, объясняем словами: «Ошибка,
       // попробуйте ещё раз» тут бесполезна — повтор не поможет.
       if (res.status === 415) {
@@ -532,6 +589,7 @@ export function AssistantChat({ muscleGroups, onProgramReady, onWorkoutEdit, pen
         return;
       }
       if (!res.ok || !res.body) throw new Error('chat failed');
+      streaming = true;
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -584,7 +642,15 @@ export function AssistantChat({ muscleGroups, onProgramReady, onWorkoutEdit, pen
         } catch { /* битый хвост — экран не открываем */ }
       }
     } catch {
-      fail('Ошибка. Попробуйте ещё раз.');
+      if (streaming) {
+        // Связь оборвалась посреди ответа — обычно приложение свернули.
+        // Сервер дописывает и сохраняет ответ сам: подтягиваем его из
+        // истории, а не пишем «Ошибка».
+        fail('Связь прервалась — дописываю ответ…');
+        void pullSavedAnswer(text, seq);
+      } else {
+        fail('Ошибка. Попробуйте ещё раз.');
+      }
     } finally {
       setBusy(false);
       setStage(null);

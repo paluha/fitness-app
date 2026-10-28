@@ -5,6 +5,7 @@ import { trackError } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
 import { trainxSystem } from '@/lib/trainx-ai';
 import { getMergedDayLogs } from '@/lib/fitness-merge';
+import { buildTrainingRhythm } from '@/lib/training-rhythm';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // AI-чат с фитнес-ассистентом, который "цепляет" данные пользователя.
@@ -24,6 +25,9 @@ const CHAT_SYSTEM = `Ты — персональный AI-ассистент в 
 - Восстановление: связывай застой в весах с недосыпом, недоеданием и частотой — у тебя есть эти данные.
 - Если подключено кольцо Oura, смотри раздел СОН И ВОССТАНОВЛЕНИЕ: низкая готовность, упавшая ВСР или подскочивший пульс покоя — повод снизить нагрузку, а не добавить. Сравнивай день со средним этого человека, а не с чужой нормой.
 - Разбирай суперсеты, дропсеты и работу до отказа: зачем нужны, кому рано, как встроить.
+- «Идти сегодня в зал или отдыхать?» решай по разделу РИТМ ТРЕНИРОВОК, а не по одному вчерашнему дню: сколько тренировок уже на этой неделе и сколько дней в ней осталось против цели, сколько за последние 4 недели, сколько дней подряд он тренируется и сколько перед этим отдыхал. Плюс сон и готовность, если кольцо подключено.
+- Расписания по датам в приложении нет: тренировки идут по кругу, следующая указана в РИТМЕ. Тренировка, выбранная на сегодня во вкладке, — не план и не отметка о сделанном.
+- Отдых оправдан, когда он тренируется несколько дней подряд, цель недели уже набрана или восстановление плохое. Одна вчерашняя тренировка — не причина пропускать, особенно если неделя отстаёт от цели. Отвечай прямо, «иди» или «отдыхай», назови тренировку и цифры недели.
 
 2. НУТРИЦИОЛОГ.
 - Считай в граммах и калориях от веса и цели пользователя, а не «ешь больше белка».
@@ -114,6 +118,23 @@ function recentByDate(value: unknown, n: number): unknown {
     return Object.fromEntries(entries.slice(0, n));
   }
   return value;
+}
+
+/**
+ * Последние дни без того, что уже есть выше читаемым текстом (еда,
+ * тренировка), и без выбранной вкладки. Вкладку на сегодня приложение
+ * ставит само, а модель читала её как план: «по плану у тебя
+ * Тренировка 3 — но ты её уже сделал вчера». Еда к тому же съедала
+ * весь лимит, и шаги с заметками до модели не доходили.
+ */
+function dayExtras(dayLogs: unknown, n: number): unknown {
+  const recent = recentByDate(dayLogs, n);
+  if (!recent || typeof recent !== 'object' || Array.isArray(recent)) return recent;
+  return Object.fromEntries(Object.entries(recent as Record<string, unknown>).map(([date, day]) => {
+    const rest = { ...(day as Record<string, unknown>) };
+    for (const k of ['meals', 'workoutDraft', 'workoutSnapshot', 'selectedWorkout']) delete rest[k];
+    return [date, rest];
+  }));
 }
 
 type DropStep = { weight?: number | string; reps?: number | string };
@@ -719,6 +740,9 @@ export async function POST(request: Request) {
 🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал; у свежих дней — рабочие подходы «вес×повторы», веса пользователь вводит в колонке весов):
 ${buildWorkoutHistory(mergedDayLogs, 60)}
 
+📆 РИТМ ТРЕНИРОВОК (по нему решай, идти ли сегодня в зал или отдыхать):
+${buildTrainingRhythm(mergedDayLogs, fitness?.workouts, todayIso)}
+
 💍 СОН И ВОССТАНОВЛЕНИЕ (кольцо Oura; связывай с результатами в зале — застой в весах часто идёт от недосыпа, а не от программы):
 ${buildOuraText(oura)}
 
@@ -740,7 +764,7 @@ ${buildFoodLog(mergedDayLogs, 7)}
 ${foodDates.length ? foodDates.join(', ') : 'нет ни одной'}
 
 📅 ДЕТАЛИ ПОСЛЕДНИХ ДНЕЙ (шаги и пр.):
-${compactJson(recentByDate(mergedDayLogs, 3), 2000)}
+${compactJson(dayExtras(mergedDayLogs, 3), 2000)}
 
 📈 ПРОГРЕСС ПО УПРАЖНЕНИЯМ:
 ${compactJson(fitness?.progressHistory, 1500)}
