@@ -23,6 +23,8 @@
 // The function is pure — give it a PrismaClient + userId and it hands back the
 // merged dayLogs plus the raw arrays the client still needs for diff-sync.
 
+import { repairExerciseNames } from './default-workouts';
+
 type LegacyDayLog = {
   date: string;
   selectedWorkout?: string | null;
@@ -70,6 +72,18 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
     SELECT max(a->>'archivedAt') AS at
     FROM "FitnessData" f,
          jsonb_array_elements(COALESCE(f."programArchive", '[]')::jsonb) AS a
+    WHERE f."userId" = ${userId}
+  `.catch(() => []);
+
+  // Скелет архива: когда сменили программу и какое упражнение стояло под
+  // каким номером. Только названия — по ним чиним записи дней прошлых
+  // программ (см. repairExerciseNames ниже).
+  const skeletonRows: Array<{ at: string | null; wid: string | null; eid: string | null; name: string | null }> = await prisma.$queryRaw`
+    SELECT a->>'archivedAt' AS at, w->>'id' AS wid, e->>'id' AS eid, e->>'name' AS name
+    FROM "FitnessData" f
+    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(f."programArchive"::jsonb) = 'array' THEN f."programArchive"::jsonb ELSE '[]'::jsonb END) AS a
+    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(a->'workouts') = 'array' THEN a->'workouts' ELSE '[]'::jsonb END) AS w
+    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(w->'exercises') = 'array' THEN w->'exercises' ELSE '[]'::jsonb END) AS e
     WHERE f."userId" = ${userId}
   `.catch(() => []);
 
@@ -189,6 +203,43 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
         ?? '',
       exercises: Array.from(exMap.values()),
     };
+  }
+
+  // ── Названия упражнений по программе того дня ──
+  // Восстановление дней на телефоне записывало в них названия из
+  // встроенного шаблона, и «прошлый раз», история для ИИ и карточки
+  // искали не те упражнения. Подходы привязаны к номеру упражнения,
+  // поэтому подозрительное название берём у программы, действовавшей в
+  // тот день: текущей — с даты последней смены, иначе архивной, которую
+  // сменили первой после этого дня.
+  const currentNames = new Map<string, string>();
+  for (const w of workoutsTemplate) {
+    for (const e of w?.exercises ?? []) {
+      if (typeof e.name === 'string' && e.name) currentNames.set(`${w.id}/${String(e.id)}`, e.name);
+    }
+  }
+  const archivedByAt = new Map<string, Map<string, string>>();
+  for (const r of skeletonRows) {
+    if (!r.at || !r.wid || !r.eid || !r.name) continue;
+    if (!archivedByAt.has(r.at)) archivedByAt.set(r.at, new Map());
+    archivedByAt.get(r.at)!.set(`${r.wid}/${r.eid}`, r.name);
+  }
+  const archived = [...archivedByAt.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([at, names]) => ({ day: at.slice(0, 10), names }));
+  const namesFor = (date: string) =>
+    !currentProgramSince || date >= currentProgramSince
+      ? currentNames
+      : archived.find(p => p.day > date)?.names;
+  for (const [date, day] of Object.entries(base)) {
+    const names = namesFor(date);
+    if (!names || names.size === 0) continue;
+    for (const key of ['workoutDraft', 'workoutSnapshot'] as const) {
+      const w = day[key] as { workoutId?: string; exercises?: Array<Record<string, unknown>> } | null | undefined;
+      if (!w?.workoutId || !Array.isArray(w.exercises)) continue;
+      const fixed = repairExerciseNames(w.workoutId, w.exercises, id => names.get(`${w.workoutId}/${id}`));
+      if (fixed) day[key] = { ...w, workoutId: w.workoutId, exercises: fixed };
+    }
   }
 
   // ── Выкидываем тяжёлые base64-картинки из снапшотов/драфтов дней ──

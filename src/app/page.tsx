@@ -40,6 +40,7 @@ import type { NutritionMeal } from '@/components/NutritionPage';
 import type { PlanSlot, PlanDish } from '@/components/NutritionPlanSection';
 import type { RecipeCard } from '@/components/NutritionRecipesSection';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
+import { DEFAULT_WORKOUTS, isSuspectName } from '@/lib/default-workouts';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
 function parseRestTime(restTime: string | undefined | null): number {
@@ -1103,76 +1104,7 @@ const translations = {
 
 type TranslationKey = keyof typeof translations.ru;
 
-// Default workout templates
-const DEFAULT_WORKOUTS: Workout[] = [
-  {
-    id: 't1',
-    name: 'Тренировка 1',
-    exercises: [
-      { id: '1', name: 'Скручивания лежа', plannedSets: '3x30', actualSets: '', restTime: '1-2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Румынская тяга со штангой', plannedSets: '40-50кг 3x10-12', actualSets: '', restTime: '3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Вертикальная тяга к груди', plannedSets: '50-60 3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Отведения с гантелями сидя', plannedSets: '10-12 кг 3x15-20', actualSets: '', restTime: '2 мин', notes: 'средняя дельта', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Горизонтальная тяга блока', plannedSets: '50-60 3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Подъем штанги на бицепс стоя', plannedSets: '25 кгм 5x12-15', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Отведения с гантелями в наклоне', plannedSets: '8-10кг 3x15-20', actualSets: '', restTime: '2 мин', notes: 'задняя дельта', newWeight: '', feedback: '', completed: false },
-    ]
-  },
-  {
-    id: 't2',
-    name: 'Тренировка 2',
-    exercises: [
-      { id: '1', name: 'Подъем ног в висе', plannedSets: '3x15-20', actualSets: '', restTime: '1-2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Жим ногами', plannedSets: '3x12-15', actualSets: '', restTime: '3-4 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Жим гантелей на наклонной скамье 30°', plannedSets: '3x12', actualSets: '', restTime: '2-3мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Горизонтальный жим в тренажере', plannedSets: '3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Отжимания на брусьях', plannedSets: '3xмакс', actualSets: '', restTime: '2-3 мин', notes: 'руки забиты после предыдущих упр', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Разгибания на трицепс в блоке', plannedSets: '3x12-15', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Подъем штанги перед собой стоя', plannedSets: '3x15', actualSets: '', restTime: '2 мин', notes: 'передняя дельта', newWeight: '', feedback: '', completed: false },
-    ]
-  },
-  {
-    id: 't3',
-    name: 'Тренировка 3',
-    exercises: [
-      { id: '1', name: 'Боковая планка в динамике', plannedSets: '3x10-15', actualSets: '', restTime: '1 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Ягодичный мост', plannedSets: '3x12-15', actualSets: '', restTime: '3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Тяга штанги в наклоне', plannedSets: '3x10-12', actualSets: '', restTime: '3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Пуловер в блоке', plannedSets: '3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Протяжка со штангой', plannedSets: '3x12-15', actualSets: '', restTime: '2-3 мин', notes: 'средняя дельта', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Подъем гантелей на бицепс поочередно', plannedSets: '5x12-15', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Отведения с гантелями в наклоне', plannedSets: '3x12', actualSets: '', restTime: '2 мин', notes: 'задняя дельта', newWeight: '', feedback: '', completed: false },
-    ]
-  },
-  {
-    id: 't4',
-    name: 'Тренировка 4',
-    exercises: [
-      { id: '1', name: 'Перекрестные скручивания', plannedSets: '3x50', actualSets: '', restTime: '1-2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '2', name: 'Болгарский сплит присед', plannedSets: '3x12', actualSets: '', restTime: '3 мин', notes: 'ВИДЕО ОБЯЗАТЕЛЬНО', newWeight: '', feedback: '', completed: false },
-      { id: '3', name: 'Жим на наклонной скамье или в смите', plannedSets: '3x12', actualSets: '', restTime: '3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '4', name: 'Сведение в кроссовере или бабочка', plannedSets: '3x12', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '5', name: 'Вертикальный жим сидя с гантелями или в тренажере', plannedSets: '3x12-15', actualSets: '', restTime: '2-3 мин', notes: 'передняя дельта', newWeight: '', feedback: '', completed: false },
-      { id: '6', name: 'Французский жим', plannedSets: '3x12-15', actualSets: '', restTime: '2-3 мин', notes: '', newWeight: '', feedback: '', completed: false },
-      { id: '7', name: 'Разгибание гантели из-за головы по одной руке', plannedSets: '3-12', actualSets: '', restTime: '2 мин', notes: '', newWeight: '', feedback: '', completed: false },
-    ]
-  },
-  {
-    id: 't5',
-    name: 'Тренировка 5',
-    exercises: []
-  },
-  {
-    id: 't6',
-    name: 'Тренировка 6',
-    exercises: []
-  },
-  {
-    id: 't7',
-    name: 'Тренировка 7',
-    exercises: []
-  }
-];
+// Встроенный шаблон тренировок — в @/lib/default-workouts (общий с сервером).
 
 // App-wide fallback used when the user hasn't set their own daily goal.
 // Inside FitnessPage we shadow this with `MACRO_TARGETS` derived from
@@ -3376,11 +3308,17 @@ function mergeServerDayLogs(
       if (!sEx) return lEx;
       // Both sides have this exercise. Keep whichever has progress; if both
       // do, prefer local (the user just touched it on this device).
+      // Название при этом берём у сервера, если своё — след ошибки
+      // восстановления (пустое или из встроенного шаблона): сервер чинит
+      // его по программе того дня.
+      const wid = localDraft.workoutId;
+      const named = (l: Exercise) =>
+        sameWorkout && isSuspectName(wid, l) && !isSuspectName(wid, sEx) ? { ...l, name: sEx.name } : l;
       const lHas = exerciseHasProgress(lEx);
       const sHas = exerciseHasProgress(sEx);
-      if (lHas) return lEx;
+      if (lHas) return named(lEx);
       if (sHas) return sEx;
-      return lEx;
+      return named(lEx);
     });
     next[date] = {
       ...sv,
@@ -3431,6 +3369,14 @@ export default function FitnessPage() {
   }, []);
 
   const [workouts, setWorkouts] = useState<Workout[]>(DEFAULT_WORKOUTS);
+  // Программа для колбэков, созданных один раз (восстановление дней из
+  // памяти телефона). Пока она не загрузилась, в состоянии лежит
+  // встроенный шаблон — его названия в записи дней не пускаем.
+  // Загрузка кладёт программу в ref сразу: восстановление запускается
+  // следом, ещё до перерисовки.
+  const workoutsRef = useRef<Workout[]>(workouts);
+  workoutsRef.current = workouts;
+  const templateReadyRef = useRef(false);
   const [selectedWorkout, setSelectedWorkout] = useState<string>(() => getDefaultWorkout());
   const [dayLogs, setDayLogs] = useState<Record<string, DayLog>>({});
   const [showMealModal, setShowMealModal] = useState(false);
@@ -4013,8 +3959,13 @@ export default function FitnessPage() {
           const exMap = new Map(existingExercises.map(e => [e.id, { ...e }]));
           // Шаблон тренировки — чтобы восстановить упражнение, если его нет в
           // блобе (иначе сохранённые в WorkoutLogEntry подходы «терялись» и
-          // «прошлый раз» не показывался).
-          const templateExercises = workouts.find(w => w.id === workoutId)?.exercises ?? [];
+          // «прошлый раз» не показывался). Только загруженная программа:
+          // колбэк создан один раз, и `workouts` здесь навсегда остался бы
+          // встроенным шаблоном — его названия попадали в записи дней.
+          // Пока программы нет — название пустое, его допишет сервер.
+          const templateExercises = templateReadyRef.current
+            ? workoutsRef.current.find(w => w.id === workoutId)?.exercises ?? []
+            : [];
           const templateById = new Map(templateExercises.map(e => [e.id, e]));
           for (const r of rows) {
             let prevEx = exMap.get(r.exerciseId);
@@ -4089,7 +4040,14 @@ export default function FitnessPage() {
           if (Array.isArray(data.checkinEntries)) setCheckinEntries(data.checkinEntries);
           if (Array.isArray(data.medCourses)) setMedCourses(data.medCourses);
           if (Array.isArray(data.medLogs)) setMedLogs(data.medLogs);
-          if (data.workouts) setWorkouts(withPlannedTechniques(data.workouts));
+          if (data.workouts) {
+            const ws = withPlannedTechniques(data.workouts);
+            setWorkouts(ws);
+            workoutsRef.current = ws;
+          }
+          // Сервер ответил — программа в состоянии настоящая, даже если
+          // своей у пользователя нет и это встроенный шаблон.
+          templateReadyRef.current = true;
           // Библиотека картинок и архив программ приезжают отдельными
           // запросами: это мегабайты, которые не нужны, чтобы показать
           // сегодняшнюю тренировку. Картинки подставляем по приходу.
@@ -4146,7 +4104,10 @@ export default function FitnessPage() {
                 }
               }
             }
-            setWorkouts(withPlannedTechniques(b.workouts));
+            const ws = withPlannedTechniques(b.workouts);
+            setWorkouts(ws);
+            workoutsRef.current = ws;
+            templateReadyRef.current = true;
           }
           if (Object.keys(lib).length > 0) setExerciseLibrary(lib);
           if (b.dayLogs && typeof b.dayLogs === 'object') setDayLogs(prev => mergeServerDayLogs(prev, b.dayLogs));
@@ -4199,8 +4160,11 @@ export default function FitnessPage() {
                 }
               }
             }
-            setWorkouts(withPlannedTechniques(data.workouts));
+            const ws = withPlannedTechniques(data.workouts);
+            setWorkouts(ws);
+            workoutsRef.current = ws;
           }
+          templateReadyRef.current = true;
           if (data.dayLogs) setDayLogs(prev => mergeServerDayLogs(prev, data.dayLogs));
           if (data.progressHistory) setProgressHistory(data.progressHistory);
           if (data.bodyMeasurements) setBodyMeasurements(data.bodyMeasurements);
@@ -6323,6 +6287,10 @@ export default function FitnessPage() {
         for (const e of candidate.exercises) {
           const sets = (e as { sets?: ExerciseSet[] }).sets;
           if (!hasReal(sets)) continue;
+          // Название из встроенного шаблона — не то, что делали в тот
+          // день: по нему подставился бы чужой вес («Жим ногами» вместо
+          // болгарского сплит-приседа).
+          if (isSuspectName(candidate.workoutId, e)) continue;
           for (const id of [...needed]) {
             if (!sameMove(nameOf.get(id) || '', e.name || '')) continue;
             map[id] = sets!;
