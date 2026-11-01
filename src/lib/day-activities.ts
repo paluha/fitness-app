@@ -12,7 +12,7 @@ export type ActivityType = 'bike' | 'swim' | 'run' | 'walk' | 'tennis' | 'yoga' 
 export type DayActivity = {
   id: string;
   type: ActivityType;
-  /** Своё название — для «Другое». */
+  /** Своё название — для «Своё» (type 'other'). */
   name?: string;
   minutes: number;
   km?: number | null;
@@ -32,7 +32,7 @@ export const ACTIVITY_TYPES: { type: ActivityType; label: string; short: string;
   { type: 'walk', label: 'Ходьба', short: 'ходьба', met: 3.8, distance: true },
   { type: 'tennis', label: 'Теннис', short: 'теннис', met: 7.3, distance: false },
   { type: 'yoga', label: 'Йога, растяжка', short: 'йога', met: 2.8, distance: false },
-  { type: 'other', label: 'Другое', short: 'актив', met: 5, distance: false },
+  { type: 'other', label: 'Своё', short: 'актив', met: 5, distance: false },
 ];
 
 export const activityMeta = (type: string) =>
@@ -40,6 +40,26 @@ export const activityMeta = (type: string) =>
 
 export const activityLabel = (a: Pick<DayActivity, 'type' | 'name'>) =>
   (a.type === 'other' && a.name?.trim()) || activityMeta(a.type).label;
+
+/** Подпись в клетке календаря: «вело», «плав» или своё название, коротко. */
+export const activityShort = (a: Pick<DayActivity, 'type' | 'name'>) =>
+  (a.type === 'other' && a.name?.trim().toLowerCase().slice(0, 7)) || activityMeta(a.type).short;
+
+/** Свои названия («Футбол», «Бокс»), свежие первыми — чтобы не вписывать заново. */
+export function customActivityNames(dayLogs: Record<string, unknown>, limit = 6): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const date of Object.keys(dayLogs).sort().reverse()) {
+    for (const a of dayActivities(dayLogs[date]).slice().reverse()) {
+      const name = a.type === 'other' ? a.name?.trim() : '';
+      if (!name || seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      out.push(name);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
 
 export function estimateActivityKcal(type: string, minutes: number, weightKg: number | null | undefined): number | null {
   if (!weightKg || !(minutes > 0)) return null;

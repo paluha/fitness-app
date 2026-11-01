@@ -12,17 +12,20 @@ const ICONS: Partial<Record<ActivityType, typeof Bike>> = {
   bike: Bike, swim: Waves, run: Footprints, walk: Footprints, yoga: Flower2,
 };
 
-type Draft = { id: string | null; type: ActivityType; name: string; minutes: string; km: string; kcal: string };
+/** writing — выбрано «Своё…»: поле названия открыто (у сохранённых своих кнопок его нет). */
+type Draft = { id: string | null; type: ActivityType; name: string; writing: boolean; minutes: string; km: string; kcal: string };
 
 /**
  * Карточка «Активность» на экране тренировки: велосипед, плавание, бег —
  * всё, что сделано сверх зала. Записи живут в дне (dayLog.activities),
  * как шаги; калории, если не вписаны с часов, считаются по весу.
  */
-export function DayActivities({ activities, onChange, weightKg }: {
+export function DayActivities({ activities, onChange, weightKg, customNames }: {
   activities: DayActivity[];
   onChange: (next: DayActivity[]) => void;
   weightKg: number | null;
+  /** Что человек уже вписывал сам — отдельными кнопками рядом с готовыми. */
+  customNames: string[];
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -31,12 +34,18 @@ export function DayActivities({ activities, onChange, weightKg }: {
   const estimate = draft ? estimateActivityKcal(draft.type, minutes, weightKg) : null;
 
   const open = (a?: DayActivity) => setDraft(a
-    ? { id: a.id, type: a.type, name: a.name ?? '', minutes: String(a.minutes), km: a.km ? String(a.km) : '', kcal: a.kcal && !a.kcalEstimated ? String(a.kcal) : '' }
-    : { id: null, type: 'bike', name: '', minutes: '', km: '', kcal: '' });
+    ? {
+      id: a.id, type: a.type, name: a.name ?? '',
+      writing: a.type === 'other' && !customNames.some(n => n.toLowerCase() === a.name?.trim().toLowerCase()),
+      minutes: String(a.minutes), km: a.km ? String(a.km) : '', kcal: a.kcal && !a.kcalEstimated ? String(a.kcal) : '',
+    }
+    : { id: null, type: 'bike', name: '', writing: false, minutes: '', km: '', kcal: '' });
+
+  const canSave = minutes > 0 && (draft?.type !== 'other' || !!draft.name.trim());
 
   const save = (e: FormEvent) => {
     e.preventDefault();
-    if (!draft || !(minutes > 0)) return;
+    if (!draft || !canSave) return;
     const typed = Number(draft.kcal.replace(',', '.'));
     const km = Number(draft.km.replace(',', '.'));
     const item: DayActivity = {
@@ -87,15 +96,22 @@ export function DayActivities({ activities, onChange, weightKg }: {
           <form className="planner-form" onSubmit={save}>
             <span className="field-label">Что делал</span>
             <div className="chips">
-              {ACTIVITY_TYPES.map(t => (
+              {ACTIVITY_TYPES.filter(t => t.type !== 'other').map(t => (
                 <button key={t.type} type="button" className={t.type === draft.type ? 'is-on' : undefined}
-                  onClick={() => setDraft({ ...draft, type: t.type })}>{t.label}</button>
+                  onClick={() => setDraft({ ...draft, type: t.type, writing: false })}>{t.label}</button>
               ))}
+              {customNames.map(n => (
+                <button key={'own-' + n} type="button"
+                  className={draft.type === 'other' && !draft.writing && draft.name.trim().toLowerCase() === n.toLowerCase() ? 'is-on' : undefined}
+                  onClick={() => setDraft({ ...draft, type: 'other', name: n, writing: false })}>{n}</button>
+              ))}
+              <button type="button" className={draft.writing ? 'is-on' : undefined}
+                onClick={() => setDraft({ ...draft, type: 'other', name: '', writing: true })}>Своё…</button>
             </div>
-            {draft.type === 'other' && (
+            {draft.writing && (
               <label>Название
-                <input type="text" maxLength={60} placeholder="Например, футбол" value={draft.name}
-                  onChange={e => setDraft({ ...draft, name: e.target.value })} />
+                <input type="text" maxLength={60} required autoFocus placeholder="Например, футбол, бокс, гребля"
+                  value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
               </label>
             )}
             <div className="pair">
@@ -126,7 +142,7 @@ export function DayActivities({ activities, onChange, weightKg }: {
                   <Trash2 size={18} />
                 </button>
               )}
-              <button type="submit" className="primary" disabled={!(minutes > 0)}>Сохранить</button>
+              <button type="submit" className="primary" disabled={!canSave}>Сохранить</button>
             </div>
           </form>
         </TxDialog>

@@ -41,7 +41,7 @@ import type { PlanSlot, PlanDish } from '@/components/NutritionPlanSection';
 import type { RecipeCard } from '@/components/NutritionRecipesSection';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 import { DEFAULT_WORKOUTS, isSuspectName } from '@/lib/default-workouts';
-import { activityMeta, dayActivities, type DayActivity } from '@/lib/day-activities';
+import { activityShort, customActivityNames, dayActivities, type DayActivity } from '@/lib/day-activities';
 import { frequentMeals } from '@/lib/quick-meals';
 import { DayActivities } from '@/components/DayActivities';
 
@@ -3071,7 +3071,7 @@ function FitnessCalendar({
                 )}
                 {hasWorkout || isPlanned
                   ? (workoutLabel || (exTotal > 0 ? exDone + '/' + exTotal : ''))
-                  : firstActivity ? activityMeta(firstActivity.type).short
+                  : firstActivity ? activityShort(firstActivity)
                   : hasSteps ? 'шаги' : '—'}
               </small>
             </button>
@@ -3866,6 +3866,8 @@ export default function FitnessPage() {
     }).catch(() => { /* офлайн */ });
   };
   // Последний записанный вес — для блока «На чём основана цель» в профиле.
+  // Свои виды активности («Футбол»), уже вписанные раньше, — кнопками в окне добавления.
+  const customActivities = useMemo(() => customActivityNames(dayLogs), [dayLogs]);
   const latestWeight = useMemo(() => {
     const last = bodyMeasurements
       .filter(m => typeof m.weight === 'number' && m.weight > 0)
@@ -7200,6 +7202,7 @@ export default function FitnessPage() {
               activities={dayActivities(currentDayLog)}
               onChange={next => updateDayLog({ activities: next })}
               weightKg={latestWeight?.kg ?? null}
+              customNames={customActivities}
             />
 
             {/* Steps input — moved under the Close Day button per request.
