@@ -742,6 +742,8 @@
 @media (max-width: 480px) {
   .tx h2 { font-size: 17px; }
 }
+.tx-dialog label small { font-weight: 400; color: #82796d; }
+
 @media (prefers-reduced-motion: reduce) {
   .tx *, .tx-dialog * { transition: none !important; animation: none !important; }
 }

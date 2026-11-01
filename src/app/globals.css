@@ -1214,6 +1214,13 @@ button:disabled {
 .tx-eyebrow { display: block; font-size: 7px; letter-spacing: .8px; color: #af9c87; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; }
 .tx-card-head h4 { font-size: 17px; letter-spacing: -.5px; margin: 0; font-weight: 700; }
 .tx-badge { font-size: 8px; background: #f4f0ea; border-radius: 6px; padding: 5px 7px; color: #918474; white-space: nowrap; }
+/* «Активность» на экране тренировки: велосипед, плавание и т.п. */
+.tx-acts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tx-acts li button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #efe8de; border-radius: 11px; background: #fbf8f4; text-align: left; font: inherit; color: #1a1712; cursor: pointer; }
+.tx-acts li svg { color: #ff5c35; flex-shrink: 0; }
+.tx-acts li b { font-size: 13px; font-weight: 600; }
+.tx-acts li span { margin-left: auto; font-size: 12px; color: #82796d; white-space: nowrap; }
+.tx-acts-empty { margin: 0; font-size: 12px; color: #82796d; line-height: 1.5; }
 .tx-montharrows { display: flex; gap: 4px; }
 .tx-montharrows button { background: #f6f3ee; border: 0; border-radius: 7px; width: 27px; height: 27px; font-size: 16px; color: #817769; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .tx-monthstats { display: flex; gap: 12px; border-bottom: 1px solid #eee8df; padding: 2px 0 12px; margin-bottom: 10px; font-size: 10px; color: #9b8b79; }

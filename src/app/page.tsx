@@ -41,6 +41,9 @@ import type { PlanSlot, PlanDish } from '@/components/NutritionPlanSection';
 import type { RecipeCard } from '@/components/NutritionRecipesSection';
 import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsCount } from '@/lib/sync';
 import { DEFAULT_WORKOUTS, isSuspectName } from '@/lib/default-workouts';
+import { activityMeta, dayActivities, type DayActivity } from '@/lib/day-activities';
+import { frequentMeals } from '@/lib/quick-meals';
+import { DayActivities } from '@/components/DayActivities';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
 function parseRestTime(restTime: string | undefined | null): number {
@@ -744,6 +747,7 @@ interface DayLog {
   meals: Meal[];
   notes: string;
   steps: number | null;
+  activities?: DayActivity[]; // Велосипед, плавание и т.п. сверх зала
   dayClosed: boolean;
   isOffDay?: boolean; // Day off - no workout required
   cycleStartDate?: string; // Date when new workout cycle was started
@@ -3027,9 +3031,11 @@ function FitnessCalendar({
           const fullyDone = status === 'done';
           const isPlanned = status === 'planned';
           const hasSteps = log?.steps && log.steps > 0 && !hasWorkout;
+          // Велосипед, плавание и т.п. без зала — тоже запись дня.
+          const firstActivity = hasWorkout ? undefined : dayActivities(log)[0];
 
           // Прошлый день без тренировки = день отдыха (автоматически).
-          const isRestDay = !isFuture && !isToday && !hasWorkout && !hasSteps;
+          const isRestDay = !isFuture && !isToday && !hasWorkout && !hasSteps && !firstActivity;
 
           // Метка тренировки — та, что реально делали (см. dayWorkoutId)
           const completedWorkoutId = dayWorkoutId(log);
@@ -3054,7 +3060,7 @@ function FitnessCalendar({
                 'tx-monthday',
                 isSelected ? 'is-sel' : '',
                 !isSelected && isToday ? 'is-today' : '',
-                !isSelected && (hasWorkout || isPlanned || hasSteps) ? 'has-rec' : '',
+                !isSelected && (hasWorkout || isPlanned || hasSteps || firstActivity) ? 'has-rec' : '',
               ].filter(Boolean).join(' ')}
               style={{ cursor: isFuture ? 'default' : 'pointer', opacity: isFuture && !isPlanned ? 0.45 : 1 }}
             >
@@ -3065,6 +3071,7 @@ function FitnessCalendar({
                 )}
                 {hasWorkout || isPlanned
                   ? (workoutLabel || (exTotal > 0 ? exDone + '/' + exTotal : ''))
+                  : firstActivity ? activityMeta(firstActivity.type).short
                   : hasSteps ? 'шаги' : '—'}
               </small>
             </button>
@@ -3278,7 +3285,7 @@ function mergeServerDayLogs(
     if (!sv) {
       // Server lost this day — possible if it's a brand new day still in
       // pendingOps. Keep our local copy so the UI doesn't blink it away.
-      if (local && (local.workoutDraft || local.selectedWorkout || local.meals?.length)) {
+      if (local && (local.workoutDraft || local.selectedWorkout || local.meals?.length || local.activities?.length)) {
         next[date] = local;
       }
       continue;
@@ -4008,6 +4015,7 @@ export default function FitnessPage() {
           else if (r.kind === 'selectedWorkout') patch.selectedWorkout = r.payload as DayLog['selectedWorkout'];
           else if (r.kind === 'notes' && typeof r.payload === 'string') patch.notes = r.payload;
           else if (r.kind === 'meals' && Array.isArray(r.payload)) patch.meals = r.payload as DayLog['meals'];
+          else if (r.kind === 'activities' && Array.isArray(r.payload)) patch.activities = r.payload as DayActivity[];
           assign(r.date, { ...base, ...patch });
         }
         return changed ? next : prev;
@@ -4642,7 +4650,7 @@ export default function FitnessPage() {
   // is much finer-grained than one payload per draft.
   const DAY_LOG_MIRRORED_FIELDS: Array<keyof DayLog> = [
     'dayClosed', 'workoutCompleted', 'workoutSnapshot', 'workoutRating',
-    'selectedWorkout', 'isOffDay', 'steps', 'notes', 'meals',
+    'selectedWorkout', 'isOffDay', 'steps', 'notes', 'meals', 'activities',
   ];
 
   const updateDayLog = (updates: Partial<DayLog>) => {
@@ -5723,19 +5731,11 @@ export default function FitnessPage() {
     return out;
   }, [dayLogs]);
 
-  // Частые продукты: самые повторяемые записи за историю.
-  const nutQuickFrequent = useMemo(() => {
-    const counts = new Map<string, { meal: NutritionMeal; n: number }>();
-    for (const list of Object.values(nutMealsByDate)) {
-      for (const m of list) {
-        const key = m.name.trim().toLowerCase();
-        if (!key) continue;
-        const hit = counts.get(key);
-        if (hit) hit.n++; else counts.set(key, { meal: m, n: 1 });
-      }
-    }
-    return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 8).map(x => x.meal);
-  }, [nutMealsByDate]);
+  // Частые продукты: похожие названия от ИИ — одно блюдо, недавние дни
+  // весят больше (см. quick-meals.ts).
+  const nutQuickFrequent = useMemo(
+    () => frequentMeals(nutMealsByDate, todayStr || new Date().toISOString().slice(0, 10)),
+    [nutMealsByDate, todayStr]);
 
   const nutQuickFavorites = useMemo(
     () => Object.values(nutMealsByDate).flat().filter(m => m.isFavorite)
@@ -7195,6 +7195,12 @@ export default function FitnessPage() {
             </div>{/* end closed day dimming wrapper */}
 
             {/* Сводка прогресса дня убрана по запросу. */}
+
+            <DayActivities
+              activities={dayActivities(currentDayLog)}
+              onChange={next => updateDayLog({ activities: next })}
+              weightKg={latestWeight?.kg ?? null}
+            />
 
             {/* Steps input — moved under the Close Day button per request.
                 Always editable, even for a closed day. */}

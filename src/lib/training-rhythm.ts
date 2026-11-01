@@ -8,9 +8,14 @@
  * на неделе, где из четырёх тренировок была одна. Здесь те же факты
  * готовыми цифрами: по неделям, за месяц, подряд и с последней.
  *
- * Без импортов: модуль чистый, его можно проверить на живых данных
- * простым скриптом.
+ * Велосипед, плавание и прочее «кроме зала» (dayLog.activities) идут
+ * отдельно: это нагрузка, но не тренировка программы.
+ *
+ * Модуль чистый (импорт — такой же чистый), его можно проверить на живых
+ * данных простым скриптом.
  */
+
+import { dayActivities, describeActivity } from './day-activities';
 
 type DayWorkout = {
   workoutId?: string;
@@ -23,6 +28,7 @@ type RhythmDay = {
   workoutCompleted?: string | null;
   workoutSnapshot?: DayWorkout;
   workoutDraft?: DayWorkout;
+  activities?: unknown;
 };
 
 type ProgramDay = { id?: string; name?: string; exercises?: unknown[] };
@@ -42,6 +48,10 @@ function plural(n: number, one: string, few: string, many: string): string {
   return many;
 }
 const days = (n: number) => `${n} ${plural(n, 'день', 'дня', 'дней')}`;
+const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+/** «велосипед 60 мин, ≈450 ккал; плавание 40 мин» — активность дня. */
+const extras = (log: RhythmDay | null | undefined) =>
+  dayActivities(log).map(a => lower(describeActivity(a))).join('; ');
 
 /**
  * Тренировка дня, если в нём отмечено хоть одно упражнение — то же
@@ -83,7 +93,8 @@ export function buildTrainingRhythm(dayLogs: unknown, workouts: unknown, todayIs
   const weekday = WEEKDAYS[new Date(today * DAY_MS).getUTCDay()];
   out.push(`Сегодня ${ddmm(todayIso)}, ${weekday}: ` + (todayT
     ? `уже тренировался — ${todayT.name}, ${todayT.done} из ${todayT.total} упр.`
-    : logs[todayIso]?.isOffDay ? 'отмечен как день отдыха.' : 'тренировки пока нет.'));
+    : logs[todayIso]?.isOffDay ? 'отмечен как день отдыха.' : 'тренировки пока нет.')
+    + (extras(logs[todayIso]) ? ` Кроме зала сегодня: ${extras(logs[todayIso])}.` : ''));
 
   const past = trained.filter(t => t.date < todayIso);
   const last = past[past.length - 1];
@@ -125,8 +136,12 @@ export function buildTrainingRhythm(dayLogs: unknown, workouts: unknown, todayIs
     const from = monday - 7 * w, to = from + 6;
     const inWeek = trained.filter(t => dayNum(t.date) >= from && dayNum(t.date) <= to);
     const now = w === 0 ? `, эта неделя, сегодня ${today - from + 1}-й день из 7` : '';
+    const other = Array.from({ length: 7 }, (_, i) => dayStr(from + i))
+      .filter(d => d <= todayIso && extras(logs[d]))
+      .map(d => `${ddmm(d)} ${extras(logs[d])}`);
     out.push(`  • ${ddmm(dayStr(from))}–${ddmm(dayStr(to))}${now}: ${inWeek.length}${goal}`
-      + (inWeek.length ? ` — ${inWeek.map(t => `${ddmm(t.date)} ${t.name}`).join(', ')}` : ''));
+      + (inWeek.length ? ` — ${inWeek.map(t => `${ddmm(t.date)} ${t.name}`).join(', ')}` : '')
+      + (other.length ? `; кроме зала: ${other.join(', ')}` : ''));
   }
 
   const within = (n: number) => trained.filter(t => today - dayNum(t.date) < n).length;

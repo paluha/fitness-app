@@ -135,6 +135,7 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
       case 'selectedWorkout':    day.selectedWorkout = (r.payload ?? null) as string | null; break;
       case 'notes':              if (typeof r.payload === 'string') day.notes = r.payload; break;
       case 'meals':              if (Array.isArray(r.payload)) day.meals = r.payload as unknown[]; break;
+      case 'activities':         if (Array.isArray(r.payload)) day.activities = r.payload; break;
       default: /* unknown kind — leave alone */ break;
     }
   }
