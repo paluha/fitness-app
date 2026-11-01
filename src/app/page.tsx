@@ -1638,9 +1638,11 @@ function SetTechPanel({
  * Здесь один круг — одна строка со всеми упражнениями связки, отдых
  * один на круг, а не на каждое упражнение.
  */
-function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRest }: {
+function SupersetRounds({ group, rounds, lastSets, onUpdateSet, restTime, restSignal, onRest }: {
   group: Exercise[];
   rounds: number;
+  /** Подходы прошлого раза по id упражнения — те же, что в колонке карточки. */
+  lastSets: Record<string, ExerciseSet[]>;
   onUpdateSet: (exId: string, setIdx: number, patch: Partial<ExerciseSet>) => void;
   restTime: string;
   restSignal: number;
@@ -1697,11 +1699,21 @@ function SupersetRounds({ group, rounds, onUpdateSet, restTime, restSignal, onRe
               const sets = setsOf(e);
               const s = sets[r];
               if (!s) return null;
+              // Тот же круг в прошлый раз. В кругах колонки «В прошлый раз»
+              // нет, и вес приходилось вспоминать — пишем под названием,
+              // в порядке полей ввода: повторы × вес.
+              const last = lastSets[e.id]?.[r];
+              const lastText = last && (last.reps > 0 || last.weight > 0)
+                ? (last.weight > 0 ? `${last.reps} × ${last.weight} lb` : `${last.reps} повт`)
+                : null;
               return (
                 <div className="tx-roundex" key={e.id}>
                   <span className="tx-roundname">
                     <b>{e.supersetId}{gi + 1}</b> {e.name}
                   </span>
+                  {lastText && (
+                    <span className="tx-roundlast">в прошлый раз: {lastText}</span>
+                  )}
                   <span className="tx-roundinputs">
                     <input
                       type="number"
@@ -7111,6 +7123,7 @@ export default function FitnessPage() {
                         <SupersetRounds
                           group={groupExercises}
                           rounds={row.supRounds?.plan ?? 3}
+                          lastSets={lastSetsByExerciseId}
                           /* Отдых берём у ПОСЛЕДНЕГО упражнения связки:
                              он относится ко всему кругу. У первого там
                              стоит переход к паре («30 сек до A2»), и

@@ -1093,6 +1093,10 @@ button:disabled {
   display: inline-block; min-width: 20px; margin-right: 4px;
   font-size: 10px; font-weight: 800; color: #3f6292;
 }
+.tx-roundlast {
+  margin-top: -2px; padding-left: 24px;
+  font-size: 11px; font-weight: 500; color: #8a8072;
+}
 .tx-roundinputs { display: flex; align-items: center; gap: 5px; }
 .tx-roundinputs input {
   flex: 1; min-width: 0; height: 40px;
