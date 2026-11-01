@@ -154,7 +154,9 @@ function exerciseSets(e: DayExercise): string {
         // реальную нагрузку и планирует прогрессию как для обычных
         // подходов. Дропсет — один подход со сбросами, а не три подхода.
         let out = `${s.weight ?? '?'}×${s.reps ?? '?'}`;
-        const drops = Array.isArray(s.drops) ? s.drops : [];
+        // Пустая ступень — добавили, но не заполнили: веса в ней нет.
+        const drops = (Array.isArray(s.drops) ? s.drops : [])
+          .filter(d => Number(d.weight) > 0 || Number(d.reps) > 0);
         if (drops.length) {
           out += ' (дропсет: ' + drops.map(d => `${d.weight ?? '?'}×${d.reps ?? '?'}`).join(' → ') + ')';
         }

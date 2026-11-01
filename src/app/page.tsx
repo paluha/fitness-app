@@ -2144,11 +2144,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               const cur = sets[i];
               const last = cur.drops?.[cur.drops.length - 1];
               const base = last ?? { weight: cur.weight || 0, reps: cur.reps || 0 };
-              // У дропсета вес падает примерно на четверть, у rest-pause и
-              // кластера он тот же — меняется только отдых между ступенями.
-              const weight = tech === 'drop'
-                ? Math.max(0, Math.round((base.weight * 0.75) / 2.5) * 2.5)
-                : base.weight;
+              // У rest-pause и кластера вес тот же — меняется только отдых
+              // между ступенями. Вес дропа не придумываем (раньше ставили
+              // «−25%», и он выглядел записанным): поле пустое, в подсказке
+              // вес этой ступени в прошлый раз.
+              const weight = tech === 'drop' ? 0 : base.weight;
               updateSet(i, {
                 drops: [...(cur.drops ?? []), { weight, reps: 0 }],
                 tech: cur.tech ?? tech,
