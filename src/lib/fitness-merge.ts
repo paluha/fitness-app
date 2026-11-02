@@ -24,6 +24,7 @@
 // merged dayLogs plus the raw arrays the client still needs for diff-sync.
 
 import { repairExerciseNames } from './default-workouts';
+import { AI_FOOD_PLAN_KIND } from './ai-food-plan';
 
 type LegacyDayLog = {
   date: string;
@@ -63,7 +64,7 @@ export async function getMergedDayLogs(prisma: any, userId: string): Promise<Rec
     // мегабайт, и он ехал в функцию на каждое сообщение в чат.
     prisma.fitnessData.findUnique({ where: { userId }, select: { dayLogs: true, workouts: true } }),
     prisma.workoutLogEntry.findMany({ where: { userId, deletedAt: null, date: { gte: cutoff } } }),
-    prisma.dayLogEntry.findMany({ where: { userId, deletedAt: null, date: { gte: cutoff } } }),
+    prisma.dayLogEntry.findMany({ where: { userId, deletedAt: null, date: { gte: cutoff }, kind: { not: AI_FOOD_PLAN_KIND } } }),
   ]);
 
   // Дата смены текущей программы — одним запросом по архиву, без

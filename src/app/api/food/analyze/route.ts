@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { trackError, trackLatency } from '@/lib/monitor';
 import Anthropic from '@anthropic-ai/sdk';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { isBillingError } from '@/lib/ai-errors';
 
 // Allow up to 30s for AI image analysis
 export const maxDuration = 30;
@@ -410,8 +411,7 @@ export async function POST(request: Request) {
       // Закончились кредиты на аккаунте ИИ — это не сбой приложения и не
       // «плохое фото». Говорим прямо, иначе пользователь думает, что сломан
       // анализатор, и пробует снимать снова и снова.
-      const text = String(error.message || '');
-      if (/credit balance is too low|insufficient.*(credit|quota)|billing/i.test(text)) {
+      if (isBillingError(error)) {
         return NextResponse.json(
           { error: 'Закончились кредиты на ИИ-анализ. Пополни баланс Anthropic — после этого распознавание заработает.' },
           { status: 402 }

@@ -249,7 +249,13 @@ export function startSyncLoop(pollMs = 5000): void {
   if (poller) return;
   // Initial kick
   flushNow(); pullDiff();
-  poller = setInterval(() => { flushNow(); pullDiff(); }, pollMs);
+  // Свёрнутое приложение сервер не опрашивает: смотреть на свежие данные
+  // некому, а запросы шли весь день. При возврате diff тянется сразу
+  // (visibilitychange выше). Очередь записей отправляем и в фоне.
+  poller = setInterval(() => {
+    flushNow();
+    if (document.visibilityState !== 'hidden') pullDiff();
+  }, pollMs);
 }
 
 export function stopSyncLoop(): void {

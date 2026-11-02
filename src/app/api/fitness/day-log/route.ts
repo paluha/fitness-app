@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { AI_FOOD_PLAN_KIND } from '@/lib/ai-food-plan';
 
 // GET /api/fitness/day-log?since=<iso>   — diff sync: rows changed after a timestamp
 // GET /api/fitness/day-log?date=YYYY-MM-DD  — all kinds for that day
@@ -17,7 +18,8 @@ export async function GET(request: Request) {
     const sinceStr = searchParams.get('since');
     const date = searchParams.get('date');
 
-    const where: Record<string, unknown> = { userId };
+    // План питания от ИИ — не часть дня, его отдаёт /api/food/plan.
+    const where: Record<string, unknown> = { userId, kind: { not: AI_FOOD_PLAN_KIND } };
     if (date) where.date = date;
     if (sinceStr) {
       const since = new Date(sinceStr);

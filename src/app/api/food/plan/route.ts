@@ -2,15 +2,49 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
+import { Prisma } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { trainxSystem } from '@/lib/trainx-ai';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { AI_FOOD_PLAN_KIND } from '@/lib/ai-food-plan';
+import { AI_BILLING_TEXT, isBillingError } from '@/lib/ai-errors';
 
 // Персональный план «когда и что есть» на день — генерируется ИИ под цель
 // пользователя (похудение/поддержание/набор), его макро-цели и его же
 // продукты из истории. Заменяет статичные тексты в блоке «Когда есть».
-// Клиент кэширует результат на день, так что вызов ~раз в сутки.
+//
+// План один на день на все устройства и хранится на сервере (см.
+// ai-food-plan.ts). К ИИ идём, только если сегодняшнего плана под эту
+// цель ещё нет, его прямо сейчас не собирает другой запрос и последняя
+// попытка не провалилась только что.
 
-export const maxDuration = 30;
+// Opus собирает план 20–40 секунд: при 30 функция обрывалась на середине,
+// ответ был уже оплачен, а план — выброшен.
+export const maxDuration = 60;
+
+/** Дольше этого «собирается» не бывает — значит, функцию оборвали. */
+const PENDING_MS = 90_000;
+/** После неудачи не тратимся снова хотя бы час. */
+const FAILED_COOLDOWN_MS = 60 * 60_000;
+/** Сколько раз в день вообще можно заказывать план (смена цели — тоже заказ). */
+const MAX_ATTEMPTS_PER_DAY = 4;
+/** Сколько дней хранить старые планы: вчерашний — запасной, если сегодня не вышло. */
+const KEEP_DAYS = 14;
+
+type PlanItem = {
+  id: string; time: string; label: string; dish: string; portions: number;
+  protein: number; fat: number; carbs: number; calories: number; emoji: string; note: string;
+};
+type PlanProduct = { id: string; name: string; category: string };
+type StoredPlan = {
+  key: string;
+  status: 'pending' | 'ready' | 'failed';
+  at: string;
+  attempts: number;
+  items?: PlanItem[];
+  products?: PlanProduct[];
+  reason?: 'billing' | 'error';
+};
 
 const GOAL_LABELS: Record<string, string> = {
   lose: 'ПОХУДЕНИЕ (дефицит калорий)',
@@ -62,14 +96,17 @@ const PLAN_SCHEMA = {
 };
 
 export async function POST(request: Request) {
+  // Объявлены снаружи try: при сбое записываем неудачу в ту же строку.
+  let userId = '';
+  let date = '';
+  let key = '';
+  let attempts = 0;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const limit = await rateLimit(session.user.id, 'food-plan');
-    if (!limit.ok) return rateLimitResponse(limit);
+    userId = session.user.id;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -85,10 +122,72 @@ export async function POST(request: Request) {
     const profile = body.profile && typeof body.profile === 'object' ? body.profile as {
       conditions?: string[]; intolerances?: string[]; mealsPerDay?: number;
       snacking?: string; trainingTime?: string; dietStyle?: string; dislikes?: string; notes?: string;
+      completedAt?: string;
     } : null;
     const history: string[] = Array.isArray(body.foodHistory)
       ? (body.foodHistory as unknown[]).filter((n): n is string => typeof n === 'string').slice(0, 30)
       : [];
+
+    // «Сегодня» — по часам пользователя: клиент знает его часовой пояс.
+    date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
+      ? body.date
+      : new Date().toISOString().slice(0, 10);
+    // Под что собран план. Список съеденного в ключ не входит: он меняется
+    // с каждой записью еды, и план пересобирался бы весь день.
+    key = [
+      goal, language, targets.protein, targets.fat, targets.carbs, targets.calories,
+      profile?.completedAt ?? 'none',
+    ].join('|');
+
+    const where = { userId_date_kind: { userId, date, kind: AI_FOOD_PLAN_KIND } };
+    const row = await prisma.dayLogEntry.findUnique({
+      where,
+      select: { payload: true, clientUpdatedAt: true },
+    });
+    const saved = row?.payload as StoredPlan | null | undefined;
+    attempts = saved?.attempts ?? 0;
+    const age = saved ? Date.now() - Date.parse(saved.at) : Infinity;
+
+    if (saved?.key === key) {
+      if (saved.status === 'ready' && saved.items?.length) {
+        return NextResponse.json({ success: true, items: saved.items, products: saved.products ?? [] });
+      }
+      if (saved.status === 'pending' && age < PENDING_MS) {
+        return NextResponse.json({ pending: true }, { status: 202 });
+      }
+      if (saved.status === 'failed' && age < FAILED_COOLDOWN_MS) {
+        return fallback(userId, date, key, saved.reason);
+      }
+    }
+    if (attempts >= MAX_ATTEMPTS_PER_DAY) {
+      return fallback(userId, date, key, saved?.reason);
+    }
+
+    const limit = await rateLimit(userId, 'food-plan');
+    if (!limit.ok) return rateLimitResponse(limit);
+
+    // Занимаем день: второй запрос (другое устройство, повторный рендер)
+    // увидит «собирается» и подождёт, а не закажет план ещё раз.
+    attempts += 1;
+    const pending: StoredPlan = { key, status: 'pending', at: new Date().toISOString(), attempts };
+    if (row) {
+      const { count } = await prisma.dayLogEntry.updateMany({
+        where: { userId, date, kind: AI_FOOD_PLAN_KIND, clientUpdatedAt: row.clientUpdatedAt },
+        data: { payload: pending, clientUpdatedAt: new Date() },
+      });
+      if (count === 0) return NextResponse.json({ pending: true }, { status: 202 });
+    } else {
+      try {
+        await prisma.dayLogEntry.create({
+          data: { userId, date, kind: AI_FOOD_PLAN_KIND, payload: pending, clientUpdatedAt: new Date() },
+        });
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          return NextResponse.json({ pending: true }, { status: 202 });
+        }
+        throw e;
+      }
+    }
 
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
@@ -147,7 +246,8 @@ export async function POST(request: Request) {
     });
 
     if (response.stop_reason === 'refusal') {
-      return NextResponse.json({ error: 'model refused' }, { status: 502 });
+      await saveFailure(userId, date, key, attempts, 'error');
+      return fallback(userId, date, key, 'error');
     }
 
     const textBlock = response.content.find(b => b.type === 'text');
@@ -206,11 +306,60 @@ export async function POST(request: Request) {
       .map((p, i) => ({ id: `aip-${i + 1}`, name: p.name, category: p.category }));
 
     if (items.length === 0) {
-      return NextResponse.json({ error: 'empty plan' }, { status: 502 });
+      await saveFailure(userId, date, key, attempts, 'error');
+      return fallback(userId, date, key, 'error');
     }
+    const ready: StoredPlan = { key, status: 'ready', at: new Date().toISOString(), attempts, items, products };
+    await prisma.dayLogEntry.update({
+      where: { userId_date_kind: { userId, date, kind: AI_FOOD_PLAN_KIND } },
+      data: { payload: ready, clientUpdatedAt: new Date() },
+    });
+    // Старые планы больше не нужны — держим две недели.
+    const cutoff = new Date(Date.parse(date) - KEEP_DAYS * 86_400_000).toISOString().slice(0, 10);
+    await prisma.dayLogEntry.deleteMany({
+      where: { userId, kind: AI_FOOD_PLAN_KIND, date: { lt: cutoff } },
+    }).catch(() => { /* уборка не критична */ });
     return NextResponse.json({ success: true, items, products });
   } catch (error) {
     console.error('food plan error:', error);
+    const reason = isBillingError(error) ? 'billing' : 'error';
+    // Неудачу запоминаем: без этого клиент заказывал план снова на каждом
+    // обновлении данных — и каждый раз платил за запрос.
+    if (userId && date && key && attempts > 0) {
+      await saveFailure(userId, date, key, attempts, reason).catch(() => {});
+    }
+    if (userId && date && key) return fallback(userId, date, key, reason);
     return NextResponse.json({ error: 'Failed to generate plan' }, { status: 500 });
   }
+}
+
+async function saveFailure(userId: string, date: string, key: string, attempts: number, reason: StoredPlan['reason']) {
+  const failed: StoredPlan = { key, status: 'failed', at: new Date().toISOString(), attempts, reason };
+  await prisma.dayLogEntry.update({
+    where: { userId_date_kind: { userId, date, kind: AI_FOOD_PLAN_KIND } },
+    data: { payload: failed, clientUpdatedAt: new Date() },
+  });
+}
+
+/**
+ * Сегодня собрать не вышло — отдаём последний удачный план под ту же
+ * цель: вчерашний план лучше пустого блока. Нет и его — честная ошибка.
+ */
+async function fallback(userId: string, date: string, key: string, reason?: StoredPlan['reason']) {
+  const rows = await prisma.dayLogEntry.findMany({
+    where: { userId, kind: AI_FOOD_PLAN_KIND, date: { lt: date } },
+    orderBy: { date: 'desc' },
+    take: KEEP_DAYS,
+    select: { payload: true },
+  }).catch(() => []);
+  for (const r of rows) {
+    const p = r.payload as StoredPlan | null;
+    if (p?.status === 'ready' && p.key === key && p.items?.length) {
+      return NextResponse.json({ success: true, stale: true, items: p.items, products: p.products ?? [] });
+    }
+  }
+  return NextResponse.json(
+    { error: reason === 'billing' ? AI_BILLING_TEXT : 'План сейчас не собрался — покажем обычный.' },
+    { status: 503 },
+  );
 }

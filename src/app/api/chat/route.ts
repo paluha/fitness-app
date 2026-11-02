@@ -7,6 +7,7 @@ import { trainxSystem } from '@/lib/trainx-ai';
 import { getMergedDayLogs } from '@/lib/fitness-merge';
 import { buildTrainingRhythm } from '@/lib/training-rhythm';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { AI_BILLING_TEXT, isBillingError } from '@/lib/ai-errors';
 
 // AI-чат с фитнес-ассистентом, который "цепляет" данные пользователя.
 // Паттерн как у /api/food/recommend: стабильный system-промпт кэшируется,
@@ -175,7 +176,12 @@ function exerciseSets(e: DayExercise): string {
 // Человекочитаемая история ТРЕНИРОВОК по всем дневным логам. Последние дни —
 // подробно, с рабочими весами и повторами по каждому подходу (иначе модель
 // уверена, что пользователь весов не вводит); старые дни — одной строкой.
-function buildWorkoutHistory(dayLogs: unknown, maxLines = 60, detailedDays = 15): string {
+//
+// Подробно — 8 последних тренировок: это два полных круга программы, по
+// ним видно прогресс каждой тренировки к прошлому разу. Раньше было 15
+// подробных и 60 строк — самая тяжёлая часть контекста, которая уходит
+// в каждое сообщение.
+function buildWorkoutHistory(dayLogs: unknown, maxLines = 30, detailedDays = 8): string {
   if (!dayLogs || typeof dayLogs !== 'object' || Array.isArray(dayLogs)) return '—';
   const rows: { date: string; line: string; details: string[] }[] = [];
   for (const [date, raw] of Object.entries(dayLogs as Record<string, unknown>)) {
@@ -619,7 +625,7 @@ export async function POST(request: Request) {
     || (attBlocks.length > 1 ? 'Посмотри на эти файлы.' : hasImg ? 'Посмотри на это фото.' : 'Посмотри на этот файл.');
 
   // --- собираем данные пользователя + историю чата + анализы ---
-  const [user, fitness, history, oura, labs, mergedDayLogs] = await Promise.all([
+  const [user, fitness, history, acceptedNote, oura, labs, mergedDayLogs] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -632,7 +638,9 @@ export async function POST(request: Request) {
     prisma.fitnessData.findUnique({
       where: { userId },
       select: {
-        workouts: true, dayLogs: true, progressHistory: true,
+        // Дни берём из getMergedDayLogs ниже — блоб dayLogs отсюда не
+        // нужен, раньше он читался из базы дважды на каждое сообщение.
+        workouts: true, progressHistory: true,
         bodyMeasurements: true, habits: true,
         // Нужен, чтобы ассистент знал, откуда взялась текущая программа
         // и что было до неё: без этого он не отличает программу, которую
@@ -653,11 +661,23 @@ export async function POST(request: Request) {
     // видела переписку трёхмесячной давности и ничего из текущего разговора.
     // Отсюда и повторные вопросы о том, что пользователь уже ответил.
     // Сортируем по убыванию, берём свежие, а порядок восстанавливаем ниже.
+    //
+    // 20, а не 40: вся история уходит в КАЖДЫЙ запрос к модели и без
+    // кэша, и вторая двадцатка почти не влияла на ответ, а платили за неё
+    // каждый раз. Нить текущего разговора 20 сообщений держат.
     prisma.chatMessage.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      take: 40,
+      take: 20,
       select: { role: true, content: true, createdAt: true },
+    }),
+    // Отметка о принятой программе ищется отдельно: в окно последних
+    // сообщений она уже может не попасть, а без неё ассистент забывает,
+    // что программу составил он сам.
+    prisma.chatMessage.findFirst({
+      where: { userId, role: 'assistant', content: { contains: 'Программа принята и уже действует' } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
     }),
     // Сон и восстановление из кольца Oura, если оно подключено.
     prisma.ouraDaily.findMany({
@@ -702,9 +722,6 @@ export async function POST(request: Request) {
    * у тебя программа?». Отметку о принятии он уже пишет в чат при
    * подтверждении, поэтому достаточно найти последнюю.
    */
-  const acceptedNote = [...history]
-    .reverse()
-    .find(m => m.role === 'assistant' && /Программа принята и уже действует/.test(m.content || ''));
   const programOrigin = acceptedNote
     ? `(Эту программу предложил ты, пользователь принял её ${acceptedNote.createdAt.toISOString().slice(0, 10)} — она уже действует. Не предлагай составить новую, пока не попросят.)`
     : (Array.isArray(fitness?.programArchive) && fitness.programArchive.length > 0
@@ -741,7 +758,7 @@ export async function POST(request: Request) {
 - Калории: ${user?.goalCalories ?? '—'} ккал
 
 🏋️ ИСТОРИЯ ТРЕНИРОВОК (когда и что делал; у свежих дней — рабочие подходы «вес×повторы», веса пользователь вводит в колонке весов):
-${buildWorkoutHistory(mergedDayLogs, 60)}
+${buildWorkoutHistory(mergedDayLogs)}
 
 📆 РИТМ ТРЕНИРОВОК (по нему решай, идти ли сегодня в зал или отдыхать):
 ${buildTrainingRhythm(mergedDayLogs, fitness?.workouts, todayIso)}
@@ -1094,7 +1111,11 @@ const PROGRAM_TOOL: Anthropic.Tool = {
           details: err instanceof Error ? err.message : String(err),
           userId,
         });
-        const note = '\n\n(Произошла ошибка, попробуйте ещё раз.)';
+        // Кончились кредиты ИИ — говорим прямо: «попробуйте ещё раз» тут
+        // только заставляет повторять сообщение без толку.
+        const note = isBillingError(err)
+          ? `\n\n(${AI_BILLING_TEXT})`
+          : '\n\n(Произошла ошибка, попробуйте ещё раз.)';
         assistantText += note;
         push(note);
       } finally {

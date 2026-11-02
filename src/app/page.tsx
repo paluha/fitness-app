@@ -3924,7 +3924,8 @@ export default function FitnessPage() {
   const [recipeUndo, setRecipeUndo] = useState<{ meal: NutritionMeal; date: string; name: string } | null>(null);
   // ИИ-список рекомендуемых продуктов под цель (заменяет статичный DEFAULT_FOOD_PRODUCTS)
   const [aiFoodProducts, setAiFoodProducts] = useState<FoodProduct[] | null>(null);
-  const aiPlanFetchingRef = useRef(false);
+  /** Для какого дня и цели план уже просили в этой сессии — второй раз не просим. */
+  const aiPlanAskedRef = useRef('');
   const [showNightMealPrompt, setShowNightMealPrompt] = useState(false);
   const [pendingMealData, setPendingMealData] = useState<Meal | null>(null);
 
@@ -4150,6 +4151,7 @@ export default function FitnessPage() {
   useEffect(() => {
     if (!isLoaded) return;
     const interval = setInterval(async () => {
+      if (document.visibilityState === 'hidden') return; // свёрнуто — тяжёлый GET незачем
       if (userMadeChangeRef.current) return; // user actively editing on this device
       if (syncInFlightRef.current) return;   // wait for in-progress save to complete
       if (syncTimeoutRef.current) return;    // pending debounced save not flushed yet
@@ -4198,8 +4200,8 @@ export default function FitnessPage() {
         }
       } catch { /* silent */ }
     // Полный GET тяжёлый (мегабайты) — опрашиваем раз в минуту. Лёгкий
-    // построчный diff-синк (pullDiff в startSyncLoop) остаётся каждые 5с и
-    // приносит свежие отметки тренировок почти мгновенно.
+    // построчный diff-синк (pullDiff в startSyncLoop) идёт каждые 15с и
+    // сразу при возврате в приложение.
     }, 60000);
     return () => clearInterval(interval);
   }, [isLoaded, hydrateFromLocalDB]);
@@ -4212,7 +4214,10 @@ export default function FitnessPage() {
   const [pendingOpsCount, setPendingOpsCount] = useState(0);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    startSyncLoop(5000);
+    // 15 секунд: свои записи уходят на сервер сразу (scheduleFlush), а
+    // чужие (другое устройство) тянутся ещё и при каждом возврате в
+    // приложение. Опрос раз в 5 секунд — это 1400 запросов в час впустую.
+    startSyncLoop(15000);
     // Light UI indicator: re-check pending count every 2s so the user sees
     // when their edits are in the queue vs fully synced.
     const tick = setInterval(async () => {
@@ -4228,7 +4233,9 @@ export default function FitnessPage() {
     if (typeof window === 'undefined') return;
     if (!isLoaded) return;
     hydrateFromLocalDB();
-    const id = setInterval(hydrateFromLocalDB, 5000);
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'hidden') hydrateFromLocalDB();
+    }, 5000);
     return () => clearInterval(id);
   }, [isLoaded, hydrateFromLocalDB]);
 
@@ -5350,38 +5357,63 @@ export default function FitnessPage() {
       .slice(0, 10);
   }, [dayLogs, dateKey]);
 
-  // Генерация/загрузка ИИ-плана питания: раз в день или при смене цели/макро-целей.
+  // Список съеденного нужен плану как подсказка, но в зависимости эффекта
+  // ему нельзя: он меняется с каждым обновлением данных, и после любой
+  // неудачи план заказывался у ИИ заново примерно раз в минуту.
+  const mealHistoryRef = useRef(mealHistory);
+  mealHistoryRef.current = mealHistory;
+
+  // ИИ-план питания: один на день на все устройства, хранится на сервере.
+  // Здесь просим его не больше раза за сессию на день и цель — собрать,
+  // подождать и не повторять после неудачи решает сервер.
   useEffect(() => {
     if (!isLoaded || !todayStr) return;
     if (nutritionRecommendations) return; // рекомендации тренера важнее ИИ-плана
     if (!nutritionProfile) return; // без анкеты персональный план не строим — сначала опрос
+    // Дата — по часовому поясу из настроек, а не todayStr: в момент
+    // загрузки todayStr ещё посчитан по поясу по умолчанию (Москва), и
+    // вечером по Нью-Йорку план заказывался дважды — на «завтра» и на сегодня.
+    // todayStr остаётся в зависимостях: в полночь он и перезапустит эффект.
+    const planDate = formatDate(getTodayInTimezone(userSettings.timezone));
     const goalKey = userSettings.goalType ?? 'maintain';
     const profileKey = nutritionProfile?.completedAt ?? 'none';
     const targetsKey = [MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories].join('-') + ':' + profileKey;
     try {
       const cached = JSON.parse(localStorage.getItem('fitness_ai_food_plan') || 'null');
-      if (cached && cached.date === todayStr && cached.goal === goalKey && cached.targets === targetsKey && Array.isArray(cached.items) && cached.items.length) {
+      if (cached && cached.date === planDate && cached.goal === goalKey && cached.targets === targetsKey && Array.isArray(cached.items) && cached.items.length) {
         setAiNutritionPlan(cached.items);
         if (Array.isArray(cached.products) && cached.products.length) setAiFoodProducts(cached.products);
         return;
       }
     } catch { /* битый кэш игнорируем */ }
-    if (aiPlanFetchingRef.current) return;
-    aiPlanFetchingRef.current = true;
-    (async () => {
+    const askKey = [planDate, goalKey, targetsKey, userSettings.language].join('|');
+    if (aiPlanAskedRef.current === askKey) return;
+    aiPlanAskedRef.current = askKey;
+    // Цель сменили, пока ждали ответ, — старый ответ уже не нужен.
+    const stale = () => aiPlanAskedRef.current !== askKey;
+    const ask = async (tries: number) => {
       try {
         const res = await fetch('/api/food/plan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            date: planDate,
             goal: goalKey,
             language: userSettings.language,
             targetMacros: MACRO_TARGETS,
             profile: nutritionProfile,
-            foodHistory: mealHistory.map(h => h.meal.name),
+            foodHistory: mealHistoryRef.current.map(h => h.meal.name),
           }),
         });
-        if (!res.ok) return;
+        // План прямо сейчас собирается (другое устройство или прошлый
+        // заход) — дождёмся его, ИИ второй раз не зовём.
+        if (res.status === 202) {
+          if (!stale() && tries < 6) setTimeout(() => void ask(tries + 1), 15_000);
+          return;
+        }
+        // Не вышло — остаётся обычный план. Сервер сам решит, когда
+        // пробовать снова; отсюда до следующего запуска не повторяем.
+        if (!res.ok || stale()) return;
         const data = await res.json();
         if (data?.success && Array.isArray(data.items) && data.items.length) {
           // Блюда, выбранные пользователем до смены расписания, возвращаем
@@ -5411,12 +5443,20 @@ export default function FitnessPage() {
           } catch { /* без переноса — план просто будет новым */ }
           setAiNutritionPlan(items);
           if (Array.isArray(data.products) && data.products.length) setAiFoodProducts(data.products);
-          try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: todayStr, goal: goalKey, targets: targetsKey, items, products: data.products || [] })); } catch { /* quota */ }
+          // Вчерашний план (сегодня собрать не вышло) на сегодня не
+          // запоминаем: при следующем запуске спросим сервер снова.
+          if (!data.stale) {
+            try { localStorage.setItem('fitness_ai_food_plan', JSON.stringify({ date: planDate, goal: goalKey, targets: targetsKey, items, products: data.products || [] })); } catch { /* quota */ }
+          }
         }
-      } catch { /* офлайн — покажем статичный план */ }
-      finally { aiPlanFetchingRef.current = false; }
-    })();
-  }, [isLoaded, todayStr, userSettings.goalType, userSettings.language, nutritionRecommendations, MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories, mealHistory, nutritionProfile]);
+      } catch {
+        // Офлайн — покажем статичный план; запрос не состоялся, поэтому
+        // при следующем срабатывании можно спросить снова.
+        if (!stale()) aiPlanAskedRef.current = '';
+      }
+    };
+    void ask(0);
+  }, [isLoaded, todayStr, userSettings.timezone, userSettings.goalType, userSettings.language, nutritionRecommendations, MACRO_TARGETS.protein, MACRO_TARGETS.fat, MACRO_TARGETS.carbs, MACRO_TARGETS.calories, nutritionProfile]);
 
   /** Строки плана для секции «Когда и что есть». */
   const planSlots: PlanSlot[] | null = useMemo(() => {
