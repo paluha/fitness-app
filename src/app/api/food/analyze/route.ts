@@ -67,14 +67,17 @@ RAW OR COOKED — decide this before picking per-100 g values for meat, poultry,
 fish and mince:
 - Cooking drives out ~25-35% of the water, so 100 g of COOKED meat holds about
   a third MORE protein than 100 g of raw. Using raw table values for a cooked
-  portion under-counts protein by that much (229 g of fried chicken mince is
-  ~55 g protein, not the ~39 g that raw values give).
+  portion under-counts protein by that much, and cooked values for a raw
+  portion over-count it.
 - Judge the state from the photo: raw is pink/red, glossy and wet, often one
   packed mass or in a tray; cooked is grey, white or browned, crumbly, with
   frying marks or served on a plate. Use the values for the state the food was
-  WEIGHED in.
-- If the user's hint says raw or cooked, trust the hint. If you truly cannot
-  tell, assume cooked — people usually weigh what is about to be eaten.
+  WEIGHED in. People often weigh raw meat while splitting a pack into portions.
+- If the user's hint says raw or cooked, trust the hint. If the colour does
+  not settle it, go by the setting: package, tray, cutting board → raw; a plate
+  next to other cooked food → cooked.
+- If the user gives the product's own label values (e.g. "22 г белка на
+  112 г"), use them instead of the table — they beat any average.
 - Always put the state into "name" so the user sees what was assumed:
   «Куриный фарш (жареный)», «Куриный фарш (сырой)».
 
@@ -110,9 +113,16 @@ photos and return the values exactly as printed on the label.
 Return ONLY a JSON object matching the requested schema:
 - name: product name from the label
 - calories, protein, fat, carbs: numbers from the label (use 0 if a value is
-  not readable)
+  not readable). Take them from ONE column: the per-serving column if the
+  label has one, otherwise the per-100 g column. Never scale them yourself.
 - sugar: total sugar in grams from the label (строка «в том числе сахара» / «of which sugars»); if the label splits added sugar, return the TOTAL; 0 if not printed
-- serving: serving size string from the label (e.g. "100 г", "1 порция (30 г)")`;
+- serving: serving size string from the label (e.g. "100 г", "1 порция (30 г)")
+- servingGrams: the size of that column in grams — e.g. "4 oz (112g)" → 112,
+  per-100 g column → 100; for drinks use the mL number. null if not printed.
+- eatenGrams: how much the user says they ate, in grams, from the user's note.
+  Convert servings or a share of the pack using the label: "2 порции" →
+  2 × serving; "половина упаковки" → servings per container × serving / 2.
+  null if the note says nothing about the amount.`;
 
 // Output schemas — Claude validates these and guarantees parseable JSON.
 // Примечание: Anthropic structured outputs поддерживает ограниченный набор
@@ -145,8 +155,10 @@ const NUTRITION_LABEL_SCHEMA = {
     carbs: { type: 'number' },
     sugar: { type: 'number' },
     serving: { type: 'string' },
+    servingGrams: { type: ['number', 'null'] },
+    eatenGrams: { type: ['number', 'null'] },
   },
-  required: ['name', 'calories', 'protein', 'fat', 'carbs'],
+  required: ['name', 'calories', 'protein', 'fat', 'carbs', 'servingGrams', 'eatenGrams'],
   additionalProperties: false,
 } as const;
 
@@ -216,7 +228,9 @@ export async function POST(request: Request) {
     }
 
     const userText = isNutritionLabel
-      ? 'Прочитай состав с этикетки на фото и верни данные.'
+      ? hint
+        ? `Прочитай состав с этикетки на фото и верни данные. Уточнение пользователя: "${hint}" — если в нём сказано, сколько съедено, верни это в eatenGrams.`
+        : 'Прочитай состав с этикетки на фото и верни данные.'
       : hint
         ? `Продукт: "${hint}" — это точное название от пользователя, доверяй ему для определения продукта и его состава на 100 г. С фото возьми только ВЕС (с весов, если видны) и, если в уточнении не сказано, сырой продукт или готовый, — его состояние (сырое мясо/фарш и жареное заметно отличаются по белку на 100 г). Дальше посчитай: макрос = (табличное значение на 100 г для «${hint}» в этом состоянии) × вес / 100. Не оценивай белок «на глаз» — он выводится из состава продукта и веса.`
         : 'Проанализируй еду на фото. Если видны весы — прочитай вес и посчитай макросы на этот вес.';
@@ -339,15 +353,28 @@ export async function POST(request: Request) {
     let carbs = ok(rawCarbs) ? rawCarbs : NaN;
     let calories = ok(rawCalories) ? rawCalories : NaN;
 
+    // Этикетка печатает состав на порцию. Съеденное количество из уточнения
+    // («229 г», «половина упаковки») пересчитываем здесь, а не моделью:
+    // раньше уточнение к этикетке просто терялось — записывалась одна порция,
+    // и без массы её нельзя было пересчитать.
+    const positive = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+    const servingGrams = isNutritionLabel ? positive(parsed.servingGrams) : null;
+    const eatenGrams = isNutritionLabel && hint ? positive(parsed.eatenGrams) : null;
+    const labelScale = servingGrams && eatenGrams ? eatenGrams / servingGrams : 1;
+
     if (isNutritionLabel) {
       // ЭТИКЕТКА: числа взяты прямо с упаковки — это ИСТИНА, даже если не сходятся
-      // с формулой (округления, сахарные спирты, клетчатка). НИЧЕГО не пересчитываем,
-      // только заменяем недоопределённое/отрицательное на 0. Именно из-за пересчёта
-      // калории Heinz 10 ккал превращались в 4 (0*4+0*9+1*4).
+      // с формулой (округления, сахарные спирты, клетчатка). Формулой НЕ пересчитываем,
+      // только заменяем недоопределённое/отрицательное на 0 и умножаем на съеденное.
+      // Именно из-за пересчёта калории Heinz 10 ккал превращались в 4 (0*4+0*9+1*4).
       protein = Number.isFinite(protein) ? protein : 0;
       fat = Number.isFinite(fat) ? fat : 0;
       carbs = Number.isFinite(carbs) ? carbs : 0;
       calories = Number.isFinite(calories) ? calories : protein * 4 + fat * 9 + carbs * 4;
+      protein *= labelScale;
+      fat *= labelScale;
+      carbs *= labelScale;
+      calories *= labelScale;
     } else {
       // ФОТО ЕДЫ: AI оценивает, тут пересчёт уместен. Модель иногда шлёт -1 как
       // «не знаю» — восстанавливаем недостающий макрос из калорий и двух других.
@@ -380,8 +407,14 @@ export async function POST(request: Request) {
 
     // Сахар — общий (природный + добавленный, одним числом). Не может
     // превышать углеводы; недоопределённое → 0.
-    const rawSugar = Number(parsed.sugar);
+    const rawSugar = Number(parsed.sugar) * labelScale;
     const sugar = Math.min(carbs, Math.max(0, Number.isFinite(rawSugar) ? Math.round(rawSugar) : 0));
+
+    // Масса порции: для фото — с весов, для этикетки — съеденное или размер
+    // порции с этикетки (тогда «Пересчитать» работает от неё).
+    const weight = isNutritionLabel
+      ? servingGrams && (eatenGrams ?? servingGrams)
+      : positive(parsed.weight);
 
     return NextResponse.json({
       success: true,
@@ -399,9 +432,7 @@ export async function POST(request: Request) {
         // Вес порции модель возвращала, но наружу он не отдавался —
         // поэтому «Порция» всегда оставалась неопределённой, а кнопка
         // «Пересчитать» не работала даже при весах на фото.
-        weight: Number.isFinite(Number(parsed.weight)) && Number(parsed.weight) > 0
-          ? Math.round(Number(parsed.weight))
-          : null,
+        weight: weight ? Math.round(weight) : null,
       },
     });
   } catch (error) {
