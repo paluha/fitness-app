@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { Dumbbell, Utensils, TrendingUp, ChevronRight } from 'lucide-react';
+import { TrainxLogo } from '@/components/TrainxLogo';
 
 type Language = 'ru' | 'en';
 
@@ -70,7 +71,7 @@ export default function LandingPage() {
     <div className="tx landing">
       <div className="landing-inner">
         <header className="auth-head">
-          <div className="welcome-text">Welcome to <b className="wordmark">Train<span>X</span></b></div>
+          <TrainxLogo className="auth-logo" />
           <button type="button" className="lang-switch" onClick={switchLang} aria-label="Language">
             {lang === 'ru' ? 'EN' : 'RU'}
           </button>

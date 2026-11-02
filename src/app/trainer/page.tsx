@@ -17,6 +17,7 @@ import {
   EyeOff,
   Dumbbell
 } from 'lucide-react';
+import { TrainxMark } from '@/components/TrainxLogo';
 
 interface Client {
   id: string;
@@ -128,22 +129,7 @@ export default function TrainerDashboard() {
         justifyContent: 'space-between'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            background: 'var(--yellow)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <svg width="22" height="22" viewBox="0 0 26 26" fill="none">
-              <rect x="4" y="6" width="12" height="3.5" rx="1" fill="#1a1712" />
-              <rect x="8.25" y="6" width="3.5" height="16" rx="1" fill="#1a1712" />
-              <path d="M15 14L22 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-              <path d="M22 14L15 21" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          </div>
+          <TrainxMark size={40} />
           <div>
             <h1 style={{
               fontSize: '20px',

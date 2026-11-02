@@ -109,6 +109,7 @@
 .tx.auth { min-height: 100dvh; background: var(--bg); display: flex; flex-direction: column; padding: 0 24px max(24px, env(safe-area-inset-bottom)); max-width: 460px; margin: 0 auto; }
 .tx .auth-head { display: flex; align-items: center; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 18px; height: 72px; box-sizing: content-box; margin-bottom: 30px; }
 .tx .auth-head .welcome-text { font-size: 15px; line-height: 1.5; letter-spacing: -.16px; white-space: nowrap; }
+.tx .auth-head .auth-logo { display: block; width: 124px; height: 20px; color: var(--ink); flex-shrink: 0; }
 .tx .wordmark { font-weight: 750; letter-spacing: -.5px; color: var(--ink); }
 .tx .wordmark span { color: var(--accent); }
 .tx .auth-copy { margin-bottom: 32px; }

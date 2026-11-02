@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Loader2, ChevronRight } from 'lucide-react';
+import { TrainxLogo } from '@/components/TrainxLogo';
 
 // Вход по макету редизайна (all-screens.html, кадр «Вход»).
 function LoginForm() {
@@ -117,7 +118,7 @@ export default function LoginPage() {
   return (
     <div className="tx auth">
       <header className="auth-head">
-        <div className="welcome-text">Welcome to <b className="wordmark">Train<span>X</span></b></div>
+        <TrainxLogo className="auth-logo" />
       </header>
       <Suspense fallback={<div className="center" style={{ padding: 40 }}><Loader2 className="spin" color="#ff5c35" aria-label="Загрузка" /></div>}>
         <LoginForm />
