@@ -56,7 +56,27 @@ HOW TO COMPUTE (this is the correct method — follow it exactly):
   * Творог 3% / cottage cheese 3%: ~16 g protein, ~3 g fat, ~3 g carbs, ~120 kcal
   * Творог обезжиренный 0-2%: ~18 g protein, ~1 g fat, ~3 g carbs, ~90 kcal
   * Куриная грудка (варёная): ~29 g protein, ~3 g fat, ~0 g carbs, ~165 kcal
+  * Куриная грудка (сырая): ~23 g protein, ~1.5 g fat, ~0 g carbs, ~110 kcal
+  * Куриный фарш сырой: ~17 g protein, ~8 g fat, ~0 g carbs, ~143 kcal
+  * Куриный фарш жареный/тушёный (готовый): ~24 g protein, ~11 g fat, ~0 g carbs, ~195 kcal
+  * Говяжий фарш сырой: ~18 g protein, ~15 g fat, ~0 g carbs, ~215 kcal
+  * Говяжий фарш жареный (готовый): ~26 g protein, ~15 g fat, ~0 g carbs, ~250 kcal
   Cottage cheese is a HIGH-PROTEIN food — protein is its LARGEST macro.
+
+RAW OR COOKED — decide this before picking per-100 g values for meat, poultry,
+fish and mince:
+- Cooking drives out ~25-35% of the water, so 100 g of COOKED meat holds about
+  a third MORE protein than 100 g of raw. Using raw table values for a cooked
+  portion under-counts protein by that much (229 g of fried chicken mince is
+  ~55 g protein, not the ~39 g that raw values give).
+- Judge the state from the photo: raw is pink/red, glossy and wet, often one
+  packed mass or in a tray; cooked is grey, white or browned, crumbly, with
+  frying marks or served on a plate. Use the values for the state the food was
+  WEIGHED in.
+- If the user's hint says raw or cooked, trust the hint. If you truly cannot
+  tell, assume cooked — people usually weigh what is about to be eaten.
+- Always put the state into "name" so the user sees what was assumed:
+  «Куриный фарш (жареный)», «Куриный фарш (сырой)».
 
 COUNT WHAT YOU SEE — don't inflate fat.
 - Build the dish from its visible parts, then add them up. For eggs: count the
@@ -198,7 +218,7 @@ export async function POST(request: Request) {
     const userText = isNutritionLabel
       ? 'Прочитай состав с этикетки на фото и верни данные.'
       : hint
-        ? `Продукт: "${hint}" — это точное название от пользователя, доверяй ему для определения продукта и его состава на 100 г. С фото возьми только ВЕС (с весов, если видны). Дальше посчитай: макрос = (табличное значение на 100 г для «${hint}») × вес / 100. Не оценивай белок «на глаз» — он выводится из состава продукта и веса.`
+        ? `Продукт: "${hint}" — это точное название от пользователя, доверяй ему для определения продукта и его состава на 100 г. С фото возьми только ВЕС (с весов, если видны) и, если в уточнении не сказано, сырой продукт или готовый, — его состояние (сырое мясо/фарш и жареное заметно отличаются по белку на 100 г). Дальше посчитай: макрос = (табличное значение на 100 г для «${hint}» в этом состоянии) × вес / 100. Не оценивай белок «на глаз» — он выводится из состава продукта и веса.`
         : 'Проанализируй еду на фото. Если видны весы — прочитай вес и посчитай макросы на этот вес.';
 
     const client = new Anthropic({ apiKey });
