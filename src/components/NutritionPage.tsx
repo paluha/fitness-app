@@ -8,7 +8,7 @@
  * компонент ничего не хранит сам и получает всё пропсами.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 export interface NutritionMeal {
@@ -93,6 +93,36 @@ export const IconFlame = ({ cls }: { cls?: string }) => (
     <path d="M12.4 12c.2 2.4-2.3 3.1-2.3 5.2a2.5 2.5 0 0 0 5 0c0-1.9-1.3-3.7-2.7-5.2Z" fill="#ffc49f" />
   </svg>
 );
+
+/**
+ * Название блюда: свёрнуто — одна строка с многоточием, при раскрытии
+ * карточки плавно разворачивается на всю длину и так же сворачивается.
+ * Классом управляем сами: многоточие надо снять ДО разворота и вернуть
+ * только ПОСЛЕ сворачивания, иначе текст прыгает.
+ */
+function MealName({ text, open }: { text: string; open: boolean }) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  const [initialClass] = useState(() => (open ? 'meal-name' : 'meal-name is-clamped'));
+  const mounted = useRef(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!mounted.current) { mounted.current = true; return; }
+    const from = el.getBoundingClientRect().height;
+    el.classList.remove('is-clamped');
+    const to = open ? el.scrollHeight : parseFloat(getComputedStyle(el).lineHeight) || 20;
+    el.style.maxHeight = `${from}px`;
+    void el.offsetHeight; // зафиксировать стартовую высоту перед переходом
+    el.style.maxHeight = `${to}px`;
+    // Таймер, а не transitionend: при «уменьшить движение» перехода нет вовсе.
+    const t = window.setTimeout(() => {
+      el.style.maxHeight = '';
+      if (!open) el.classList.add('is-clamped');
+    }, 320);
+    return () => window.clearTimeout(t);
+  }, [open]);
+  return <h3 ref={ref} className={initialClass}>{text}</h3>;
+}
 
 export interface NutritionPageProps {
   userName: string;
@@ -426,48 +456,48 @@ export default function NutritionPage(props: NutritionPageProps) {
             )) : <p className="quick-empty">Отметь сердечком блюдо в дневнике — оно появится здесь.</p>}
           </div>
 
-          <div className="meal-list">
+          {/* Компактный список: одна карточка, в строке — название и ккал,
+              под ними время и БЖУ справа. Тап раскрывает полное название,
+              источник фото и действия — плавно, без скачка. */}
+          <div className={`meal-list${sorted.length ? ' card' : ''}`}>
             {sorted.length ? sorted.map(m => {
               const open = openedMeal === m.id;
               return (
-                <article className="card meal" key={m.id} data-meal-card={m.id}>
+                <article className={`meal${open ? ' is-open' : ''}`} key={m.id} data-meal-card={m.id}>
                   <button type="button" className="meal-toggle" aria-expanded={open}
                     onClick={() => setOpenedMeal(open ? null : m.id)}>
-                    <div className="meal-meta">
-                      <span className="meal-meta-left">
-                        <span>{m.time}</span>
-                        {m.isFavorite && <IconHeart cls="favorite-mini" />}
-                      </span>
-                      <span className="meal-calories"><b>{num(m.calories)}</b> ккал</span>
-                    </div>
-                    <h3 className="meal-name">{m.name}</h3>
-                    {m.photoStamp && (
-                      <span className="photo-origin">
-                        {m.captureKind === 'label' ? <IconScan /> : <IconCamera />}
-                        {m.photoStamp.source === 'upload' ? 'Добавлено' : m.captureKind === 'label' ? 'Этикетка' : 'Фото'}
-                        {' '}{asDate(m.photoStamp.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} · {m.photoStamp.time}
-                      </span>
-                    )}
-                    <div className="meal-bottom">
-                      <div className="meal-macros">
-                        <span>Б <b>{num(m.protein)} г</b></span>
-                        <span>Ж <b>{num(m.fat)} г</b></span>
-                        <span>У <b>{num(m.carbs)} г</b></span>
-                      </div>
-                      <IconDown cls="meal-chevron" />
-                    </div>
+                    <MealName text={m.name} open={open} />
+                    <span className="meal-calories"><b>{num(m.calories)}</b> ккал</span>
+                    <span className="meal-meta">
+                      <span>{m.time}</span>
+                      {m.isFavorite && <IconHeart cls="favorite-mini" />}
+                    </span>
+                    <span className="meal-macros">
+                      <span>Б <b>{num(m.protein)}</b></span>
+                      <span>Ж <b>{num(m.fat)}</b></span>
+                      <span>У <b>{num(m.carbs)}</b></span>
+                    </span>
                   </button>
-                  {open && (
-                    <div className="meal-actions">
-                      <button type="button" className={`text-btn favorite${m.isFavorite ? ' is-favorite' : ''}`}
-                        aria-pressed={!!m.isFavorite} onClick={() => onToggleFavorite(m)}>
-                        <IconHeart />{m.isFavorite ? 'В избранном' : 'В избранное'}
-                      </button>
-                      <button type="button" className="text-btn" onClick={() => onEditMeal(m)}><IconEdit />Изменить</button>
-                      <button type="button" className="icon-btn delete-btn" aria-label={`Удалить: ${m.name}`}
-                        onClick={() => onDeleteMeal(m)}><IconTrash /></button>
+                  <div className="meal-more" inert={!open}>
+                    <div>
+                      {m.photoStamp && (
+                        <span className="photo-origin">
+                          {m.captureKind === 'label' ? <IconScan /> : <IconCamera />}
+                          {m.photoStamp.source === 'upload' ? 'Добавлено' : m.captureKind === 'label' ? 'Этикетка' : 'Фото'}
+                          {' '}{asDate(m.photoStamp.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} · {m.photoStamp.time}
+                        </span>
+                      )}
+                      <div className="meal-actions">
+                        <button type="button" className={`text-btn favorite${m.isFavorite ? ' is-favorite' : ''}`}
+                          aria-pressed={!!m.isFavorite} onClick={() => onToggleFavorite(m)}>
+                          <IconHeart />{m.isFavorite ? 'В избранном' : 'В избранное'}
+                        </button>
+                        <button type="button" className="text-btn" onClick={() => onEditMeal(m)}><IconEdit />Изменить</button>
+                        <button type="button" className="icon-btn delete-btn" aria-label={`Удалить: ${m.name}`}
+                          onClick={() => onDeleteMeal(m)}><IconTrash /></button>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </article>
               );
             }) : (

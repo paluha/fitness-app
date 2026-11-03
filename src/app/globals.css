@@ -1516,21 +1516,24 @@ button:disabled {
 .nutv2 .quick-plus svg{ width:14px; height:14px; }
 .nutv2 .quick-empty{ font-size:11px; padding:9px 0; color:var(--muted); }
 .nutv2 .meal-list{ display:grid; gap:9px; margin-top:11px; }
-.nutv2 .meal{ overflow:hidden; }
-.nutv2 .meal-toggle{ display:block; width:100%; text-align:left; padding:13px 15px; }
-.nutv2 .meal-meta{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; color:var(--muted); font-size:10px; }
-.nutv2 .meal-meta-left{ display:flex; align-items:center; gap:7px; }
-.nutv2 .meal-meta-left .separator{ color:#c4b8a9; }
-.nutv2 .favorite-mini{ width:11px; height:11px; color:#c16448; fill:#fff0e9; }
-.nutv2 .meal-calories{ color:var(--secondary); font-size:11px; font-variant-numeric:tabular-nums; }
+/* Приёмы пищи — одна карточка со строками через тонкую линию. */
+.nutv2 .meal-list.card{ gap:0; overflow:hidden; }
+.nutv2 .meal + .meal{ border-top:1px solid #eee7df; }
+.nutv2 .meal-toggle{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; column-gap:12px; row-gap:2px; width:100%; text-align:left; padding:10px 14px; }
+.nutv2 .meal-name{ font-size:14px; font-weight:600; letter-spacing:-.2px; line-height:20px; overflow:hidden; transition:max-height .28s ease; }
+.nutv2 .meal-name.is-clamped{ display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; line-clamp:1; }
+.nutv2 .meal-calories{ justify-self:end; color:var(--secondary); font-size:11px; line-height:20px; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .nutv2 .meal-calories b{ font-size:12px; font-weight:600; }
-.nutv2 .meal-name{ font-size:14px; font-weight:600; letter-spacing:-.2px; line-height:1.4; }
-.nutv2 .meal-bottom{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:9px; }
-.nutv2 .meal-macros{ display:flex; gap:13px; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
-.nutv2 .meal-macros b{ font-weight:500; color:var(--secondary); margin-left:3px; }
-.nutv2 .meal-chevron{ width:14px; height:14px; color:#9e9282; transition:transform .2s; }
-.nutv2 .meal-toggle[aria-expanded=true] .meal-chevron{ transform:rotate(180deg); }
-.nutv2 .meal-actions{ display:flex; align-items:center; justify-content:space-between; gap:9px; margin:0 15px; padding:4px 0; border-top:1px solid #eee7df; }
+.nutv2 .meal-meta{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:10px; line-height:16px; font-variant-numeric:tabular-nums; }
+.nutv2 .favorite-mini{ width:11px; height:11px; color:#c16448; fill:#fff0e9; }
+/* Б/Ж/У — колонки одной ширины, чтобы цифры стояли друг под другом во всех строках. */
+.nutv2 .meal-macros{ justify-self:end; display:flex; gap:9px; font-size:10px; line-height:16px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.nutv2 .meal-macros b{ display:inline-block; min-width:2ch; margin-left:3px; text-align:right; font-weight:500; color:var(--secondary); }
+.nutv2 .meal-more{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s ease; }
+.nutv2 .meal.is-open .meal-more{ grid-template-rows:1fr; }
+.nutv2 .meal-more > div{ min-height:0; overflow:hidden; }
+.nutv2 .meal-more .photo-origin{ margin:0 14px 4px; }
+.nutv2 .meal-actions{ display:flex; align-items:center; justify-content:space-between; gap:9px; margin:0 14px; padding:2px 0; border-top:1px solid #eee7df; }
 .nutv2 .meal-actions .text-btn{ font-size:11px; min-height:42px; }
 .nutv2 .meal-actions .text-btn svg{ width:16px; height:16px; }
 .nutv2 .favorite.is-favorite{ color:#c16448; }
