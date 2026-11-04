@@ -2333,7 +2333,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                         : undefined}
                     >{i + 1}{(ex.planDropSet || ex.planToFailure || ex.planTech) && i === sets.length - 1 ? '•' : ''}</span>
                     <span className="tx-last">
-                      {last && (last.reps > 0 || last.weight > 0) ? `${last.reps}×${last.weight}` : '—'}
+                      {/* Без веса — только повторы: «12×0» читалось как
+                          ошибка записи, а у пресса и планки это норма. */}
+                      {last && (last.reps > 0 || last.weight > 0)
+                        ? (last.weight > 0 ? `${last.reps}×${last.weight}` : `${last.reps} повт`)
+                        : '—'}
                     </span>
                     <input
                       className={['tx-input', warn?.field === 'reps' ? 'is-warn' : ''].filter(Boolean).join(' ')}
@@ -5286,13 +5290,20 @@ export default function FitnessPage() {
         // exercises by id. Exercises that exist in template but not in the
         // draft stay as fresh template entries; the draft is the source of
         // truth for progress only.
+        //
+        // notes сюда НЕ берём: это текст программы («Изоляция широчайших,
+        // руки почти прямые»), а не запись дня — заметка дня живёт в
+        // feedback. Упражнения сопоставляются по номеру, и открытый в
+        // календаре день старой программы вписывал заметки своих
+        // упражнений в новую под теми же номерами: у скручиваний
+        // появлялась заметка пуловера, а шаблон уезжал на сервер.
         const draftById = new Map(currentDayLog.workoutDraft!.exercises.map(e => [e.id, e]));
         return {
           ...w,
           exercises: w.exercises.map(e => {
             const d = draftById.get(e.id);
             if (!d) return { ...e, completed: false, actualSets: '', feedback: '', sets: undefined };
-            return { ...e, completed: d.completed, actualSets: d.actualSets, sets: d.sets, notes: d.notes, feedback: d.feedback };
+            return { ...e, completed: d.completed, actualSets: d.actualSets, sets: d.sets, feedback: d.feedback };
           }),
         };
       }));
