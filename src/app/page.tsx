@@ -43,6 +43,7 @@ import { upsertWorkoutLog, upsertDayLog, flushNow, startSyncLoop, getPendingOpsC
 import { DEFAULT_WORKOUTS, isSuspectName } from '@/lib/default-workouts';
 import { activityShort, customActivityNames, dayActivities, type DayActivity } from '@/lib/day-activities';
 import { frequentMeals } from '@/lib/quick-meals';
+import { nextRestAlarmId, scheduleRestAlarm, clearRestAlarm } from '@/lib/rest-alarm';
 import { DayActivities } from '@/components/DayActivities';
 
 // Parse rest time string like "2-3 мин" or "3 мин" to seconds
@@ -86,8 +87,10 @@ function formatTime(seconds: number): string {
 }
 
 // Rest Timer Component
-function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLabel, onFinish }: {
+function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLabel, onFinish, alarmBody }: {
   restTime: string;
+  // Текст уведомления о конце отдыха, если приложение свёрнуто.
+  alarmBody?: string;
   // Подпись до запуска: в суперсете отдых относится к КРУГУ, а не к
   // подходу, и «Отдых после подхода» там читается неверно.
   idleLabel?: string;
@@ -128,6 +131,9 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLab
   const [timeLeft, setTimeLeft] = useState(totalSeconds);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [alarmId] = useState(nextRestAlarmId);
+  // iPhone подтвердил, что сыграет сигнал сам (см. lib/rest-alarm).
+  const alarmArmedRef = useRef(false);
 
   const isRunning = deadline !== null;
 
@@ -206,12 +212,31 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLab
     onFinish?.();
   }, [playBeep, onFinish]);
 
+  // Системный сигнал на конец отдыха — на случай, если приложение свернули.
+  // Живёт, пока идёт отсчёт: пауза, сброс, новый старт, конец отдыха и
+  // уход с экрана его снимают.
+  useEffect(() => {
+    if (deadline === null) return;
+    let live = true;
+    alarmArmedRef.current = false;
+    scheduleRestAlarm(alarmId, deadline, alarmBody ?? 'Можно начинать следующий подход')
+      .then(ok => { if (live) alarmArmedRef.current = ok; });
+    return () => {
+      live = false;
+      clearRestAlarm(alarmId);
+    };
+  }, [deadline, alarmId, alarmBody]);
+
   useEffect(() => {
     if (deadline === null) return;
 
     const check = (withSound: boolean) => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      if (left === 0) finish(withSound);
+      const now = Date.now();
+      const left = Math.max(0, Math.ceil((deadline - now) / 1000));
+      // Время вышло, пока страница стояла замороженной, а сигнал уже
+      // сыграл iPhone, — при возвращении второй раз не звеним. На открытом
+      // экране тик опаздывает на доли секунды, а не на полторы.
+      if (left === 0) finish(withSound && !(alarmArmedRef.current && now - deadline > 1500));
       else setTimeLeft(left);
     };
 
@@ -225,9 +250,10 @@ function RestTimer({ restTime, startSignal, stopSignal, onSecondsChange, idleLab
 
     // Вернулись на экран — сверяемся с часами немедленно, не дожидаясь
     // тика: в фоне он мог не приходить вовсе. Если время вышло, пока
-    // приложение было свёрнуто, звук прозвучит сейчас — в фоне браузер
-    // его всё равно глушит, а услышать сигнал нужно. Прозвучит один раз:
-    // finish() снимает deadline, и эффект больше не висит.
+    // приложение было свёрнуто, а системного сигнала нет (браузер, нет
+    // разрешения на уведомления), звук прозвучит сейчас — в фоне страницу
+    // глушат, а услышать сигнал нужно. Прозвучит один раз: finish()
+    // снимает deadline, и эффект больше не висит.
     const onVisible = () => {
       if (document.visibilityState === 'visible') check(true);
     };
@@ -1778,7 +1804,7 @@ function SupersetRounds({ group, rounds, lastSets, onUpdateSet, restTime, restSi
         экземпляр пропускал сигнал «старт» — отдых после круга сам не
         запускался. Здесь экземпляр живёт, пока открыт суперсет. */}
     <div className="tx-roundrestwrap tx-roundrest">
-      <RestTimer restTime={restTime} startSignal={restSignal} idleLabel="Отдых после круга" />
+      <RestTimer restTime={restTime} startSignal={restSignal} idleLabel="Отдых после круга" alarmBody="Можно начинать следующий круг" />
     </div>
     {rounds > 1 && (
       <div className="tx-roundnav">
@@ -2025,6 +2051,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                следующему. Пока упражнение не закрыто, остаёмся: впереди
                ещё подходы. */
             onFinish={ex.completed ? onRestDone : undefined}
+            alarmBody={ex.completed ? 'Переходи к следующему упражнению' : `${ex.name} — следующий подход`}
           />
         </div>
       )}
