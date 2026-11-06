@@ -3260,6 +3260,50 @@ function getDefaultWorkout(): string {
   return 't1';
 }
 
+/** Прогресс дня (отметки, подходы, заметка дня) поверх шаблона программы. */
+function applyDayDraft(workouts: Workout[], draft: WorkoutSnapshot): Workout[] {
+  return workouts.map(w => {
+    if (w.id !== draft.workoutId) {
+      // Other workouts: keep template, just clear completion flags so
+      // checks from another day don't bleed in.
+      return { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })) };
+    }
+    // Selected workout: merge draft progress onto the live template
+    // exercises by id. Exercises that exist in template but not in the
+    // draft stay as fresh template entries; the draft is the source of
+    // truth for progress only.
+    //
+    // notes сюда НЕ берём: это текст программы («Изоляция широчайших,
+    // руки почти прямые»), а не запись дня — заметка дня живёт в
+    // feedback. Упражнения сопоставляются по номеру, и открытый в
+    // календаре день старой программы вписывал заметки своих
+    // упражнений в новую под теми же номерами: у скручиваний
+    // появлялась заметка пуловера, а шаблон уезжал на сервер.
+    const draftById = new Map(draft.exercises.map(e => [e.id, e]));
+    return {
+      ...w,
+      exercises: w.exercises.map(e => {
+        const d = draftById.get(e.id);
+        if (!d) return { ...e, completed: false, actualSets: '', feedback: '', sets: undefined };
+        return { ...e, completed: d.completed, actualSets: d.actualSets, sets: d.sets, feedback: d.feedback };
+      }),
+    };
+  });
+}
+
+/**
+ * Шаблон с сервера для показа открытого дня.
+ *
+ * Сервер хранит прогресс в шаблоне, только если дошёл полный автосейв, а в
+ * зале доходят лишь построчные записи: подходы целы, а шаблон пустой. Эффект
+ * с черновиком после такой подмены не перезапускается — черновик не менялся,
+ * — и сделанная тренировка показывалась как «0/3, ещё не начато».
+ */
+function serverTemplateForDay(workouts: Workout[], day: DayLog | undefined): Workout[] {
+  if (!day?.workoutDraft?.exercises || (day.dayClosed && day.workoutCompleted)) return workouts;
+  return applyDayDraft(workouts, day.workoutDraft);
+}
+
 // True when the exercise has any user-entered progress on it. Used to decide
 // whether the local copy of an exercise is "richer" than the server's copy
 // when we merge a refreshed GET on top of unsynced local edits.
@@ -4010,6 +4054,8 @@ export default function FitnessPage() {
   const profileDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const dateKey = formatDate(selectedDate);
+  const dateKeyRef = useRef(dateKey);
+  dateKeyRef.current = dateKey;
 
   // Hydrate dayLogs from the per-row store. This is the bridge between the
   // new per-row data and the old UI: we merge per-row truths on top of
@@ -4139,7 +4185,7 @@ export default function FitnessPage() {
           if (Array.isArray(data.medCourses)) setMedCourses(data.medCourses);
           if (Array.isArray(data.medLogs)) setMedLogs(data.medLogs);
           if (data.workouts) {
-            const ws = withPlannedTechniques(data.workouts);
+            const ws = serverTemplateForDay(withPlannedTechniques(data.workouts), data.dayLogs?.[dateKeyRef.current]);
             setWorkouts(ws);
             workoutsRef.current = ws;
           }
@@ -4259,7 +4305,7 @@ export default function FitnessPage() {
                 }
               }
             }
-            const ws = withPlannedTechniques(data.workouts);
+            const ws = serverTemplateForDay(withPlannedTechniques(data.workouts), data.dayLogs?.[dateKeyRef.current]);
             setWorkouts(ws);
             workoutsRef.current = ws;
           }
@@ -4351,6 +4397,11 @@ export default function FitnessPage() {
         .then((v: { sha?: string }) => {
           const mine = process.env.NEXT_PUBLIC_BUILD_SHA;
           if (v?.sha && mine && v.sha !== 'dev' && mine !== 'dev' && v.sha !== mine) {
+            // Посреди ввода не перезагружаем: открытая форма пропала бы
+            // вместе со всем вписанным (ответ сервера приходит через
+            // секунды, человек уже успел открыть «Добавить»). Новая версия
+            // доедет при следующем возврате.
+            if (document.querySelector('.tx-dialog') || document.activeElement?.matches('input, textarea')) return;
             window.location.reload();
           }
         })
@@ -5324,33 +5375,7 @@ export default function FitnessPage() {
       // Open day with a saved draft — keep template intact, push only the
       // per-exercise progress (completed/sets/notes) back onto the selected
       // workout's exercises so the UI shows the saved progress.
-      setWorkouts(prev => prev.map(w => {
-        if (w.id !== currentDayLog.workoutDraft!.workoutId) {
-          // Other workouts: keep template, just clear completion flags so
-          // checks from another day don't bleed in.
-          return { ...w, exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })) };
-        }
-        // Selected workout: merge draft progress onto the live template
-        // exercises by id. Exercises that exist in template but not in the
-        // draft stay as fresh template entries; the draft is the source of
-        // truth for progress only.
-        //
-        // notes сюда НЕ берём: это текст программы («Изоляция широчайших,
-        // руки почти прямые»), а не запись дня — заметка дня живёт в
-        // feedback. Упражнения сопоставляются по номеру, и открытый в
-        // календаре день старой программы вписывал заметки своих
-        // упражнений в новую под теми же номерами: у скручиваний
-        // появлялась заметка пуловера, а шаблон уезжал на сервер.
-        const draftById = new Map(currentDayLog.workoutDraft!.exercises.map(e => [e.id, e]));
-        return {
-          ...w,
-          exercises: w.exercises.map(e => {
-            const d = draftById.get(e.id);
-            if (!d) return { ...e, completed: false, actualSets: '', feedback: '', sets: undefined };
-            return { ...e, completed: d.completed, actualSets: d.actualSets, sets: d.sets, feedback: d.feedback };
-          }),
-        };
-      }));
+      setWorkouts(prev => applyDayDraft(prev, currentDayLog.workoutDraft!));
       setSelectedWorkout(currentDayLog.workoutDraft.workoutId);
     } else {
       // Day is NOT closed, no draft — clear any completion flags left over
