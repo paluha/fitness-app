@@ -61,17 +61,20 @@ HOW TO COMPUTE (this is the correct method — follow it exactly):
   * Куриный фарш жареный/тушёный (готовый): ~24 g protein, ~11 g fat, ~0 g carbs, ~195 kcal
   * Говяжий фарш сырой: ~18 g protein, ~15 g fat, ~0 g carbs, ~215 kcal
   * Говяжий фарш жареный (готовый): ~26 g protein, ~15 g fat, ~0 g carbs, ~250 kcal
+  * Яичный белок сырой: ~11 g protein, ~0 g fat, ~1 g carbs, ~50 kcal
+  * Яичный белок готовый (жареный, болтунья): ~15 g protein, ~0 g fat, ~1 g carbs, ~70 kcal
   Cottage cheese is a HIGH-PROTEIN food — protein is its LARGEST macro.
 
 RAW OR COOKED — decide this before picking per-100 g values for meat, poultry,
-fish and mince:
+fish, mince and egg whites:
 - Cooking drives out ~25-35% of the water, so 100 g of COOKED meat holds about
   a third MORE protein than 100 g of raw. Using raw table values for a cooked
   portion under-counts protein by that much, and cooked values for a raw
   portion over-count it.
 - Judge the state from the photo: raw is pink/red, glossy and wet, often one
   packed mass or in a tray; cooked is grey, white or browned, crumbly, with
-  frying marks or served on a plate. Use the values for the state the food was
+  frying marks or served on a plate. Egg whites: clear and liquid is raw, opaque
+  white is cooked. Use the values for the state the food was
   WEIGHED in. People often weigh raw meat while splitting a pack into portions.
 - If the user's hint says raw or cooked, trust the hint. If the colour does
   not settle it, go by the setting: package, tray, cutting board → raw; a plate
@@ -82,9 +85,13 @@ fish and mince:
   «Куриный фарш (жареный)», «Куриный фарш (сырой)».
 
 COUNT WHAT YOU SEE — don't inflate fat.
-- Build the dish from its visible parts, then add them up. For eggs: count the
-  portions in the photo and use ~6 g protein and ~5 g fat PER WHOLE EGG. One
-  egg ≈ 70 kcal. Egg whites only: ~3.5 g protein, ~0 g fat each.
+- Build the dish from its visible parts, then add them up.
+- If the weight is known, it decides: use the per-100 g values and NEVER count
+  pieces. 150 g of cooked egg white is ~22 g protein and ~105 kcal, not
+  "3 whites = 10 g".
+- Per-piece values are ONLY for photos with no weight: count the eggs and use
+  ~6 g protein and ~5 g fat PER WHOLE EGG. One egg ≈ 70 kcal. Egg whites only:
+  ~3.5 g protein, ~0 g fat each.
 - Reference per 100 g: яичница-болтунья из целых яиц ~11 g protein, ~10 g fat;
   омлет с молоком ~10 g protein, ~9 g fat; отварной рис ~2.5 g protein,
   ~0.3 g fat, ~28 g carbs; гречка отварная ~4 g protein, ~1 g fat, ~20 g carbs;
