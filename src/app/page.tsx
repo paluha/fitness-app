@@ -1452,6 +1452,23 @@ const TECH_META: Record<SetTechnique, { label: string; step: string; hint: strin
   },
 };
 
+/** Что программа велит сделать в дропсете. */
+interface DropPlan {
+  /** Фраза из заметки как есть: «сброс 25%, ещё 10-12 до отказа». */
+  text: string;
+  percent: number | null;
+  reps: string | null;
+}
+
+/** null — в заметке нет фразы про сброс, цифр программа не задала. */
+function parseDropPlan(notes: string | undefined): DropPlan | null {
+  const text = notes?.match(/сброс[^.·;\n]*/i)?.[0].trim();
+  if (!text) return null;
+  const percent = text.match(/(\d{1,2})\s*%/)?.[1];
+  const reps = text.match(/ещ[её]\s+(\d+(?:\s*[-–—]\s*\d+)?)/i)?.[1];
+  return { text, percent: percent ? Number(percent) : null, reps: reps?.replace(/\s/g, '') ?? null };
+}
+
 /**
  * Техники внутри подхода: отметки и ступени.
  *
@@ -1461,7 +1478,7 @@ const TECH_META: Record<SetTechnique, { label: string; step: string; hint: strin
  * следующей ступени подставляется сам.
  */
 function SetTechPanel({
-  set, setNo, planned, last, onToggleFailure, onToggleNegative, onSetNegative,
+  set, setNo, planned, last, dropPlan, autoDrop, onToggleFailure, onToggleNegative, onSetNegative,
   onAddStep, onUpdateStep, onRemoveStep,
 }: {
   set: ExerciseSet;
@@ -1471,6 +1488,10 @@ function SetTechPanel({
   last?: ExerciseSet;
   /** Техника, запланированная программой на этот подход. */
   planned?: SetTechnique;
+  /** Цифры сброса из заметки упражнения. */
+  dropPlan?: DropPlan | null;
+  /** Дропсет по программе ещё не записан: строка сброса стоит сама. */
+  autoDrop?: boolean;
   onToggleFailure: () => void;
   onToggleNegative: () => void;
   onSetNegative: (sec: number) => void;
@@ -1492,9 +1513,20 @@ function SetTechPanel({
   const lastSteps = (last?.drops ?? []).filter(d => (d.reps || 0) > 0 || (d.weight || 0) > 0);
   const lastTech = last?.tech ?? 'drop';
   const fmtStep = (d: { reps?: number; weight?: number }) => `${d.reps || 0}×${d.weight || 0}`;
+  // Строка сброса из программы стоит сама: про дропсет забывали, а кнопка
+  // «+ Дропсет» была свёрнута. Пока она пустая, в данных её нет, поэтому
+  // несделанный сброс не выглядит записанным.
+  const autoStep = !!autoDrop && steps.length === 0;
+  const shownSteps = autoStep ? [{ reps: 0, weight: 0 }] : steps;
+  // Подсказка веса сброса: процент из заметки от сегодняшнего веса,
+  // с шагом тренажёра. В поле не пишем — только в подсказку.
+  const planWeight = dropPlan?.percent && set.weight
+    ? Math.round(set.weight * (1 - dropPlan.percent / 100) / 5) * 5
+    : null;
 
   // Что уже отмечено на подходе — одной строкой.
   const marks: string[] = [];
+  if (autoStep) marks.push(`дропсет: ${dropPlan?.text ?? 'сбрось вес и продолжай без отдыха'}`);
   if (set.toFailure) marks.push('до отказа');
   if (steps.length > 0) marks.push(`${meta.label} ${steps.length}`);
   if (set.negativeSec) marks.push(`негатив ${set.negativeSec} сек`);
@@ -1533,7 +1565,7 @@ function SetTechPanel({
       {/* Прошлый раз целиком, пока ступени ещё не начаты: видно, с какого
           веса и до какого сбрасывал. Когда ступени есть — подсказка у
           каждой ступени отдельно. */}
-      {lastSteps.length > 0 && steps.length === 0 && (
+      {lastSteps.length > 0 && shownSteps.length === 0 && (
         <div className="tx-techlast">
           В прошлый раз: {fmtStep(last!)} → {lastSteps.map(fmtStep).join(' → ')}
           {lastTech !== 'drop' ? ` (${TECH_META[lastTech].label})` : ''}
@@ -1601,14 +1633,16 @@ function SetTechPanel({
         </div>
       )}
 
-      {steps.length > 0 && (
+      {shownSteps.length > 0 && (
         <div className="tx-steps">
-          <div className="tx-steprow is-base">
-            <span className="tx-stepname">основной</span>
-            <span className="tx-stepval">{set.reps || 0} × {set.weight || 0}</span>
-            <span />
-          </div>
-          {steps.map((d, di) => (
+          {!autoStep && (
+            <div className="tx-steprow is-base">
+              <span className="tx-stepname">основной</span>
+              <span className="tx-stepval">{set.reps || 0} × {set.weight || 0}</span>
+              <span />
+            </div>
+          )}
+          {shownSteps.map((d, di) => (
             <div className="tx-steprow" key={di}>
               <span className="tx-stepname">
                 {tech === 'drop' ? <DropsetIcon size={10} /> : <ChevronsDown size={10} />} {meta.step} {di + 1}
@@ -1619,7 +1653,7 @@ function SetTechPanel({
                   type="number"
                   inputMode="numeric"
                   value={d.reps || ''}
-                  placeholder={lastSteps[di]?.reps ? String(lastSteps[di].reps) : 'повт'}
+                  placeholder={(di === 0 && dropPlan?.reps) || (lastSteps[di]?.reps ? String(lastSteps[di].reps) : 'повт')}
                   onChange={(e) => onUpdateStep(di, { reps: parseInt(e.target.value, 10) || 0 })}
                   aria-label={`повторы, ${meta.step} ${di + 1}`}
                 />
@@ -1628,26 +1662,30 @@ function SetTechPanel({
                   type="number"
                   inputMode="numeric"
                   value={d.weight || ''}
-                  placeholder={lastSteps[di]?.weight ? String(lastSteps[di].weight) : 'вес'}
+                  placeholder={(di === 0 && planWeight ? String(planWeight) : '') || (lastSteps[di]?.weight ? String(lastSteps[di].weight) : 'вес')}
                   onChange={(e) => onUpdateStep(di, { weight: parseInt(e.target.value, 10) || 0 })}
                   aria-label={`вес, ${meta.step} ${di + 1}`}
                 />
               </span>
-              <button
-                type="button"
-                className="tx-stepdel"
-                onClick={() => onRemoveStep(di)}
-                aria-label={`убрать ${meta.step} ${di + 1}`}
-              >×</button>
+              {autoStep ? <span /> : (
+                <button
+                  type="button"
+                  className="tx-stepdel"
+                  onClick={() => onRemoveStep(di)}
+                  aria-label={`убрать ${meta.step} ${di + 1}`}
+                >×</button>
+              )}
             </div>
           ))}
-          <div className="tx-steprow is-foot">
-            <button type="button" className="tx-stepadd" onClick={() => onAddStep(tech)}>
-              + ещё {meta.step}
-            </button>
-            <span className="tx-steptotal">итого {totalReps} повт</span>
-            <span />
-          </div>
+          {!autoStep && (
+            <div className="tx-steprow is-foot">
+              <button type="button" className="tx-stepadd" onClick={() => onAddStep(tech)}>
+                + ещё {meta.step}
+              </button>
+              <span className="tx-steptotal">итого {totalReps} повт</span>
+              <span />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2119,6 +2157,7 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               exercise completed when every set is checked. */}
           {(() => {
             const sets: ExerciseSet[] = ex.sets ?? makeInitialSets(ex.plannedSets);
+            const dropPlan = ex.planDropSet ? parseDropPlan(ex.notes) : null;
             // Рабочий вес прошлой тренировки: с ним сверяем первый подход,
             // когда внутри упражнения сравнивать ещё не с чем.
             const prevMaxWeight = Math.max(0, ...(lastSets ?? []).map(x => x.weight || 0));
@@ -2182,8 +2221,11 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
               });
             };
             const updateDrop = (i: number, di: number, patch: Partial<DropStep>) => {
-              const drops = (sets[i].drops ?? []).map((d, j) => j === di ? { ...d, ...patch } : d);
-              updateSet(i, { drops });
+              // Строки сброса из программы в данных ещё нет — её создаёт
+              // первая вписанная цифра.
+              const cur = sets[i].drops?.length ? sets[i].drops! : [{ reps: 0, weight: 0 }];
+              const drops = cur.map((d, j) => j === di ? { ...d, ...patch } : d);
+              updateSet(i, { drops, tech: sets[i].tech ?? 'drop' });
             };
             const removeDrop = (i: number, di: number) => {
               const drops = (sets[i].drops ?? []).filter((_, j) => j !== di);
@@ -2256,12 +2298,12 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                         провал в весах: записывай как есть.</>
                       ) : ex.planDropSet ? (
                         <>
-                          <b>Подход {sets.length}</b> — дропсет: доведи до отказа,
-                          сбрось вес на 20-25% <i>без отдыха</i> и сделай ещё
-                          столько повторов, сколько получится. Запиши ступени
-                          через <b>+ Дропсет к подходу {sets.length}</b> под таблицей —
-                          там же видно, как было в прошлый раз.
-                          {ex.planToFailure ? ' Он же — до отказа.' : ''}
+                          <b>Подход {sets.length}</b> — дропсет: {dropPlan
+                            ? <>{dropPlan.text}, <i>без отдыха</i>.</>
+                            : <>доведи до отказа, сбрось вес на 20-25% <i>без отдыха</i> и
+                              сделай ещё столько повторов, сколько получится.</>}
+                          {' '}Строка сброса уже стоит под подходом: впиши, что получилось.
+                          {ex.planToFailure && !dropPlan ? ' Он же — до отказа.' : ''}
                         </>
                       ) : ex.planTech === 'restPause' ? (
                         <>
@@ -2382,6 +2424,8 @@ function ExerciseCard({ ex, idx, onToggle, onUpdate, progressHistory, weightHist
                       planned={i === sets.length - 1
                         ? (ex.planDropSet ? 'drop' : ex.planTech)
                         : undefined}
+                      dropPlan={i === sets.length - 1 ? dropPlan : null}
+                      autoDrop={!!ex.planDropSet && i === sets.length - 1 && !sets.some(x => x.drops?.length)}
                       onToggleFailure={() => updateSet(i, { toFailure: !s.toFailure })}
                       onToggleNegative={() => updateSet(i, { negativeSec: s.negativeSec ? undefined : 3 })}
                       onSetNegative={(sec) => updateSet(i, { negativeSec: sec })}
