@@ -5976,7 +5976,7 @@ export default function FitnessPage() {
   }, [dateKey]);
 
   // Анализ фото/этикетки существующим сервисом приложения.
-  const nutAnalyze = useCallback(async (args: { file: File; mode: 'food' | 'label'; hint: string; signal: AbortSignal }) => {
+  const nutAnalyze = useCallback(async (args: { file: File; mode: 'food' | 'label'; hint: string; weight: number | null; signal: AbortSignal }) => {
     // Декодирование не должно подвешивать окно: если браузер не осилил файл
     // за 10 секунд, показываем понятную ошибку вместо вечного спиннера.
     const base64Image = await Promise.race([
@@ -5986,7 +5986,7 @@ export default function FitnessPage() {
     const response = await fetch('/api/food/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image, type: args.mode === 'label' ? 'nutrition_label' : 'food_photo', hint: args.hint || undefined }),
+      body: JSON.stringify({ image: base64Image, type: args.mode === 'label' ? 'nutrition_label' : 'food_photo', hint: args.hint || undefined, weight: args.weight ?? undefined }),
       signal: args.signal,
     });
     const result = await response.json();

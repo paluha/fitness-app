@@ -90,7 +90,7 @@ export interface AddMealDialogProps {
   editing?: NutritionMeal | null;
   onClose: () => void;
   /** Анализ фото существующим сервисом приложения. */
-  onAnalyze: (args: { file: File; mode: CaptureMode; hint: string; signal: AbortSignal }) => Promise<AnalyzeResult>;
+  onAnalyze: (args: { file: File; mode: CaptureMode; hint: string; weight: number | null; signal: AbortSignal }) => Promise<AnalyzeResult>;
   /** Сохранение записи. Один operationId = одна запись (повтор обновляет её). */
   onSave: (meal: NutritionMeal, ctx: { date: string; operationId: string }) => Promise<void>;
   onQuickAdd: (meal: NutritionMeal) => void;
@@ -108,6 +108,9 @@ export default function AddMealDialog(props: AddMealDialogProps) {
   const [manualOpen, setManualOpen] = useState(false);
   const [mode, setMode] = useState<CaptureMode>('food');
   const [hint, setHint] = useState('');
+  // Вес, который человек прочитал с весов сам: табло мерцает, и на фото
+  // цифры выходят обрезанными. Если задан, сервер берёт его, а не снимок.
+  const [weight, setWeight] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -126,6 +129,7 @@ export default function AddMealDialog(props: AddMealDialogProps) {
   const runRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const savingRef = useRef(false);
+  const gramsRef = useRef<number | null>(null); // вес последнего анализа — для «Повторить»
 
   const [form, setForm] = useState({ time: nowTime(), name: '', protein: '', fat: '', carbs: '', calories: '', sugar: '', date: selectedDate });
   const [formError, setFormError] = useState<string | null>(null);
@@ -146,7 +150,7 @@ export default function AddMealDialog(props: AddMealDialogProps) {
     if (open && !d.open) {
       d.showModal();
       operationId.current = uid();
-      setView('start'); setManualOpen(!!editing); setMode('food'); setHint(''); setInputError(null);
+      setView('start'); setManualOpen(!!editing); setMode('food'); setHint(''); setWeight(''); setInputError(null);
       resetCapture();
       setFormError(null);
       setForm(editing
@@ -208,14 +212,15 @@ export default function AddMealDialog(props: AddMealDialogProps) {
     }
   }, [mode, onSave, savedMeal]);
 
-  const runAnalysis = useCallback(async (f: File, s: Stamp, currentHint: string, currentMode: CaptureMode) => {
+  const runAnalysis = useCallback(async (f: File, s: Stamp, currentHint: string, currentMode: CaptureMode, weighed: number | null) => {
     const run = ++runRef.current;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    gramsRef.current = weighed;
     setAnalyzing(true); setFailure(null);
     try {
-      const res = await onAnalyze({ file: f, mode: currentMode, hint: currentHint, signal: ctrl.signal });
+      const res = await onAnalyze({ file: f, mode: currentMode, hint: currentHint, weight: weighed, signal: ctrl.signal });
       if (run !== runRef.current) return;               // отменённый анализ записи не создаёт
       const ok = res && typeof res.name === 'string' && res.name.trim()
         && ['protein', 'fat', 'carbs', 'calories'].every(k => Number.isFinite(Number((res as unknown as Record<string, unknown>)[k])) && Number((res as unknown as Record<string, unknown>)[k]) >= 0);
@@ -264,14 +269,22 @@ export default function AddMealDialog(props: AddMealDialogProps) {
     const s: Stamp = captured || { date: keyOf(new Date()), time: nowTime(), source: 'upload' };
     const url = URL.createObjectURL(f);
     setFile(f); setStamp(s); setPreviewUrl(url); setView('review');
-    await runAnalysis(f, s, hint.trim(), mode);
+    await runAnalysis(f, s, hint.trim(), mode, Number(weight) > 0 ? Number(weight) : null);
   };
 
   /** Пересчёт КБЖУ от ИСХОДНОЙ массы и исходных значений — без накопления ошибки. */
   const applyPortion = async () => {
-    if (!result || !stamp || !savedMeal?.basePortion) return;
+    if (!result || !stamp) return;
     const grams = Number(portion);
     if (!Number.isFinite(grams) || grams <= 0) return;
+    // Массы не было — табло на фото не прочиталось, пропорцию считать не от
+    // чего. Распознаём то же фото заново, уже с этим весом; запись та же.
+    if (!savedMeal?.basePortion) {
+      if (!file) return;
+      setView('review');
+      await runAnalysis(file, stamp, hint.trim(), mode, grams);
+      return;
+    }
     const b = savedMeal.basePortion;
     const k = grams / b.grams;
     const scaled: AnalyzeResult = {
@@ -306,7 +319,7 @@ export default function AddMealDialog(props: AddMealDialogProps) {
     }
   };
 
-  const retry = () => { if (file && stamp) runAnalysis(file, stamp, hint.trim(), mode); };
+  const retry = () => { if (file && stamp) runAnalysis(file, stamp, hint.trim(), mode, gramsRef.current); };
 
   return (
     <dialog ref={dialogRef} className="nutv2-dialog photo-dialog" aria-labelledby="addMealTitle">
@@ -339,14 +352,25 @@ export default function AddMealDialog(props: AddMealDialogProps) {
                     onClick={() => { setMode('label'); fileRef.current?.click(); }}><IconScan />Этикетка</button>
                 </div>
                 <div className="scan-source-note"><span>Камера или фото из галереи</span></div>
-                <div className="hint-label-row">
-                  <label htmlFor="aiHint">Уточнение к фото <span>Необязательно</span></label>
+                <div className="hint-fields">
+                  <div>
+                    <div className="hint-label-row">
+                      <label htmlFor="aiHint">Уточнение к фото <span>Необязательно</span></label>
+                    </div>
+                    <input className="ai-hint" id="aiHint" type="text" maxLength={400} value={hint}
+                      onChange={e => setHint(e.target.value)} placeholder="Например, без масла" />
+                  </div>
+                  <div>
+                    <div className="hint-label-row">
+                      <label htmlFor="aiWeight">Вес, г</label>
+                    </div>
+                    <input className="ai-hint" id="aiWeight" type="text" inputMode="numeric" autoComplete="off" value={weight}
+                      onChange={e => setWeight(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="—" />
+                  </div>
                 </div>
-                <input className="ai-hint" id="aiHint" type="text" maxLength={400} value={hint}
-                  onChange={e => setHint(e.target.value)} placeholder="Без масла, порция около 200 г" />
                 <p className="portion-hint">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7h.01" /></svg>
-                  <span>{mode === 'label' ? 'Укажи съеденную порцию: например, 150 г.' : 'Вес порции поможет точнее оценить КБЖУ.'}</span>
+                  <span>Впиши вес с весов: цифры на табло мерцают, и на фото их не прочитать. Для этикетки — сколько съел.</span>
                 </p>
 
                 {quickItems.length > 0 && (
@@ -504,10 +528,10 @@ export default function AddMealDialog(props: AddMealDialogProps) {
                     placeholder={savedMeal.basePortion ? '' : 'Не определена'}
                     onChange={e => setPortion(e.target.value)} />
                 </label>
-                <button type="button" className="secondary" disabled={!savedMeal.basePortion || !portion}
+                <button type="button" className="secondary" disabled={!portion}
                   onClick={applyPortion}>Пересчитать</button>
               </div>
-              {!savedMeal.basePortion && <p className="manual-portion-note">Массу порции определить не удалось — укажи её вручную через «Исправить».</p>}
+              {!savedMeal.basePortion && <p className="manual-portion-note">Вес на фото не прочитался. Впиши его с весов и нажми «Пересчитать».</p>}
             </div>
 
             {failure?.kind === 'save' && <p className="capture-note">{failure.message}</p>}

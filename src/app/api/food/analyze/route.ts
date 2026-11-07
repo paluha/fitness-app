@@ -205,11 +205,17 @@ export async function POST(request: Request) {
     const limit = await rateLimit(session.user.id, 'food-analyze');
     if (!limit.ok) return rateLimitResponse(limit);
 
-    const { image, type, hint } = await request.json();
+    const { image, type, hint, weight: rawWeight } = await request.json();
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
+
+    // Вес, который пользователь прочитал с весов сам. Табло мерцает, и на фото
+    // цифры выходят обрезанными, поэтому это число точнее снимка. Для
+    // этикетки — сколько съедено.
+    const weighed = Number(rawWeight);
+    const userWeight = Number.isFinite(weighed) && weighed > 0 && weighed <= 5000 ? weighed : null;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -234,13 +240,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const weighedNote = userWeight
+      ? ` Вес порции пользователь взвесил сам: ${userWeight} г. Это точное значение: верни его в weight и посчитай макросы на него. Табло весов на фото не читай — цифры на нём мерцают и на снимке выходят обрезанными.`
+      : '';
+    const fromPhoto = userWeight
+      ? 'С фото возьми только состояние, если в уточнении не сказано, сырой продукт или готовый'
+      : 'С фото возьми только ВЕС (с весов, если видны) и, если в уточнении не сказано, сырой продукт или готовый, — его состояние';
     const userText = isNutritionLabel
       ? hint
         ? `Прочитай состав с этикетки на фото и верни данные. Уточнение пользователя: "${hint}" — если в нём сказано, сколько съедено, верни это в eatenGrams.`
         : 'Прочитай состав с этикетки на фото и верни данные.'
       : hint
-        ? `Продукт: "${hint}" — это точное название от пользователя, доверяй ему для определения продукта и его состава на 100 г. С фото возьми только ВЕС (с весов, если видны) и, если в уточнении не сказано, сырой продукт или готовый, — его состояние (сырое мясо/фарш и жареное заметно отличаются по белку на 100 г). Дальше посчитай: макрос = (табличное значение на 100 г для «${hint}» в этом состоянии) × вес / 100. Не оценивай белок «на глаз» — он выводится из состава продукта и веса.`
-        : 'Проанализируй еду на фото. Если видны весы — прочитай вес и посчитай макросы на этот вес.';
+        ? `Продукт: "${hint}" — это точное название от пользователя, доверяй ему для определения продукта и его состава на 100 г. ${fromPhoto} (сырое мясо/фарш и жареное заметно отличаются по белку на 100 г). Дальше посчитай: макрос = (табличное значение на 100 г для «${hint}» в этом состоянии) × вес / 100. Не оценивай белок «на глаз» — он выводится из состава продукта и веса.${weighedNote}`
+        : userWeight
+          ? `Проанализируй еду на фото.${weighedNote}`
+          : 'Проанализируй еду на фото. Если видны весы — прочитай вес и посчитай макросы на этот вес.';
 
     const client = new Anthropic({ apiKey });
 
@@ -366,8 +380,16 @@ export async function POST(request: Request) {
     // и без массы её нельзя было пересчитать.
     const positive = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
     const servingGrams = isNutritionLabel ? positive(parsed.servingGrams) : null;
-    const eatenGrams = isNutritionLabel && hint ? positive(parsed.eatenGrams) : null;
+    const eatenGrams = isNutritionLabel ? userWeight ?? (hint ? positive(parsed.eatenGrams) : null) : null;
     const labelScale = servingGrams && eatenGrams ? eatenGrams / servingGrams : 1;
+
+    // Фото с весом от пользователя: модель всё равно может взять число с
+    // табло, а макросы она считает на тот вес, что вернула в weight. Тогда
+    // приводим их к взвешенному.
+    const modelWeight = isNutritionLabel ? null : positive(parsed.weight);
+    const photoScale = userWeight && modelWeight && Math.abs(modelWeight - userWeight) / userWeight > 0.02
+      ? userWeight / modelWeight
+      : 1;
 
     if (isNutritionLabel) {
       // ЭТИКЕТКА: числа взяты прямо с упаковки — это ИСТИНА, даже если не сходятся
@@ -391,9 +413,10 @@ export async function POST(request: Request) {
         else if (!Number.isFinite(fat)) fat = Math.max(0, (calories - protein * 4 - carbs * 4) / 9);
         else if (!Number.isFinite(carbs)) carbs = Math.max(0, (calories - protein * 4 - fat * 9) / 4);
       }
-      protein = Number.isFinite(protein) ? Math.max(0, protein) : 0;
-      fat = Number.isFinite(fat) ? Math.max(0, fat) : 0;
-      carbs = Number.isFinite(carbs) ? Math.max(0, carbs) : 0;
+      protein = Number.isFinite(protein) ? Math.max(0, protein) * photoScale : 0;
+      fat = Number.isFinite(fat) ? Math.max(0, fat) * photoScale : 0;
+      carbs = Number.isFinite(carbs) ? Math.max(0, carbs) * photoScale : 0;
+      calories *= photoScale;
 
       // калории из макросов, только если не заданы ИЛИ сильно расходятся —
       // и только при осмысленных величинах (не трогаем крошечные порции <30 ккал,
@@ -414,14 +437,14 @@ export async function POST(request: Request) {
 
     // Сахар — общий (природный + добавленный, одним числом). Не может
     // превышать углеводы; недоопределённое → 0.
-    const rawSugar = Number(parsed.sugar) * labelScale;
+    const rawSugar = Number(parsed.sugar) * labelScale * photoScale;
     const sugar = Math.min(carbs, Math.max(0, Number.isFinite(rawSugar) ? Math.round(rawSugar) : 0));
 
     // Масса порции: для фото — с весов, для этикетки — съеденное или размер
     // порции с этикетки (тогда «Пересчитать» работает от неё).
     const weight = isNutritionLabel
       ? servingGrams && (eatenGrams ?? servingGrams)
-      : positive(parsed.weight);
+      : userWeight ?? modelWeight;
 
     return NextResponse.json({
       success: true,
