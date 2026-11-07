@@ -3291,17 +3291,28 @@ function applyDayDraft(workouts: Workout[], draft: WorkoutSnapshot): Workout[] {
   });
 }
 
+/** Шаблон без следов прошлого дня: программа та же, отметок и подходов нет. */
+function clearDayProgress(workouts: Workout[]): Workout[] {
+  const dirty = workouts.some(w => w.exercises.some(e => e.completed || e.actualSets || e.feedback || e.sets));
+  if (!dirty) return workouts; // чистить нечего — не пересоздаём объекты (иначе визуальный «рефреш»)
+  return workouts.map(w => ({
+    ...w,
+    exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
+  }));
+}
+
 /**
  * Шаблон с сервера для показа открытого дня.
  *
- * Сервер хранит прогресс в шаблоне, только если дошёл полный автосейв, а в
- * зале доходят лишь построчные записи: подходы целы, а шаблон пустой. Эффект
- * с черновиком после такой подмены не перезапускается — черновик не менялся,
- * — и сделанная тренировка показывалась как «0/3, ещё не начато».
+ * Сервер хранит в шаблоне прогресс последней тренировки, а может и не хранить:
+ * полный автосейв доходит не всегда. Эффект с черновиком после подмены шаблона
+ * не перезапускается — черновик не менялся, — поэтому день собираем здесь же.
+ * Иначе сделанная тренировка показывалась как «0/3», а новый день — с чужими
+ * галочками, и первая же правка записывала вчерашние подходы в сегодня.
  */
 function serverTemplateForDay(workouts: Workout[], day: DayLog | undefined): Workout[] {
-  if (!day?.workoutDraft?.exercises || (day.dayClosed && day.workoutCompleted)) return workouts;
-  return applyDayDraft(workouts, day.workoutDraft);
+  if (day?.dayClosed && day.workoutCompleted) return workouts;
+  return day?.workoutDraft?.exercises ? applyDayDraft(workouts, day.workoutDraft) : clearDayProgress(workouts);
 }
 
 // True when the exercise has any user-entered progress on it. Used to decide
@@ -3350,6 +3361,31 @@ function findLibImage(lib: Record<string, string>, rawName: string): string | un
     }
   }
   return best;
+}
+
+/**
+ * Программа и дни для сохранения — без копий картинок.
+ *
+ * Картинки живут в библиотеке, а GET срезает их копии из шаблонов и дней, но
+ * клиент подставлял их обратно и вёз в каждом автосейве: 4 МБ из 4,1. В Т3 две
+ * фото по 540 КБ попадали ещё и в черновик дня, тело выходило за лимит Vercel
+ * 4,5 МБ, и сервер отвечал 413 на всю тренировку. Копию оставляем, только если
+ * её нет в библиотеке или картинка туда ещё не доехала (`unsaved`).
+ */
+function withoutImageCopies(workouts: Workout[], dayLogs: Record<string, DayLog>, lib: Record<string, string>, unsaved: Set<string>) {
+  const isData = (e: Exercise) => !!e.imageUrl?.startsWith('data:');
+  const isLibCopy = (e: Exercise) => isData(e) && !unsaved.has(e.imageUrl!) && findLibImage(lib, e.name) === e.imageUrl;
+  const slimDay = (s: WorkoutSnapshot | null) => s?.exercises
+    ? { ...s, exercises: s.exercises.map(e => isData(e) ? { ...e, imageUrl: undefined } : e) }
+    : s;
+  return {
+    workouts: workouts.map(w => ({ ...w, exercises: w.exercises.map(e => isLibCopy(e) ? { ...e, imageUrl: undefined } : e) })),
+    dayLogs: Object.fromEntries(Object.entries(dayLogs).map(([date, day]) => [date, {
+      ...day,
+      workoutDraft: slimDay(day.workoutDraft),
+      workoutSnapshot: slimDay(day.workoutSnapshot),
+    }])),
+  };
 }
 
 /**
@@ -3882,7 +3918,11 @@ export default function FitnessPage() {
    * Отправить одну новую картинку. Шлём только её, а не всю библиотеку:
    * сервер сам смёржит с уже сохранёнными.
    */
+  // Картинки, которых на сервере ещё нет: пока запись не прошла, копия в
+  // программе — единственная, автосейв её не срезает.
+  const unsavedImagesRef = useRef(new Set<string>());
   const saveExerciseImage = useCallback(async (name: string, dataUrl: string) => {
+    unsavedImagesRef.current.add(dataUrl);
     try {
       const r = await fetch('/api/fitness/exercise-library', {
         method: 'POST',
@@ -3890,7 +3930,10 @@ export default function FitnessPage() {
         body: JSON.stringify({ images: { [name]: dataUrl } }),
       });
       // Библиотека изменилась — прошлый ETag больше не годится.
-      if (r.ok) { try { localStorage.removeItem('fitness_exlib_etag'); } catch { /* quota */ } }
+      if (r.ok) {
+        unsavedImagesRef.current.delete(dataUrl);
+        try { localStorage.removeItem('fitness_exlib_etag'); } catch { /* quota */ }
+      }
     } catch { /* офлайн — картинка осталась в состоянии, уедет при следующем добавлении */ }
   }, []);
 
@@ -4462,7 +4505,7 @@ export default function FitnessPage() {
   const syncToServer = useCallback(async (workoutsData: Workout[], dayLogsData: Record<string, DayLog>, progressData: ProgressHistory, measurementsData: BodyMeasurement[], plannerData?: PlannerEvent[]) => {
     setSyncStatus('syncing');
     try {
-      const payload: Record<string, unknown> = { workouts: workoutsData, dayLogs: dayLogsData, progressHistory: progressData, bodyMeasurements: measurementsData };
+      const payload: Record<string, unknown> = { ...withoutImageCopies(workoutsData, dayLogsData, exerciseLibraryRef.current, unsavedImagesRef.current), progressHistory: progressData, bodyMeasurements: measurementsData };
       if (plannerData !== undefined && plannerUserChanged.current) {
         payload.plannerEvents = plannerData;
         plannerUserChanged.current = false;
@@ -4499,13 +4542,15 @@ export default function FitnessPage() {
   useEffect(() => {
     if (!isLoaded || !serverDataLoadedRef.current || !userMadeChangeRef.current) return;
 
+    const slim = withoutImageCopies(workouts, dayLogs, exerciseLibraryRef.current, unsavedImagesRef.current);
+
     // Save to localStorage IMMEDIATELY (offline-safe)
     try {
       // Без библиотеки картинок: она лежит отдельным ключом (fitness_exlib),
       // а мегабайт base64 здесь съедал квоту localStorage (~5 МБ) и ронял
       // запись бэкапа целиком — вместе с журналом тренировки, ради которого
       // этот бэкап и нужен.
-      localStorage.setItem('fitness_backup', JSON.stringify({ workouts, dayLogs, progressHistory, bodyMeasurements, ts: Date.now() }));
+      localStorage.setItem('fitness_backup', JSON.stringify({ ...slim, progressHistory, bodyMeasurements, ts: Date.now() }));
     } catch { /* quota */ }
 
     // Debounce server sync — 1.5s after last change
@@ -4517,7 +4562,7 @@ export default function FitnessPage() {
         // 5 second timeout — don't block if offline
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
-        const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
+        const payload: Record<string, unknown> = { ...slim, progressHistory, bodyMeasurements };
         if (plannerUserChanged.current) { payload.plannerEvents = plannerEvents; plannerUserChanged.current = false; }
         // Библиотека картинок идёт своим роутом при добавлении — см. syncToServer.
         if (habitsRef.current.length > 0) payload.habits = habitsRef.current;
@@ -4552,12 +4597,12 @@ export default function FitnessPage() {
     // записанные подходы. Теперь отправляем только журнал тренировки.
     const handleBeforeUnload = () => {
       if (!isLoaded || !serverDataLoadedRef.current || !userMadeChangeRef.current) return;
-      const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
+      const payload: Record<string, unknown> = { ...withoutImageCopies(workouts, dayLogs, exerciseLibraryRef.current, unsavedImagesRef.current), progressHistory, bodyMeasurements };
       navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && isLoaded && serverDataLoadedRef.current && userMadeChangeRef.current) {
-        const payload: Record<string, unknown> = { workouts, dayLogs, progressHistory, bodyMeasurements };
+        const payload: Record<string, unknown> = { ...withoutImageCopies(workouts, dayLogs, exerciseLibraryRef.current, unsavedImagesRef.current), progressHistory, bodyMeasurements };
         navigator.sendBeacon('/api/fitness', JSON.stringify(payload));
       }
     };
@@ -5381,14 +5426,7 @@ export default function FitnessPage() {
       // Day is NOT closed, no draft — clear any completion flags left over
       // from the previously visible day. Do NOT replace exercises, only
       // wipe their progress fields.
-      setWorkouts(prev => {
-        const dirty = prev.some(w => w.exercises.some(e => e.completed || e.actualSets || e.feedback || e.sets));
-        if (!dirty) return prev; // чистить нечего — не пересоздаём объекты (иначе визуальный «рефреш»)
-        return prev.map(w => ({
-          ...w,
-          exercises: w.exercises.map(e => ({ ...e, completed: false, actualSets: '', feedback: '', sets: undefined })),
-        }));
-      });
+      setWorkouts(clearDayProgress);
 
       if (currentDayLog.selectedWorkout) {
         setSelectedWorkout(currentDayLog.selectedWorkout);
